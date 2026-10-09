@@ -26,6 +26,7 @@ import { isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
 import { canSeeCommunity, isHiddenCommunity } from "./hiddenCommunity";
 import { communityVisibility } from "./communityVisibility";
 import { isEventListed } from "../eventWindow";
+import { feedLocation } from "../eventAddress";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
@@ -619,7 +620,7 @@ export const getCommunity = query({
           _id: e._id,
           title: e.title,
           datetime: e.datetime,
-          location: e.location,
+          location: feedLocation(e),
         })),
       projects: visibleProjects
         .sort((a, b) => b.createdAt - a.createdAt)
@@ -778,6 +779,92 @@ export const applyToHost = mutation({
   },
 });
 
+/** The join itself: joinCommunity below, and a PayPal ticket
+ * (eventRsvps.ts startPayPalTicket), which joins the event's community on
+ * the same terms. Every refusal is a ConvexError thrown before anything is
+ * written, so a caller that catches one has changed nothing. */
+export async function joinCommunityAs(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  args: { hostOrgId: Id<"hostOrgs">; agreed?: boolean; inviteCode?: string },
+): Promise<{ alreadyMember: true; status?: string } | { ok: true; status: string }> {
+  const org = await ctx.db.get(args.hostOrgId);
+  if (!org) throw new ConvexError({ code: "not_found", reason: "That community isn't there." });
+  // A hidden (test) community can't be joined by someone who can't see it.
+  if (!(await communityVisibility(ctx, userId).orgVisible(org))) {
+    throw new ConvexError({ code: "not_found", reason: "That community isn't there." });
+  }
+
+  const existing = await getCommunityMember(ctx, args.hostOrgId, userId);
+  let decision = resolveCommunityJoin({ community: org, existing });
+  if (decision.alreadyMember) {
+    // Already in: agreeing here records it. That's how members who joined
+    // before every join asked get to agree — a link to the community's
+    // agreements, sent in an Update.
+    if (args.agreed === true && existing) await ctx.db.patch(existing._id, { agreedAt: Date.now() });
+    return { alreadyMember: true, status: existing?.status };
+  }
+  if (decision.needsInvite) {
+    const code = args.inviteCode?.trim();
+    if (!code) throw new ConvexError({ code: "invite_required", reason: INVITE_REQUIRED_REASON });
+    const admitted = await inviteAdmits(ctx, org, code, userId);
+    if (!admitted.ok) throw new ConvexError({ code: admitted.code, reason: admitted.reason });
+    decision = resolveCommunityJoin({ community: org, existing, hasInvite: true });
+  }
+  if (!decision.allowed) {
+    throw new ConvexError({ code: "cannot_join", reason: decision.reason });
+  }
+  if (args.agreed !== true) {
+    throw new ConvexError({
+      code: "agreements_required",
+      reason: "Agree to the community's agreements to join.",
+    });
+  }
+
+  const status = decision.newStatus ?? "active";
+  const now = Date.now();
+  if (existing) {
+    // A previously removed member rejoining — reuse the row.
+    await ctx.db.patch(existing._id, { status, role: "member", joinedAt: now, agreedAt: now });
+  } else {
+    await ctx.db.insert("communityMembers", {
+      hostOrgId: args.hostOrgId,
+      userId,
+      role: "member",
+      status,
+      joinedAt: now,
+      agreedAt: now,
+    });
+  }
+  return { ok: true, status };
+}
+
+/** What a ticket did about its event's community (eventRsvps.ts
+ * startPayPalTicket, a Stripe link's webhook in apGifts.ts, claiming a
+ * ticket, tickets on this site). "none": no community, they didn't agree,
+ * or one a ticket can't get you into (invite-only, closed). The ticket
+ * stands either way. The ticket card showed the line that says a ticket
+ * joins and agrees (ticketCommunityJoin), which is the agreement. */
+export type TicketJoin = "joined" | "asked" | "member" | "none";
+
+export async function joinTicketCommunity(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  hostOrgId: Id<"hostOrgs"> | undefined,
+  agreed: boolean,
+): Promise<TicketJoin> {
+  if (!hostOrgId || !agreed) return "none";
+  try {
+    const joined = await joinCommunityAs(ctx, userId, { hostOrgId, agreed: true });
+    if ("alreadyMember" in joined) return "member";
+    return joined.status === "pending" ? "asked" : "joined";
+  } catch (err) {
+    // A refusal writes nothing (joinCommunityAs), so the ticket stands.
+    if (err instanceof ConvexError) return "none";
+    throw err;
+  }
+}
+
 export const joinCommunity = mutation({
   // `agreed`: the person pressed "Agree and join" under the community's
   // agreements and the platform's. Optional in the validator so a client
@@ -793,56 +880,7 @@ export const joinCommunity = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError({ code: "unauthenticated" });
-
-    const org = await ctx.db.get(args.hostOrgId);
-    if (!org) throw new ConvexError({ code: "not_found", reason: "That community isn't there." });
-    // A hidden (test) community can't be joined by someone who can't see it.
-    if (!(await communityVisibility(ctx, userId).orgVisible(org))) {
-      throw new ConvexError({ code: "not_found", reason: "That community isn't there." });
-    }
-
-    const existing = await getCommunityMember(ctx, args.hostOrgId, userId);
-    let decision = resolveCommunityJoin({ community: org, existing });
-    if (decision.alreadyMember) {
-      // Already in: agreeing here records it. That's how members who joined
-      // before every join asked get to agree — a link to the community's
-      // agreements, sent in an Update.
-      if (args.agreed === true && existing) await ctx.db.patch(existing._id, { agreedAt: Date.now() });
-      return { alreadyMember: true, status: existing?.status };
-    }
-    if (decision.needsInvite) {
-      const code = args.inviteCode?.trim();
-      if (!code) throw new ConvexError({ code: "invite_required", reason: INVITE_REQUIRED_REASON });
-      const admitted = await inviteAdmits(ctx, org, code, userId);
-      if (!admitted.ok) throw new ConvexError({ code: admitted.code, reason: admitted.reason });
-      decision = resolveCommunityJoin({ community: org, existing, hasInvite: true });
-    }
-    if (!decision.allowed) {
-      throw new ConvexError({ code: "cannot_join", reason: decision.reason });
-    }
-    if (args.agreed !== true) {
-      throw new ConvexError({
-        code: "agreements_required",
-        reason: "Agree to the community's agreements to join.",
-      });
-    }
-
-    const status = decision.newStatus ?? "active";
-    const now = Date.now();
-    if (existing) {
-      // A previously removed member rejoining — reuse the row.
-      await ctx.db.patch(existing._id, { status, role: "member", joinedAt: now, agreedAt: now });
-    } else {
-      await ctx.db.insert("communityMembers", {
-        hostOrgId: args.hostOrgId,
-        userId,
-        role: "member",
-        status,
-        joinedAt: now,
-        agreedAt: now,
-      });
-    }
-    return { ok: true, status };
+    return joinCommunityAs(ctx, userId, args);
   },
 });
 

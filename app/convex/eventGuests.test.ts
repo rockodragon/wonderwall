@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mergeGuests, summarizeGuests, guestsToCsv, formatDollars } from "./eventGuests";
+import { mergeGuests, summarizeGuests, guestsToCsv, formatDollars, paidLabel } from "./eventGuests";
 
 describe("mergeGuests", () => {
   it("merges an RSVP and a ticket purchase by email", () => {
@@ -63,5 +63,22 @@ describe("applicationId", () => {
   it("rides along so a host can approve from the list", () => {
     const rows = mergeGuests([{ userId: "u1", name: "Cy", status: "pending", applicationId: "app1", addedAt: 1 }]);
     expect(rows[0].applicationId).toBe("app1");
+  });
+});
+
+describe("paidLabel and the PayPal mark", () => {
+  it("says Sent to PayPal for someone who left for the organizer's PayPal, and Paid once there's money", () => {
+    expect(paidLabel({ paidCents: null, sentToPayPal: true })).toBe("Sent to PayPal");
+    expect(paidLabel({ paidCents: 3500, sentToPayPal: true })).toBe("Paid $35");
+    expect(paidLabel({ paidCents: null })).toBe("Free");
+  });
+  it("keeps the mark when the same person shows up twice, and puts it in the CSV", () => {
+    const rows = mergeGuests([
+      { userId: "u1", name: "Ana", email: "a@x.com", status: "pending", addedAt: 1 },
+      { userId: "u1", name: "Ana", email: "a@x.com", status: "going", sentToPayPal: true, addedAt: 2 },
+    ]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].sentToPayPal).toBe(true);
+    expect(guestsToCsv(rows).split("\n")[1]).toContain("Sent to PayPal");
   });
 });

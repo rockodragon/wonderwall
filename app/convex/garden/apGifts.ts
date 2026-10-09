@@ -31,7 +31,10 @@
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
+import { internal } from "../_generated/api";
+import { escapeHtml } from "../email/template";
 import { decideTableTicket, paidWithVerifiedEmail, upsertEventRsvp } from "./eventRsvps";
+import { joinTicketCommunity } from "./communities";
 import { parseGiftRef } from "./givingLink";
 
 const AP_HOST_ORG_SLUG = "abiding-practice";
@@ -446,6 +449,34 @@ async function applyApTicketSession(ctx: any, event: ApStripeWebhookEvent, sessi
     tickets,
     guestNames: guestNamesFrom(session.custom_fields),
   });
+
+  // The event's community (docs/features/event-capacity-waitlist.md, Rick
+  // 2026-10-08: ticket buyers are members). The ticket card showed the line
+  // that buying joins it (ticketCommunityJoin). A buyer with an account
+  // joins now; one without gets an email to make it, and joins when the
+  // ticket moves onto their account (eventRsvps.ts claimTicketBySession).
+  // A Table's event follows the Table's rules instead.
+  if (!eventDoc.tableId) {
+    if (userId) {
+      await joinTicketCommunity(ctx, userId, eventDoc.hostOrgId, true);
+    } else {
+      const community = eventDoc.hostOrgId ? await ctx.db.get(eventDoc.hostOrgId) : null;
+      const line = community
+        ? `Make your free account to see who's going and join ${community.name}.`
+        : "Make your free account to see who's going.";
+      await ctx.scheduler.runAfter(0, internal.emails.sendNotificationEmail, {
+        to: email,
+        subject: `Your ticket: ${eventDoc.title}`,
+        previewText: line,
+        heading: "You're in",
+        body: `Your ticket for "<strong>${escapeHtml(eventDoc.title)}</strong>" is confirmed. ${escapeHtml(line)}`,
+        ctaText: "Make my account",
+        ctaUrl: `/events/${normalizedEventId}?paid=1&session=${encodeURIComponent(session.id)}`,
+        category: "transactional",
+        ...(eventDoc.hostOrgId ? { communityId: eventDoc.hostOrgId } : {}),
+      });
+    }
+  }
 
   const org = await getApHostOrg(ctx);
   const result = buildApTicketContributionRow({

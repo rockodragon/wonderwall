@@ -196,6 +196,9 @@ export const createTicketCheckout = action({
     if (tier.quantity !== undefined && info.sold >= tier.quantity) {
       throw new ConvexError(`"${tier.name}" tickets are sold out.`);
     }
+    if (info.eventFull) {
+      throw new ConvexError("This event is sold out.");
+    }
 
     const userId = await auth.getUserId(ctx);
     const identity = await ctx.auth.getUserIdentity();

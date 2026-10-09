@@ -14,6 +14,9 @@ export interface GuestRow {
   tickets: number;
   /** Names they gave for the other people on their tickets. */
   guestNames: string | null;
+  /** Left for the organizer's PayPal link (eventRsvps.ts startPayPalTicket).
+   *  Not proof they paid; the organizer's PayPal is. */
+  sentToPayPal?: boolean;
   /** The request this person made, when they asked to join: lets a host approve or decline from the list. */
   applicationId: string | null;
   addedAt: number;
@@ -27,6 +30,7 @@ export interface GuestInput {
   paidCents?: number | null;
   tickets?: number | null;
   guestNames?: string | null;
+  sentToPayPal?: boolean;
   applicationId?: string | null;
   addedAt: number;
 }
@@ -58,6 +62,7 @@ export function mergeGuests(inputs: GuestInput[]): GuestRow[] {
         paidCents: g.paidCents ?? null,
         tickets: g.tickets ?? 1,
         guestNames: g.guestNames ?? null,
+        sentToPayPal: !!g.sentToPayPal,
         applicationId: g.applicationId ?? null,
         addedAt: g.addedAt,
       });
@@ -68,6 +73,7 @@ export function mergeGuests(inputs: GuestInput[]): GuestRow[] {
       // person: keep the larger ticket count rather than adding.
       existing.tickets = Math.max(existing.tickets, g.tickets ?? 1);
       if (g.guestNames) existing.guestNames = existing.guestNames ? `${existing.guestNames}; ${g.guestNames}` : g.guestNames;
+      if (g.sentToPayPal) existing.sentToPayPal = true;
       if (!existing.email && email) existing.email = email;
       if (!existing.name || existing.name === "Anonymous") existing.name = g.name;
       if (!existing.applicationId && g.applicationId) existing.applicationId = g.applicationId;
@@ -108,6 +114,13 @@ export function formatDollars(cents: number): string {
   })}`;
 }
 
+/** What a guest row says about money: "Paid $25", "Sent to PayPal" (left
+ *  for the organizer's PayPal; we can't see whether they paid), or "Free". */
+export function paidLabel(r: Pick<GuestRow, "paidCents" | "sentToPayPal">): string {
+  if (r.paidCents != null && r.paidCents > 0) return `Paid ${formatDollars(r.paidCents)}`;
+  return r.sentToPayPal ? "Sent to PayPal" : "Free";
+}
+
 function csvCell(v: string): string {
   return /[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
 }
@@ -121,11 +134,32 @@ export function guestsToCsv(rows: GuestRow[]): string {
       r.status,
       String(r.tickets),
       r.guestNames ?? "",
-      r.paidCents != null && r.paidCents > 0 ? formatDollars(r.paidCents) : "Free",
+      r.paidCents != null && r.paidCents > 0 ? formatDollars(r.paidCents) : r.sentToPayPal ? "Sent to PayPal" : "Free",
       new Date(r.addedAt).toISOString().slice(0, 10),
     ]
       .map(csvCell)
       .join(","),
   );
   return [head.join(","), ...lines].join("\n");
+}
+
+const normalizeGuestEmail = (email: string) => email.trim().toLowerCase();
+
+/** Which RSVP on an event is the viewer's. Their own account's row wins;
+ * failing that, a row with no account whose email is one of the viewer's —
+ * that's a ticket bought while signed out, then the buyer made an account
+ * with the same email. Read-only: nothing is attached to the row, so
+ * putting someone else's email on your profile can't take their ticket
+ * away from them. */
+export function findMyRsvp<R extends { userId?: unknown; email: string }>(
+  rows: R[],
+  userId: string,
+  myEmails: (string | undefined | null)[],
+): R | null {
+  const own = rows.find((r) => r.userId && String(r.userId) === userId);
+  if (own) return own;
+  const emails = new Set(
+    myEmails.filter((e): e is string => !!e).map(normalizeGuestEmail),
+  );
+  return rows.find((r) => !r.userId && emails.has(normalizeGuestEmail(r.email))) ?? null;
 }

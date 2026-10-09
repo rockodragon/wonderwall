@@ -10,12 +10,16 @@
 //   ended       over (convex/eventWindow.ts); one that's on right now isn't
 //   external    the organizer's link to tickets or an RSVP on another site
 //               (events.externalTicketUrl): Eventbrite, Partiful, a Stripe
-//               Payment Link... `stripe` marks that last one, which keeps its
-//               own wording and ticket-claim behavior
+//               Payment Link, a PayPal pay link... `stripe` and `paypal`
+//               mark those two, which keep their own cards: Stripe's claims
+//               the ticket after checkout, PayPal's saves the buyer first
 //   tiers       tickets sold on this site (ticket tiers, or a plain paid
 //               price). `entry` is still the viewer's way in alongside them,
 //               because a free RSVP works next to paid tiers
 //   applied     the viewer already has an application or RSVP
+//   waitlisted  the viewer is on the full event's waitlist
+//   waitlist    full, and it takes a waitlist (events.capacity, .waitlist)
+//   full        full, no waitlist
 //   apply       the event needs the host's approval
 //   join        a signed-in viewer can join
 //   guestRsvp   a signed-out viewer RSVPs with a code
@@ -23,7 +27,7 @@
 //               still resolving
 
 import { eventHasEnded } from "../../convex/eventWindow";
-import { isStripePaymentLink } from "../../convex/garden/ticketLink";
+import { isPayPalPaymentLink, isStripePaymentLink } from "../../convex/garden/ticketLink";
 
 /** A ticket tier as the events table stores it (convex/schema.ts). */
 export type EventTierLike = {
@@ -56,12 +60,21 @@ export type EventCtaContext = {
   isOrganizer?: boolean;
   /** The viewer's own application or RSVP, if any (events.get userApplication). */
   application?: { status: string } | null;
+  /** The event is at its limit (events.get isFull), and whether a full event
+   *  takes a waitlist (waitlistOn). */
+  full?: boolean;
+  waitlistOn?: boolean;
+  /** The viewer is on the waitlist (events.get userWaitlisted). */
+  waitlisted?: boolean;
 };
 
 export type ApplicationStatus = "accepted" | "declined" | "pending";
 
 export type EventEntry =
   | { kind: "applied"; status: ApplicationStatus }
+  | { kind: "waitlisted" }
+  | { kind: "waitlist" }
+  | { kind: "full" }
   | { kind: "apply" }
   | { kind: "join" }
   | { kind: "guestRsvp" }
@@ -78,6 +91,8 @@ export type EventCta =
       priceCents: number | null;
       /** A Stripe Payment Link (garden/ticketLink.ts isStripePaymentLink). */
       stripe: boolean;
+      /** A PayPal pay link (garden/ticketLink.ts isPayPalPaymentLink). */
+      paypal: boolean;
     }
   | { kind: "tiers"; entry: EventEntry }
   | EventEntry;
@@ -126,6 +141,8 @@ function applicationStatus(status: string): ApplicationStatus {
 function entryCta(e: EventCtaEvent, ctx: EventCtaContext): EventEntry {
   if (ctx.application) return { kind: "applied", status: applicationStatus(ctx.application.status) };
   if (ctx.isOrganizer) return { kind: "none" };
+  if (ctx.waitlisted) return { kind: "waitlisted" };
+  if (ctx.full) return ctx.waitlistOn ? { kind: "waitlist" } : { kind: "full" };
   const who = ctx.who ?? "member";
   if (who === "guest") return { kind: "guestRsvp" };
   if (who === "unknown") return { kind: "none" };
@@ -146,6 +163,7 @@ export function eventCta(e: EventCtaEvent, ctx: EventCtaContext = {}): EventCta 
       host,
       priceCents: price > 0 ? price : null,
       stripe: isStripePaymentLink(href),
+      paypal: isPayPalPaymentLink(href),
     };
   }
 
@@ -162,11 +180,17 @@ export function ctaLabel(cta: EventCta): string {
     case "ended":
       return "See event";
     case "external":
-      return cta.stripe || cta.priceCents !== null ? "Get tickets" : "RSVP";
+      return cta.stripe || cta.paypal || cta.priceCents !== null ? "Get tickets" : "RSVP";
     case "tiers":
       return "Get tickets";
     case "apply":
       return "Apply to Attend";
+    case "waitlist":
+      return "Join the waitlist";
+    case "waitlisted":
+      return "On the waitlist";
+    case "full":
+      return "Full";
     case "applied":
     case "join":
     case "guestRsvp":

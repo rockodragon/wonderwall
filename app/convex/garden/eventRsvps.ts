@@ -25,8 +25,14 @@ import {
   TICKET_CLAIM_REFUSED,
   type TicketClaimResult,
 } from "./ticketLink";
-import { nextTicketState } from "./ticketLink";
+import { isPayPalPaymentLink, nextTicketState } from "./ticketLink";
 import { normalizePhone } from "../phone";
+import { eventHasEnded } from "../eventWindow";
+import { getCommunityMember, joinTicketCommunity, resolveCommunityJoin, type TicketJoin } from "./communities";
+import { findMyRsvp } from "../eventGuests";
+import { assertEventHasRoom, isGoing } from "../eventSpots";
+import { scheduleNotificationEmail } from "../emailHelpers";
+import { escapeHtml } from "../email/template";
 
 // ——— Pure core ———
 
@@ -238,6 +244,39 @@ export function pickRsvpName(
   return undefined;
 }
 
+/** The name and email an account's RSVP goes on the list under: the typed
+ * name (else the profile's), and always the account's own email. Throws
+ * when either is missing. */
+export async function accountRsvpIdentity(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  typedName: string | undefined,
+): Promise<{ name: string; email: string }> {
+  const [profile, userDoc] = await Promise.all([
+    ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique(),
+    ctx.db.get(userId),
+  ]);
+  const name = pickRsvpName(typedName, profile?.name, userDoc?.name);
+  const email = userDoc?.email?.trim();
+
+  if (!name) {
+    throw new ConvexError({
+      code: "invalid_rsvp",
+      reason: "We need a name to save your spot — add one and try again.",
+    });
+  }
+  if (!email || !isValidEmail(email)) {
+    throw new ConvexError({
+      code: "invalid_rsvp",
+      reason: "Your account needs an email to save a spot. Add one and try again.",
+    });
+  }
+  return { name, email };
+}
+
 // Nobody RSVPs without an account (owner's rule): the event page's form signs
 // the visitor in with an emailed or texted code first (event.tsx), then calls
 // this. The RSVP is tied to the signed-in account and its email — a typed
@@ -279,28 +318,10 @@ export const rsvpToEvent = mutation({
       }
     }
 
-    const [profile, userDoc] = await Promise.all([
-      ctx.db
-        .query("profiles")
-        .withIndex("by_userId", (q) => q.eq("userId", userId))
-        .unique(),
-      ctx.db.get(userId),
-    ]);
-    const name = pickRsvpName(args.name, profile?.name, userDoc?.name);
-    const email = userDoc?.email?.trim();
+    // Someone already going can press again; anyone else needs a spot.
+    if (!(await isGoing(ctx, event, userId))) await assertEventHasRoom(ctx, event);
 
-    if (!name) {
-      throw new ConvexError({
-        code: "invalid_rsvp",
-        reason: "We need a name to save your spot — add one and try again.",
-      });
-    }
-    if (!email || !isValidEmail(email)) {
-      throw new ConvexError({
-        code: "invalid_rsvp",
-        reason: "Your account needs an email to save a spot. Add one and try again.",
-      });
-    }
+    const { name, email } = await accountRsvpIdentity(ctx, userId, args.name);
 
     const result = await upsertEventRsvp(ctx, {
       eventId: args.eventId,
@@ -311,6 +332,165 @@ export const rsvpToEvent = mutation({
     });
 
     return { ok: true, alreadyRsvpd: result.alreadyRsvpd };
+  },
+});
+
+// ——— Tickets on the organizer's PayPal link ———
+//
+// PayPal tells us nothing (garden/ticketLink.ts isPayPalPaymentLink): the
+// money goes to the organizer's own PayPal, and its pay link takes no
+// reference we could match a payment on. So Get tickets saves the person
+// first, on the guest list and (when they agreed) in the event's community,
+// and the page then sends them to PayPal. The row says they left for PayPal,
+// not that they paid; the organizer's PayPal is the record of that.
+
+export const startPayPalTicket = mutation({
+  args: {
+    eventId: v.id("events"),
+    name: v.optional(v.string()),
+    // They saw the line under the button that says getting tickets joins
+    // the event's community and agrees to its agreements (ticketCommunityJoin).
+    agreed: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args): Promise<{ url: string; community: TicketJoin }> => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new ConvexError({ code: "not_signed_in", reason: "Sign in to get tickets." });
+    }
+
+    const event = await ctx.db.get(args.eventId);
+    if (!event || !(await canSeeEvent(ctx, event, userId))) {
+      throw new ConvexError({
+        code: "not_found",
+        reason: "That event isn't there anymore — check the link and try again.",
+      });
+    }
+    const url = event.externalTicketUrl?.trim();
+    if (!url || !isPayPalPaymentLink(url) || event.tableId) {
+      throw new ConvexError({ code: "not_paypal", reason: "This event doesn't sell tickets on PayPal." });
+    }
+    if (event.status === "cancelled" || eventHasEnded(event, Date.now())) {
+      throw new ConvexError({ code: "closed", reason: "Tickets for this event are closed." });
+    }
+
+    if (!(await isGoing(ctx, event, userId))) await assertEventHasRoom(ctx, event);
+
+    const { name, email } = await accountRsvpIdentity(ctx, userId, args.name);
+    const { rsvpId } = await upsertEventRsvp(ctx, { eventId: args.eventId, name, email, userId });
+    await ctx.db.patch(rsvpId, { paypalOpenedAt: Date.now() });
+
+    const community = await joinTicketCommunity(ctx, userId, event.hostOrgId, args.agreed === true);
+    return { url, community };
+  },
+});
+
+/** The line under Get tickets / Buy tickets (PayPal, a Stripe link, tickets
+ * on this site): the community a ticket joins, and whether that's straight
+ * in ("join") or a request its hosts approve ("ask"). null when there's
+ * nothing to say: no community, a Table's event, already a member, or one a
+ * ticket can't get you into. */
+export const ticketCommunityJoin = query({
+  args: { eventId: v.id("events") },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    const event = await ctx.db.get(args.eventId);
+    if (!event?.hostOrgId || event.tableId || !(await canSeeEvent(ctx, event, userId))) return null;
+    const org = await ctx.db.get(event.hostOrgId);
+    if (!org) return null;
+    const existing = userId ? await getCommunityMember(ctx, org._id, userId) : null;
+    const decision = resolveCommunityJoin({ community: org, existing });
+    if (decision.alreadyMember || !decision.allowed) return null;
+    return {
+      name: org.name,
+      agreements: org.agreements ?? [],
+      join: decision.newStatus === "pending" ? ("ask" as const) : ("join" as const),
+    };
+  },
+});
+
+// ——— Can't make it (docs/features/event-capacity-waitlist.md) ———
+//
+// Takes the viewer off the event: their free RSVP (or PayPal "Sent to
+// PayPal" one), their request (pending or accepted), their waitlist spot.
+// A paid ticket stays: the money is a record, and the host handles refunds.
+// The organizer hears when a spot opens, with how many are waiting.
+
+export const PAID_TICKET_STAYS = "paid_ticket";
+
+export const cancelMyRsvp = mutation({
+  args: { eventId: v.id("events") },
+  handler: async (ctx, args): Promise<{ cancelled: boolean }> => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError({ code: "not_signed_in", reason: "Sign in first." });
+    const event = await ctx.db.get(args.eventId);
+    if (!event) throw new ConvexError({ code: "not_found", reason: "That event isn't there anymore." });
+
+    const [rsvps, user, application, waiting] = await Promise.all([
+      ctx.db
+        .query("eventRsvps")
+        .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
+        .collect(),
+      ctx.db.get(userId),
+      ctx.db
+        .query("eventApplications")
+        .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
+        .filter((q) => q.eq(q.field("applicantId"), userId))
+        .first(),
+      ctx.db
+        .query("eventWaitlist")
+        .withIndex("by_eventId_userId", (q) => q.eq("eventId", args.eventId).eq("userId", userId))
+        .first(),
+    ]);
+    const rsvp = findMyRsvp(rsvps, String(userId), [user?.email]);
+    if (rsvp && (rsvp.paidCents ?? 0) > 0) {
+      throw new ConvexError({
+        code: PAID_TICKET_STAYS,
+        reason: "Paid tickets can't be cancelled here. Ask the host.",
+      });
+    }
+
+    const wasGoing = !!rsvp || application?.status === "accepted";
+    if (rsvp) await ctx.db.delete(rsvp._id);
+    if (application) await ctx.db.delete(application._id);
+    if (waiting) await ctx.db.delete(waiting._id);
+    if (!rsvp && !application && !waiting) return { cancelled: false };
+
+    if (wasGoing && event.organizerId !== userId) {
+      const waitingCount = (
+        await ctx.db
+          .query("eventWaitlist")
+          .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
+          .collect()
+      ).length;
+      const who = rsvp?.name || user?.name || "Someone";
+      const title = `${who} can't make it to ${event.title}`;
+      const message = waitingCount > 0 ? `${waitingCount} on the waitlist.` : "A spot is open.";
+      await ctx.db.insert("notifications", {
+        userId: event.organizerId,
+        type: "event_cant_make_it",
+        title,
+        message,
+        linkUrl: `/events/${args.eventId}?tab=guests`,
+        relatedUserId: userId,
+        createdAt: Date.now(),
+      });
+      // They went to the organizer's PayPal: if they paid, the refund is
+      // the organizer's to make there, so this one is emailed too.
+      if (rsvp?.paypalOpenedAt) {
+        await scheduleNotificationEmail(ctx, {
+          userId: event.organizerId,
+          subject: title,
+          previewText: "If they paid on PayPal, refund them there.",
+          heading: title,
+          body: `<strong>${escapeHtml(who)}</strong> (${escapeHtml(rsvp.email)}) went to your PayPal link for "<strong>${escapeHtml(event.title)}</strong>" and can't make it now. If they paid, refund them in PayPal. ${escapeHtml(message)}`,
+          ctaText: "See your guests",
+          ctaUrl: `/events/${args.eventId}?tab=guests`,
+          category: "activity",
+          communityId: event.hostOrgId,
+        });
+      }
+    }
+    return { cancelled: true };
   },
 });
 
@@ -527,24 +707,9 @@ export const rsvpGuestToTableEvent = mutation({
  * covers that case instead. `eventRsvps` has no by_eventId_userId index
  * (eventAccess.ts's comment: rosters are small), same collect-and-filter
  * eventAccess.ts already does. */
-/** Which RSVP on an event is the viewer's. Their own account's row wins;
- * failing that, a row with no account whose email is one of the viewer's —
- * that's a ticket bought while signed out, then the buyer made an account
- * with the same email. Read-only: nothing is attached to the row, so
- * putting someone else's email on your profile can't take their ticket
- * away from them. */
-export function findMyRsvp<R extends { userId?: unknown; email: string }>(
-  rows: R[],
-  userId: string,
-  myEmails: (string | undefined | null)[],
-): R | null {
-  const own = rows.find((r) => r.userId && String(r.userId) === userId);
-  if (own) return own;
-  const emails = new Set(
-    myEmails.filter((e): e is string => !!e).map(normalizeEmail),
-  );
-  return rows.find((r) => !r.userId && emails.has(normalizeEmail(r.email))) ?? null;
-}
+// findMyRsvp lives in ../eventGuests (events.ts needs it too, and can't
+// import this file without a cycle).
+export { findMyRsvp } from "../eventGuests";
 
 export const getMyRsvpStatus = query({
   args: { eventId: v.id("events") },
@@ -757,6 +922,9 @@ export const claimTicketBySession = mutation({
     if (contribution && !contribution.userId) {
       await ctx.db.patch(contribution._id, { userId });
     }
+    // The ticket card said buying joins the event's community; now there's
+    // an account to put in it (apGifts.ts joins buyers who had one).
+    if (event && !event.tableId) await joinTicketCommunity(ctx, userId, event.hostOrgId, true);
     return "claimed";
   },
 });
