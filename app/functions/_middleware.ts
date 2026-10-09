@@ -10,10 +10,36 @@
 // here sends the page as it was: a branding slip must never take a page down.
 
 import { brandForHost, GARDEN } from "../app/brand/brandConfig";
-import { GARDEN_ROOT_FILES, gardenizeHtml } from "../app/brand/gardenHtml";
+import { GARDEN_ROOT_FILES, gardenizeHtml, needsShareTags, shareDescription } from "../app/brand/gardenHtml";
 
 interface Env {
   ASSETS: { fetch: (req: Request | URL) => Promise<Response> };
+  CONVEX_URL?: string;
+}
+
+const CONVEX_URL = "https://courteous-rabbit-750.convex.cloud";
+
+/** The Garden's host-tools words for a link preview, over plain HTTP as
+ *  events/[id].ts does. Nothing if Convex is slow or down: the preview then
+ *  has the name and the disc only. */
+async function gardenDescription(env: Env): Promise<string | undefined> {
+  try {
+    const res = await fetch(`${env.CONVEX_URL ?? CONVEX_URL}/api/query`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        path: "garden/communityDomains:getCommunityLanding",
+        args: { slug: GARDEN.communitySlug },
+        format: "json",
+      }),
+      signal: AbortSignal.timeout(1500),
+    });
+    if (!res.ok) return undefined;
+    const data = (await res.json()) as { value?: { description?: string | null; tagline?: string | null } | null };
+    return shareDescription(data?.value ?? null);
+  } catch {
+    return undefined;
+  }
 }
 
 export const onRequest = async (context: {
@@ -39,9 +65,12 @@ export const onRequest = async (context: {
   if (!(res.headers.get("content-type") ?? "").includes("text/html")) return res;
   try {
     const html = await res.clone().text();
+    const share = needsShareTags(html)
+      ? { url: url.origin + url.pathname, description: await gardenDescription(context.env) }
+      : undefined;
     const headers = new Headers(res.headers);
     headers.delete("content-length");
-    return new Response(gardenizeHtml(html, url.origin), { status: res.status, statusText: res.statusText, headers });
+    return new Response(gardenizeHtml(html, url.origin, share), { status: res.status, statusText: res.statusText, headers });
   } catch {
     return res;
   }
