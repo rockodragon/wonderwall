@@ -34,6 +34,7 @@ import { useMediaQuery } from "../hooks/useMediaQuery";
 import { formatMoney } from "../garden/ui";
 import { GARDEN_SLUG } from "../lib/communitySlugs";
 import { SOPHIA_FUND_SLUG } from "../lib/namedFunds";
+import { shareProjectHref } from "../lib/shareProject";
 import { stripInlineMarks } from "../lib/richText";
 import { GARDEN_NAME } from "../../convex/garden/brandHosts";
 import { CardStack, type StackItem } from "./CardStack";
@@ -172,7 +173,9 @@ export function GardenHome() {
               more={{ to: "/projects", label: "See more projects" }}
               stack={<CardStack items={projectItems} width={call.w} height={call.h} label="project" loading={projects === undefined} />}
             >
-              <Link to="/projects?new=project" className={CALL_BUTTON}>
+              {/* Signed out, this asks for an account, not a sign-in: The
+                  Garden is invite-only for now, so a visitor has none yet. */}
+              <Link to={shareProjectHref(isAuthenticated)} className={CALL_BUTTON}>
                 Share your project
               </Link>
             </Call>

@@ -131,11 +131,18 @@ export const createPassionProject = mutation({
     // owned by the creator, this only tags it; community-groups.md §0).
     // Membership is checked before the tag is ever written.
     hostOrgId: v.optional(v.id("hostOrgs")),
+    // Where the project is when it's made. Omitted = planning. Onboarding
+    // offers "Thinking about it" / "Working on it" (planning / working).
+    stage: v.optional(v.string()),
     ...locationArgs,
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError({ code: "unauthenticated" });
+
+    if (args.stage !== undefined && !isStage(args.stage)) {
+      throw new ConvexError({ code: "invalid_stage", reason: "Not a valid stage." });
+    }
 
     if (args.goal !== undefined && (!Number.isFinite(args.goal) || args.goal <= 0)) {
       throw new ConvexError({
@@ -161,7 +168,7 @@ export const createPassionProject = mutation({
       raisedCents: 0,
       status: "active",
       // Stage default (docs/features/project-teams.md §1): passion → planning.
-      stage: "planning",
+      stage: args.stage ?? "planning",
       stageChangedAt: now,
       photoUrl: args.photoUrl,
       mediaUrl,

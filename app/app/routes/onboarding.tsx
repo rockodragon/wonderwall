@@ -1,142 +1,93 @@
 import { usePostHog } from "@posthog/react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { ConvexError } from "convex/values";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
-import type { Id } from "../../convex/_generated/dataModel";
 
 import { INTERESTS } from "../constants/interests";
-import { ROLES, type Role } from "../constants/roles";
-import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
-import { useLocationField } from "../lib/useLocationField";
+import { interestIcon } from "../constants/interestIcons";
+import { DESK_PATH } from "../desk/deskState";
+import { GARDEN_SLUG } from "../lib/communitySlugs";
+import { errorMessage } from "../lib/convexError";
+import { justPublished } from "../lib/justPublished";
+import { needsOnboarding } from "../lib/onboardingGate";
+import {
+  START_STAGES,
+  dropShareProjectIntent,
+  hasNameIfNeeded,
+  keepProfileFields,
+  roleForExit,
+  type OnboardingExit,
+  type StartStage,
+} from "../lib/shareProject";
 
-const PARTNER_OFFERINGS = [
-  "Venue / space",
-  "Equipment / gear",
-  "Funding",
-  "Mentorship / expertise",
-  "Audience / promotion",
-  "Other",
-];
+// The one screen a new account sees (Rick, 2026-10-09): what are you
+// interested in or working on, with the smallest project that answers it, a
+// title. Role, details and first-work steps used to come first; they wait for
+// the Canvas now. Agreements are taken at account creation, not here.
+//
+// Every way off the screen records a primaryRole, which is what the app reads
+// as "onboarding done" (lib/onboardingGate.ts). Nothing is saved before a
+// button is pressed.
 
-// Same cap and wording as settings.tsx's uploads.
-const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
-const TOO_BIG_MESSAGE = "Image must be less than 5MB";
+// What the project's visibility is today, said under the title. A project is
+// tagged with The Garden but listed to everyone: there is no community-only
+// setting yet (convex/garden/projects.ts listProjects shows every posted
+// project; garden/communityVisibility.ts only hides test communities). Change
+// this line the day one exists.
+const VISIBILITY_NOTE = "Everyone can see it.";
 
-// Same pattern the server checks in profiles.upsertProfile.
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Colors are the Garden tokens (public/tokens.css). Error text is lighter than
+// the usual red so it reads ~9:1 on ink.
+const INK = "var(--garden-ink)";
+const RAISED = "var(--garden-ink-raised)";
+const PAPER = "var(--garden-paper)";
+const BODY = "var(--garden-body)";
+const CITRON = "var(--garden-citron)";
+const LINE = "var(--garden-hairline-raised)";
+const ERROR = "#fca5a5";
 
-// A thrown ConvexError carries its message on err.data: a plain string, or
-// {reason}. Production hides plain Error messages, so anything else gets the
-// caller's fallback line.
-function errorMessage(err: unknown, fallback: string): string {
-  if (err instanceof ConvexError) {
-    const data = err.data as unknown;
-    if (typeof data === "string" && data) return data;
-    if (data && typeof data === "object" && "reason" in data) {
-      const reason = (data as { reason?: unknown }).reason;
-      if (reason) return String(reason);
-    }
-  }
-  return fallback;
-}
-
-// Creative gets 4 stages (role, details, share work, celebrate) because
-// sharing a first work is a real, distinct moment worth its own screen and
-// its own confetti. Patron/Partner collapse the last two into one — there's
-// no equivalent "first action" to force, so the celebration screen carries
-// the light next-step copy instead of pretending there's a 4th thing to do.
-function totalStepsFor(role: Role | null): number {
-  return role === "creative" ? 4 : 3;
-}
+const FOCUS = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#fee268]";
+const FIELD = `w-full px-3.5 py-2.5 rounded-lg border text-[15px] ${FOCUS}`;
+const PILL = `px-3 py-1.5 rounded-full border text-[13.5px] font-medium transition-colors ${FOCUS}`;
+const QUIET = `text-[13.5px] font-medium underline underline-offset-4 disabled:opacity-50 ${FOCUS}`;
 
 export default function Onboarding() {
   const navigate = useNavigate();
   const posthog = usePostHog();
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
-  const [step, setStep] = useState(1);
-  const [primaryRole, setPrimaryRole] = useState<Role | null>(null);
-
-  // Shared
-  const location = useLocationField();
-  // Only asked when the profile has no real name yet (a phone sign-in).
-  const [name, setName] = useState("");
-  const [bio, setBio] = useState("");
-  const [creativeOrgName, setCreativeOrgName] = useState("");
-  // Only asked when the account has no email (a phone sign-in) — Stripe
-  // receipts and notifications need one even then.
-  const [email, setEmail] = useState("");
-  // Saving the step 2 details (Continue or Skip).
-  const [saving, setSaving] = useState(false);
-  const [detailsError, setDetailsError] = useState<string | null>(null);
-  // Profile photo upload in flight.
-  const [photoUploading, setPhotoUploading] = useState(false);
-  const [photoError, setPhotoError] = useState<string | null>(null);
-  const [photoStorageId, setPhotoStorageId] = useState<Id<"_storage"> | null>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
-
-  // Creative
-  const [selectedJobFunctions, setSelectedJobFunctions] = useState<string[]>([]);
-
-  // Patron
-  const [isOrg, setIsOrg] = useState(false);
-  const [orgName, setOrgName] = useState("");
-  const [supportInterests, setSupportInterests] = useState<string[]>([]);
-
-  // Partner
-  const [partnerOrgName, setPartnerOrgName] = useState("");
-  const [partnerOfferings, setPartnerOfferings] = useState<string[]>([]);
-
-  // Work creation (Creative only). Image and link keep separate state so a
-  // storage id can never show up in the URL box, and Share never reads a
-  // value left over from the other tab.
-  const [workType, setWorkType] = useState<"text" | "image" | "link">("image");
-  const [workTitle, setWorkTitle] = useState("");
-  const [workContent, setWorkContent] = useState("");
-  const [workLink, setWorkLink] = useState("");
-  const [workImageId, setWorkImageId] = useState<Id<"_storage"> | null>(null);
-  // File upload in flight. Never blocks Back or Skip.
-  const [workUploading, setWorkUploading] = useState(false);
-  // createArtifact in flight (short; Back and Skip wait for it).
-  const [workSaving, setWorkSaving] = useState(false);
-  const [workError, setWorkError] = useState<string | null>(null);
-  const [workShared, setWorkShared] = useState(false);
-  // Bumped whenever an in-flight upload stops mattering (tab switch, Back,
-  // Skip), so a late upload can't land in the wrong place.
-  const workUploadSeq = useRef(0);
-  const workImageInputRef = useRef<HTMLInputElement>(null);
 
   const profile = useQuery(api.profiles.getMyProfile);
-  const needsEmail = profile !== null && profile !== undefined && !profile.email;
-  const needsName =
-    profile !== null &&
-    profile !== undefined &&
-    (!profile.name?.trim() || profile.name === "New User");
+  // The Garden's own rules for who may post into it, and the communities this
+  // account is in: the project is posted into The Garden, as the project form
+  // does by default.
+  const signupCommunity = useQuery(api.garden.defaultCommunity.getSignupCommunity, isAuthenticated ? {} : "skip");
+  const myCommunities = useQuery(api.garden.communities.listMyCommunities, isAuthenticated ? {} : "skip");
+  const gardenId = myCommunities?.find((c) => c.slug === GARDEN_SLUG && c.status === "active")?._id;
 
-  // Re-entering onboarding (a second role, back button, a bookmark — nothing
-  // guards against it, and re-adding roles is an intended flow) must not
-  // start these fields blank: bio/location/interests previously saved
-  // would otherwise get overwritten with blanks on the next submit, since
-  // this form doesn't know what wasn't touched. Prefill once, like
-  // settings.tsx already does.
-  const [prefilled, setPrefilled] = useState(false);
-  useEffect(() => {
-    if (profile && !prefilled) {
-      setBio(profile.bio || "");
-      // A blank or placeholder name starts empty so the person types a real one.
-      setName(profile.name && profile.name !== "New User" ? profile.name : "");
-      setCreativeOrgName(profile.orgName || "");
-      location.hydrate(profile);
-      setSelectedJobFunctions(profile.interests || []);
-      setPrefilled(true);
-    }
-    // location.hydrate is stable (useCallback with no deps) — omitting it
-    // from deps here matches the existing prefill-once-on-profile-load
-    // pattern and avoids re-running this effect on every location edit.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile, prefilled]);
+  const upsertProfile = useMutation(api.profiles.upsertProfile);
+  const createPassionProject = useMutation(api.garden.projects.createPassionProject);
+
+  const [interests, setInterests] = useState<string[]>([]);
+  const [title, setTitle] = useState("");
+  const [stage, setStage] = useState<StartStage | null>(null);
+  // Only asked when the profile has no real name yet (a phone sign-in made on
+  // the login page); never shown twice.
+  const [name, setName] = useState("");
+  const [error, setError] = useState("");
+  // Which button was pressed, until the page changes or it fails.
+  const [busy, setBusy] = useState<OnboardingExit | null>(null);
+  // Set when a button is pressed. Saving the role makes the profile read as
+  // "onboarded", and the page must not bounce away from a failed share.
+  const left = useRef(false);
+
+  const needsName =
+    profile !== null && profile !== undefined && (!profile.name?.trim() || profile.name === "New User");
+  // Same order as the app shell (routes/_app.tsx): an invite-only Garden comes
+  // before onboarding, and nobody posts into it without being in it.
+  const mustInvite =
+    !!signupCommunity?.inviteOnly && signupCommunity.viewer?.isMember === false && !profile?.isAdmin;
+  const onboarded = profile !== null && profile !== undefined && !needsOnboarding(profile);
 
   // This route sits outside the _app layout, so nothing else bounces a
   // signed-out visitor — without this they'd see the spinner forever.
@@ -146,952 +97,227 @@ export default function Onboarding() {
     }
   }, [authLoading, isAuthenticated, navigate]);
 
-  const upsertProfile = useMutation(api.profiles.upsertProfile);
-  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
-  const saveProfileImage = useMutation(api.files.saveProfileImage);
-  const getImageUrl = useQuery(
-    api.files.getImageUrl,
-    photoStorageId ? { storageId: photoStorageId } : "skip",
-  );
-  const createArtifact = useMutation(api.artifacts.create);
+  // Someone who already has a role, a bio or interests (a bookmark, the Back
+  // button, an older member) has nothing to do here.
+  useEffect(() => {
+    if (onboarded && !left.current) navigate(DESK_PATH, { replace: true });
+  }, [onboarded, navigate]);
 
-  function toggle(list: string[], setList: (v: string[]) => void, item: string) {
-    setList(list.includes(item) ? list.filter((f) => f !== item) : [...list, item]);
+  useEffect(() => {
+    if (mustInvite && !left.current) navigate("/invite", { replace: true });
+  }, [mustInvite, navigate]);
+
+  const ready =
+    isAuthenticated && !!profile && signupCommunity !== undefined && myCommunities !== undefined;
+  const showing = ready && !mustInvite && (!onboarded || left.current);
+
+  const viewed = useRef(false);
+  useEffect(() => {
+    if (!showing || viewed.current) return;
+    viewed.current = true;
+    posthog?.capture("onboarding_viewed", { needs_name: needsName });
+  }, [showing, needsName, posthog]);
+
+  function toggleInterest(tag: string) {
+    setInterests((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
   }
 
-  function handleRoleSelect(role: Role) {
-    setPrimaryRole(role);
-    setDetailsError(null);
-    posthog?.capture("onboarding_step_completed", { step_number: 1, step_name: "role_selected", role });
-    setStep(2);
-  }
-
-  // Step 2: role-specific details -> saved via one upsertProfile call.
-  // Skip saves whatever is filled in (interests may be empty) with the chosen
-  // role — primaryRole is what the _app guard reads as "onboarding done" —
-  // and goes straight to /today.
-  async function saveDetails(skip: boolean) {
-    if (!profile || !primaryRole || saving) return;
-    setDetailsError(null);
-    const trimmedEmail = email.trim();
-    // A name is the one thing Skip can't skip: a phone sign-in has none yet
-    // (the profile still reads "New User").
-    if (needsName && !name.trim()) {
-      setDetailsError("Enter your name.");
+  async function leave(exit: OnboardingExit) {
+    if (!profile || busy) return;
+    if (!hasNameIfNeeded(needsName, name)) {
+      setError("Enter your name.");
       return;
     }
-    if (!skip) {
-      if (primaryRole === "creative" && selectedJobFunctions.length === 0) {
-        setDetailsError("Pick at least one interest.");
-        return;
-      }
-      if (needsEmail && !trimmedEmail) {
-        setDetailsError("Add an email. We need it for receipts and notifications.");
-        return;
-      }
+    if (exit === "shared" && !title.trim()) {
+      setError("Give it a title.");
+      return;
     }
-    // A half-typed email must not stop Skip; the server would refuse it.
-    const emailToSave = !needsEmail
-      ? undefined
-      : skip && !EMAIL_RE.test(trimmedEmail)
-        ? undefined
-        : trimmedEmail;
-
-    setSaving(true);
+    left.current = true;
+    setError("");
+    setBusy(exit);
     try {
+      // A backer's picks are what they want to support; everyone else's are
+      // their interests. Nothing picked leaves what the profile has.
+      const picked = interests.length > 0 ? interests : undefined;
       await upsertProfile({
-        name: needsName && name.trim() ? name.trim() : profile.name,
-        interests: primaryRole === "creative" ? selectedJobFunctions : undefined,
-        bio: bio.trim() || undefined,
-        email: emailToSave,
-        ...location.toArgs(),
-        primaryRole,
-        orgName:
-          primaryRole === "patron"
-            ? (isOrg ? orgName.trim() : undefined) || undefined
-            : primaryRole === "partner"
-              ? partnerOrgName.trim() || undefined
-              : creativeOrgName.trim() || undefined,
-        supportInterests: primaryRole === "patron" ? supportInterests : undefined,
-        partnerOfferings: primaryRole === "partner" ? partnerOfferings : undefined,
+        name: needsName ? name.trim() : profile.name,
+        ...(exit === "backer" ? { supportInterests: picked } : { interests: picked }),
+        primaryRole: roleForExit(exit),
+        ...keepProfileFields(profile),
       });
-
-      if (photoStorageId) {
-        await saveProfileImage({ storageId: photoStorageId });
-      }
-
-      posthog?.capture("onboarding_step_completed", {
-        step_number: 2,
-        step_name: skip ? "details_skipped" : "details",
-        role: primaryRole,
-        has_bio: !!bio.trim(),
-        has_location: !!location.value.trim(),
-      });
-
-      if (skip) {
-        posthog?.capture("onboarding_completed", { role: primaryRole, skipped: true });
-        navigate("/today");
+      if (exit === "shared") {
+        const { projectId } = await createPassionProject({
+          title: title.trim(),
+          stage: stage ?? undefined,
+          hostOrgId: gardenId,
+        });
+        posthog?.capture("onboarding_project_shared", {
+          stage: stage ?? "planning",
+          interests: interests.length,
+          in_garden: !!gardenId,
+        });
+        dropShareProjectIntent();
+        // Its page offers "Invite people" once (components/InviteToThis.tsx).
+        navigate(justPublished(`/projects/${projectId}`), { replace: true });
         return;
       }
-      setStep(3);
-    } catch (err) {
-      console.error("Failed to update profile:", err);
-      setDetailsError(errorMessage(err, "Couldn't save. Try again."));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  // Uploads one file to Convex storage and returns its id.
-  async function uploadFile(file: File): Promise<Id<"_storage">> {
-    const uploadUrl = await generateUploadUrl();
-    const result = await fetch(uploadUrl, {
-      method: "POST",
-      headers: { "Content-Type": file.type },
-      body: file,
-    });
-    if (!result.ok) throw new Error("Upload failed");
-    const { storageId } = await result.json();
-    return storageId as Id<"_storage">;
-  }
-
-  async function handleProfileImageUpload(event: React.ChangeEvent<HTMLInputElement>) {
-    const input = event.target;
-    const file = input.files?.[0];
-    // Clear the input so picking the same file again (after an error) still fires.
-    input.value = "";
-    if (!file) return;
-
-    setPhotoError(null);
-    if (file.size > MAX_UPLOAD_BYTES) {
-      setPhotoError(TOO_BIG_MESSAGE);
-      return;
-    }
-
-    setPhotoUploading(true);
-    try {
-      setPhotoStorageId(await uploadFile(file));
-    } catch (err) {
-      console.error("Failed to upload image:", err);
-      setPhotoError("Couldn't upload that photo. Try again.");
-    } finally {
-      setPhotoUploading(false);
-    }
-  }
-
-  function switchWorkType(next: "text" | "image" | "link") {
-    if (next === workType) return;
-    workUploadSeq.current += 1;
-    setWorkType(next);
-    setWorkImageId(null);
-    setWorkLink("");
-    setWorkUploading(false);
-    setWorkError(null);
-  }
-
-  // Step 3 (Creative only): share first work
-  async function handleWorkSubmit() {
-    if (workSaving || workUploading) return;
-    setWorkError(null);
-    if (workType === "image" && !workImageId) {
-      setWorkError("Upload an image first.");
-      return;
-    }
-    if (workType === "link" && !workLink.trim()) {
-      setWorkError("Paste a link first.");
-      return;
-    }
-    if (workType === "text" && !workContent.trim()) {
-      setWorkError("Write something first.");
-      return;
-    }
-
-    setWorkSaving(true);
-    try {
-      await createArtifact({
-        type: workType,
-        title: workTitle.trim() || undefined,
-        content: workType === "text" ? workContent.trim() : undefined,
-        mediaUrl: workType === "link" ? workLink.trim() : undefined,
-        mediaStorageId: workType === "image" ? (workImageId ?? undefined) : undefined,
+      posthog?.capture(exit === "backer" ? "onboarding_backer_exit" : "onboarding_not_yet", {
+        interests: interests.length,
+        title_typed: !!title.trim(),
       });
-
-      posthog?.capture("onboarding_step_completed", {
-        step_number: 3,
-        step_name: "create_work",
-        work_type: workType,
-        has_title: !!workTitle.trim(),
-      });
-
-      setWorkShared(true);
-      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-      setStep(4);
+      dropShareProjectIntent();
+      navigate(DESK_PATH, { replace: true });
     } catch (err) {
-      console.error("Failed to create work:", err);
-      setWorkError(errorMessage(err, "Couldn't share that. Try again, or skip for now."));
-    } finally {
-      setWorkSaving(false);
+      console.error("Onboarding failed:", err);
+      setError(errorMessage(err));
+      setBusy(null);
     }
   }
 
-  async function handleWorkImageUpload(event: React.ChangeEvent<HTMLInputElement>) {
-    const input = event.target;
-    const file = input.files?.[0];
-    input.value = "";
-    if (!file) return;
-
-    setWorkError(null);
-    if (file.size > MAX_UPLOAD_BYTES) {
-      setWorkError(TOO_BIG_MESSAGE);
-      return;
-    }
-
-    const seq = ++workUploadSeq.current;
-    setWorkUploading(true);
-    try {
-      const storageId = await uploadFile(file);
-      if (seq !== workUploadSeq.current) return; // switched tab, went Back or skipped
-      setWorkImageId(storageId);
-    } catch (err) {
-      console.error("Failed to upload image:", err);
-      if (seq !== workUploadSeq.current) return;
-      setWorkError("Couldn't upload that image. Try again, or skip for now.");
-    } finally {
-      if (seq === workUploadSeq.current) setWorkUploading(false);
-    }
-  }
-
-  // Back and Skip leave step 3: drop any upload still running.
-  function leaveWorkStep(next: 2 | 4) {
-    workUploadSeq.current += 1;
-    setWorkUploading(false);
-    setWorkError(null);
-    if (next === 4) {
-      posthog?.capture("onboarding_step_completed", {
-        step_name: "work_skipped",
-        role: "creative",
-      });
-    }
-    setStep(next);
-  }
-
-  function finish(destination: string) {
-    posthog?.capture("onboarding_completed", { role: primaryRole });
-    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-    navigate(destination);
-  }
-
-  if (authLoading || !isAuthenticated || !profile) {
+  if (!showing) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: INK }}>
+        <div
+          className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
+          style={{ borderColor: CITRON, borderTopColor: "transparent" }}
+        />
       </div>
     );
   }
 
-  const totalSteps = totalStepsFor(primaryRole);
-  const isLastStep = step === totalSteps;
-
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center px-4 py-8">
-      <div className="max-w-2xl w-full">
-        {/* Progress indicator */}
-        <div className="mb-8">
-          <div className="flex items-center justify-center gap-2">
-            {Array.from({ length: totalSteps }, (_, i) => i + 1).map((i) => (
-              <div
-                key={i}
-                className={`h-2 rounded-full transition-all ${
-                  i === step
-                    ? "w-8 bg-blue-600"
-                    : i < step
-                      ? "w-2 bg-blue-600"
-                      : "w-2 bg-gray-300 dark:bg-gray-700"
-                }`}
-              />
-            ))}
+    <main className="min-h-screen flex justify-center px-5 py-10 sm:py-16" style={{ backgroundColor: INK, color: BODY }}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void leave("shared");
+        }}
+        className="w-full max-w-[40rem]"
+      >
+        <h1
+          className="text-[28px] sm:text-[34px] font-semibold leading-tight"
+          style={{ color: PAPER, fontFamily: "var(--garden-font-display)", textWrap: "balance" }}
+        >
+          What are you interested in or working on?
+        </h1>
+
+        {needsName && (
+          <div className="mt-7">
+            <label htmlFor="onboarding-name" className="block text-[13.5px] font-medium mb-1.5" style={{ color: PAPER }}>
+              Your name
+            </label>
+            <input
+              id="onboarding-name"
+              type="text"
+              autoComplete="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className={FIELD}
+              style={{ backgroundColor: RAISED, borderColor: LINE, color: PAPER }}
+            />
           </div>
-          <p className="text-center text-sm text-gray-600 dark:text-gray-300 mt-2">
-            Step {step} of {totalSteps}
+        )}
+
+        <div role="group" aria-label="Interests, optional" className="mt-7 flex flex-wrap gap-1.5">
+          {INTERESTS.map((tag) => {
+            const on = interests.includes(tag);
+            const Icon = interestIcon(tag);
+            return (
+              <button
+                key={tag}
+                type="button"
+                aria-pressed={on}
+                onClick={() => toggleInterest(tag)}
+                className={`${PILL} inline-flex items-center gap-1.5`}
+                style={{
+                  backgroundColor: on ? CITRON : RAISED,
+                  borderColor: on ? CITRON : LINE,
+                  color: on ? INK : BODY,
+                }}
+              >
+                <Icon size={16} weight="regular" aria-hidden />
+                {tag}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-9">
+          <label htmlFor="onboarding-title" className="block text-[13.5px] font-medium mb-1.5" style={{ color: PAPER }}>
+            Project title
+          </label>
+          <input
+            id="onboarding-title"
+            type="text"
+            autoFocus={!needsName}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className={FIELD}
+            style={{ backgroundColor: RAISED, borderColor: LINE, color: PAPER }}
+          />
+          <p className="mt-1.5 text-[13.5px]" style={{ color: BODY }}>
+            A title is enough. {VISIBILITY_NOTE}
           </p>
         </div>
 
-        {/* Step 1: Role */}
-        {step === 1 && (
-          <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-xl">
-            <div className="text-center mb-6">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                How do you want to show up?
-              </h1>
-              <p className="text-gray-700 dark:text-gray-300">
-                You can add other roles later — this just picks where you start.
-              </p>
-            </div>
-            <div className="flex flex-col gap-3">
-              {ROLES.map((r) => (
-                <button
-                  key={r.value}
-                  onClick={() => handleRoleSelect(r.value)}
-                  className="text-left px-6 py-4 border-2 border-gray-200 dark:border-gray-700 rounded-xl hover:border-blue-500 dark:hover:border-blue-500 transition-colors"
-                >
-                  <span className="block font-semibold text-gray-900 dark:text-white">
-                    {r.label}
-                  </span>
-                  <span className="block text-sm text-gray-600 dark:text-gray-300 mt-0.5">
-                    {r.description}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Step 2: Role-specific details */}
-        {step === 2 && primaryRole === "creative" && (
-          <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-xl">
-            <div className="text-center mb-6">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                Complete your profile
-              </h1>
-              <p className="text-gray-700 dark:text-gray-300">Help others discover who you are</p>
-            </div>
-
-            {needsName && <NameField name={name} setName={setName} />}
-
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Profile Photo (Optional)
-              </label>
-              <div className="flex items-center gap-4">
-                {getImageUrl ? (
-                  <img src={getImageUrl} alt={profile.name} className="w-20 h-20 rounded-full object-cover" />
-                ) : (
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-white text-2xl font-bold">
-                    {(needsName && name.trim() ? name.trim() : profile.name).charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <div>
-                  <input
-                    ref={imageInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleProfileImageUpload}
-                    className="hidden"
-                  />
-                  <button
-                    onClick={() => imageInputRef.current?.click()}
-                    disabled={photoUploading}
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
-                  >
-                    {photoUploading ? "Uploading..." : "Upload photo"}
-                  </button>
-                  {photoStorageId && (
-                    <p className="text-xs text-green-800 dark:text-green-400 mt-1">Photo uploaded!</p>
-                  )}
-                  {photoError && (
-                    <p role="alert" className="text-xs text-red-700 dark:text-red-400 mt-1">
-                      {photoError}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Interests <span className="text-red-700 dark:text-red-400">*</span>
-              </label>
-              <p className="text-xs text-gray-600 dark:text-gray-300 mb-3">Pick at least one to continue.</p>
-              <div className="grid grid-cols-2 gap-2">
-                {INTERESTS.map((func) => (
-                  <button
-                    key={func}
-                    onClick={() => toggle(selectedJobFunctions, setSelectedJobFunctions, func)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      selectedJobFunctions.includes(func)
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
-                    }`}
-                  >
-                    {func}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <NameField name={name} setName={setName} />
-            {needsEmail && <EmailField email={email} setEmail={setEmail} />}
-            <LocationField location={location} />
-            <BioField bio={bio} setBio={setBio} placeholder="Tell us a bit about yourself..." />
-            <OrgField value={creativeOrgName} setValue={setCreativeOrgName} />
-
-            <DetailsActions
-              onContinue={() => saveDetails(false)}
-              onSkip={() => saveDetails(true)}
-              continueDisabled={selectedJobFunctions.length === 0 || (needsName && !name.trim()) || saving || photoUploading}
-              saving={saving}
-              skipDisabled={needsName && !name.trim()}
-              error={detailsError}
-            />
-          </div>
-        )}
-
-        {step === 2 && primaryRole === "patron" && (
-          <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-xl">
-            <div className="text-center mb-6">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                Tell us about your support
-              </h1>
-              <p className="text-gray-700 dark:text-gray-300">Helps us show you the right projects</p>
-            </div>
-
-            {needsName && <NameField name={name} setName={setName} />}
-
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Individual or organization?
-              </label>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setIsOrg(false)}
-                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    !isOrg ? "bg-blue-600 text-white" : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-                  }`}
-                >
-                  Individual
-                </button>
-                <button
-                  onClick={() => setIsOrg(true)}
-                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isOrg ? "bg-blue-600 text-white" : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-                  }`}
-                >
-                  Organization (church, business, etc.)
-                </button>
-              </div>
-            </div>
-
-            {isOrg && (
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Organization name
-                </label>
-                <input
-                  type="text"
-                  value={orgName}
-                  onChange={(e) => setOrgName(e.target.value)}
-                  placeholder="Grace Fellowship"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-                />
-              </div>
-            )}
-
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                What kinds of projects or causes do you want to support?
-              </label>
-              <p className="text-xs text-gray-600 dark:text-gray-300 mb-3">Select all that apply</p>
-              <div className="grid grid-cols-2 gap-2">
-                {INTERESTS.map((func) => (
-                  <button
-                    key={func}
-                    onClick={() => toggle(supportInterests, setSupportInterests, func)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      supportInterests.includes(func)
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
-                    }`}
-                  >
-                    {func}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <NameField name={name} setName={setName} />
-            {needsEmail && <EmailField email={email} setEmail={setEmail} />}
-            <LocationField location={location} />
-            <BioField bio={bio} setBio={setBio} placeholder="Why do you support creatives? (optional)" />
-
-            <DetailsActions
-              onContinue={() => saveDetails(false)}
-              onSkip={() => saveDetails(true)}
-              continueDisabled={(needsName && !name.trim()) || saving}
-              saving={saving}
-              skipDisabled={needsName && !name.trim()}
-              error={detailsError}
-            />
-          </div>
-        )}
-
-        {step === 2 && primaryRole === "partner" && (
-          <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-xl">
-            <div className="text-center mb-6">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                What can you offer?
-              </h1>
-              <p className="text-gray-700 dark:text-gray-300">Space, gear, expertise — let creatives know</p>
-            </div>
-
-            {needsName && <NameField name={name} setName={setName} />}
-
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Organization or business name (optional)
-              </label>
-              <input
-                type="text"
-                value={partnerOrgName}
-                onChange={(e) => setPartnerOrgName(e.target.value)}
-                placeholder="Radius Coffee"
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-              />
-            </div>
-
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                What can you offer the community?
-              </label>
-              <p className="text-xs text-gray-600 dark:text-gray-300 mb-3">Select all that apply</p>
-              <div className="grid grid-cols-2 gap-2">
-                {PARTNER_OFFERINGS.map((offering) => (
-                  <button
-                    key={offering}
-                    onClick={() => toggle(partnerOfferings, setPartnerOfferings, offering)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      partnerOfferings.includes(offering)
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
-                    }`}
-                  >
-                    {offering}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <NameField name={name} setName={setName} />
-            {needsEmail && <EmailField email={email} setEmail={setEmail} />}
-            <LocationField
-              location={location}
-              helpText="Helps creatives nearby find you"
-            />
-            <BioField bio={bio} setBio={setBio} placeholder="Tell creatives what you have to offer (optional)" />
-
-            <DetailsActions
-              onContinue={() => saveDetails(false)}
-              onSkip={() => saveDetails(true)}
-              continueDisabled={(needsName && !name.trim()) || saving}
-              saving={saving}
-              skipDisabled={needsName && !name.trim()}
-              error={detailsError}
-            />
-          </div>
-        )}
-
-        {/* Step 3: Creative shares first work; Patron/Partner see the finish screen */}
-        {step === 3 && primaryRole === "creative" && (
-          <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-xl">
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                Share your first work
-              </h2>
-              <p className="text-gray-700 dark:text-gray-300 text-sm">Showcase what you create</p>
-            </div>
-
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                What kind of work?
-              </label>
-              <div className="flex gap-2">
-                {(["image", "link", "text"] as const).map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => switchWorkType(t)}
-                    className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${
-                      workType === t
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Title (Optional)
-              </label>
-              <input
-                type="text"
-                value={workTitle}
-                onChange={(e) => setWorkTitle(e.target.value)}
-                placeholder="My latest project"
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-              />
-            </div>
-
-            {workType === "image" && (
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Upload Image <span className="text-red-700 dark:text-red-400">*</span>
-                </label>
-                <input
-                  ref={workImageInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleWorkImageUpload}
-                  className="hidden"
-                />
-                <button
-                  onClick={() => workImageInputRef.current?.click()}
-                  disabled={workUploading}
-                  className="w-full px-4 py-8 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
-                >
-                  {workUploading ? (
-                    <span>Uploading...</span>
-                  ) : workImageId ? (
-                    <span className="text-green-800 dark:text-green-400">Image uploaded!</span>
-                  ) : (
-                    <div>
-                      <svg className="w-12 h-12 mx-auto mb-2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                        />
-                      </svg>
-                      <span className="text-gray-700 dark:text-gray-300">Click to upload</span>
-                    </div>
-                  )}
-                </button>
-              </div>
-            )}
-
-            {workType === "link" && (
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  URL <span className="text-red-700 dark:text-red-400">*</span>
-                </label>
-                <input
-                  type="url"
-                  value={workLink}
-                  onChange={(e) => setWorkLink(e.target.value)}
-                  placeholder="https://example.com/my-work"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-                />
-              </div>
-            )}
-
-            {workType === "text" && (
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Content <span className="text-red-700 dark:text-red-400">*</span>
-                </label>
-                <textarea
-                  value={workContent}
-                  onChange={(e) => setWorkContent(e.target.value)}
-                  placeholder="Write your content here..."
-                  rows={6}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white resize-none"
-                />
-              </div>
-            )}
-
-            {workError && (
-              <p role="alert" className="mb-4 text-sm text-red-700 dark:text-red-400">
-                {workError}
-              </p>
-            )}
-
-            <div className="flex gap-3">
+        <div role="group" aria-label="Where it is" className="mt-5 flex flex-wrap gap-1.5">
+          {START_STAGES.map((s) => {
+            const on = stage === s.value;
+            return (
               <button
-                onClick={() => leaveWorkStep(2)}
-                disabled={workSaving}
-                className="flex-1 py-3 px-4 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+                key={s.value}
+                type="button"
+                aria-pressed={on}
+                onClick={() => setStage(on ? null : s.value)}
+                className={PILL}
+                style={{
+                  backgroundColor: on ? CITRON : RAISED,
+                  borderColor: on ? CITRON : LINE,
+                  color: on ? INK : BODY,
+                }}
               >
-                Back
+                {s.label}
               </button>
-              <button
-                onClick={handleWorkSubmit}
-                disabled={workUploading || workSaving}
-                className="flex-1 py-3 px-4 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {workSaving ? "Sharing..." : "Share work"}
-              </button>
-            </div>
-            {/* Work is optional. Skip stays usable during an upload — only the
-                short save itself holds it. */}
-            <button
-              onClick={() => leaveWorkStep(4)}
-              disabled={workSaving}
-              className="mt-4 w-full py-2 text-[13.5px] font-medium text-gray-700 dark:text-gray-300 underline underline-offset-4 hover:text-gray-900 dark:hover:text-white disabled:opacity-50"
-            >
-              Skip for now
-            </button>
-          </div>
+            );
+          })}
+        </div>
+
+        {error && (
+          <p role="alert" className="mt-6 text-[14px]" style={{ color: ERROR }}>
+            {error}
+          </p>
         )}
 
-        {/* Finish screen — step 4 for Creative, step 3 for Patron/Partner.
-            Explore is always the main button. */}
-        {isLastStep && primaryRole === "patron" && (
-          <FinishScreen
-            title="You're in."
-            body={
-              supportInterests.length > 0
-                ? "Projects that match your interests come first."
-                : "Find a project you want to back."
-            }
-            onExplore={() => finish("/today")}
-            secondary={{
-              label: "See projects",
-              onClick: () => {
-                const params = new URLSearchParams();
-                if (supportInterests.length > 0) params.set("interests", supportInterests.join(","));
-                if (location.value.trim()) params.set("location", location.value.trim());
-                const qs = params.toString();
-                finish(qs ? `/projects?${qs}` : "/projects");
-              },
-            }}
-          />
-        )}
-        {isLastStep && primaryRole === "partner" && (
-          <FinishScreen
-            title="You're in."
-            body="Want to talk it through? Grab 15 minutes with us."
-            onExplore={() => finish("/today")}
-            secondary={{
-              label: "Schedule a conversation",
-              href: "https://cal.com/rickmoy",
-              onClick: () =>
-                posthog?.capture("onboarding_step_completed", {
-                  step_name: "schedule_call_clicked",
-                  role: "partner",
-                }),
-            }}
-          />
-        )}
-        {step === 4 && primaryRole === "creative" && (
-          <FinishScreen
-            title="You're all set!"
-            body={workShared ? "Your work is on your profile." : "You can add work any time."}
-            onExplore={() => finish("/today")}
-            secondary={{
-              label: workShared ? "Add more work" : "Add work",
-              onClick: () => finish("/works"),
-            }}
-          />
-        )}
-      </div>
-    </div>
-  );
-}
-
-function LocationField({
-  location,
-  helpText,
-}: {
-  location: ReturnType<typeof useLocationField>;
-  helpText?: string;
-}) {
-  return (
-    <div className="mb-6">
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-        Location (Optional)
-      </label>
-      <LocationAutocomplete
-        value={location.value}
-        onChange={location.onChange}
-        onSelect={location.onSelect}
-        placeholder="Nashville, TN"
-      />
-      <LocationVerifiedHint value={location.value} selected={location.selected} />
-      {helpText && <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">{helpText}</p>}
-    </div>
-  );
-}
-
-function EmailField({
-  email,
-  setEmail,
-}: {
-  email: string;
-  setEmail: (v: string) => void;
-}) {
-  return (
-    <div className="mb-6">
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-        Email <span className="text-red-700 dark:text-red-400">*</span>
-      </label>
-      <p className="text-xs text-gray-600 dark:text-gray-300 mb-2">
-        For receipts and notifications — you signed up with a phone number.
-      </p>
-      <input
-        type="email"
-        required
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="you@example.com"
-        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-      />
-    </div>
-  );
-}
-
-function NameField({ name, setName }: { name: string; setName: (v: string) => void }) {
-  return (
-    <div className="mb-6">
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-        Name <span className="text-red-500">*</span>
-      </label>
-      <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        autoComplete="name"
-        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-      />
-    </div>
-  );
-}
-
-function OrgField({ value, setValue }: { value: string; setValue: (v: string) => void }) {
-  return (
-    <div className="mb-6">
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-        Organization (Optional)
-      </label>
-      <input
-        type="text"
-        value={value}
-        maxLength={80}
-        onChange={(e) => setValue(e.target.value)}
-        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-      />
-      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Shown with your name on events you host.</p>
-    </div>
-  );
-}
-
-function BioField({
-  bio,
-  setBio,
-  placeholder,
-}: {
-  bio: string;
-  setBio: (v: string) => void;
-  placeholder: string;
-}) {
-  return (
-    <div className="mb-6">
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-        Bio (Optional)
-      </label>
-      <textarea
-        value={bio}
-        onChange={(e) => setBio(e.target.value)}
-        placeholder={placeholder}
-        rows={3}
-        maxLength={200}
-        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white resize-none"
-      />
-      <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">{bio.length}/200 characters</p>
-    </div>
-  );
-}
-
-// Continue + a quiet Skip + the inline error, shared by all three roles.
-// Skip only waits on the save itself.
-function DetailsActions({
-  onContinue,
-  onSkip,
-  continueDisabled,
-  skipDisabled = false,
-  saving,
-  error,
-}: {
-  onContinue: () => void;
-  onSkip: () => void;
-  continueDisabled: boolean;
-  /** Skip can't skip a missing name — the one field onboarding insists on. */
-  skipDisabled?: boolean;
-  saving: boolean;
-  error: string | null;
-}) {
-  return (
-    <div>
-      {error && (
-        <p role="alert" className="mb-3 text-sm text-red-700 dark:text-red-400">
-          {error}
-        </p>
-      )}
-      <button
-        onClick={onContinue}
-        disabled={continueDisabled}
-        className="w-full py-3 px-4 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {saving ? "Saving..." : "Continue"}
-      </button>
-      <button
-        onClick={onSkip}
-        disabled={saving || skipDisabled}
-        className="mt-3 w-full py-2 text-[13.5px] font-medium text-gray-700 dark:text-gray-300 underline underline-offset-4 hover:text-gray-900 dark:hover:text-white disabled:opacity-50"
-      >
-        Skip for now
-      </button>
-    </div>
-  );
-}
-
-function FinishScreen({
-  title,
-  body,
-  onExplore,
-  secondary,
-}: {
-  title: string;
-  body: string;
-  onExplore: () => void;
-  // A real anchor with target="_blank" is honored by every browser as a
-  // trusted, user-initiated navigation — unlike a JS window.open() call from
-  // a click handler, which some browsers/extensions still block outright.
-  secondary: { label: string; onClick: () => void; href?: string };
-}) {
-  const secondaryClassName =
-    "block w-full mt-3 py-3 px-6 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-center";
-  return (
-    <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-xl text-center">
-      <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-emerald-400 to-green-500 rounded-full flex items-center justify-center">
-        <svg className="w-12 h-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-        </svg>
-      </div>
-      <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">{title}</h2>
-      <p className="text-gray-700 dark:text-gray-300 mb-8">{body}</p>
-      <button
-        onClick={onExplore}
-        className="block w-full py-4 px-6 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors text-lg text-center"
-      >
-        Explore
-      </button>
-      {secondary.href ? (
-        <a
-          href={secondary.href}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={secondary.onClick}
-          className={secondaryClassName}
+        <button
+          type="submit"
+          disabled={!title.trim() || busy !== null}
+          className={`mt-8 w-full px-4 py-3 rounded-lg text-[15px] font-semibold disabled:opacity-50 ${FOCUS}`}
+          style={{ backgroundColor: CITRON, color: INK }}
         >
-          {secondary.label}
-        </a>
-      ) : (
-        <button onClick={secondary.onClick} className={secondaryClassName}>
-          {secondary.label}
+          {busy === "shared" ? "Sharing…" : "Share it"}
         </button>
-      )}
-    </div>
+
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+          <button
+            type="button"
+            onClick={() => void leave("not_yet")}
+            disabled={busy !== null}
+            className={QUIET}
+            style={{ color: PAPER }}
+          >
+            Not yet
+          </button>
+          <button
+            type="button"
+            onClick={() => void leave("backer")}
+            disabled={busy !== null}
+            className={QUIET}
+            style={{ color: BODY }}
+          >
+            I'm here to back creatives
+          </button>
+        </div>
+      </form>
+    </main>
   );
 }
