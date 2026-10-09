@@ -39,6 +39,7 @@ import { errorMessage } from "../lib/convexError";
 import { ProjectModal } from "../components/ProjectModal";
 import { INTEREST_OPTIONS } from "../lib/browse/peopleFilter";
 import { PAGE_WIDTH } from "../lib/pageWidth";
+import { shareProjectHref } from "../lib/shareProject";
 
 // The four chips (Projects, Seeking funding, Seeking people, Jobs and gigs),
 // the Stage menu and the pure filtering live in lib/browse/projectsFilter.ts,
@@ -86,13 +87,15 @@ export default function Projects() {
   const [showPassionForm, setShowPassionForm] = useState(false);
   // The header's create button and menu and the first card in the grid do the same two
   // things, so they share one handler each.
-  const startProject = withAccount(() => setShowPassionForm(true));
+  // Starting a project signed out asks for an account, not a sign-in (Rick,
+  // 2026-10-09): a visitor has none yet. Signup brings them back to the form.
+  const startProject = () => (isAuthenticated ? setShowPassionForm(true) : navigate(shareProjectHref(false)));
   const hireSomeone = withAccount(() => setHiring(true));
   const [supporting, setSupporting] = useState<{ project: any; mode: SupportMode } | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   // /projects?new=project (the palette's "Start a project") opens the start
   // flow once, then drops the param so a refresh doesn't open it again. Signed
-  // out, it goes to log in, replacing this entry so Back doesn't land on the
+  // out, it goes to sign up, replacing this entry so Back doesn't land on the
   // param again, and the redirect keeps ?new=project so the flow opens when
   // they come back. Wait out the token check first: until it settles a
   // signed-in member reads as signed out.
@@ -100,7 +103,7 @@ export default function Projects() {
   useEffect(() => {
     if (!wantsNewProject || authLoading) return;
     if (!isAuthenticated) {
-      navigate(`/login?redirect=${encodeURIComponent(`/projects?${searchParams}`)}`, { replace: true });
+      navigate(`/signup?redirect=${encodeURIComponent(`/projects?${searchParams}`)}`, { replace: true });
       return;
     }
     setShowPassionForm(true);
