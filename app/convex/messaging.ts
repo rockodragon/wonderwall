@@ -5,6 +5,7 @@ import type { QueryCtx } from "./_generated/server";
 import { auth } from "./auth";
 import { scheduleNotificationEmail } from "./emailHelpers";
 import type { Doc, Id } from "./_generated/dataModel";
+import { isEventHost } from "./eventHosts";
 
 // Helper to resolve image URL from storage or external URL
 async function resolveImageUrl(
@@ -43,6 +44,43 @@ async function getBlockedUserIds(
   }
 
   return blockedIds;
+}
+
+/**
+ * Whether `guestId` is on the guest list of an event `hostId` hosts —
+ * the same three places events.getGuestList reads: a request to join (any
+ * status), an RSVP, or a paid ticket. A host writing to their own guests
+ * isn't a cold message, so it doesn't count toward the daily limit.
+ */
+export async function isHostsGuest(
+  ctx: QueryCtx,
+  hostId: Id<"users">,
+  guestId: Id<"users">,
+): Promise<boolean> {
+  const eventIds = new Set<Id<"events">>();
+  for (const a of await ctx.db
+    .query("eventApplications")
+    .withIndex("by_applicantId", (q) => q.eq("applicantId", guestId))
+    .collect()) {
+    eventIds.add(a.eventId);
+  }
+  for (const r of await ctx.db
+    .query("eventRsvps")
+    .withIndex("by_userId", (q) => q.eq("userId", guestId))
+    .collect()) {
+    eventIds.add(r.eventId);
+  }
+  for (const p of await ctx.db
+    .query("ticketPurchases")
+    .withIndex("by_userId", (q) => q.eq("userId", guestId))
+    .collect()) {
+    if (p.status === "paid") eventIds.add(p.eventId);
+  }
+  for (const eventId of eventIds) {
+    const event = await ctx.db.get(eventId);
+    if (event && isEventHost(event, hostId)) return true;
+  }
+  return false;
 }
 
 /**
@@ -174,15 +212,25 @@ export const sendMessage = mutation({
     );
 
     // Daily limit on cold messages — ones to someone who hasn't written
-    // back. Replying in a real conversation is never limited. Admins skip it.
+    // back. Replying in a real conversation is never limited. Admins skip it,
+    // and so does a host writing to their own event's guests.
     const otherReplied = async (conversationId: Id<"conversations">) =>
       (await ctx.db
         .query("messages")
         .withIndex("by_conversationId", (q) => q.eq("conversationId", conversationId))
         .filter((q) => q.neq(q.field("senderId"), userId))
         .first()) !== null;
+    const notCold = async (conversationId: Id<"conversations">) => {
+      if (await otherReplied(conversationId)) return true;
+      const other = (await ctx.db.get(conversationId))?.participants.find((p) => p !== userId);
+      return !!other && (await isHostsGuest(ctx, userId, other));
+    };
 
-    if (!senderProfile?.isAdmin && !(conversation && (await otherReplied(conversation._id)))) {
+    if (
+      !senderProfile?.isAdmin &&
+      !(conversation && (await otherReplied(conversation._id))) &&
+      !(await isHostsGuest(ctx, userId, args.recipientId))
+    ) {
       const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
       const recentMessages = await ctx.db
         .query("messages")
@@ -195,7 +243,7 @@ export const sendMessage = mutation({
       }
       let coldSent = 0;
       for (const [conversationId, count] of perConversation) {
-        if (!(await otherReplied(conversationId))) coldSent += count;
+        if (!(await notCold(conversationId))) coldSent += count;
       }
 
       const memberships = await ctx.db
