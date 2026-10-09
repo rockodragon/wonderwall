@@ -27,6 +27,7 @@ The list is `GARDEN_HOSTS` in `app/convex/garden/brandHosts.ts`, shared by the b
 - `/` is The Garden's page: the public header, then its community page (D2). The edge serves this path without the prerendered Exchange home, so that doesn't flash first. Old `/?invite=` links still go to signup.
 - The public header shows the lockup, labelled "The Garden home".
 - The tab title says The Garden. The favicon, home-screen icons, manifest, theme color `#121212` and link previews are The Garden's.
+- A page with no link preview of its own (`/`, the community page, anything not prerendered) gets The Garden's at the edge: the name, the disc, and the first paragraph of its host-tools description (else the tagline), fetched from `getCommunityLanding`.
 - Login shows the lockup, "Sign in to The Garden" and "Same account as TheCreative.exchange." Signup's header link is the lockup.
 - Sign-in codes say The Garden:
   - texts: "The Garden sign-in code: …"

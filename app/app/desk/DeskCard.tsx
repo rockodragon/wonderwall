@@ -243,6 +243,107 @@ export const DeskCardView = memo(function DeskCardView({
   );
 });
 
+const NO_ASPECT = () => {};
+
+/**
+ * A card at rest off the desk, as a link to its page: The Garden's home page
+ * shelves (brand/GardenHome.tsx). The same face, tilt, shadow and lift as on
+ * the desk, in normal flow rather than placed, and it never opens. `stamp`
+ * (an event's date) sits on a small dark chip of its own instead of as the
+ * face's kicker, so it reads over a poster's own lettering. `label` (a paper
+ * note's name, "The Sophia Grant Fund") is set plainly at the top, in place
+ * of the face's mono kicker.
+ */
+export function RestingCard({
+  card,
+  width,
+  height,
+  tilt,
+  stamp,
+  label,
+}: {
+  card: DeskCard;
+  width: number;
+  height: number;
+  tilt: number;
+  stamp?: string;
+  label?: string;
+}) {
+  const reduced = useReducedMotion();
+  const [lift, setLift] = useState(false);
+  const name = [stamp ?? label ?? card.face.kicker, card.face.title, card.face.foot].filter(Boolean).join(", ");
+  return (
+    <div
+      onPointerEnter={() => setLift(true)}
+      onPointerLeave={() => setLift(false)}
+      style={{
+        position: "relative",
+        flex: "none",
+        width,
+        height,
+        borderRadius: RADIUS,
+        transform: `translateY(${lift ? -8 : 0}px) rotate(${lift ? 0 : tilt}deg)`,
+        boxShadow: lift ? SHADOW_HOVER : SHADOW,
+        transition: motion(["transform", "box-shadow"], reduced),
+      }}
+    >
+      <div style={{ position: "absolute", inset: 0, overflow: "hidden", borderRadius: RADIUS }}>
+        <Face card={card} open={false} sheet={false} share={1} scale={width / CARD_W} onAspect={NO_ASPECT} />
+        {stamp && (
+          <span
+            aria-hidden
+            style={{
+              position: "absolute",
+              top: 14,
+              left: 14,
+              padding: "6px 9px",
+              borderRadius: 3,
+              background: "rgba(18,18,18,.86)",
+              color: DESK.text,
+              fontFamily: DESK_MONO,
+              fontSize: 12,
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              lineHeight: 1,
+            }}
+          >
+            {stamp}
+          </span>
+        )}
+        {label && (
+          <span
+            aria-hidden
+            style={{
+              position: "absolute",
+              top: 20,
+              left: 22,
+              right: 22,
+              color: card.note ? DESK.paperInk : DESK.text,
+              fontFamily: DESK_SANS,
+              fontSize: 17,
+              fontWeight: 500,
+              lineHeight: 1.25,
+              textWrap: "balance",
+            }}
+          >
+            {label}
+          </span>
+        )}
+      </div>
+      <Link
+        to={card.href}
+        aria-label={name}
+        onFocus={(e) => {
+          if (isFocusVisible(e.currentTarget)) setLift(true);
+        }}
+        onBlur={() => setLift(false)}
+        className={FOCUS_RING_CLASS}
+        style={{ position: "absolute", inset: 0, borderRadius: RADIUS }}
+      />
+    </div>
+  );
+}
+
 /**
  * The "+" card that leads Projects' and Events' grids (deskBrowse
  * browseCreateCard): placed, sized, lifted and risen like the cards around it,

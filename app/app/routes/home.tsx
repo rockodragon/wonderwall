@@ -10,7 +10,7 @@ import { api } from "../../convex/_generated/api";
 import { GARDEN_SLUG } from "../lib/communitySlugs";
 import { stripInlineMarks } from "../lib/richText";
 import { useBrand } from "../brand/brands";
-import { CommunityPage } from "./communities.$slug";
+import { GardenHome } from "../brand/GardenHome";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -71,18 +71,11 @@ export default function Home() {
 
   const brand = useBrand();
 
-  // On The Garden's own address the front door is The Garden's page
-  // (docs/features/garden-brand-domains.md, D2). The edge serves this path
-  // there without the prerendered Exchange home, so it doesn't flash first.
-  if (brand === "garden") {
-    return (
-      <div className="min-h-screen bg-[var(--garden-ink)]">
-        <link rel="stylesheet" href="/tokens.css" />
-        <SiteHeader />
-        <CommunityPage slug={GARDEN_SLUG} />
-      </div>
-    );
-  }
+  // On The Garden's own address the front door is The Garden's home
+  // (docs/features/garden-brand-domains.md, D2; brand/GardenHome.tsx). The
+  // edge serves this path there without the prerendered Exchange home, so it
+  // doesn't flash first.
+  if (brand === "garden") return <GardenHome />;
 
   const displayFont = "'Bricolage Grotesque', sans-serif";
   const monoFont = "'JetBrains Mono', monospace";

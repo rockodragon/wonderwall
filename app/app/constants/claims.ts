@@ -69,6 +69,10 @@ export const CLAIMS = {
   memberDirected: "Each month you choose who gets your monthly grant: a creative, a project, or the grant fund.",
   memberDirectedDefault: "If you don't pick within a week, it goes to the grant fund.",
   memberDirectedFull: "What you give goes to them in full.",
+  /** The Garden home's giving call (Rick, 2026-10-09, his words): members
+   *  direct their monthly grant (memberDirected), so it's theirs to vote with. */
+  giveAway: "Give some of our grant money away",
+  trustYourVote: "We trust your vote.",
 
   // Added 2026-10-03 for /pricing, awaiting Rick's OK (claims.md, "Added
   // 2026-10-03"). From the plan's Tables update and §3, checked against the
