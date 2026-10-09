@@ -34,6 +34,7 @@ import { toEmbedUrl } from "../lib/videoEmbed";
 import { Dissolve } from "../hooks/useReveal";
 import { EmbedStill } from "../components/EmbedStill";
 import { CoverFrame } from "../components/CoverFrame";
+import { EMPTY_COVER } from "../components/emptyCover";
 import { CreateCard } from "../components/CreateCard";
 import { errorMessage } from "../lib/convexError";
 import { ProjectModal } from "../components/ProjectModal";
@@ -444,16 +445,6 @@ function PostMenu({
     </div>
   );
 }
-
-/** The cover a project without a photo gets. Lighter than the card around
- * it, with a faint hairline texture, so an empty cover reads as a surface
- * rather than a hole with a "missing image" icon in it. Neutral on purpose:
- * citron is for actions and chip-scale badges, never large fills. */
-const EMPTY_COVER = {
-  backgroundColor: "var(--garden-hairline-raised)",
-  backgroundImage:
-    "repeating-linear-gradient(135deg, rgba(247,247,244,0.05) 0 1px, transparent 1px 11px)",
-};
 
 export function ProjectCard({
   project,
