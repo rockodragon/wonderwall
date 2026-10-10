@@ -28,6 +28,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError } from "convex/values";
 import { guestBackingThrottled } from "./stripeHandlers";
 import { isHidden } from "../moderationRules";
+import { emailFirstCheer, isFirstCheerReceived } from "../engagement/firstCheer";
 
 const FINANCIAL_TYPES = new Set(["financial_one_time", "financial_recurring", "financial_annual"]);
 const VALID_TYPES = new Set([...FINANCIAL_TYPES, "encouragement", "resource"]);
@@ -37,7 +38,8 @@ const VALID_TYPES = new Set([...FINANCIAL_TYPES, "encouragement", "resource"]);
 // Backings tell their owner through memberships.ts's notifyBackingConfirmed;
 // cheers and offers of help used to tell nobody. The pure notice is below,
 // covered by support.test.ts; the email goes in the daily one
-// (supportDigest.ts).
+// (supportDigest.ts), except a member's first cheer, which goes at once
+// (engagement/firstCheer.ts).
 
 export type SupportNotice = {
   type: "encouragement" | "help_offered";
@@ -150,7 +152,7 @@ export const supportProject = mutation({
 
     // Tell the owner about a cheer or an offer of help. Same link rule as
     // notifyBackingConfirmed: the public story when there is one. The email
-    // waits for the daily one (supportDigest.ts).
+    // waits for the daily one (supportDigest.ts), unless it's the first cheer.
     const notice = supportNotice({
       type: args.type,
       supporterUserId: userId,
@@ -163,13 +165,20 @@ export const supportProject = mutation({
     });
     if (notice) {
       const linkUrl = project.storySlug ? `/story/${project.storySlug}` : `/projects/${project._id}`;
-      await ctx.db.insert("notifications", {
+      // The first cheer a member ever gets is emailed at once (Rick's
+      // exception to one message a day, docs/features/engagement-loops.md);
+      // digestedAt keeps it out of the daily email. Later ones wait for it.
+      const first = notice.type === "encouragement" && (await isFirstCheerReceived(ctx, project.userId, supportId));
+      const now = Date.now();
+      const notificationId = await ctx.db.insert("notifications", {
         userId: project.userId,
         ...notice,
         linkUrl,
         projectId: project._id,
-        createdAt: Date.now(),
+        ...(first ? { digestedAt: now } : {}),
+        createdAt: now,
       });
+      if (first) await emailFirstCheer(ctx, notificationId);
     }
 
     return { supportId };
