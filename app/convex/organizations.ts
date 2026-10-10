@@ -294,6 +294,31 @@ async function removePosition(ctx: MutationCtx, position: Doc<"orgPositions">) {
   await ctx.db.delete(position._id);
   const rest = sortPositions(await positionsOfProfile(ctx, position.profileId)).filter(isCurrent);
   await renumber(ctx, position.profileId, rest.map((p) => p._id));
+  await clearJoinNotices(ctx, position);
+}
+
+/** Someone who has left (or been removed) is no longer there to remove: the
+ * "X joined" notice sent to the admins goes too, so it can't point at a
+ * page they're missing from. */
+async function clearJoinNotices(ctx: MutationCtx, position: Doc<"orgPositions">) {
+  const org = await ctx.db.get(position.organizationId);
+  if (!org) return;
+  const linkUrl = `/orgs/${org.slug}/edit`;
+  for (const p of await positionsOfOrg(ctx, org._id)) {
+    if (!p.isAdmin) continue;
+    const notices = await ctx.db
+      .query("notifications")
+      .withIndex("by_userId", (q) => q.eq("userId", p.userId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("type"), "org_joined"),
+          q.eq(q.field("relatedUserId"), position.userId),
+          q.eq(q.field("linkUrl"), linkUrl),
+        ),
+      )
+      .collect();
+    for (const n of notices) await ctx.db.delete(n._id);
+  }
 }
 
 /** The signed-in person may edit this organization: one of its admins, or a

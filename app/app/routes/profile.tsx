@@ -12,6 +12,8 @@ import { usePostHog } from "@posthog/react";
 import { stageLabel, type Stage } from "../lib/stage";
 import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
 import { OrgLogo } from "../components/OrgLogo";
+import { CoverFrame } from "../components/CoverFrame";
+import { EMPTY_COVER } from "../components/emptyCover";
 import { yearsLabel } from "../../convex/organizationRules";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { favoritesHref } from "../lib/shortlist/url";
@@ -538,47 +540,9 @@ export default function Profile() {
           <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
             Working on
           </h2>
-          <div className="divide-y divide-[var(--app-hairline)]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {openProjects.map((a: any) => (
-              <Link
-                key={a.projectId}
-                to={`/projects/${a.projectId}`}
-                className="group flex items-start gap-3 py-3"
-              >
-                {a.imageUrl ? (
-                  <img
-                    src={a.imageUrl}
-                    alt=""
-                    className="w-12 h-12 rounded-lg object-cover shrink-0"
-                  />
-                ) : (
-                  <div
-                    className="w-12 h-12 rounded-lg shrink-0 flex items-center justify-center text-sm font-semibold"
-                    style={{ backgroundColor: "var(--app-accent-wash)", color: "var(--app-accent-ink)" }}
-                  >
-                    {a.title?.charAt(0)}
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline justify-between gap-3 flex-wrap">
-                    <div className="flex items-baseline gap-2 flex-wrap min-w-0">
-                      <span
-                        className="font-medium group-hover:underline break-words"
-                        style={{ color: "var(--app-text)" }}
-                      >
-                        {a.title}
-                      </span>
-                      <span className="text-sm" style={{ color: "var(--app-text-muted)" }}>
-                        {a.role || "Team"}
-                      </span>
-                    </div>
-                    <span className="text-sm shrink-0" style={{ color: "var(--app-text-muted)" }}>
-                      {stageLabel(a.stage as Stage)}
-                    </span>
-                  </div>
-                  <ProjectStatusLine project={a} />
-                </div>
-              </Link>
+              <WorkingOnCard key={a.projectId} project={a} />
             ))}
           </div>
         </div>
@@ -809,48 +773,90 @@ export default function Profile() {
 // One line of what an open project is asking for — hiring (its open roles,
 // or a paid posting's own pay), gig dates, raising. Nothing when it's
 // asking for nothing: the stage beside the title already says enough.
-function ProjectStatusLine({ project: a }: { project: any }) {
-  const chips: { label: string; detail: string }[] = [];
-  if (a.gig) {
-    chips.push({ label: "Recurring gig", detail: a.gig.venueName ? `dates at ${a.gig.venueName}` : "dates open" });
-  } else if (a.kind === "paid") {
-    const pay = a.budgetType ? budgetAmountLabel(a) ?? budgetKindLabel(a) : null;
-    chips.push({ label: budgetKindLabel(a) === "Volunteer" ? "Volunteer" : "Job", detail: pay ?? "" });
-  }
-  if (a.openRoles?.length > 0) {
-    const roles = a.openRoles
-      .slice(0, 3)
-      .map((r: any) => {
-        const pay = r.budgetType ? (budgetAmountLabel(r) ?? budgetKindLabel(r)) : null;
-        return pay ? `${r.title} (${pay})` : r.title;
-      })
-      .join(", ");
-    const more = a.openRoles.length > 3 ? ` +${a.openRoles.length - 3} more` : "";
-    chips.push({ label: "Seeking people", detail: roles + more });
-  }
-  if (a.raising) {
-    chips.push({
-      label: "Seeking funding",
-      detail: a.goal
-        ? `$${(a.raisedCents / 100).toLocaleString("en-US")} of $${a.goal.toLocaleString("en-US")}`
-        : "",
-    });
-  }
-  if (chips.length === 0) return null;
+/** An open project on someone's profile, in the Projects page's card
+ * (routes/projects.tsx ProjectCard): the 4:5 cover with what it is and its
+ * pay on top, then the title, their part in it and what it's after. */
+function WorkingOnCard({ project: a }: { project: any }) {
+  const job = !a.gig && a.kind === "paid";
+  const volunteer = job && budgetKindLabel(a) === "Volunteer";
+  const pay = job && !volunteer && a.budgetType ? budgetAmountLabel(a) : null;
+  const kindWord = a.gig
+    ? "Recurring gig"
+    : job
+      ? volunteer ? "Volunteer" : "Job"
+      : a.raising
+        ? "Seeking funding"
+        : a.openRoles?.length > 0
+          ? "Seeking people"
+          : "Project";
+  const roles: string = (a.openRoles ?? [])
+    .slice(0, 3)
+    .map((r: any) => r.title)
+    .join(", ");
+  const moreRoles = (a.openRoles?.length ?? 0) > 3 ? ` +${a.openRoles.length - 3} more` : "";
+
   return (
-    <div className="flex flex-col gap-1 mt-1.5">
-      {chips.map((c, i) => (
-        <p key={i} className="text-[13px]" style={{ color: "var(--app-text-muted)" }}>
+    <Link
+      to={`/projects/${a.projectId}`}
+      className="group rounded-2xl overflow-hidden border flex flex-col transition-colors hover:border-[var(--app-accent)]"
+      style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)" }}
+    >
+      <div className="relative">
+        {a.imageUrl ? (
+          <CoverFrame src={a.imageUrl} alt={a.title} />
+        ) : (
+          // No photo: a strip on a phone, the full 4:5 where cards sit side
+          // by side and rows must line up (same as ProjectCard).
+          <div className="h-16 sm:h-auto sm:aspect-[4/5]" style={EMPTY_COVER} />
+        )}
+        <div className="absolute inset-x-2 top-2 flex items-start justify-between gap-2">
           <span
-            className="inline-block mr-2 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-[0.06em]"
-            style={{ backgroundColor: "var(--app-accent-wash)", color: "var(--app-accent-ink)" }}
+            className="min-w-0 px-2 py-0.5 rounded-[14px] text-[12px] font-semibold uppercase tracking-[0.06em] leading-snug"
+            style={{
+              fontFamily: "var(--garden-font-mono)",
+              backgroundColor: "rgba(20,20,18,0.72)",
+              color: "var(--garden-paper)",
+            }}
           >
-            {c.label}
+            {kindWord}
           </span>
-          {c.detail}
+          {pay && (
+            <span
+              className="shrink-0 px-2.5 py-1 rounded-full text-xs font-bold"
+              style={{
+                fontFamily: "var(--garden-font-mono)",
+                backgroundColor: "var(--garden-citron)",
+                color: "var(--garden-ink)",
+              }}
+            >
+              {pay}
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="p-4 flex-1 flex flex-col gap-1.5 min-w-0">
+        <h3
+          className="font-semibold line-clamp-2 group-hover:underline"
+          style={{ color: "var(--app-text)", fontFamily: "var(--garden-font-display)" }}
+        >
+          {a.title}
+        </h3>
+        <p className="text-[13.5px]" style={{ color: "var(--app-text-muted)" }}>
+          {[a.role || "Team", stageLabel(a.stage as Stage)].filter(Boolean).join(" · ")}
         </p>
-      ))}
-    </div>
+        {roles && (
+          <p className="text-[13.5px] line-clamp-2" style={{ color: "var(--app-text-muted)" }}>
+            Looking for {roles}
+            {moreRoles}
+          </p>
+        )}
+        {a.raising && a.goal ? (
+          <p className="text-[13.5px]" style={{ color: "var(--app-text-muted)" }}>
+            ${(a.raisedCents / 100).toLocaleString("en-US")} of ${a.goal.toLocaleString("en-US")} raised
+          </p>
+        ) : null}
+      </div>
+    </Link>
   );
 }
 

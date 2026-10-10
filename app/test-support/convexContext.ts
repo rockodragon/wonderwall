@@ -33,11 +33,19 @@ export function makeCtx(
         return api;
       },
       filter(build: (q: any) => any) {
+        const val = (x: any, r: Row) => (typeof x === "function" ? x(r) : x);
+        const cmp = (test: (a: any, b: any) => boolean) => (a: any, b: any) => (r: Row) =>
+          test(val(a, r), val(b, r));
         const q = {
           field: (name: string) => (r: Row) => r[name],
-          eq: (a: any, b: any) => (r: Row) =>
-            (typeof a === "function" ? a(r) : a) ===
-            (typeof b === "function" ? b(r) : b),
+          eq: cmp((a, b) => a === b),
+          neq: cmp((a, b) => a !== b),
+          gt: cmp((a, b) => a > b),
+          gte: cmp((a, b) => a >= b),
+          lt: cmp((a, b) => a < b),
+          lte: cmp((a, b) => a <= b),
+          and: (...ps: ((r: Row) => boolean)[]) => (r: Row) => ps.every((p) => p(r)),
+          or: (...ps: ((r: Row) => boolean)[]) => (r: Row) => ps.some((p) => p(r)),
         };
         const pred = build(q);
         rows = rows.filter((r) => pred(r));
