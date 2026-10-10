@@ -268,7 +268,7 @@ export default function Signup() {
 
       // The browser's signup event. user_signed_up is the server's (convex
       // auth.ts), under the user id, and is what PostHog workflows trigger on.
-      // No email, phone or names go to PostHog (PostHogIdentify sends id + name).
+      // Identity is PostHogIdentify's: the user id, with name and email as properties.
       posthog?.capture("signup_completed", { method: "phone", invite_slug: inviteSlug });
 
       navigate("/onboarding", { replace: true });
@@ -344,8 +344,8 @@ export default function Signup() {
         });
       }
 
-      // The browser's signup event; identity is PostHogIdentify's (user id,
-      // never the email). user_signed_up is the server's.
+      // The browser's signup event; identity is PostHogIdentify's (the user
+      // id, never the email). user_signed_up is the server's.
       posthog?.capture("signup_completed", { method: "password", invite_slug: inviteSlug });
 
       navigate("/onboarding", { replace: true });

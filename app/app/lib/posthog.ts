@@ -7,7 +7,7 @@
 // sends to (convex/posthog.ts POSTHOG_API_KEY); it's meant to ship in page
 // code. VITE_PUBLIC_POSTHOG_KEY overrides it. Settings are Rick's snippet:
 // pageviews and autocapture by PostHog's defaults, and a person profile only
-// for someone who signed in (identify, in PostHogIdentify).
+// for someone who signed in (identify by user id, in PostHogIdentify).
 //
 // Started on the live site only: never on localhost or a Pages preview, so
 // testing doesn't count as people.
