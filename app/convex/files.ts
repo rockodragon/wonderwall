@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { auth } from "./auth";
 import { requireEventHost } from "./eventHosts";
 import { requireOwnProfileRow } from "./helpers";
@@ -278,7 +278,9 @@ export const removeEventGalleryImage = mutation({
 });
 
 // Admin: Set artifact image from storage ID (no auth required)
-export const adminSetArtifactImage = mutation({
+// Operator-only (dashboard or `npx convex run`): internal, never callable
+// from a browser (it had no sign-in or admin check; found 2026-10-10).
+export const adminSetArtifactImage = internalMutation({
   args: {
     artifactId: v.id("artifacts"),
     storageId: v.id("_storage"),
@@ -302,7 +304,9 @@ export const adminSetArtifactImage = mutation({
 });
 
 // Admin: Generate upload URL without auth (for CLI uploads)
-export const adminGenerateUploadUrl = mutation({
+// Operator-only (dashboard or `npx convex run`): internal, never callable
+// from a browser (it had no sign-in or admin check; found 2026-10-10).
+export const adminGenerateUploadUrl = internalMutation({
   args: {},
   handler: async (ctx) => {
     return await ctx.storage.generateUploadUrl();

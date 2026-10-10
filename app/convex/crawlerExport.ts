@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, action, mutation } from "./_generated/server";
+import { internalMutation, query, action, mutation } from "./_generated/server";
 import { api } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 
@@ -217,7 +217,9 @@ export const getOrgsForWebhook = query({
 // Import Utilities (CSV Import)
 // ============================================
 
-export const importFromCSV = mutation({
+// Operator-only (dashboard or `npx convex run`): internal, never callable
+// from a browser (it had no sign-in or admin check; found 2026-10-10).
+export const importFromCSV = internalMutation({
   args: {
     rows: v.array(
       v.object({
@@ -386,7 +388,9 @@ export const getOutreachQueue = query({
 // Sync Status Tracking
 // ============================================
 
-export const recordExportBatch = mutation({
+// Operator-only (dashboard or `npx convex run`): internal, never callable
+// from a browser (it had no sign-in or admin check; found 2026-10-10).
+export const recordExportBatch = internalMutation({
   args: {
     organizationIds: v.array(v.id("crawledOrganizations")),
     destination: v.string(), // "upsight" | "hubspot" | "csv"

@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { auth } from "./auth";
 import { scheduleNotificationEmail } from "./emailHelpers";
@@ -316,7 +316,9 @@ export const debugUnlimitedStatus = query({
 });
 
 // Admin: Set unlimited invites for a profile by email
-export const setUnlimitedInvites = mutation({
+// Operator-only (dashboard or `npx convex run`): internal, never callable
+// from a browser (it had no sign-in or admin check; found 2026-10-10).
+export const setUnlimitedInvites = internalMutation({
   args: { email: v.string(), unlimited: v.boolean() },
   handler: async (ctx, args) => {
     // Get all users and find one with matching email

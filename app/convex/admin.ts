@@ -1,4 +1,4 @@
-import { query, mutation } from "./_generated/server";
+import { internalMutation, query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { auth } from "./auth";
 import { requireAdmin, requireAdminCtx, ensureAdminCode } from "./helpers";
@@ -7,7 +7,9 @@ import { ADMIN_EMAILS } from "./adminEmails";
 
 // Bootstrap admin - only works if no admins exist yet
 // Run from Convex dashboard: admin:bootstrapAdmin({ email: "rickmoy@gmail.com" })
-export const bootstrapAdmin = mutation({
+// Operator-only (dashboard or `npx convex run`): internal, never callable
+// from a browser (it had no sign-in or admin check; found 2026-10-10).
+export const bootstrapAdmin = internalMutation({
   args: {
     email: v.string(),
   },

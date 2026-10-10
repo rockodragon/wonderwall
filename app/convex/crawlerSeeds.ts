@@ -1,12 +1,14 @@
 import { v } from "convex/values";
-import { mutation, action } from "./_generated/server";
+import { internalMutation, mutation, action } from "./_generated/server";
 import { api } from "./_generated/api";
 
 // ============================================
 // Seed Data Sources
 // ============================================
 
-export const seedDataSources = mutation({
+// Operator-only (dashboard or `npx convex run`): internal, never callable
+// from a browser (it had no sign-in or admin check; found 2026-10-10).
+export const seedDataSources = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
@@ -119,7 +121,9 @@ export const seedDataSources = mutation({
 // Sample Test Organizations
 // ============================================
 
-export const seedTestOrganizations = mutation({
+// Operator-only (dashboard or `npx convex run`): internal, never callable
+// from a browser (it had no sign-in or admin check; found 2026-10-10).
+export const seedTestOrganizations = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();

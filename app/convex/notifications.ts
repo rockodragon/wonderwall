@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 import { auth } from "./auth";
@@ -363,8 +363,10 @@ function stripQueryAndHash(url: string): string {
   return url.split("?")[0].split("#")[0];
 }
 
-// Internal helper to create a notification (used by other mutations)
-export const createNotification = mutation({
+// Internal only. It was a public mutation with no sign-in check, so anyone
+// could put any notice, link and picture in anyone's inbox (found 2026-10-10;
+// nothing called it). Server code inserts notifications directly.
+export const createNotification = internalMutation({
   args: {
     userId: v.id("users"),
     type: v.string(),
