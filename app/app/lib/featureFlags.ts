@@ -1,7 +1,6 @@
-// Lightweight stand-in for real feature flags — PostHog isn't actually
-// wired up yet (no VITE_PUBLIC_POSTHOG_KEY, no PostHogProvider anywhere;
-// every posthog?.capture()/isFeatureEnabled() call in the app is currently
-// a silent no-op). When PostHog is set up for real, swap the constant
+// Lightweight stand-in for real feature flags. PostHog is wired in the
+// browser since 2026-10-09 (lib/posthog.ts, PostHogProvider in root.tsx),
+// but no flag is set up in PostHog yet. To move a flag there, swap the constant
 // below for `posthog.isFeatureEnabled("ffJobs")` and delete this file —
 // same name on purpose so that's a one-line change, not a rename.
 //

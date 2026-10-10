@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { action, httpAction } from "./_generated/server";
+import { action, httpAction, internalAction, type MutationCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 const POSTHOG_HOST = "https://us.i.posthog.com";
 const POSTHOG_API_KEY = process.env.POSTHOG_API_KEY;
@@ -16,6 +17,44 @@ function transformProperties(
   }
   return result;
 }
+
+/** A product event from the server, under the member's user id: the same id
+ *  the browser identifies them by (components/PostHogIdentify.tsx), so it
+ *  joins their person in PostHog. For events that must count whatever the
+ *  browser does (ad blockers, a closed tab): project_created, the activation
+ *  event (docs/features/activation-onboarding-audit.md). Scheduled, so the
+ *  mutation never waits on PostHog or fails because of it. */
+export async function trackEvent(
+  ctx: MutationCtx,
+  event: string,
+  userId: string,
+  properties?: Record<string, string | number | boolean | null>,
+): Promise<void> {
+  await ctx.scheduler.runAfter(0, internal.posthog.captureServerEvent, { event, distinctId: userId, properties });
+}
+
+export const captureServerEvent = internalAction({
+  args: { event: v.string(), distinctId: v.string(), properties: v.optional(v.any()) },
+  handler: async (_ctx, args) => {
+    if (!POSTHOG_API_KEY) return;
+    try {
+      const response = await fetch(`${POSTHOG_HOST}/capture/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          api_key: POSTHOG_API_KEY,
+          event: args.event,
+          distinct_id: args.distinctId,
+          properties: { ...(args.properties ?? {}), source: "server" },
+          timestamp: new Date().toISOString(),
+        }),
+      });
+      if (!response.ok) console.error(`[PostHog] Server event failed: ${response.status}`);
+    } catch (error) {
+      console.error("[PostHog] Server event error:", error);
+    }
+  },
+});
 
 // Server-side event capture - frontend calls this action directly
 export const capture = action({

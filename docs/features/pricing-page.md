@@ -41,7 +41,7 @@ Tagged by how sure we are. "Plan" = `creatives-exchange-discussion-brief.md`; "c
    - The code adds them on top only for backings, gifts, classes and Tables. Dues, tickets, pool contributions and community products absorb them.
    - The page says nothing about card fees on dues. Pick one rule.
 5. **Posting projects.** [Likely]
-   - `/join` sells "Post a project and get backed" as member-only.
+   - `/join` sold "Post a project and get backed" as member-only. Fixed 2026-10-09 (Rick: posting is free for every account): it now lists "Post a project" under the free account and nothing about being backed under Member.
    - The plan says "members can be backed by patrons".
    - The server lets any account post a project.
    - Decide whether being backed needs membership. `/pricing` lists posting as free and doesn't list "receive backing" at all.
