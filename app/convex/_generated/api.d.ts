@@ -9,6 +9,7 @@
  */
 
 import type * as admin from "../admin.js";
+import type * as admin_accountToOrganization from "../admin/accountToOrganization.js";
 import type * as admin_mergeUsers from "../admin/mergeUsers.js";
 import type * as adminEmails from "../adminEmails.js";
 import type * as analytics from "../analytics.js";
@@ -156,6 +157,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
+  "admin/accountToOrganization": typeof admin_accountToOrganization;
   "admin/mergeUsers": typeof admin_mergeUsers;
   adminEmails: typeof adminEmails;
   analytics: typeof analytics;
