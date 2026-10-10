@@ -1,8 +1,8 @@
-// /admin/engagement-loops — the emails PostHog asks the app to send
-// (docs/features/engagement-loops.md). For each loop: an on/off switch, the
-// subject and text, what happened in the last 7 and 30 days (sent, shared,
-// skipped by reason), and what to paste into PostHog. The secret is never
-// shown here: it lives in the NUDGE_WEBHOOK_SECRET env var and in PostHog.
+// /admin/engagement-loops — the emails the app sends on its own clock
+// (docs/features/engagement-loops.md): signup schedules each loop for its
+// day, and the run re-checks before sending. For each loop: an on/off
+// switch, the subject and text, and what happened in the last 7 and 30 days
+// (sent, shared, skipped by reason).
 //
 // Admin detection mirrors admin.activity.tsx: the client-checkable
 // profile.isAdmin flag, so a non-admin gets a message instead of a stuck
@@ -10,7 +10,7 @@
 // server functions check admin themselves (requireAdminCtx). Hooks stay
 // above every return.
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import type { MetaFunction } from "react-router";
 import { api } from "../../convex/_generated/api";
@@ -24,7 +24,6 @@ import {
   type NoticeTone,
 } from "../components/admin/AdminUi";
 import { errorMessage } from "../lib/convexError";
-import { NUDGE_SECRET_ENV, NUDGE_SECRET_HEADER, nudgeWebhookBody, nudgeWebhookUrl } from "../lib/nudgeWebhook";
 
 export const meta: MetaFunction = () => [
   { title: "Engagement loops | Admin" },
@@ -39,7 +38,6 @@ export default function AdminEngagementLoopsPage() {
   const profile = useQuery(api.profiles.getMyProfile);
   const isAdmin = profile?.isAdmin === true;
   const loops = useQuery(api.engagement.nudges.adminOverview, isAdmin ? {} : "skip");
-  const webhookUrl = nudgeWebhookUrl(import.meta.env.VITE_CONVEX_URL as string | undefined);
 
   if (profile === undefined) {
     return <AdminLoading>Checking access…</AdminLoading>;
@@ -50,13 +48,13 @@ export default function AdminEngagementLoopsPage() {
 
   return (
     <AdminFrame width="list">
-      <AdminHeader title="Engagement loops" back sub="PostHog says when. The app checks, then sends." />
+      <AdminHeader title="Engagement loops" back sub="Signup schedules each one. It checks again, then sends." />
       {loops === undefined ? (
         <AdminLoading>Loading loops…</AdminLoading>
       ) : (
         <div className="space-y-6">
           {loops.map((loop) => (
-            <LoopCard key={loop.key} loop={loop} webhookUrl={webhookUrl} />
+            <LoopCard key={loop.key} loop={loop} />
           ))}
         </div>
       )}
@@ -68,7 +66,7 @@ export default function AdminEngagementLoopsPage() {
 // One loop
 // ——————————————————————————————————————————————————————————————
 
-function LoopCard({ loop, webhookUrl }: { loop: Loop; webhookUrl: string | null }) {
+function LoopCard({ loop }: { loop: Loop }) {
   const save = useMutation(api.engagement.nudges.adminSave);
   const [subject, setSubject] = useState(loop.subject);
   const [body, setBody] = useState(loop.body);
@@ -114,7 +112,7 @@ function LoopCard({ loop, webhookUrl }: { loop: Loop; webhookUrl: string | null 
           <h2 id={`${loop.key}-name`} className={admin.h2}>
             {loop.name}
           </h2>
-          <p className={`mt-1 ${admin.meta}`}>PostHog waits: {loop.when}.</p>
+          <p className={`mt-1 ${admin.meta}`}>{loop.when}.</p>
         </div>
         <LoopSwitch name={loop.name} on={loop.enabled} busy={busy} onToggle={toggle} />
       </div>
@@ -156,7 +154,6 @@ function LoopCard({ loop, webhookUrl }: { loop: Loop; webhookUrl: string | null 
       </div>
 
       <Counts loop={loop} />
-      <PostHogSetup loopKey={loop.key} webhookUrl={webhookUrl} />
     </section>
   );
 }
@@ -268,80 +265,3 @@ function CountRow({ label, a, b, indent = false }: { label: string; a: number; b
   );
 }
 
-// ——————————————————————————————————————————————————————————————
-// What to paste into PostHog
-// ——————————————————————————————————————————————————————————————
-
-function PostHogSetup({ loopKey, webhookUrl }: { loopKey: string; webhookUrl: string | null }) {
-  const body = nudgeWebhookBody(loopKey);
-  return (
-    <div className={`mt-6 ${admin.inset} p-4`}>
-      <h3 className={admin.h3}>PostHog setup</h3>
-      <dl className="mt-3 space-y-4">
-        <SetupRow label="Method">
-          <code className={admin.code}>POST</code>
-        </SetupRow>
-        <SetupRow label="URL" copy={webhookUrl}>
-          {webhookUrl ? (
-            <code className={`${admin.code} break-all`}>{webhookUrl}</code>
-          ) : (
-            <span className={admin.meta}>
-              This page doesn't know the deployment. Use https://&lt;deployment&gt;.convex.site/api/nudges.
-            </span>
-          )}
-        </SetupRow>
-        <SetupRow label="Header">
-          <code className={admin.code}>{NUDGE_SECRET_HEADER}</code>
-          <p className={`mt-1.5 ${admin.hint}`}>
-            Its value is {NUDGE_SECRET_ENV}, set on this deployment. It isn't shown here.
-          </p>
-        </SetupRow>
-        <SetupRow label="Body" copy={body}>
-          <pre className="overflow-x-auto rounded bg-[var(--app-surface-raised)] px-3 py-2 text-[13px] leading-relaxed text-[color:var(--app-text)]">
-            {body}
-          </pre>
-        </SetupRow>
-      </dl>
-    </div>
-  );
-}
-
-function SetupRow({ label, copy, children }: { label: string; copy?: string | null; children: ReactNode }) {
-  return (
-    <div>
-      <div className="flex items-center justify-between gap-3">
-        <dt className="text-[12.5px] font-medium text-[color:var(--app-text-muted)]">{label}</dt>
-        {copy && <CopyButton text={copy} label={label} />}
-      </div>
-      <dd className="mt-1.5">{children}</dd>
-    </div>
-  );
-}
-
-function CopyButton({ text, label }: { text: string; label: string }) {
-  const [copied, setCopied] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current);
-    },
-    [],
-  );
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => setCopied(false), 1600);
-    } catch {
-      // No clipboard (an insecure page, a blocked permission): the text is on the page to select.
-    }
-  }
-
-  return (
-    <button type="button" onClick={copy} className={admin.btnRowSecondary} aria-label={`Copy ${label.toLowerCase()}`}>
-      {copied ? "Copied" : "Copy"}
-    </button>
-  );
-}

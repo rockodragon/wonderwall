@@ -15,6 +15,7 @@ import { sendSms } from "./smsSender";
 import { decideCreateOrUpdateUser } from "./authLinking";
 import { joinDefaultCommunity } from "./garden/defaultCommunity";
 import { trackEvent } from "./posthog";
+import { scheduleSignupNudges } from "./engagement/schedule";
 import { allowedAuthRedirect, gardenNameForUrl, siteNameForUrl } from "./garden/brandHosts";
 
 const CODE_MAX_AGE_SECONDS = 10 * 60; // 10 minutes
@@ -142,9 +143,11 @@ async function afterUserCreatedOrUpdated(
   await joinDefaultCommunity(ctx, userId, { agreedAt: Date.now() });
 
   // Tell PostHog a new account exists, under the user id the browser
-  // identifies by. It starts the engagement loops (docs/features/
-  // engagement-loops.md). No email or phone goes with it.
+  // identifies by (for measuring). No email or phone goes with it.
   await trackEvent(ctx, "user_signed_up", userId);
+  // The engagement loops' clock: day 1 and day 4 "share a project" checks
+  // (docs/features/engagement-loops.md). Each re-checks before it sends.
+  await scheduleSignupNudges(ctx, userId);
 }
 
 async function uniqueUserWithVerifiedEmail(ctx: MutationCtx, email: string) {

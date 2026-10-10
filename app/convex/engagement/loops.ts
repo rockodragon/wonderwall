@@ -29,6 +29,9 @@ export type LoopDefault = {
   ctaText: string;
   /** App path for the button; the email template adds SITE_URL. */
   ctaPath: string;
+  /** Days after signup the app checks and maybe sends (signupNudgePlan).
+   *  In code: a change applies to people who sign up after the deploy. */
+  afterDays: number;
 };
 
 const SHARE_PROJECT_PATH = "/projects?new=project";
@@ -40,7 +43,7 @@ export const DEFAULT_LOOPS: readonly LoopDefault[] = [
   {
     key: "share_project_day1",
     name: "Share a project, day 1",
-    when: "1 day after user_signed_up, unless project_created",
+    when: "1 day after signup, unless they've shared a project",
     category: "activity",
     condition: "no_project",
     enabled: true,
@@ -48,11 +51,12 @@ export const DEFAULT_LOOPS: readonly LoopDefault[] = [
     body: "Share a project you're thinking about or working on. A title is enough to start.",
     ctaText: "Share your project",
     ctaPath: SHARE_PROJECT_PATH,
+    afterDays: 1,
   },
   {
     key: "share_project_day4",
     name: "Share a project, day 4",
-    when: "4 days after user_signed_up, unless project_created",
+    when: "4 days after signup, unless they've shared a project",
     category: "activity",
     condition: "no_project",
     enabled: true,
@@ -60,8 +64,18 @@ export const DEFAULT_LOOPS: readonly LoopDefault[] = [
     body: "A project can start as an idea. Share yours when you're ready. A title is enough.",
     ctaText: "Share your project",
     ctaPath: SHARE_PROJECT_PATH,
+    afterDays: 4,
   },
 ];
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** What signup schedules: each loop, and how long from now. The run itself
+ *  re-checks everything (nudges.ts attemptNudge), so a loop turned off or a
+ *  project shared in the meantime is a skip, not an email. */
+export function signupNudgePlan(loops: readonly LoopDefault[] = DEFAULT_LOOPS): { loop: string; delayMs: number }[] {
+  return loops.map((l) => ({ loop: l.key, delayMs: l.afterDays * DAY_MS }));
+}
 
 export const LOOP_KEYS: readonly string[] = DEFAULT_LOOPS.map((l) => l.key);
 

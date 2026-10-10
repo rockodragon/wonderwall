@@ -1,9 +1,9 @@
-// The rules for a nudge (docs/features/engagement-loops.md): who may send the
-// call, whether the app sends, and how the admin page counts what happened.
+// The rules for a nudge (docs/features/engagement-loops.md): whether the app
+// sends, and how the admin page counts what happened.
 // All pure, so loops.test.ts-style unit tests can hold them. Nothing here
 // reads the database; engagement/nudges.ts gathers the facts and this decides.
 
-import { isLoopKey, type LoopCondition } from "./loops";
+import type { LoopCondition } from "./loops";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -13,60 +13,6 @@ export const NUDGE_GAP_MS = DAY_MS;
 
 /** "Shared": a project created within 7 days after a nudge was sent. */
 export const SHARED_WINDOW_MS = 7 * DAY_MS;
-
-// ——— The shared secret ———
-
-export type SecretCheck = "ok" | "not_configured" | "denied";
-
-async function sha256(text: string): Promise<Uint8Array> {
-  return new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)));
-}
-
-/** True when the two strings are equal, in time that doesn't depend on where
- * they first differ or how long the one sent is. Both are hashed to 32 bytes
- * first, then every byte is compared. */
-export async function secretsMatch(provided: string, expected: string): Promise<boolean> {
-  const [a, b] = await Promise.all([sha256(provided), sha256(expected)]);
-  let difference = 0;
-  for (let i = 0; i < a.length; i++) difference |= a[i] ^ b[i];
-  return difference === 0;
-}
-
-/** The webhook's gate. With no secret set on the deployment nothing is let
- * through ("not_configured"); a missing or wrong header is "denied". */
-export async function checkNudgeSecret(expected: string | undefined, provided: string | null): Promise<SecretCheck> {
-  if (!expected) return "not_configured";
-  if (!provided) return "denied";
-  return (await secretsMatch(provided, expected)) ? "ok" : "denied";
-}
-
-// ——— The call's body ———
-
-export type NudgeCall = { loop: string; distinctId: string };
-export type ParsedCall = { ok: true; call: NudgeCall } | { ok: false; error: string };
-
-const BODY_MAX_CHARS = 4096;
-const DISTINCT_ID_MAX = 200;
-
-/** `{"loop": "...", "distinct_id": "..."}`, or what is wrong with it. An
- * unknown loop is wrong here, so it's answered before anything is looked up. */
-export function parseNudgeBody(text: string): ParsedCall {
-  if (text.length > BODY_MAX_CHARS) return { ok: false, error: "Body is too large." };
-  let raw: unknown;
-  try {
-    raw = JSON.parse(text);
-  } catch {
-    return { ok: false, error: "Body must be JSON." };
-  }
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { ok: false, error: "Body must be a JSON object." };
-  const { loop, distinct_id } = raw as Record<string, unknown>;
-  if (typeof loop !== "string" || loop.trim() === "") return { ok: false, error: "Missing loop." };
-  if (!isLoopKey(loop.trim())) return { ok: false, error: "Unknown loop." };
-  if (typeof distinct_id !== "string" || distinct_id.trim() === "") return { ok: false, error: "Missing distinct_id." };
-  const distinctId = distinct_id.trim();
-  if (distinctId.length > DISTINCT_ID_MAX) return { ok: false, error: "distinct_id is too long." };
-  return { ok: true, call: { loop: loop.trim(), distinctId } };
-}
 
 // ——— Send, or skip and say why ———
 

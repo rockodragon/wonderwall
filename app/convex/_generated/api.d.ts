@@ -40,7 +40,7 @@ import type * as engagement_firstCheer from "../engagement/firstCheer.js";
 import type * as engagement_loops from "../engagement/loops.js";
 import type * as engagement_nudges from "../engagement/nudges.js";
 import type * as engagement_rules from "../engagement/rules.js";
-import type * as engagement_webhook from "../engagement/webhook.js";
+import type * as engagement_schedule from "../engagement/schedule.js";
 import type * as eventAccess from "../eventAccess.js";
 import type * as eventAddress from "../eventAddress.js";
 import type * as eventGuests from "../eventGuests.js";
@@ -187,7 +187,7 @@ declare const fullApi: ApiFromModules<{
   "engagement/loops": typeof engagement_loops;
   "engagement/nudges": typeof engagement_nudges;
   "engagement/rules": typeof engagement_rules;
-  "engagement/webhook": typeof engagement_webhook;
+  "engagement/schedule": typeof engagement_schedule;
   eventAccess: typeof eventAccess;
   eventAddress: typeof eventAddress;
   eventGuests: typeof eventGuests;
