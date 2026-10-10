@@ -18,7 +18,7 @@ import { mutation, query } from "../_generated/server";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { isAdminProfile } from "../helpers";
+import { requireOperator } from "../helpers";
 import { can } from "./capabilities";
 import { assertCanPure, getGardenUser } from "./entitlements";
 import { scheduleNotificationEmail } from "../emailHelpers";
@@ -184,16 +184,6 @@ async function getProfile(ctx: Ctx, userId: Id<"users">): Promise<Doc<"profiles"
     .unique();
 }
 
-async function requireOperator(ctx: Ctx, userId: Id<"users">): Promise<void> {
-  const profile = await getProfile(ctx, userId);
-  if (!isAdminProfile(profile)) {
-    throw new ConvexError({
-      code: "forbidden",
-      reason: "Grant proposals are reviewed by operators. This account doesn't have that access.",
-    });
-  }
-}
-
 function fundLink(slug: string): string {
   return `/fund/${slug}`;
 }
@@ -343,8 +333,7 @@ export const decideProposal = mutation({
     operatorNote: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const actorId = await requireUser(ctx);
-    await requireOperator(ctx, actorId);
+    const { userId: actorId } = await requireOperator(ctx);
 
     const row = await ctx.db.get(args.proposalId);
     if (!row) throw new ConvexError({ code: "not_found", reason: "That proposal isn't there." });
@@ -435,8 +424,7 @@ export const listProposalsForReview = query({
     ),
   },
   handler: async (ctx, args) => {
-    const actorId = await requireUser(ctx);
-    await requireOperator(ctx, actorId);
+    await requireOperator(ctx);
 
     const status = args.status;
     const rows = await ctx.db

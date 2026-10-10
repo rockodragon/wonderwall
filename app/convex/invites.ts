@@ -3,7 +3,7 @@ import { internalMutation, mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { auth } from "./auth";
 import { scheduleNotificationEmail } from "./emailHelpers";
-import { escapeHtml } from "./garden/projectTeam";
+import { escapeHtml } from "./email/template";
 import { generateInviteCode } from "./inviteCode";
 import { followEachOther } from "./follows";
 // findInviterProfile lives in inviteLookup.ts so garden/communities.ts can

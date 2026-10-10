@@ -14,7 +14,7 @@ import { mutation, query } from "../_generated/server";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { isAdminProfile } from "../helpers";
+import { isAdmin, isAdminProfile, requireOperator } from "../helpers";
 import { findInviterProfile } from "../inviteLookup";
 import { isCheckoutSessionId } from "./ticketLink";
 import { can } from "./capabilities";
@@ -27,6 +27,11 @@ import { canSeeCommunity, isHiddenCommunity } from "./hiddenCommunity";
 import { communityVisibility } from "./communityVisibility";
 import { isEventListed } from "../eventWindow";
 import { feedLocation } from "../eventAddress";
+import { COMMUNITY_KIND, communityMembershipsOf, getCommunityMember } from "./communityLookup";
+
+// Defined in communityLookup.ts (so smaller modules can use them); exported
+// here too because most callers import them from communities.
+export { COMMUNITY_KIND, getCommunityMember };
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
@@ -39,7 +44,6 @@ export type CommunityVisibility = "public" | "unlisted";
 export type CommunityJoinPolicy = "open" | "apply" | "invite";
 export type CommunityRole = "host" | "moderator" | "member";
 
-export const COMMUNITY_KIND = "community";
 /** The one row that owns the platform-wide project pool ledger. Never
  * listed as a community; seeded by garden/devSeed.ts. */
 export const PLATFORM_ORG_SLUG = "creatives-exchange";
@@ -273,17 +277,6 @@ export function resolveOwnershipTransfer(input: OwnershipTransferInput): RoleDec
 
 type Ctx = QueryCtx | MutationCtx;
 
-export async function getCommunityMember(
-  ctx: Ctx,
-  hostOrgId: Id<"hostOrgs">,
-  userId: Id<"users">,
-): Promise<Doc<"communityMembers"> | null> {
-  return ctx.db
-    .query("communityMembers")
-    .withIndex("by_hostOrgId_userId", (q) => q.eq("hostOrgId", hostOrgId).eq("userId", userId))
-    .unique();
-}
-
 export type InviteAdmission =
   | { ok: true }
   | { ok: false; code: "invite_invalid"; reason: string };
@@ -366,11 +359,7 @@ export async function assertCanManageCommunity(
 ): Promise<Doc<"hostOrgs">> {
   const org = await ctx.db.get(hostOrgId);
   if (!org) throw new ConvexError({ code: "not_found", reason: "That community isn't there." });
-  const profile = await ctx.db
-    .query("profiles")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .unique();
-  if (isAdminProfile(profile)) return org;
+  if (await isAdmin(ctx, userId)) return org;
   const member = await getCommunityMember(ctx, hostOrgId, userId);
   if (!member || member.status !== "active" || !canManageCommunity(member.role)) {
     throw new ConvexError({
@@ -379,22 +368,6 @@ export async function assertCanManageCommunity(
     });
   }
   return org;
-}
-
-async function requireOperator(ctx: Ctx): Promise<Id<"users">> {
-  const userId = await getAuthUserId(ctx);
-  if (!userId) throw new ConvexError({ code: "unauthenticated" });
-  const profile = await ctx.db
-    .query("profiles")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .unique();
-  if (!isAdminProfile(profile)) {
-    throw new ConvexError({
-      code: "forbidden",
-      reason: "This is an operator tool — this account doesn't have that access.",
-    });
-  }
-  return userId;
 }
 
 /** A leading "_" in a community's name hides it (hiddenCommunity.ts), so
@@ -407,11 +380,7 @@ async function assertMayChangeHiddenName(
   after: { name: string; slug: string },
 ): Promise<void> {
   if (isHiddenCommunity(before) === isHiddenCommunity(after)) return;
-  const profile = await ctx.db
-    .query("profiles")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .unique();
-  if (isAdminProfile(profile)) return;
+  if (await isAdmin(ctx, userId)) return;
   throw new ConvexError({
     code: "invalid_name",
     reason: "A community name can't start with an underscore.",
@@ -670,10 +639,7 @@ export const listMyCommunities = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
-    const rows = await ctx.db
-      .query("communityMembers")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .collect();
+    const rows = await communityMembershipsOf(ctx, userId);
     const out: { _id: Id<"hostOrgs">; name: string; slug: string; role: string; status: string; isHome: boolean }[] = [];
     for (const m of rows) {
       if (m.status === "removed") continue;
@@ -921,10 +887,7 @@ export const setHomeCommunity = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError({ code: "unauthenticated" });
-    const rows = await ctx.db
-      .query("communityMembers")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .collect();
+    const rows = await communityMembershipsOf(ctx, userId);
     if (args.hostOrgId) {
       const target = rows.find((m) => String(m.hostOrgId) === String(args.hostOrgId));
       if (!target || target.status !== "active") {

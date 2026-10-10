@@ -24,6 +24,17 @@ export async function isAdmin(
   return profile?.isAdmin === true;
 }
 
+/** The ownership rule: `userId` is the owner, or is a platform admin. What
+ * requireOwner applies, and what a check on another owner field (a gig
+ * series' hostUserId, a project handed in as a doc) applies in its own words. */
+export async function isOwnerOrAdmin(
+  ctx: QueryCtx | MutationCtx,
+  ownerId: Id<"users">,
+  userId: Id<"users">,
+): Promise<boolean> {
+  return ownerId === userId || (await isAdmin(ctx, userId));
+}
+
 /** What a refusal says, per kind of thing a person owns. */
 const OWNED = {
   projects: { notFound: "That project isn't here.", forbidden: "Only the person who runs this project can change it." },
@@ -46,7 +57,8 @@ export async function requireOwner<T extends keyof typeof OWNED>(
   if (!userId) throw new ConvexError({ code: "unauthenticated" });
   const row = (await ctx.db.get(id)) as Doc<T> | null;
   if (!row) throw new ConvexError({ code: "not_found", reason: OWNED[table].notFound });
-  if (row.userId !== userId && !(orAdmin && (await isAdmin(ctx, userId)))) {
+  const mayChange = orAdmin ? await isOwnerOrAdmin(ctx, row.userId, userId) : row.userId === userId;
+  if (!mayChange) {
     throw new ConvexError({ code: "forbidden", reason: OWNED[table].forbidden });
   }
   return { userId, row };
@@ -87,19 +99,43 @@ export function isAdminProfile(profile: Doc<"profiles"> | null): boolean {
   return profile?.isAdmin === true;
 }
 
+/** What a refusal says to someone who isn't an operator. */
+const NOT_AN_OPERATOR = "This is an operator tool — this account doesn't have that access.";
+
 /**
- * Require admin access - throws if user is not an admin
+ * The one operator gate: the signed-in person and their profile, when the
+ * profile is an admin (profile.isAdmin). Signed out is "unauthenticated",
+ * anyone else is "forbidden" — ConvexErrors the client can read. Every
+ * operator-only query and mutation goes through this, or through
+ * requireAdmin / requireAdminCtx below, which are the same check.
+ */
+export async function requireOperator(
+  ctx: QueryCtx | MutationCtx,
+): Promise<{ userId: Id<"users">; profile: Doc<"profiles"> }> {
+  const userId = await auth.getUserId(ctx);
+  if (!userId) throw new ConvexError({ code: "unauthenticated", reason: "Sign in first." });
+  const profile = await ctx.db
+    .query("profiles")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .first();
+  if (!profile || !isAdminProfile(profile)) {
+    throw new ConvexError({ code: "forbidden", reason: NOT_AN_OPERATOR });
+  }
+  return { userId, profile };
+}
+
+/**
+ * Require admin access for a user you already have - throws if they aren't
  * @param ctx - Convex query or mutation context
  * @param userId - The user ID to check
- * @throws Error if user is not an admin
+ * @throws ConvexError "forbidden" if the user is not an admin
  */
 export async function requireAdmin(
   ctx: QueryCtx | MutationCtx,
   userId: Id<"users">,
 ): Promise<void> {
-  const userIsAdmin = await isAdmin(ctx, userId);
-  if (!userIsAdmin) {
-    throw new Error("Unauthorized - Admin access only");
+  if (!(await isAdmin(ctx, userId))) {
+    throw new ConvexError({ code: "forbidden", reason: NOT_AN_OPERATOR });
   }
 }
 
@@ -120,21 +156,15 @@ export const requireAdminForAction = internalQuery({
 });
 
 /**
- * One-liner for query/mutation handlers: resolve the caller's userId from
- * ctx.auth and require admin access. Replaces the repeated
- *   const userId = await auth.getUserId(ctx);
- *   if (!userId) throw new Error("Not authenticated");
- *   await requireAdmin(ctx, userId);
- * preamble. Returns the userId in case a handler needs it.
- * @throws Error if there's no caller identity, or if the caller isn't an admin
+ * One-liner for query/mutation handlers that only need the admin's userId:
+ * requireOperator, handing back just the id.
+ * @throws ConvexError "unauthenticated" if signed out, "forbidden" if the
+ * caller isn't an admin
  */
 export async function requireAdminCtx(
   ctx: QueryCtx | MutationCtx,
 ): Promise<Id<"users">> {
-  const userId = await auth.getUserId(ctx);
-  if (!userId) throw new Error("Not authenticated");
-  await requireAdmin(ctx, userId);
-  return userId;
+  return (await requireOperator(ctx)).userId;
 }
 
 const ADMIN_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I

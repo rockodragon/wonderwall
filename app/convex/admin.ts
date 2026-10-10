@@ -1,7 +1,6 @@
 import { internalMutation, query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { auth } from "./auth";
-import { requireAdmin, requireAdminCtx, ensureAdminCode } from "./helpers";
+import { requireAdminCtx, ensureAdminCode } from "./helpers";
 import { followEachOther, inviteFollowPairs } from "./follows";
 import { ADMIN_EMAILS } from "./adminEmails";
 
@@ -59,12 +58,7 @@ export const bootstrapAdmin = internalMutation({
 export const getAllUsersWithInvites = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
-
-    await requireAdmin(ctx, userId);
+    await requireAdminCtx(ctx);
 
     // Get all profiles
     const profiles = await ctx.db.query("profiles").collect();
@@ -127,12 +121,7 @@ export const getAllUsersWithInvites = query({
 export const debugInvites = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
-
-    await requireAdmin(ctx, userId);
+    await requireAdminCtx(ctx);
 
     const invites = await ctx.db.query("invites").collect();
 
@@ -158,12 +147,7 @@ export const manuallyLinkInvite = mutation({
     inviterUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
-
-    await requireAdmin(ctx, userId);
+    await requireAdminCtx(ctx);
 
     // Get inviter profile to increment their usage count
     const inviterProfile = await ctx.db
@@ -236,12 +220,7 @@ export const deleteUser = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const adminUserId = await auth.getUserId(ctx);
-    if (!adminUserId) {
-      throw new Error("Not authenticated");
-    }
-
-    await requireAdmin(ctx, adminUserId);
+    await requireAdminCtx(ctx);
 
     // Get user's profile
     const profile = await ctx.db
@@ -356,12 +335,7 @@ export const setAdminStatus = mutation({
     isAdmin: v.boolean(),
   },
   handler: async (ctx, args) => {
-    const adminUserId = await auth.getUserId(ctx);
-    if (!adminUserId) {
-      throw new Error("Not authenticated");
-    }
-
-    await requireAdmin(ctx, adminUserId);
+    await requireAdminCtx(ctx);
 
     // Get user's profile
     const profile = await ctx.db

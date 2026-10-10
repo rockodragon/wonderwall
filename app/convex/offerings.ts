@@ -17,6 +17,7 @@ import { ConvexError } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { assertCommunityMember, canManageCommunity } from "./garden/communities";
+import { activeCommunityMemberships, resolveCommunities } from "./garden/communityLookup";
 import { classCheckoutRefusal, classPaymentPath, classPriceProblem } from "./garden/stripeHandlers";
 import { isAdmin, isAdminProfile, requireOwner } from "./helpers";
 import { communityVisibility } from "./garden/communityVisibility";
@@ -75,23 +76,6 @@ function confirmedCount(signups: { status: string }[]): number {
   return signups.filter((s) => s.status === "confirmed").length;
 }
 
-/** Batches hostOrgs lookups into one Map keyed by hostOrgId string — used by
- * listOfferings/getOffering so N offerings sharing a community cost one
- * ctx.db.get per community, not one per offering. */
-async function resolveCommunities(
-  ctx: { db: { get: (id: Id<"hostOrgs">) => Promise<{ name: string; slug: string } | null> } },
-  hostOrgIds: (Id<"hostOrgs"> | undefined)[],
-): Promise<Map<string, { name: string; slug: string }>> {
-  const distinct = [...new Set(hostOrgIds.filter((id): id is Id<"hostOrgs"> => !!id))];
-  const orgs = await Promise.all(distinct.map((id) => ctx.db.get(id)));
-  const out = new Map<string, { name: string; slug: string }>();
-  distinct.forEach((id, i) => {
-    const org = orgs[i];
-    if (org) out.set(String(id), { name: org.name, slug: org.slug });
-  });
-  return out;
-}
-
 // ——————————————————————————————————————————————————————————————
 // Pause and report (docs/features/class-payments-and-moderation.md, "How a
 // community steps in"). Members post freely; a community's hosts can pause a
@@ -111,7 +95,7 @@ export interface ModeratedOffering {
   pausedAt?: number;
 }
 
-/** Who is looking. `memberships` is ALL of the person's community
+/** Who is looking. `memberships` is the person's ACTIVE community
  * memberships — the rules pick the one for the offering's own community, so
  * being a host somewhere else never counts. */
 export interface ModerationActor {
@@ -275,10 +259,7 @@ async function loadViewer(ctx: QueryCtx | MutationCtx, userId: Id<"users"> | nul
       .query("profiles")
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .unique(),
-    ctx.db
-      .query("communityMembers")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .collect(),
+    activeCommunityMemberships(ctx, userId),
   ]);
   return {
     userId,

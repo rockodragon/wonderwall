@@ -16,6 +16,8 @@
 // Only the display name changes. The address stays the verified sending
 // address (EMAIL_FROM, or DEFAULT_FROM in resendProvider.ts).
 
+import { isActiveCommunityOrg } from "../garden/communityLookup";
+
 export type EmailSender = "platform" | "community";
 
 /** The same four values as the `category` on sendNotificationEmail. */
@@ -47,13 +49,9 @@ export interface SenderMembership<C extends SenderCommunity = SenderCommunity> {
   joinedAt: number;
 }
 
-/** An open community: kind "community" and active. A missing status reads
- * as active, the same as everywhere else hostOrgs is read (communities.ts).
- * A fund or the platform row isn't one, nor is a pending or archived
- * community. */
-export function isActiveCommunity(org: Pick<SenderCommunity, "kind" | "status">): boolean {
-  return org.kind === "community" && (org.status ?? "active") === "active";
-}
+/** An open community: kind "community" and active (isActiveCommunityOrg in
+ * garden/communityLookup.ts, which has no Convex server imports). */
+export { isActiveCommunityOrg as isActiveCommunity };
 
 /** Which community a community email is from, in order:
  *   1. the community the email is about (`explicit`), if it's active;
@@ -70,9 +68,9 @@ export function pickSenderCommunity<C extends SenderCommunity>(args: {
   defaultCommunity?: C | null;
 }): C | null {
   const { explicit, defaultCommunity } = args;
-  if (explicit && isActiveCommunity(explicit)) return explicit;
+  if (explicit && isActiveCommunityOrg(explicit)) return explicit;
 
-  const open = (args.memberships ?? []).filter((m) => isActiveCommunity(m.community));
+  const open = (args.memberships ?? []).filter((m) => isActiveCommunityOrg(m.community));
   if (open.length === 1) return open[0].community;
   if (open.length > 1) {
     const inDefault = defaultCommunity
