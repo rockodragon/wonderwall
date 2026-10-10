@@ -16,6 +16,7 @@ import { setPendingIntent } from "../lib/pendingIntent";
 import { isCheckoutSessionId } from "../../convex/garden/ticketLink";
 import { useBrand } from "../brand/brands";
 import { GardenLockupThemed } from "../brand/GardenMark";
+import { PersonNameHint } from "../components/PersonNameHint";
 
 export function meta() {
   return [
@@ -577,6 +578,7 @@ export default function Signup() {
                   placeholder="Your name"
                   required
                 />
+                <PersonNameHint name={name} />
               </div>
               <div>
                 <label htmlFor="email" className="block text-[13.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">

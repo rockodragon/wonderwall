@@ -25,6 +25,7 @@ import { EmbedPlayer } from "../components/EmbedPlayer";
 import { CoverFrame } from "../components/CoverFrame";
 import { ImageFill } from "../components/ImageFill";
 import { describeMediaLink, MediaLinkField } from "../components/MediaLinkField";
+import { OrgLogo } from "../components/OrgLogo";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { ProjectMenu } from "../components/project/ProjectMenu";
@@ -367,6 +368,7 @@ export default function ProjectDetail() {
                 coordinates: project.coordinates,
                 placeId: project.placeId,
                 hostOrgId: project.hostOrgId,
+                organizationId: project.organizationId,
               }}
               onClose={() => setEditingProject(false)}
             />
@@ -386,7 +388,21 @@ export default function ProjectDetail() {
             )}
           </div>
 
-          {project.creator && (
+          {project.organization ? (
+            // Posted as an organization: its page, not the person who runs it
+            // (they're in the team below).
+            <div className="flex items-center gap-3 mb-4">
+              <Link to={`/orgs/${project.organization.slug}`} className="flex items-center gap-2 w-fit hover:opacity-80">
+                <OrgLogo name={project.organization.name} logoUrl={project.organization.logoUrl} size="xs" />
+                <span className="text-sm" style={{ color: "var(--garden-muted)" }}>
+                  {project.organization.name}
+                  {project.community && (
+                    <span style={{ color: "var(--garden-dim)" }}> · in {project.community.name}</span>
+                  )}
+                </span>
+              </Link>
+            </div>
+          ) : project.creator && (
             <div className="flex items-center gap-3 mb-4">
               <Link to={`/profile/${project.creator._id}`} className="flex items-center gap-2 w-fit hover:opacity-80">
                 {project.creator.imageUrl ? (

@@ -9,6 +9,7 @@ import { deriveProjectTitle } from "./garden/artifactsMigration";
 import { slugifyTitle, resolveAvailableSlug } from "./garden/stories";
 import { normalizeUrl, isSafeHttpUrl } from "./garden/richText";
 import { parseOgMeta } from "./ogParse";
+import { requireOwnProfileRow } from "./helpers";
 
 export const getMyArtifacts = query({
   args: {},
@@ -301,17 +302,7 @@ export const update = mutation({
     mediaStorageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
-    const artifact = await ctx.db.get(args.artifactId);
-    if (!artifact) throw new Error("Artifact not found");
-
-    // Verify ownership
-    const profile = await ctx.db.get(artifact.profileId);
-    if (!profile || profile.userId !== userId) {
-      throw new Error("Not authorized");
-    }
+    const { userId, row: artifact, profile } = await requireOwnProfileRow(ctx, "artifacts", args.artifactId);
 
     // Delete old storage file if replacing
     if (args.mediaStorageId && artifact.mediaStorageId) {
@@ -339,17 +330,7 @@ export const remove = mutation({
     artifactId: v.id("artifacts"),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
-    const artifact = await ctx.db.get(args.artifactId);
-    if (!artifact) throw new Error("Artifact not found");
-
-    // Verify ownership
-    const profile = await ctx.db.get(artifact.profileId);
-    if (!profile || profile.userId !== userId) {
-      throw new Error("Not authorized");
-    }
+    const { userId, row: artifact, profile } = await requireOwnProfileRow(ctx, "artifacts", args.artifactId);
 
     // Delete associated storage files — the work and any stored cover
     if (artifact.mediaStorageId) {
@@ -586,17 +567,7 @@ export const refetchOgImage = mutation({
     artifactId: v.id("artifacts"),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
-    const artifact = await ctx.db.get(args.artifactId);
-    if (!artifact) throw new Error("Artifact not found");
-
-    // Verify ownership
-    const profile = await ctx.db.get(artifact.profileId);
-    if (!profile || profile.userId !== userId) {
-      throw new Error("Not authorized");
-    }
+    const { userId, row: artifact, profile } = await requireOwnProfileRow(ctx, "artifacts", args.artifactId);
 
     if (!artifact.mediaUrl) {
       throw new Error("Artifact has no URL to fetch og:image from");

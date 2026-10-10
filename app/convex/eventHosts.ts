@@ -5,10 +5,11 @@
 // backfillCoHosts brings every existing event in step once:
 //   npx convex run eventHosts:backfillCoHosts [--prod]
 
-import { v } from "convex/values";
+import { getAuthUserId } from "@convex-dev/auth/server";
+import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
-import { internalMutation, type MutationCtx } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+import { internalMutation, type MutationCtx, type QueryCtx } from "./_generated/server";
 
 export const MAX_CO_HOSTS = 10;
 
@@ -150,3 +151,35 @@ export const backfillCoHosts = internalMutation({
     return { scanned: page.page.length, added, removed, isDone: page.isDone };
   },
 });
+
+// ——— The one host check ———
+// Every host-only read and change (edit, co-hosts, images, video, guests,
+// waitlist) goes through these two, so "who may run this event" is decided
+// in one place: isEventHost above.
+
+/** The signed-in person and the event, when they host it (organizer or
+ * co-host). For queries that show nothing to anyone else. */
+export async function hostOf(
+  ctx: QueryCtx | MutationCtx,
+  eventId: Id<"events">,
+): Promise<{ userId: Id<"users">; event: Doc<"events"> } | null> {
+  const userId = await getAuthUserId(ctx);
+  if (!userId) return null;
+  const event = await ctx.db.get(eventId);
+  return event && isEventHost(event, userId) ? { userId, event } : null;
+}
+
+/** The same, for changes: anyone else is refused. */
+export async function requireEventHost(
+  ctx: QueryCtx | MutationCtx,
+  eventId: Id<"events">,
+): Promise<{ userId: Id<"users">; event: Doc<"events"> }> {
+  const userId = await getAuthUserId(ctx);
+  if (!userId) throw new ConvexError({ code: "not_signed_in", reason: "Sign in first." });
+  const event = await ctx.db.get(eventId);
+  if (!event) throw new ConvexError({ code: "not_found", reason: "That event doesn't exist." });
+  if (!isEventHost(event, userId)) {
+    throw new ConvexError({ code: "not_authorized", reason: "Only the event's hosts can do that." });
+  }
+  return { userId, event };
+}

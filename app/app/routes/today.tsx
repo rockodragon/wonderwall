@@ -47,6 +47,10 @@ const CARD: CSSProperties = {
 };
 
 const COLLAPSE_KEY = "today.creatorNotes.collapsed";
+// Creator Notes is off the top of Today for now (Rick, 2026-10-10): the
+// first big thing here pushes starting a project instead. True brings the
+// show back.
+const SHOW_CREATOR_NOTES = false;
 const LIST_LIMIT = 5;
 // An event with no end time is treated as running this long after it starts.
 const DEFAULT_EPISODE_MS = 2 * 60 * 60 * 1000;
@@ -125,7 +129,7 @@ function TodayPage() {
 
       {openGift && <YourHalfCard amountCents={openGift.amountCents} />}
 
-      <CreatorNotes episode={episode} />
+      {SHOW_CREATOR_NOTES ? <CreatorNotes episode={episode} /> : <StartProject />}
 
       <Section
         title="Featured project"
@@ -212,6 +216,27 @@ function YourHalfCard({ amountCents }: { amountCents: number }) {
       </h2>
       <div className="mt-4">
         <PrimaryLink to="/give">Pick who gets it</PrimaryLink>
+      </div>
+    </section>
+  );
+}
+
+// ——————————————————————————————————————————————————————————————
+// Start a project — where Creator Notes was
+// ——————————————————————————————————————————————————————————————
+
+function StartProject() {
+  return (
+    <section aria-label="Start a project">
+      <h2 className="text-[44px] md:text-[60px] leading-[1] font-semibold tracking-[-0.02em]" style={DISPLAY}>
+        Start a project
+      </h2>
+      <p className="mt-5 text-[17px] leading-relaxed max-w-xl">
+        Post what you're making and find people to make it with.
+      </p>
+      <div className="mt-7">
+        {/* The same start form the palette's "Start a project" opens. */}
+        <PrimaryLink to="/projects?new=project">Start a project</PrimaryLink>
       </div>
     </section>
   );
@@ -460,6 +485,7 @@ function FeaturedProject({ project }: { project: Project }) {
   if (team) facts.push({ label: "Team", value: String(1 + team.accepted.length) });
   if (openRoles) facts.push({ label: "Open roles", value: String(openRoles) });
   if (project.supportCount > 0) facts.push({ label: "Backers", value: String(project.supportCount) });
+  if (project.organization) facts.push({ label: "By", value: project.organization.name });
   if (project.creator) facts.push({ label: "Lead", value: project.creator.name });
 
   return (
@@ -528,7 +554,7 @@ function ProjectRow({ project, flip }: { project: Project; flip: boolean }) {
   const daysLeft = project.raiseByDate && project.raiseByDate > Date.now() ? Math.max(1, Math.ceil((project.raiseByDate - Date.now()) / 86400000)) : null;
   const meta = [
     stageLabel(resolveStage(project)),
-    project.creator?.name ?? "A Garden creative",
+    project.organization?.name ?? project.creator?.name ?? "A Garden creative",
     funded ? `${funded.raised} of ${funded.goal}` : null,
     daysLeft ? `${daysLeft} ${daysLeft === 1 ? "day" : "days"} left` : null,
   ].filter(Boolean);
@@ -579,7 +605,7 @@ function GigRow({ project }: { project: Project }) {
       <div className="min-w-0">
         <span className="block truncate text-[15px] font-medium group-hover:underline">{project.title}</span>
         <p className="truncate text-[13px]" style={{ color: "var(--app-text-dim)" }}>
-          {[project.creator?.name, when].filter(Boolean).join(" · ")}
+          {[project.organization?.name ?? project.creator?.name, when].filter(Boolean).join(" · ")}
         </p>
       </div>
       <div className="flex flex-wrap gap-1.5">

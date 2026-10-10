@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
+import { ProjectTile } from "../components/ProjectTile";
 import type { FunctionReturnType } from "convex/server";
 import { ConvexError } from "convex/values";
 import { useEffect, useState } from "react";
@@ -36,6 +37,11 @@ export default function OrganizationPage() {
   const org = useQuery(api.organizations.getBySlug, slug ? { slug } : "skip");
   const events = useQuery(
     api.events.listForOrganization,
+    org ? { organizationId: org._id } : "skip",
+  );
+  // Projects posted as this organization (projects.organizationId).
+  const projects = useQuery(
+    api.garden.projectTeam.listOrgProjects,
     org ? { organizationId: org._id } : "skip",
   );
   const join = useMutation(api.organizations.join);
@@ -264,6 +270,19 @@ export default function OrganizationPage() {
               >
                 {p}
               </p>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {projects && projects.length > 0 && (
+        <section className="mb-8">
+          <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
+            Projects
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {projects.map((p) => (
+              <ProjectTile key={p.projectId} project={p} />
             ))}
           </div>
         </section>

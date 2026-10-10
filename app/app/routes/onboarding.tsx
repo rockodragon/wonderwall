@@ -11,6 +11,7 @@ import { INTERESTS } from "../constants/interests";
 import { ROLES, type Role } from "../constants/roles";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
+import { PersonNameHint } from "../components/PersonNameHint";
 
 const PARTNER_OFFERINGS = [
   "Venue / space",
@@ -549,7 +550,7 @@ export default function Onboarding() {
 
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Individual or organization?
+                Giving as yourself, or for an organization?
               </label>
               <div className="flex gap-2">
                 <button
@@ -558,7 +559,7 @@ export default function Onboarding() {
                     !isOrg ? "bg-blue-600 text-white" : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
                   }`}
                 >
-                  Individual
+                  Myself
                 </button>
                 <button
                   onClick={() => setIsOrg(true)}
@@ -566,7 +567,7 @@ export default function Onboarding() {
                     isOrg ? "bg-blue-600 text-white" : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
                   }`}
                 >
-                  Organization (church, business, etc.)
+                  For an organization
                 </button>
               </div>
             </div>
@@ -576,6 +577,9 @@ export default function Onboarding() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Organization name
                 </label>
+                <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
+                  You still sign in as yourself. The organization gets its own page.
+                </p>
                 <input
                   type="text"
                   value={orgName}
@@ -954,6 +958,7 @@ function NameField({ name, setName }: { name: string; setName: (v: string) => vo
         autoComplete="name"
         className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
       />
+      <PersonNameHint name={name} />
     </div>
   );
 }

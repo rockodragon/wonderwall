@@ -20,7 +20,7 @@ import {
 import { findMyRsvp } from "./eventGuests";
 import { addressIsHidden, redactHiddenAddress } from "./eventAddress";
 import { getUserEmail } from "./emailHelpers";
-import { isEventHost, planAddCoHost, planRemoveCoHost, planDisplayHosts, syncCoHosts, MAX_HOST_NAME, newlyListedUsers } from "./eventHosts";
+import { hostOf, isEventHost, planAddCoHost, planRemoveCoHost, planDisplayHosts, requireEventHost, syncCoHosts, MAX_HOST_NAME, newlyListedUsers } from "./eventHosts";
 import { canSeeEvent, eventVisibilityChecker, isFreeEvent } from "./garden/eventVisibility";
 import { communityVisibility, isHiddenCommunityId } from "./garden/communityVisibility";
 import { hostUserIdsForOrg, primaryOrgByUserId } from "./organizations";
@@ -790,12 +790,7 @@ export const update = mutation({
     mediaUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
-    const event = await ctx.db.get(args.eventId);
-    if (!event) throw new Error("Event not found");
-    if (!isEventHost(event, userId)) throw new Error("Not authorized");
+    const { userId, event } = await requireEventHost(ctx, args.eventId);
 
     // ConvexError, not Error: in production only a ConvexError's data
     // reaches the client, and these messages are written for the person
@@ -860,11 +855,11 @@ export const update = mutation({
       description: args.description.trim(),
       datetime: args.datetime,
       endTime: args.endTime,
-      // Tickets are the organizer's: a co-host's save keeps them as they
-      // were, so a co-host can't point the ticket link at their own Stripe.
-      // A Table's Event sells none (the Table's price covers it), so its
-      // ticket fields are never written here; the edit form leaves them out.
-      ...(event.organizerId === userId && !event.tableId
+      // Any host edits tickets (Rick, 2026-10-10: a co-host "should be able
+      // to make any edits"). A Table's Event sells none (the Table's price
+      // covers it), so its ticket fields are never written here; the edit
+      // form leaves them out.
+      ...(!event.tableId
         ? { ticketTiers: tiers, externalTicketUrl, externalTicketPriceCents }
         : {}),
       location: args.location?.trim(),
@@ -915,14 +910,6 @@ export const cancel = mutation({
   },
 });
 
-async function requireOrganizerOf(ctx: MutationCtx, eventId: Id<"events">) {
-  const userId = await auth.getUserId(ctx);
-  if (!userId) throw new Error("Not authenticated");
-  const event = await ctx.db.get(eventId);
-  if (!event) throw new Error("Event not found");
-  if (event.organizerId !== userId) throw new Error("Only the organizer can change co-hosts");
-  return event;
-}
 
 /** Saves the co-host list and, in the same mutation, its eventCoHosts rows
  * (eventHosts.ts syncCoHosts), so the Shortlist finds the event by member. */
@@ -981,7 +968,10 @@ async function notifyHostAdded(
 export const addCoHost = mutation({
   args: { eventId: v.id("events"), userId: v.id("users") },
   handler: async (ctx, args) => {
-    const event = await requireOrganizerOf(ctx, args.eventId);
+    // Co-hosts change the co-host list too; only cancelling stays the
+    // organizer's. The organizer is never on the list, so no co-host can
+    // take them off it.
+    const { event } = await requireEventHost(ctx, args.eventId);
     const plan = planAddCoHost(event, String(args.userId));
     if (!plan.ok) {
       throw new Error(
@@ -1003,7 +993,10 @@ export const addCoHost = mutation({
 export const removeCoHost = mutation({
   args: { eventId: v.id("events"), userId: v.id("users") },
   handler: async (ctx, args) => {
-    const event = await requireOrganizerOf(ctx, args.eventId);
+    // Co-hosts change the co-host list too; only cancelling stays the
+    // organizer's. The organizer is never on the list, so no co-host can
+    // take them off it.
+    const { event } = await requireEventHost(ctx, args.eventId);
     const plan = planRemoveCoHost(event, String(args.userId));
     if (!plan.ok) throw new Error("Not a co-host");
     await saveCoHosts(ctx, args.eventId, plan.coHostIds);
@@ -1107,11 +1100,7 @@ export const apply = mutation({
 export const getApplications = query({
   args: { eventId: v.id("events") },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) return [];
-
-    const event = await ctx.db.get(args.eventId);
-    if (!event || !isEventHost(event, userId)) return [];
+    if (!(await hostOf(ctx, args.eventId))) return [];
 
     const applications = await ctx.db
       .query("eventApplications")
@@ -1147,10 +1136,7 @@ export const getApplications = query({
 export const getGuestList = query({
   args: { eventId: v.id("events") },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) return [];
-    const event = await ctx.db.get(args.eventId);
-    if (!event || !isEventHost(event, userId)) return [];
+    if (!(await hostOf(ctx, args.eventId))) return [];
 
     const inputs: GuestInput[] = [];
 
@@ -1229,16 +1215,9 @@ export const updateApplicationStatus = mutation({
     status: v.string(),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const application = await ctx.db.get(args.applicationId);
     if (!application) throw new Error("Application not found");
-
-    const event = await ctx.db.get(application.eventId);
-    if (!event || !isEventHost(event, userId)) {
-      throw new Error("Not authorized");
-    }
+    const { userId, event } = await requireEventHost(ctx, application.eventId);
 
     if (!["pending", "accepted", "declined"].includes(args.status)) {
       throw new Error("Invalid status");
@@ -1521,11 +1500,7 @@ export const setDisplayHosts = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-    const event = await ctx.db.get(args.eventId);
-    if (!event) throw new Error("Event not found");
-    if (!isEventHost(event, userId)) throw new Error("Only a host can change who is shown as host");
+    const { userId, event } = await requireEventHost(ctx, args.eventId);
     const hosts = args.hosts.map((h) => (h.kind === "name" ? { ...h, name: h.name.trim() } : h));
     for (const h of hosts) {
       if (h.kind === "name" && (!h.name || h.name.length > MAX_HOST_NAME)) {

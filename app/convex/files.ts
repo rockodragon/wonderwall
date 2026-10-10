@@ -1,7 +1,8 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { auth } from "./auth";
-import { isEventHost } from "./eventHosts";
+import { requireEventHost } from "./eventHosts";
+import { requireOwnProfileRow } from "./helpers";
 
 // Generate an upload URL for the client to upload a file directly to Convex
 export const generateUploadUrl = mutation({
@@ -123,17 +124,7 @@ export const saveWonderingImage = mutation({
     storageId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
-    const wondering = await ctx.db.get(args.wonderingId);
-    if (!wondering) throw new Error("Wondering not found");
-
-    // Verify ownership
-    const profile = await ctx.db.get(wondering.profileId);
-    if (!profile || profile.userId !== userId) {
-      throw new Error("Not authorized");
-    }
+    const { userId, row: wondering, profile } = await requireOwnProfileRow(ctx, "wonderings", args.wonderingId);
 
     // Delete old image if exists
     if (wondering.imageStorageId) {
@@ -154,17 +145,7 @@ export const deleteWonderingImage = mutation({
     wonderingId: v.id("wonderings"),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
-    const wondering = await ctx.db.get(args.wonderingId);
-    if (!wondering) throw new Error("Wondering not found");
-
-    // Verify ownership
-    const profile = await ctx.db.get(wondering.profileId);
-    if (!profile || profile.userId !== userId) {
-      throw new Error("Not authorized");
-    }
+    const { userId, row: wondering, profile } = await requireOwnProfileRow(ctx, "wonderings", args.wonderingId);
 
     if (wondering.imageStorageId) {
       await ctx.storage.delete(wondering.imageStorageId);
@@ -212,12 +193,7 @@ export const saveEventCoverImage = mutation({
     storageId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
-    const event = await ctx.db.get(args.eventId);
-    if (!event) throw new Error("Event not found");
-    if (!isEventHost(event, userId)) throw new Error("Not authorized");
+    const { event } = await requireEventHost(ctx, args.eventId);
 
     // Delete old image if exists
     if (event.coverImageStorageId) {
@@ -239,12 +215,7 @@ export const deleteEventCoverImage = mutation({
     eventId: v.id("events"),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
-    const event = await ctx.db.get(args.eventId);
-    if (!event) throw new Error("Event not found");
-    if (!isEventHost(event, userId)) throw new Error("Not authorized");
+    const { event } = await requireEventHost(ctx, args.eventId);
 
     if (event.coverImageStorageId) {
       await ctx.storage.delete(event.coverImageStorageId);
@@ -266,12 +237,7 @@ export const addEventGalleryImage = mutation({
     storageId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
-    const event = await ctx.db.get(args.eventId);
-    if (!event) throw new Error("Event not found");
-    if (!isEventHost(event, userId)) throw new Error("Not authorized");
+    const { event } = await requireEventHost(ctx, args.eventId);
 
     const currentImages = event.imageStorageIds || [];
     if (currentImages.length >= 3) {
@@ -294,12 +260,7 @@ export const removeEventGalleryImage = mutation({
     storageId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
-    const event = await ctx.db.get(args.eventId);
-    if (!event) throw new Error("Event not found");
-    if (!isEventHost(event, userId)) throw new Error("Not authorized");
+    const { event } = await requireEventHost(ctx, args.eventId);
 
     const currentImages = event.imageStorageIds || [];
     const newImages = currentImages.filter((id) => id !== args.storageId);
@@ -355,12 +316,7 @@ export const updateEventCoverColor = mutation({
     color: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
-    const event = await ctx.db.get(args.eventId);
-    if (!event) throw new Error("Event not found");
-    if (!isEventHost(event, userId)) throw new Error("Not authorized");
+    const { event } = await requireEventHost(ctx, args.eventId);
 
     await ctx.db.patch(args.eventId, {
       coverColor: args.color,

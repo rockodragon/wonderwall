@@ -128,6 +128,22 @@ export async function profileOrganizations(ctx: Ctx, profileId: Id<"profiles">) 
   return out;
 }
 
+/** What a project posted as an organization shows in place of its
+ * person: name, page and logo. */
+export async function orgByline(ctx: Ctx, organizationId: Id<"organizations"> | undefined) {
+  const org = organizationId ? await ctx.db.get(organizationId) : null;
+  return org ? { _id: org._id, name: org.name, slug: org.slug, logoUrl: await logoUrl(ctx, org) } : null;
+}
+
+/** A person may post as an organization they're currently part of. */
+export async function assertCanPostAs(ctx: Ctx, userId: Id<"users">, organizationId: Id<"organizations">) {
+  const profile = await profileByUserId(ctx, userId);
+  const position = profile ? await positionOf(ctx, organizationId, profile._id) : null;
+  if (!position || !isCurrent(position)) {
+    fail("not_in_org", "You can post as an organization once it's on your profile.");
+  }
+}
+
 /** Rewrite profiles.orgName/orgUrl from the primary position — the cache
  * older readers (onboarding prefill, the gig form) still use. */
 export async function syncProfileOrgCache(ctx: MutationCtx, profileId: Id<"profiles">) {
@@ -487,6 +503,23 @@ export const list = query({
 });
 
 /** The signed-in person's positions, for Settings › Profile. */
+/** The organization with exactly this name, if there is one: sign-up warns
+ * someone typing it as their own name (Rick, 2026-10-10: Abiding Practice
+ * signed up as a person). Organization pages are public, so this says
+ * nothing new. */
+export const matchByName = query({
+  args: { name: v.string() },
+  handler: async (ctx, { name }) => {
+    const key = orgNameKey(name);
+    if (key.length < 3) return null;
+    const org = await ctx.db
+      .query("organizations")
+      .withIndex("by_nameKey", (q) => q.eq("nameKey", key))
+      .first();
+    return org ? { name: org.name, slug: org.slug } : null;
+  },
+});
+
 export const mine = query({
   args: {},
   handler: async (ctx) => {

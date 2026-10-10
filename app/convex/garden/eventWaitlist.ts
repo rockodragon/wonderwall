@@ -8,7 +8,7 @@ import { ConvexError } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { mutation, query, type MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
-import { isEventHost } from "../eventHosts";
+import { hostOf, requireEventHost } from "../eventHosts";
 import { canSeeEvent } from "./eventVisibility";
 import { eventHasEnded } from "../eventWindow";
 import { isEventFull, isGoing, waitlistOn } from "../eventSpots";
@@ -63,14 +63,9 @@ async function requireHostOfEntry(
   ctx: MutationCtx,
   entryId: Id<"eventWaitlist">,
 ): Promise<{ entry: Doc<"eventWaitlist">; event: Doc<"events">; hostId: Id<"users"> }> {
-  const hostId = await getAuthUserId(ctx);
-  if (!hostId) throw new ConvexError({ code: "not_signed_in", reason: "Sign in first." });
   const entry = await ctx.db.get(entryId);
   if (!entry) throw new ConvexError({ code: "not_found", reason: "They're no longer on the waitlist." });
-  const event = await ctx.db.get(entry.eventId);
-  if (!event || !isEventHost(event, hostId)) {
-    throw new ConvexError({ code: "not_authorized", reason: "Only the event's hosts can do that." });
-  }
+  const { userId: hostId, event } = await requireEventHost(ctx, entry.eventId);
   return { entry, event, hostId };
 }
 
@@ -127,9 +122,7 @@ export const removeFromWaitlist = mutation({
 export const getWaitlist = query({
   args: { eventId: v.id("events") },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    const event = await ctx.db.get(args.eventId);
-    if (!userId || !event || !isEventHost(event, userId)) return [];
+    if (!(await hostOf(ctx, args.eventId))) return [];
     const rows = await ctx.db
       .query("eventWaitlist")
       .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))

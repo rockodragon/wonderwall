@@ -22,7 +22,7 @@ import { v, ConvexError } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { isEventHost } from "./eventHosts";
+import { requireEventHost } from "./eventHosts";
 import { resolveVideoRole, eventAccessType, type EventVideoRole } from "./eventAccess";
 import { visibleMeetingUrl } from "./garden/tables";
 import { getTableParticipation } from "./garden/tablePolicy";
@@ -88,28 +88,6 @@ async function readVideoRow(
     .query("eventVideo")
     .withIndex("by_eventId", (q) => q.eq("eventId", eventId))
     .unique();
-}
-
-/** Organizer-only guard, shared by both mutations. */
-async function requireOrganizer(
-  ctx: MutationCtx,
-  eventId: Id<"events">,
-): Promise<Doc<"events">> {
-  const userId = await getAuthUserId(ctx);
-  if (!userId) {
-    throw new ConvexError({ code: "unauthenticated", reason: "Sign in first." });
-  }
-  const event = await ctx.db.get(eventId);
-  if (!event) {
-    throw new ConvexError({ code: "not_found", reason: "That event doesn't exist." });
-  }
-  if (!isEventHost(event, userId)) {
-    throw new ConvexError({
-      code: "forbidden",
-      reason: "Only a host can set this event's video links.",
-    });
-  }
-  return event;
 }
 
 async function upsertVideoRow(
@@ -225,7 +203,7 @@ export const setEventVideo = mutation({
     meetingUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireOrganizer(ctx, args.eventId);
+    await requireEventHost(ctx, args.eventId);
     const meetingUrl = normalizeVideoUrl(args.meetingUrl);
 
     await upsertVideoRow(ctx, args.eventId, { meetingUrl });
@@ -248,7 +226,7 @@ export const postEventRecording = mutation({
     recordingUrl: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireOrganizer(ctx, args.eventId);
+    await requireEventHost(ctx, args.eventId);
     const recordingUrl = normalizeVideoUrl(args.recordingUrl);
 
     await upsertVideoRow(ctx, args.eventId, {

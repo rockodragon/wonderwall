@@ -1252,6 +1252,10 @@ export default defineSchema({
     // The community this was posted INTO (optional — content belongs to the
     // person, and is only tagged to a community; community-groups.md §0).
     hostOrgId: v.optional(v.id("hostOrgs")),
+    // Posted as an organization (docs/features/organizations.md): the page
+    // and cards show the organization; `userId` is still the person who
+    // runs it, and every permission and payout still goes through them.
+    organizationId: v.optional(v.id("organizations")),
     // Stage of the creative process (docs/features/project-teams.md §1):
     // "planning" | "raising" | "forming" | "working" | "releasing" |
     // "completed". A label, not a state machine, and deliberately NOT a
@@ -1275,7 +1279,8 @@ export default defineSchema({
     .index("by_kind_status", ["kind", "status"])
     .index("by_storySlug", ["storySlug"])
     .index("by_legacyJobId", ["legacyJobId"])
-    .index("by_hostOrgId", ["hostOrgId"]),
+    .index("by_hostOrgId", ["hostOrgId"])
+    .index("by_organizationId", ["organizationId"]),
 
   // Project team (docs/features/project-teams.md §2). One row per person
   // per project, reused across status changes — structurally
