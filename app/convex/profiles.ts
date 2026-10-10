@@ -1,6 +1,5 @@
 import { v, ConvexError } from "convex/values";
 import { internalAction, internalMutation, internalQuery, mutation, query } from "./_generated/server";
-import type { QueryCtx } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { auth } from "./auth";
 import type { Doc } from "./_generated/dataModel";
@@ -8,19 +7,9 @@ import { normalizeHandle, PAYOUT_KINDS, type PayoutHandles } from "./garden/gigR
 import { fillOrgWebsite, linkOrgByName, profileOrganizations, unlinkPrimaryOrg } from "./organizations";
 import { normalizeOrgUrl } from "./organizationRules";
 import { communityVisibility } from "./garden/communityVisibility";
+import { profileImageUrl, storedOrExternalUrl } from "./images";
 
 export { normalizeOrgUrl };
-
-// Helper to resolve image URL from storage or external URL
-async function resolveImageUrl(
-  ctx: QueryCtx,
-  profile: Doc<"profiles">,
-): Promise<string | null> {
-  if (profile.imageStorageId) {
-    return await ctx.storage.getUrl(profile.imageStorageId);
-  }
-  return profile.imageUrl || null;
-}
 
 // What any visitor may see of someone else's profile. getProfile and search
 // are public queries (/people works signed out), so this is an allowlist:
@@ -72,7 +61,7 @@ export const getMyProfile = query({
     if (!profile) return null;
 
     // Resolve image URL
-    const imageUrl = await resolveImageUrl(ctx, profile);
+    const imageUrl = await profileImageUrl(ctx, profile);
 
     // Get attributes
     const attributes = await ctx.db
@@ -110,7 +99,7 @@ export const getProfile = query({
     if (!profile) return null;
 
     // Resolve image URL
-    const imageUrl = await resolveImageUrl(ctx, profile);
+    const imageUrl = await profileImageUrl(ctx, profile);
 
     // Get attributes
     const attributes = await ctx.db
@@ -132,9 +121,7 @@ export const getProfile = query({
     const artifactsWithUrls = await Promise.all(
       artifacts.map(async (artifact) => {
         // Resolve storage URL if exists
-        const resolvedMediaUrl = artifact.mediaStorageId
-          ? await ctx.storage.getUrl(artifact.mediaStorageId)
-          : artifact.mediaUrl || null;
+        const resolvedMediaUrl = await storedOrExternalUrl(ctx, artifact.mediaStorageId, artifact.mediaUrl);
 
         return {
           ...artifact,
@@ -469,7 +456,7 @@ export const search = query({
         const wondering = wonderingMap.get(profile._id) || null;
 
         // Resolve profile image URL
-        const imageUrl = await resolveImageUrl(ctx, profile);
+        const imageUrl = await profileImageUrl(ctx, profile);
 
         // Resolve wondering image URL if exists
         let wonderingImageUrl: string | null = null;

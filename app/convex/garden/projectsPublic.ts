@@ -14,10 +14,12 @@
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { query } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
 import { shapeCredits, type CreditEntry } from "./allocations";
 import { summarizeGig } from "./gigSummary";
 import { isHidden, isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
 import { communityVisibility } from "./communityVisibility";
+import { projectPhotoUrl } from "../images";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
@@ -129,27 +131,17 @@ export function resolveMoneyLine(project: {
 }
 
 /**
- * The picture to show for a project: the uploaded file (`photoStorageId`)
- * first, then the pasted external link (`photoUrl`). garden/projects.ts reads
- * a project the same way for the signed-in pages (`resolvedPhotoUrl`); the
- * public cards and the story page read only `photoUrl` and so missed every
- * uploaded photo. A stored file that no longer resolves falls back to the
- * link rather than to a blank. Takes `storage` duck-typed — pass `ctx.storage`.
+ * The picture to show for a project on the public cards and the story page:
+ * the uploaded file, else the pasted link (images.ts projectPhotoUrl, which
+ * garden/projects.ts uses for the signed-in pages too). Undefined, not null,
+ * when there is none. Takes `storage` duck-typed — pass `ctx.storage`.
  */
 export async function resolveProjectPhotoUrl(
   storage: { getUrl: (id: any) => Promise<string | null> },
   project: { photoStorageId?: unknown; photoUrl?: string },
 ): Promise<string | undefined> {
-  if (project.photoStorageId) {
-    let stored: string | null = null;
-    try {
-      stored = await storage.getUrl(project.photoStorageId);
-    } catch {
-      stored = null;
-    }
-    if (stored) return stored;
-  }
-  return project.photoUrl || undefined;
+  const photoStorageId = project.photoStorageId as Id<"_storage"> | undefined;
+  return (await projectPhotoUrl({ storage }, { photoStorageId, photoUrl: project.photoUrl })) ?? undefined;
 }
 
 /**

@@ -25,6 +25,7 @@ import { ruleOf, summarizeGig } from "./gigSummary";
 import { can } from "./capabilities";
 import { assertCanPure, getGardenUser } from "./entitlements";
 import { escapeHtml } from "./projectTeam";
+import { profileImageUrl, storedOrExternalUrl } from "../images";
 import {
   HORIZON_WEEKS,
   MAX_CLIPS,
@@ -74,12 +75,6 @@ async function getProfile(ctx: Ctx, userId: Id<"users">): Promise<Doc<"profiles"
     .first();
 }
 
-async function resolveImageUrl(ctx: Ctx, profile: Doc<"profiles"> | null): Promise<string | null> {
-  if (!profile) return null;
-  if (profile.imageStorageId) return await ctx.storage.getUrl(profile.imageStorageId);
-  return profile.imageUrl || null;
-}
-
 async function resolvePerson(ctx: Ctx, userId: Id<"users"> | undefined) {
   if (!userId) return null;
   const profile = await getProfile(ctx, userId);
@@ -88,7 +83,7 @@ async function resolvePerson(ctx: Ctx, userId: Id<"users"> | undefined) {
     userId,
     profileId: profile._id,
     name: profile.name,
-    imageUrl: await resolveImageUrl(ctx, profile),
+    imageUrl: await profileImageUrl(ctx, profile),
     location: profile.location ?? null,
   };
 }
@@ -1313,7 +1308,7 @@ export const listResponders = query({
           artifactId: a._id,
           type: a.type,
           title: a.title ?? null,
-          mediaUrl: a.mediaStorageId ? await ctx.storage.getUrl(a.mediaStorageId) : (a.mediaUrl ?? null),
+          mediaUrl: await storedOrExternalUrl(ctx, a.mediaStorageId, a.mediaUrl),
           linkUrl: a.mediaUrl ?? null,
           ogImageUrl: a.ogImageUrl ?? null,
         });

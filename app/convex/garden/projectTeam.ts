@@ -23,6 +23,7 @@ import { scheduleNotificationEmail } from "../emailHelpers";
 import { toEmbedUrl } from "../videoEmbed";
 import { isHidden } from "../moderationRules";
 import { communityVisibility } from "./communityVisibility";
+import { profileImageUrl, projectPhotoUrl, storedOrExternalUrl } from "../images";
 
 // ——————————————————————————————————————————————————————————————
 // Stage — TWIN of app/app/lib/stage.ts (STAGES, isStage, stageLabel,
@@ -556,13 +557,6 @@ async function getProfile(ctx: Ctx, userId: Id<"users">): Promise<Doc<"profiles"
     .first();
 }
 
-// Same resolution messaging.ts uses: stored file first, external URL second.
-export async function resolveImageUrl(ctx: Ctx, profile: Doc<"profiles"> | null): Promise<string | null> {
-  if (!profile) return null;
-  if (profile.imageStorageId) return await ctx.storage.getUrl(profile.imageStorageId);
-  return profile.imageUrl || null;
-}
-
 async function resolvePerson(
   ctx: Ctx,
   userId: Id<"users"> | undefined,
@@ -572,7 +566,7 @@ async function resolvePerson(
   return {
     profileId: profile?._id ?? null,
     name: profile?.name,
-    imageUrl: await resolveImageUrl(ctx, profile),
+    imageUrl: await profileImageUrl(ctx, profile),
   };
 }
 
@@ -1473,7 +1467,7 @@ export const getTeam = query({
       profileId: leadProfile?._id ?? null,
       userId: project.userId,
       name: leadProfile?.name ?? "The project lead",
-      imageUrl: await resolveImageUrl(ctx, leadProfile),
+      imageUrl: await profileImageUrl(ctx, leadProfile),
     };
 
     const accepted: PersonEntry[] = [];
@@ -1600,8 +1594,8 @@ export const listRoles = query({
 // else its pasted link's still, else the first attached piece's — an
 // uploaded image, a fetched/uploaded cover, or a video provider's thumbnail.
 async function projectCover(ctx: QueryCtx, project: Doc<"projects">): Promise<string | null> {
-  if (project.photoStorageId) return await ctx.storage.getUrl(project.photoStorageId);
-  if (project.photoUrl) return project.photoUrl;
+  const photo = await projectPhotoUrl(ctx, project);
+  if (photo) return photo;
   if (project.mediaPreviewUrl) return project.mediaPreviewUrl;
   const pieces = await ctx.db
     .query("artifacts")
@@ -1610,8 +1604,8 @@ async function projectCover(ctx: QueryCtx, project: Doc<"projects">): Promise<st
   for (const piece of pieces) {
     if (piece.ogImageUrl) return piece.ogImageUrl;
     if (piece.type === "image") {
-      if (piece.mediaStorageId) return await ctx.storage.getUrl(piece.mediaStorageId);
-      if (piece.mediaUrl) return piece.mediaUrl;
+      const media = await storedOrExternalUrl(ctx, piece.mediaStorageId, piece.mediaUrl);
+      if (media) return media;
     }
     const embed = toEmbedUrl(piece.mediaUrl);
     if (embed?.thumbnailUrl) return embed.thumbnailUrl;
@@ -1756,7 +1750,7 @@ export const searchPeopleForInvite = query({
         profileId: p._id,
         userId: p.userId,
         name: p.name,
-        imageUrl: await resolveImageUrl(ctx, p),
+        imageUrl: await profileImageUrl(ctx, p),
       });
     }
     return out;

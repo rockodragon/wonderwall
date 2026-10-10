@@ -15,6 +15,7 @@ import { followEachOther } from "./follows";
 import { findInviterProfile } from "./inviteLookup";
 import { getDefaultCommunity } from "./garden/defaultCommunity";
 import { resolveSenderCommunity } from "./email/senderCommunity";
+import { profileImageUrl } from "./images";
 
 function generateCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -273,7 +274,7 @@ export const getInviterInfo = query({
       if (inviteeProfile) {
         recentInvitees.push({
           name: inviteeProfile.name,
-          imageUrl: inviteeProfile.imageUrl,
+          imageUrl: await profileImageUrl(ctx, inviteeProfile),
           interests: inviteeProfile.interests,
         });
       }
@@ -281,7 +282,7 @@ export const getInviterInfo = query({
 
     return {
       name: profile.name,
-      imageUrl: profile.imageUrl,
+      imageUrl: await profileImageUrl(ctx, profile),
       interests: profile.interests,
       usageCount: profile.inviteUsageCount || 0,
       recentInvitees,
@@ -486,9 +487,7 @@ export const getMyNetwork = query({
         .withIndex("by_userId", (q) => q.eq("userId", id))
         .first();
       if (!profile) return null;
-      const imageUrl = profile.imageStorageId
-        ? await ctx.storage.getUrl(profile.imageStorageId)
-        : profile.imageUrl || null;
+      const imageUrl = await profileImageUrl(ctx, profile);
       return {
         userId: id,
         profileId: profile._id,

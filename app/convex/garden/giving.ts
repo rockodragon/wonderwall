@@ -36,6 +36,7 @@ import { isAdminProfile } from "../helpers";
 import { SPLITS } from "./capabilities";
 import { getCommunityMember } from "./communities";
 import { communityVisibility } from "./communityVisibility";
+import { profileImageUrl } from "../images";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
@@ -699,12 +700,12 @@ export async function scheduleTransferFor(ctx: MutationCtx, payeeUserId: Id<"use
 
 const PICKER_LIMIT = 20;
 
-function pickProfileCard(p: Doc<"profiles">) {
+async function pickProfileCard(ctx: QueryCtx, p: Doc<"profiles">) {
   return {
     userId: p.userId,
     profileId: p._id,
     name: p.name,
-    imageUrl: p.imageUrl,
+    imageUrl: await profileImageUrl(ctx, p),
     interests: p.interests.slice(0, 3),
     location: p.location,
   };
@@ -857,13 +858,13 @@ export const searchRecipients = query({
       Promise.all(memberIds.map((id) => profileFor(ctx, id))),
       followedSets(ctx, userId),
     ]);
-    return profiles
+    const page = profiles
       .filter((p): p is Doc<"profiles"> => Boolean(p) && p!.name !== "New User")
       .filter((p) => !needle || p.name.toLowerCase().includes(needle) || p.interests.some((i) => i.toLowerCase().includes(needle)))
       .map((p) => ({ p, following: followed.profileIds.has(String(p._id)) }))
       .sort((a, b) => Number(b.following) - Number(a.following) || a.p.name.localeCompare(b.p.name))
-      .slice(0, PICKER_LIMIT)
-      .map(({ p, following }) => ({ ...pickProfileCard(p), following }));
+      .slice(0, PICKER_LIMIT);
+    return await Promise.all(page.map(async ({ p, following }) => ({ ...(await pickProfileCard(ctx, p)), following })));
   },
 });
 

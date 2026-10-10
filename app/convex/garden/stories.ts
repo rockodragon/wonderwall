@@ -16,6 +16,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { shapeCredits } from "./allocations";
 import { resolveProjectPhotoUrl } from "./projectsPublic";
+import { profileImageUrl } from "../images";
 import { notifyFollowers } from "../follows";
 import { isHidden } from "../moderationRules";
 import { communityVisibility, isHiddenCommunityId } from "./communityVisibility";
@@ -338,12 +339,12 @@ export const listProjectUpdates = query({
           .unique(),
       ),
     );
-    const authorById = new Map<string, { name: string; imageUrl?: string; profileId: string }>();
+    const authorById = new Map<string, { name: string; imageUrl: string | null; profileId: string }>();
     for (const profile of authorProfiles) {
       if (profile) {
         authorById.set(String(profile.userId), {
           name: profile.name,
-          imageUrl: profile.imageUrl,
+          imageUrl: await profileImageUrl(ctx, profile),
           profileId: String(profile._id),
         });
       }
