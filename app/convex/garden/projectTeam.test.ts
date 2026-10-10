@@ -21,7 +21,6 @@ import {
   buildRequestDecidedEmail,
   canLeadReinvite,
   countInWindow,
-  escapeHtml,
   isStage,
   nameMatches,
   nextStatusForRequest,
@@ -140,20 +139,6 @@ describe("shouldNotifyStageChange — §6: real change, at most once per 24h", (
   });
   it("true when the last change was 24h+ ago", () => {
     expect(shouldNotifyStageChange("planning", "working", NOW - DAY_MS, NOW)).toBe(true);
-  });
-});
-
-describe("escapeHtml", () => {
-  it("escapes the five HTML metacharacters", () => {
-    expect(escapeHtml(`<b>"Tom" & 'Jerry'</b>`)).toBe(
-      "&lt;b&gt;&quot;Tom&quot; &amp; &#39;Jerry&#39;&lt;/b&gt;",
-    );
-  });
-  it("leaves plain text alone", () => {
-    expect(escapeHtml("Director of Photography")).toBe("Director of Photography");
-  });
-  it("escapes & first so entities aren't double-encoded", () => {
-    expect(escapeHtml("&lt;")).toBe("&amp;lt;");
   });
 });
 

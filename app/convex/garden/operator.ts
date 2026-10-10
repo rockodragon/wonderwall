@@ -6,18 +6,14 @@
 //
 // House style, same as allocations.ts/coverage.ts: pure core (validation)
 // unit-tested without Convex in operator.test.ts; thin ctx.db wrappers
-// below. Every mutation/query here is operator-gated via isAdminProfile
-// (helpers.ts) — mirrors allocations.recordAllocation's inline check
-// rather than requireAdmin, since we need the profile row either way to
-// resolve who's asking.
+// below. Every mutation/query here is operator-gated via requireOperator
+// (helpers.ts), the one gate every operator tool shares.
 
 import { v } from "convex/values";
 import { ConvexError } from "convex/values";
 import { mutation, query } from "../_generated/server";
-import type { QueryCtx, MutationCtx } from "../_generated/server";
-import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Id } from "../_generated/dataModel";
-import { isAdminProfile } from "../helpers";
+import { requireOperator } from "../helpers";
 import { VISIBLE_PROJECT_STATUSES } from "../moderationRules";
 
 // ——————————————————————————————————————————————————————————————
@@ -62,25 +58,6 @@ export function parseStartsAtMs(iso: string): number | null {
 // ——————————————————————————————————————————————————————————————
 // Convex wrappers
 // ——————————————————————————————————————————————————————————————
-
-/** Every export in this file is an operator tool — resolve + gate the
- * caller once, shared by queries and mutations alike. */
-async function requireOperator(ctx: QueryCtx | MutationCtx): Promise<Id<"users">> {
-  const userId = await getAuthUserId(ctx);
-  if (!userId) throw new ConvexError({ code: "unauthenticated" });
-
-  const profile = await ctx.db
-    .query("profiles")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .unique();
-  if (!isAdminProfile(profile)) {
-    throw new ConvexError({
-      code: "forbidden",
-      reason: "This is an operator tool — this account doesn't have that access.",
-    });
-  }
-  return userId;
-}
 
 export const createTable = mutation({
   args: {
@@ -212,7 +189,7 @@ export const addSession = mutation({
 export const markExternalTicketRefunded = mutation({
   args: { exceptionId: v.id("externalTicketExceptions") },
   handler: async (ctx, args) => {
-    const operatorId = await requireOperator(ctx);
+    const { userId: operatorId } = await requireOperator(ctx);
     const row = await ctx.db.get(args.exceptionId);
     if (!row) throw new ConvexError({ code: "not_found" });
     if (row.status === "refunded") return;

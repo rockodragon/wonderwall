@@ -33,6 +33,7 @@ import { findMyRsvp } from "../eventGuests";
 import { assertEventHasRoom, isGoing } from "../eventSpots";
 import { scheduleNotificationEmail } from "../emailHelpers";
 import { escapeHtml } from "../email/template";
+import { isAdmin } from "../helpers";
 
 // ——— Pure core ———
 
@@ -743,15 +744,7 @@ export const getEventRsvps = query({
     const userId = await getAuthUserId(ctx);
     let canViewFull = false;
     if (userId) {
-      if (isEventHost(event, userId)) {
-        canViewFull = true;
-      } else {
-        const profile = await ctx.db
-          .query("profiles")
-          .withIndex("by_userId", (q) => q.eq("userId", userId))
-          .unique();
-        canViewFull = profile?.isAdmin === true;
-      }
+      canViewFull = isEventHost(event, userId) || (await isAdmin(ctx, userId));
     }
 
     const rows = await ctx.db

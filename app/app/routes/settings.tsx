@@ -1,6 +1,5 @@
 import { usePostHog } from "@posthog/react";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { ConvexError } from "convex/values";
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import confetti from "canvas-confetti";
@@ -204,23 +203,6 @@ function formatMoneyCents(cents: number): string {
   })}`;
 }
 
-// Convex surfaces a thrown ConvexError's payload on err.data — for a plain
-// `new ConvexError("message")` (what createBillingPortalSession throws)
-// that's the message string itself, not an object; handle both shapes so a
-// real ConvexError from any billing action still reads as a warm line
-// instead of the generic fallback.
-function billingErrorMessage(err: unknown): string {
-  if (err instanceof ConvexError) {
-    const data = err.data as unknown;
-    if (typeof data === "string") return data;
-    if (data && typeof data === "object" && "reason" in data) {
-      const reason = (data as { reason?: unknown }).reason;
-      if (reason) return String(reason);
-    }
-  }
-  return "Couldn't open billing — try again.";
-}
-
 function BillingSection() {
   const membership = useQuery(api.garden.memberships.getMyMembership);
   const purchases = useQuery(api.garden.products.listMyPurchases);
@@ -254,7 +236,7 @@ function BillingSection() {
       const { url } = await openBillingPortal();
       window.location.assign(url);
     } catch (err) {
-      setError(billingErrorMessage(err));
+      setError(errorMessage(err, "Couldn't open billing — try again."));
       setPending(false);
     }
   }

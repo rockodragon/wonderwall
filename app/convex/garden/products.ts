@@ -18,7 +18,7 @@ import { mutation, query } from "../_generated/server";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { isAdminProfile } from "../helpers";
+import { isAdmin, requireOperator } from "../helpers";
 import { assertCanManageCommunity, canManageCommunity, getCommunityMember } from "./communities";
 
 // ——————————————————————————————————————————————————————————————
@@ -159,11 +159,7 @@ async function purchasesFor(ctx: Ctx, productId: Id<"communityProducts">, userId
 
 async function viewerManages(ctx: Ctx, hostOrgId: Id<"hostOrgs">, userId: Id<"users"> | null): Promise<boolean> {
   if (!userId) return false;
-  const profile = await ctx.db
-    .query("profiles")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .unique();
-  if (isAdminProfile(profile)) return true;
+  if (await isAdmin(ctx, userId)) return true;
   const m = await getCommunityMember(ctx, hostOrgId, userId);
   return !!m && m.status === "active" && canManageCommunity(m.role);
 }
@@ -397,15 +393,7 @@ export const recordHostPayout = mutation({
     paidAtISO: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError({ code: "unauthenticated" });
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-    if (!isAdminProfile(profile)) {
-      throw new ConvexError({ code: "forbidden", reason: "This is an operator tool." });
-    }
+    await requireOperator(ctx);
     if (!Number.isInteger(args.amountCents) || args.amountCents <= 0) {
       throw new ConvexError({ code: "invalid_amount", reason: "Amount must be a positive whole number of cents." });
     }

@@ -4,7 +4,6 @@
 // admin), and every mutation re-checks it.
 
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { ConvexError } from "convex/values";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
@@ -14,6 +13,8 @@ import { LocationAutocomplete } from "../components/LocationAutocomplete";
 import { OrgLogo } from "../components/OrgLogo";
 import { useLocationField } from "../lib/useLocationField";
 import { PAGE_WIDTH } from "../lib/pageWidth";
+import { errorMessage } from "../lib/convexError";
+import { PersonAvatar } from "../components/PersonAvatar";
 
 const inputClass =
   "w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent placeholder:text-[var(--app-text-dim)]";
@@ -26,15 +27,6 @@ const labelClass = "block text-sm font-medium mb-2";
 const labelStyle = { color: "var(--app-text-muted)" };
 const cardClass = "rounded-2xl border p-4 sm:p-5";
 const cardStyle = { borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface)" };
-
-function reason(err: unknown): string {
-  if (err instanceof ConvexError) {
-    const data = err.data as { reason?: string } | string | undefined;
-    if (typeof data === "object" && data?.reason) return data.reason;
-    if (typeof data === "string" && data) return data;
-  }
-  return "Something went wrong.";
-}
 
 export default function OrgEdit() {
   const { slug } = useParams();
@@ -152,7 +144,7 @@ export default function OrgEdit() {
       await setLogo({ organizationId: org._id, storageId });
     } catch (err) {
       console.error("Logo upload error:", err);
-      setLogoError(err instanceof ConvexError ? reason(err) : "Couldn't upload that. Try again.");
+      setLogoError(errorMessage(err, "Couldn't upload that. Try again."));
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -165,7 +157,7 @@ export default function OrgEdit() {
     try {
       await setLogo({ organizationId: org._id });
     } catch (err) {
-      setLogoError(reason(err));
+      setLogoError(errorMessage(err, "Something went wrong."));
     }
   }
 
@@ -189,7 +181,7 @@ export default function OrgEdit() {
       });
       navigate(`/orgs/${saved.slug}`);
     } catch (err) {
-      setError(reason(err));
+      setError(errorMessage(err, "Something went wrong."));
       setSaving(false);
     }
   }
@@ -201,7 +193,7 @@ export default function OrgEdit() {
     try {
       await setAdmin({ organizationId: org._id, profileId, isAdmin });
     } catch (err) {
-      setPeopleError(reason(err));
+      setPeopleError(errorMessage(err, "Something went wrong."));
     } finally {
       setBusyProfileId(null);
     }
@@ -214,7 +206,7 @@ export default function OrgEdit() {
     try {
       await removePerson({ organizationId: org._id, profileId });
     } catch (err) {
-      setPeopleError(reason(err));
+      setPeopleError(errorMessage(err, "Something went wrong."));
     } finally {
       setBusyProfileId(null);
     }
@@ -481,7 +473,7 @@ export default function OrgEdit() {
                   style={{ borderColor: "var(--app-hairline)" }}
                 >
                   <div className="flex items-center gap-3 min-w-[12rem] flex-1">
-                    <Avatar name={p.name} imageUrl={p.imageUrl} />
+                    <PersonAvatar name={p.name} imageUrl={p.imageUrl} size="md" tone="muted" />
                     <div className="min-w-0">
                       <div className="text-sm font-medium truncate" style={{ color: "var(--app-text)" }}>
                         {p.name}
@@ -566,7 +558,7 @@ function AddPerson({
       await addPerson({ organizationId, profileId });
       setQuery("");
     } catch (err) {
-      onError(reason(err));
+      onError(errorMessage(err, "Something went wrong."));
     } finally {
       setBusy(false);
     }
@@ -601,7 +593,7 @@ function AddPerson({
                   onClick={() => add(r._id as Id<"profiles">)}
                   className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-[var(--app-hairline)]"
                 >
-                  <Avatar name={r.name} imageUrl={r.imageUrl ?? null} />
+                  <PersonAvatar name={r.name} imageUrl={r.imageUrl ?? null} size="md" tone="muted" />
                   <span className="text-sm font-medium truncate" style={{ color: "var(--app-text)" }}>
                     {r.name}
                   </span>
@@ -658,19 +650,3 @@ function Skeleton() {
   );
 }
 
-function Avatar({ name, imageUrl }: { name: string; imageUrl: string | null }) {
-  return (
-    <div
-      className="w-10 h-10 shrink-0 rounded-full overflow-hidden flex items-center justify-center"
-      style={{ backgroundColor: "var(--app-hairline-raised)" }}
-    >
-      {imageUrl ? (
-        <img src={imageUrl} alt="" className="w-full h-full object-cover" />
-      ) : (
-        <span className="text-sm font-semibold" style={{ color: "var(--app-text-muted)" }}>
-          {name.trim().charAt(0).toUpperCase() || "?"}
-        </span>
-      )}
-    </div>
-  );
-}

@@ -6,6 +6,7 @@
 
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
+import { activeCommunityMemberships } from "../garden/communityLookup";
 import { getDefaultCommunity } from "../garden/defaultCommunity";
 import { isActiveCommunity, pickSenderCommunity, type SenderMembership } from "./sender";
 
@@ -24,13 +25,7 @@ export async function resolveSenderCommunity(
   // the membership reads.
   let memberships: SenderMembership<Doc<"hostOrgs">>[] = [];
   if (args.userId && !(explicit && isActiveCommunity(explicit))) {
-    const userId = args.userId;
-    const rows = await ctx.db
-      .query("communityMembers")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .collect();
-    for (const row of rows) {
-      if (row.status !== "active") continue;
+    for (const row of await activeCommunityMemberships(ctx, args.userId)) {
       const community = await ctx.db.get(row.hostOrgId);
       if (community) memberships.push({ community, joinedAt: row.joinedAt });
     }

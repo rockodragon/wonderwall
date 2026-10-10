@@ -5,6 +5,7 @@ import type { QueryCtx } from "./_generated/server";
 import { auth } from "./auth";
 import { AWARD_TYPES, isCelebrationType } from "./celebrationTypes";
 import { fundDisplayName } from "./garden/allocations";
+import { profileImageUrl } from "./images";
 
 // Get notifications for the current user
 export const getNotifications = query({
@@ -44,7 +45,7 @@ export const getNotifications = query({
                 // An uploaded photo resolves to its storage URL, the way
                 // getConversations does; the raw `imageUrl` field alone is
                 // only the legacy external link and misses uploads.
-                imageUrl: await resolveProfileImage(ctx, relatedUserProfile),
+                imageUrl: await profileImageUrl(ctx, relatedUserProfile),
                 inviteSlug: relatedUserProfile.inviteSlug,
               }
             : null,
@@ -178,12 +179,6 @@ export function projectHref(project: { _id: string; storySlug?: string }): strin
   return project.storySlug ? `/story/${project.storySlug}` : `/projects/${project._id}`;
 }
 
-// A profile photo is either an uploaded file or an external URL.
-async function resolveProfileImage(ctx: QueryCtx, profile: Doc<"profiles">): Promise<string | null> {
-  if (profile.imageStorageId) return await ctx.storage.getUrl(profile.imageStorageId);
-  return profile.imageUrl || null;
-}
-
 /** Looks up what one celebration notification mentions. Shared by the canvas
  * (listCelebrations) and the daily email (supportDigest.ts), so the two link
  * the same people and projects.
@@ -208,7 +203,7 @@ export async function celebrationContext(ctx: QueryCtx, n: Doc<"notifications">)
           userId: relatedUserId,
           profileId: profile._id,
           name: profile.name,
-          imageUrl: await resolveProfileImage(ctx, profile),
+          imageUrl: await profileImageUrl(ctx, profile),
         }
       : null;
 

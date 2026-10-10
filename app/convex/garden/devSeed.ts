@@ -13,7 +13,8 @@
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
-import { COMMUNITY_KIND, PLATFORM_ORG_SLUG } from "./communities";
+import { PLATFORM_ORG_SLUG } from "./communities";
+import { COMMUNITY_KIND, getCommunityMember } from "./communityLookup";
 import { YOUTUBE_LIVE_URL } from "../../app/constants/broadcast";
 
 // Kept working for existing callers/scripts, but now creates "the-garden"
@@ -542,10 +543,7 @@ export const seedCommunityLaunch = internalMutation({
       hostUserIds = admins.map((p) => p.userId);
     }
     for (const userId of hostUserIds) {
-      const existing = await ctx.db
-        .query("communityMembers")
-        .withIndex("by_hostOrgId_userId", (q) => q.eq("hostOrgId", gardenId).eq("userId", userId))
-        .unique();
+      const existing = await getCommunityMember(ctx, gardenId, userId);
       if (existing) {
         if (existing.role !== "host" || existing.status !== "active") {
           await ctx.db.patch(existing._id, { role: "host", status: "active" });

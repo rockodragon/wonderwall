@@ -1,21 +1,9 @@
 import { v } from "convex/values";
 import { escapeHtml } from "./email/template";
 import { mutation, query } from "./_generated/server";
-import type { QueryCtx } from "./_generated/server";
 import { auth } from "./auth";
 import { scheduleNotificationEmail } from "./emailHelpers";
-import type { Doc } from "./_generated/dataModel";
-
-// Helper to resolve image URL from storage or external URL
-async function resolveImageUrl(
-  ctx: QueryCtx,
-  profile: Doc<"profiles">,
-): Promise<string | null> {
-  if (profile.imageStorageId) {
-    return await ctx.storage.getUrl(profile.imageStorageId);
-  }
-  return profile.imageUrl || null;
-}
+import { pieceMediaUrl, profileImageUrl } from "./images";
 
 /**
  * Get all jobs with filters
@@ -113,7 +101,7 @@ export const getJobs = query({
         // Resolve poster image URL
         let posterImageUrl: string | null = null;
         if (posterProfile) {
-          posterImageUrl = await resolveImageUrl(ctx, posterProfile);
+          posterImageUrl = await profileImageUrl(ctx, posterProfile);
         }
 
         // Get interest count
@@ -159,7 +147,7 @@ export const getJob = query({
     // Resolve poster image URL
     let posterImageUrl: string | null = null;
     if (posterProfile) {
-      posterImageUrl = await resolveImageUrl(ctx, posterProfile);
+      posterImageUrl = await profileImageUrl(ctx, posterProfile);
     }
 
     // Get interest count
@@ -226,10 +214,7 @@ export const getJobInterests = query({
         const profile = await ctx.db.get(interest.profileId);
 
         // Resolve profile image URL
-        let imageUrl: string | null = null;
-        if (profile) {
-          imageUrl = await resolveImageUrl(ctx, profile);
-        }
+        const imageUrl = await profileImageUrl(ctx, profile);
 
         // Get work link artifacts
         const workLinkArtifacts = await Promise.all(
@@ -237,10 +222,7 @@ export const getJobInterests = query({
             const artifact = await ctx.db.get(artifactId);
             if (!artifact) return null;
 
-            let mediaUrl = artifact.mediaUrl || null;
-            if (artifact.mediaStorageId) {
-              mediaUrl = await ctx.storage.getUrl(artifact.mediaStorageId);
-            }
+            const mediaUrl = await pieceMediaUrl(ctx, artifact);
 
             return {
               ...artifact,
@@ -296,10 +278,7 @@ export const getUserJobInterest = query({
         const artifact = await ctx.db.get(artifactId);
         if (!artifact) return null;
 
-        let mediaUrl = artifact.mediaUrl || null;
-        if (artifact.mediaStorageId) {
-          mediaUrl = await ctx.storage.getUrl(artifact.mediaStorageId);
-        }
+        const mediaUrl = await pieceMediaUrl(ctx, artifact);
 
         return {
           ...artifact,

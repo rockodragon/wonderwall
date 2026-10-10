@@ -16,6 +16,7 @@ import {
 import { haversineDistance, NEAR_ME_RADIUS_OPTIONS, useNearMe } from "../lib/useNearMe";
 import { ChevronDownIcon, FilterIcon, LocationIcon } from "../components/icons";
 import { PAGE_WIDTH } from "../lib/pageWidth";
+import { errorMessage } from "../lib/convexError";
 
 // AnnouncementComposer moved off this list page entirely — it now renders
 // only on the detail page (routes/offerings.$id.tsx), per the founder's
@@ -53,18 +54,6 @@ const FORMAT_OPTIONS = [
 export const FORMAT_LABELS: Record<string, string> = Object.fromEntries(
   FORMAT_OPTIONS.map((f) => [f.value, f.label]),
 );
-
-// Convex surfaces a thrown ConvexError's payload on err.data, not
-// err.message — see the identical helper in projects.tsx. Exported: the
-// detail route (offerings.$id.tsx) reuses this for its own owner-action
-// mutations rather than duplicating it.
-export function errorMessage(err: unknown): string {
-  const data = (err as { data?: unknown })?.data;
-  if (data && typeof data === "object" && "reason" in data) {
-    return String((data as { reason: unknown }).reason);
-  }
-  return "Something went wrong — try again.";
-}
 
 export function formatPrice(priceCents?: number): string {
   if (!priceCents) return "Free";

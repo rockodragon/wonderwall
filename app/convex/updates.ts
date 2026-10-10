@@ -23,6 +23,7 @@ import { internal } from "./_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireAdmin } from "./helpers";
+import { getCommunityMember } from "./garden/communityLookup";
 import { scheduleNotificationEmail } from "./emailHelpers";
 import { escapeHtml } from "./email/template";
 
@@ -304,10 +305,7 @@ async function inAudience(
   if (update.audience === "new") return userCreatedAt > newCutoff(update.newForDays, now);
   const hostOrgId = update.hostOrgId;
   if (!hostOrgId) return false;
-  const membership = await ctx.db
-    .query("communityMembers")
-    .withIndex("by_hostOrgId_userId", (q) => q.eq("hostOrgId", hostOrgId).eq("userId", userId))
-    .unique();
+  const membership = await getCommunityMember(ctx, hostOrgId, userId);
   return membership?.status === "active";
 }
 
@@ -394,10 +392,7 @@ async function wasInAudience(
   if (update.audience === "new") return userCreatedAt > newCutoff(update.newForDays, firstChance);
   const hostOrgId = update.hostOrgId;
   if (!hostOrgId) return false;
-  const membership = await ctx.db
-    .query("communityMembers")
-    .withIndex("by_hostOrgId_userId", (q) => q.eq("hostOrgId", hostOrgId).eq("userId", userId))
-    .unique();
+  const membership = await getCommunityMember(ctx, hostOrgId, userId);
   return membership?.status === "active" && membership.joinedAt <= sawItBy;
 }
 
@@ -521,6 +516,9 @@ export const archive = mutation({
 // Admin
 // ——————————————————————————————————————————————————————————————
 
+// Signed out keeps this file's own code (not_signed_in, as in every gate
+// above); the admin check is the shared one, so a non-admin gets the same
+// "forbidden" ConvexError as everywhere else.
 async function requireAdminUser(ctx: QueryCtx | MutationCtx): Promise<Id<"users">> {
   const userId = await getAuthUserId(ctx);
   if (!userId) fail("not_signed_in", "Sign in first.");

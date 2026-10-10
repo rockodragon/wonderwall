@@ -32,10 +32,11 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "../_generated/api";
 import { scheduleNotificationEmail } from "../emailHelpers";
 import { escapeHtml } from "../email/template";
-import { isAdminProfile } from "../helpers";
+import { requireOperator } from "../helpers";
 import { SPLITS } from "./capabilities";
 import { getCommunityMember } from "./communities";
 import { communityVisibility } from "./communityVisibility";
+import { profileImageUrl, projectPhotoUrl } from "../images";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
@@ -699,12 +700,12 @@ export async function scheduleTransferFor(ctx: MutationCtx, payeeUserId: Id<"use
 
 const PICKER_LIMIT = 20;
 
-function pickProfileCard(p: Doc<"profiles">) {
+async function pickProfileCard(ctx: QueryCtx, p: Doc<"profiles">) {
   return {
     userId: p.userId,
     profileId: p._id,
     name: p.name,
-    imageUrl: p.imageUrl,
+    imageUrl: await profileImageUrl(ctx, p),
     interests: p.interests.slice(0, 3),
     location: p.location,
   };
@@ -857,13 +858,13 @@ export const searchRecipients = query({
       Promise.all(memberIds.map((id) => profileFor(ctx, id))),
       followedSets(ctx, userId),
     ]);
-    return profiles
+    const page = profiles
       .filter((p): p is Doc<"profiles"> => Boolean(p) && p!.name !== "New User")
       .filter((p) => !needle || p.name.toLowerCase().includes(needle) || p.interests.some((i) => i.toLowerCase().includes(needle)))
       .map((p) => ({ p, following: followed.profileIds.has(String(p._id)) }))
       .sort((a, b) => Number(b.following) - Number(a.following) || a.p.name.localeCompare(b.p.name))
-      .slice(0, PICKER_LIMIT)
-      .map(({ p, following }) => ({ ...pickProfileCard(p), following }));
+      .slice(0, PICKER_LIMIT);
+    return await Promise.all(page.map(async ({ p, following }) => ({ ...(await pickProfileCard(ctx, p)), following })));
   },
 });
 
@@ -899,12 +900,13 @@ export const listProjectsForGift = query({
       .slice(0, PICKER_LIMIT);
     const visible = ranked.map((r) => r.p);
     const owners = ranked.map((r) => r.owner);
+    const photos = await Promise.all(visible.map((p) => projectPhotoUrl(ctx, p)));
     return visible.map((p, i) => ({
       ownerFollowed: ranked[i].ownerFollowed,
       projectId: p._id,
       title: p.title,
       blurb: p.blurb,
-      photoUrl: p.photoUrl,
+      photoUrl: photos[i],
       storySlug: p.storySlug,
       ownerName: owners[i]?.name ?? "A creative",
       raisedCents: p.raisedCents ?? 0,
@@ -1179,12 +1181,7 @@ export const defaultOpenGifts = internalMutation({
 export const getGivingReport = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError({ code: "unauthenticated" });
-    const me = await profileFor(ctx, userId);
-    if (!isAdminProfile(me)) {
-      throw new ConvexError({ code: "forbidden", reason: "This is an operator tool — this account doesn't have that access." });
-    }
+    await requireOperator(ctx);
 
     const [gifts, giftPayments, backingPayments, contributions] = await Promise.all([
       ctx.db.query("memberGifts").collect(),

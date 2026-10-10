@@ -155,6 +155,8 @@ export type DeskProjectInput = PickableProject & {
   raisedCents?: number | null;
   location?: string | null;
   creator?: { name: string } | null;
+  /** Posted as an organization: its name stands in for the person's. */
+  organization?: { name: string } | null;
   community?: { name: string; slug: string } | null;
   budgetType?: string;
   /** The server's own read of "asking for backing" (a goal, the raising
@@ -578,7 +580,7 @@ export function projectCard(
   const role = leadRoles(p, onJobsAndGigs)[0] ?? null;
   const kind = projectKindLabel(p, { onJobsAndGigs }).toUpperCase();
   const kicker = p.kind === "paid" || role ? kind : stageLabel(resolveStage(p)).toUpperCase();
-  const owner = p.creator?.name ?? null;
+  const owner = p.organization?.name ?? p.creator?.name ?? null;
   const title = role ? role.title : p.title;
 
   return {

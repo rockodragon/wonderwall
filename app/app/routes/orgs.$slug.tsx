@@ -1,7 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { ProjectTile } from "../components/ProjectTile";
 import type { FunctionReturnType } from "convex/server";
-import { ConvexError } from "convex/values";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
@@ -13,6 +12,8 @@ import { ShareButton } from "../components/ShareButton";
 import { SocialLinks } from "../components/SocialLinks";
 import { useBack } from "../lib/useBack";
 import { PAGE_WIDTH } from "../lib/pageWidth";
+import { errorMessage } from "../lib/convexError";
+import { PersonAvatar } from "../components/PersonAvatar";
 
 // /orgs/:slug — an organization's public page (docs/features/organizations.md).
 // Public like an event page: a signed-out guest who clicks a host lands here.
@@ -62,12 +63,7 @@ export default function OrganizationPage() {
       await join({ organizationId: org._id });
       setJoined(true);
     } catch (error) {
-      const reason =
-        error instanceof ConvexError &&
-        typeof (error.data as { reason?: unknown } | undefined)?.reason === "string"
-          ? (error.data as { reason: string }).reason
-          : "Couldn't add it. Try again.";
-      setJoinError(reason);
+      setJoinError(errorMessage(error, "Couldn't add it. Try again."));
     } finally {
       setJoining(false);
     }
@@ -376,38 +372,11 @@ function BackLink() {
   );
 }
 
-// Circular photo, or the first initial on the raised hairline — the same
-// fallback a profile with no photo gets.
-function Avatar({
-  name,
-  imageUrl,
-  size,
-}: {
-  name: string;
-  imageUrl: string | null;
-  size: "sm" | "md";
-}) {
-  return (
-    <div
-      className={`${size === "md" ? "w-14 h-14 text-xl" : "w-9 h-9 text-sm"} rounded-full shrink-0 overflow-hidden flex items-center justify-center`}
-      style={{ backgroundColor: "var(--app-hairline-raised)" }}
-    >
-      {imageUrl ? (
-        <img src={imageUrl} alt="" className="w-full h-full object-cover" />
-      ) : (
-        <span className="font-medium" style={{ color: "var(--app-text-dim)" }}>
-          {name.trim().charAt(0).toUpperCase()}
-        </span>
-      )}
-    </div>
-  );
-}
-
 function PersonCard({ person, href }: { person: Person; href: string | null }) {
   const years = yearsLabel(person.startYear, person.endYear);
   const body = (
     <>
-      <Avatar name={person.name} imageUrl={person.imageUrl} size="md" />
+      <PersonAvatar name={person.name} imageUrl={person.imageUrl} size="lg" tone="dim" />
       <p
         className="mt-3 font-medium break-words max-w-full"
         style={{ color: "var(--app-text)" }}
@@ -449,7 +418,7 @@ function AlumniRow({ person, href }: { person: Person; href: string | null }) {
     .join(" · ");
   const body = (
     <>
-      <Avatar name={person.name} imageUrl={person.imageUrl} size="sm" />
+      <PersonAvatar name={person.name} imageUrl={person.imageUrl} size="row" tone="dim" />
       <p className="text-sm min-w-0 break-words">
         <span className="font-medium" style={{ color: "var(--app-text)" }}>
           {person.name}

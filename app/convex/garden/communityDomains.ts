@@ -12,6 +12,7 @@ import type { Doc } from "../_generated/dataModel";
 import { isHiddenCommunity } from "./hiddenCommunity";
 import { communityVisibility } from "./communityVisibility";
 import { normalizeHost } from "./brandHosts";
+import { COMMUNITY_KIND } from "./communityLookup";
 
 // "WWW.CreateSD.org:443" → "createsd.org": one rule for every host the
 // site compares, so it lives with The Garden's addresses.
@@ -41,11 +42,11 @@ export async function resolveEntryCommunity(
       .query("hostOrgs")
       .withIndex("by_slug", (q) => q.eq("slug", args.communitySlug!.trim().toLowerCase()))
       .unique();
-    if (bySlug && bySlug.kind === "community" && !isHiddenCommunity(bySlug)) return bySlug;
+    if (bySlug && bySlug.kind === COMMUNITY_KIND && !isHiddenCommunity(bySlug)) return bySlug;
   }
   if (!args.host) return null;
   const communities = (await ctx.db.query("hostOrgs").collect()).filter(
-    (o) => o.kind === "community" && !isHiddenCommunity(o),
+    (o) => o.kind === COMMUNITY_KIND && !isHiddenCommunity(o),
   );
   return findCommunityForHost(args.host, communities);
 }
@@ -67,7 +68,7 @@ export const setCommunityDomains = internalMutation({
       .query("hostOrgs")
       .withIndex("by_slug", (q) => q.eq("slug", args.slug))
       .unique();
-    if (!org || org.kind !== "community") throw new Error(`No community "${args.slug}"`);
+    if (!org || org.kind !== COMMUNITY_KIND) throw new Error(`No community "${args.slug}"`);
     const domains = [...new Set(args.domains.map(normalizeHost).filter(Boolean))];
     // A domain can only point at one community.
     const others = (await ctx.db.query("hostOrgs").collect()).filter((o) => o._id !== org._id);
@@ -91,7 +92,7 @@ export const getCommunityLanding = query({
       .query("hostOrgs")
       .withIndex("by_slug", (q) => q.eq("slug", args.slug.trim().toLowerCase()))
       .unique();
-    if (!org || org.kind !== "community") return null;
+    if (!org || org.kind !== COMMUNITY_KIND) return null;
     const status = org.status ?? "active";
     if (status === "declined" || status === "archived") return null;
     // A hidden (test) community has no front door for anyone but admins and
@@ -134,7 +135,7 @@ export const renameCommunity = internalMutation({
       .query("hostOrgs")
       .withIndex("by_slug", (q) => q.eq("slug", args.slug))
       .unique();
-    if (!org || org.kind !== "community") throw new Error(`No community "${args.slug}"`);
+    if (!org || org.kind !== COMMUNITY_KIND) throw new Error(`No community "${args.slug}"`);
     const patch: { slug?: string; name?: string; tagline?: string } = {};
     if (args.newSlug && args.newSlug !== org.slug) {
       if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(args.newSlug)) throw new Error(`Bad slug "${args.newSlug}"`);

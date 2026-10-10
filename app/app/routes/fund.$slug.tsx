@@ -21,7 +21,6 @@
 import { useId, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
-import { ConvexError } from "convex/values";
 import { Link, useParams, useRouteError, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -37,14 +36,7 @@ import {
 import { CLAIMS } from "../constants/claims";
 import { NAMED_FUNDS, SOPHIA_FUND_SLUG, availableCents as fundAvailableCents } from "../lib/namedFunds";
 import "../garden/garden.css";
-
-function reasonFor(err: unknown, fallback: string): string {
-  if (err instanceof ConvexError) {
-    const data = err.data as { reason?: string } | undefined;
-    if (data?.reason) return data.reason;
-  }
-  return fallback;
-}
+import { errorMessage } from "../lib/convexError";
 
 const CONTRIBUTION_TYPE_LABELS: Record<string, string> = {
   dues_share: "Member dues share",
@@ -103,7 +95,7 @@ function AddToPoolPanel({ slug }: { slug: string }) {
       const { url } = await contribute({ amountCents, hostOrgSlug: slug });
       window.location.href = url;
     } catch (err) {
-      setError(reasonFor(err, "Couldn't start checkout — try again."));
+      setError(errorMessage(err, "Couldn't start checkout — try again."));
       setBusy(false);
     }
   }
@@ -275,7 +267,7 @@ function ProposeGrantSection({ slug }: { slug: string }) {
       setSummary("");
       setProjectId("");
     } catch (err) {
-      setStatus({ kind: "err", text: reasonFor(err, "Couldn't send that. Try again.") });
+      setStatus({ kind: "err", text: errorMessage(err, "Couldn't send that. Try again.") });
     } finally {
       setBusy(false);
     }

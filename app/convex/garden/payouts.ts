@@ -28,8 +28,7 @@
 import { v } from "convex/values";
 import { ConvexError } from "convex/values";
 import { internalMutation, mutation } from "../_generated/server";
-import { getAuthUserId } from "@convex-dev/auth/server";
-import { isAdminProfile } from "../helpers";
+import { requireOperator } from "../helpers";
 import { splitBacking } from "./stripeHandlers";
 
 // ——————————————————————————————————————————————————————————————
@@ -206,15 +205,7 @@ export const recordCreativePayout = mutation({
     paidAtISO: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError({ code: "unauthenticated" });
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-    if (!isAdminProfile(profile)) {
-      throw new ConvexError({ code: "forbidden", reason: "This is an operator tool." });
-    }
+    const { userId } = await requireOperator(ctx);
     if (!Number.isInteger(args.amountCents) || args.amountCents <= 0) {
       throw new ConvexError({ code: "invalid_amount", reason: "Amount must be a positive whole number of cents." });
     }

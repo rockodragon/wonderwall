@@ -4,11 +4,13 @@ import { useNavigate, Link } from "react-router";
 import { useCallback, useEffect, useState } from "react";
 import { admin } from "../components/admin/adminStyles";
 import {
+  AdminAccessDenied,
   AdminFrame,
   AdminHeader,
   AdminLoading,
   AdminNotice,
 } from "../components/admin/AdminUi";
+import { useIsAdmin } from "../lib/useIsAdmin";
 import {
   DestinationCards,
   type Destination,
@@ -72,8 +74,11 @@ const DESTINATIONS: readonly Destination[] = [
 export default function AdminPage() {
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   const navigate = useNavigate();
-  const users = useQuery(api.admin.getAllUsersWithInvites);
-  const debugData = useQuery(api.admin.debugInvites);
+  // Same gate as the other admin pages (lib/useIsAdmin.ts): the queries
+  // below refuse non-admins on the server, so they wait until we know.
+  const isAdmin = useIsAdmin();
+  const users = useQuery(api.admin.getAllUsersWithInvites, isAdmin === true ? {} : "skip");
+  const debugData = useQuery(api.admin.debugInvites, isAdmin === true ? {} : "skip");
   const manuallyLinkInvite = useMutation(api.admin.manuallyLinkInvite);
   const deleteUser = useMutation(api.admin.deleteUser);
   const syncAdminGroup = useMutation(api.admin.syncAdminGroup);
@@ -187,8 +192,12 @@ export default function AdminPage() {
   }, [isAuthenticated, authLoading, navigate]);
 
 
-  if (authLoading) {
-    return <AdminLoading>Loading...</AdminLoading>;
+  if (authLoading || isAdmin === undefined) {
+    return <AdminLoading>Checking access…</AdminLoading>;
+  }
+
+  if (!isAdmin) {
+    return <AdminAccessDenied />;
   }
 
   if (!users) {

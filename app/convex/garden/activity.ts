@@ -11,12 +11,9 @@
 // than a full collect: an activity feed only ever needs the newest rows,
 // unlike reports.ts's cumulative totals which need every row.
 
-import { ConvexError } from "convex/values";
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { query } from "../_generated/server";
-import type { QueryCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
-import { isAdminProfile } from "../helpers";
+import { requireOperator } from "../helpers";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core — no ctx. Unit-tested in activity.test.ts.
@@ -74,26 +71,6 @@ export function eventCreatedDescription(title: string): string {
 // relative to the final 50-item cap so a source with a recent burst (e.g. a
 // wave of joins) can't crowd out a genuinely newer row from another source.
 const PER_SOURCE_CAP = 40;
-
-/** Same gate as reports.ts's requireOperator — every export in this file is
- * an operator-only read. Duplicated rather than imported, same convention
- * reports.ts itself follows against operator.ts's copy. */
-async function requireOperator(ctx: QueryCtx): Promise<Id<"users">> {
-  const userId = await getAuthUserId(ctx);
-  if (!userId) throw new ConvexError({ code: "unauthenticated" });
-
-  const profile = await ctx.db
-    .query("profiles")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .unique();
-  if (!isAdminProfile(profile)) {
-    throw new ConvexError({
-      code: "forbidden",
-      reason: "This is an operator tool — this account doesn't have that access.",
-    });
-  }
-  return userId;
-}
 
 export const getRecentActivity = query({
   args: {},

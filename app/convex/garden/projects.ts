@@ -12,6 +12,7 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { slugifyTitle, resolveAvailableSlug } from "./stories";
 import { assertCommunityMember } from "./communities";
+import { COMMUNITY_KIND, resolveCommunities } from "./communityLookup";
 import { assertCanPostAs, orgByline } from "../organizations";
 import { notifyFollowers } from "../follows";
 import { isStage, stageLabel, shouldNotifyStageChange } from "./projectTeam";
@@ -31,6 +32,7 @@ import { canonicalMediaUrl, schedulePreviewFetch } from "../linkPreview";
 import { isAdmin, requireOwner } from "../helpers";
 import { isHidden, isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
 import { communityVisibility, isHiddenCommunityId } from "./communityVisibility";
+import { pieceMediaUrl, profileImageUrl, projectPhotoUrl } from "../images";
 
 // Following fan-out (docs/features/following.md §1 #5): "Name posted Title"
 // to everyone following the poster, once per created row. `userId` is a
@@ -467,15 +469,9 @@ export const listProjects = query({
     // admins and that community's members.
     const projects = await communityVisibility(ctx).filter(posted);
 
-    // Batch the hostOrgs lookups: one ctx.db.get per DISTINCT community, not
-    // one per project (several posted projects can share a community).
-    const hostOrgIds = [...new Set(projects.map((p) => p.hostOrgId).filter((id): id is Id<"hostOrgs"> => !!id))];
-    const hostOrgs = await Promise.all(hostOrgIds.map((id) => ctx.db.get(id)));
-    const communityById = new Map<string, { name: string; slug: string }>();
-    hostOrgIds.forEach((id, i) => {
-      const org = hostOrgs[i];
-      if (org && org.kind === "community") communityById.set(String(id), { name: org.name, slug: org.slug });
-    });
+    // One ctx.db.get per DISTINCT community, not one per project (several
+    // posted projects can share a community).
+    const communityById = await resolveCommunities(ctx, projects.map((p) => p.hostOrgId));
 
     const now = Date.now();
     const withDetails = await Promise.all(
@@ -502,15 +498,11 @@ export const listProjects = query({
         const resolvedMedia = await Promise.all(
           media.map(async (artifact) => ({
             ...artifact,
-            resolvedMediaUrl: artifact.mediaStorageId
-              ? await ctx.storage.getUrl(artifact.mediaStorageId)
-              : artifact.mediaUrl || null,
+            resolvedMediaUrl: await pieceMediaUrl(ctx, artifact),
           })),
         );
 
-        const resolvedPhotoUrl = project.photoStorageId
-          ? await ctx.storage.getUrl(project.photoStorageId)
-          : project.photoUrl || null;
+        const resolvedPhotoUrl = await projectPhotoUrl(ctx, project);
 
         return {
           ...project,
@@ -520,7 +512,7 @@ export const listProjects = query({
             ? {
                 _id: user._id,
                 name: user.name,
-                imageUrl: user.imageUrl,
+                imageUrl: await profileImageUrl(ctx, user),
                 interests: user.interests,
                 location: user.location,
               }
@@ -593,15 +585,11 @@ export const getProject = query({
     const resolvedMedia = await Promise.all(
       media.map(async (artifact) => ({
         ...artifact,
-        resolvedMediaUrl: artifact.mediaStorageId
-          ? await ctx.storage.getUrl(artifact.mediaStorageId)
-          : artifact.mediaUrl || null,
+        resolvedMediaUrl: await pieceMediaUrl(ctx, artifact),
       })),
     );
 
-    const resolvedPhotoUrl = project.photoStorageId
-      ? await ctx.storage.getUrl(project.photoStorageId)
-      : project.photoUrl || null;
+    const resolvedPhotoUrl = await projectPhotoUrl(ctx, project);
 
     // Media blocks come back carrying the URL their storageId resolves to,
     // the same shape resolvedMedia above already uses, so the renderer never
@@ -614,11 +602,17 @@ export const getProject = query({
       resolvedPhotoUrl,
       organization: await orgByline(ctx, project.organizationId),
       creator: user
-        ? { _id: user._id, name: user.name, imageUrl: user.imageUrl, interests: user.interests, location: user.location }
+        ? {
+            _id: user._id,
+            name: user.name,
+            imageUrl: await profileImageUrl(ctx, user),
+            interests: user.interests,
+            location: user.location,
+          }
         : null,
       media: resolvedMedia,
       supportCount: support.length,
-      community: communityOrg && communityOrg.kind === "community" ? { name: communityOrg.name, slug: communityOrg.slug } : null,
+      community: communityOrg && communityOrg.kind === COMMUNITY_KIND ? { name: communityOrg.name, slug: communityOrg.slug } : null,
       gig,
       ...(await summarizeAsks(ctx, project, !!gig)),
     };

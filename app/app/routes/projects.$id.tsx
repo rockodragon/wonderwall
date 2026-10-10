@@ -13,7 +13,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { Link, useNavigate, useParams, useRouteError, useSearchParams } from "react-router";
+import { Link, useParams, useRouteError, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { EMBED_PROVIDER_LABEL, toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -25,7 +25,6 @@ import { EmbedPlayer } from "../components/EmbedPlayer";
 import { CoverFrame } from "../components/CoverFrame";
 import { ImageFill } from "../components/ImageFill";
 import { describeMediaLink, MediaLinkField } from "../components/MediaLinkField";
-import { OrgLogo } from "../components/OrgLogo";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { ProjectMenu } from "../components/project/ProjectMenu";
@@ -55,6 +54,10 @@ import {
   type SupportMode,
 } from "./projects";
 import { PAGE_WIDTH } from "../lib/pageWidth";
+import { useStartConversation } from "../lib/useStartConversation";
+import { bylineOf } from "../lib/byline";
+import { Byline } from "../components/Byline";
+import { PersonAvatar } from "../components/PersonAvatar";
 
 // Loader-less (client-only useQuery, same as communities.$slug.tsx and
 // offerings.$id.tsx) — `data` is never actually populated; this just
@@ -245,6 +248,7 @@ export default function ProjectDetail() {
   }
 
   const isOwner = !!myProfile && project.userId === myProfile.userId;
+  const byline = bylineOf(project);
   // Save for the Shortlist (docs/handoff/favorites-redesign/README.md): a
   // signed-in member who isn't the lead, on a project the browse lists show.
   // favorites.toggle refuses the rest, so the page never offers a save that
@@ -388,45 +392,16 @@ export default function ProjectDetail() {
             )}
           </div>
 
-          {project.organization ? (
+          {byline && (
             // Posted as an organization: its page, not the person who runs it
             // (they're in the team below).
             <div className="flex items-center gap-3 mb-4">
-              <Link to={`/orgs/${project.organization.slug}`} className="flex items-center gap-2 w-fit hover:opacity-80">
-                <OrgLogo name={project.organization.name} logoUrl={project.organization.logoUrl} size="xs" />
-                <span className="text-sm" style={{ color: "var(--garden-muted)" }}>
-                  {project.organization.name}
-                  {project.community && (
-                    <span style={{ color: "var(--garden-dim)" }}> · in {project.community.name}</span>
-                  )}
-                </span>
-              </Link>
-            </div>
-          ) : project.creator && (
-            <div className="flex items-center gap-3 mb-4">
-              <Link to={`/profile/${project.creator._id}`} className="flex items-center gap-2 w-fit hover:opacity-80">
-                {project.creator.imageUrl ? (
-                  <img
-                    src={project.creator.imageUrl}
-                    alt={project.creator.name}
-                    className="w-6 h-6 rounded-full object-cover shrink-0"
-                  />
-                ) : (
-                  <div
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                    style={{ backgroundColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
-                  >
-                    {project.creator.name.charAt(0).toUpperCase()}
-                  </div>
+              <Byline byline={byline} linked>
+                {project.community && (
+                  <span style={{ color: "var(--garden-dim)" }}> · in {project.community.name}</span>
                 )}
-                <span className="text-sm" style={{ color: "var(--garden-muted)" }}>
-                  {project.creator.name}
-                  {project.community && (
-                    <span style={{ color: "var(--garden-dim)" }}> · in {project.community.name}</span>
-                  )}
-                </span>
-              </Link>
-              {!isOwner && (
+              </Byline>
+              {byline.kind === "person" && project.creator && !isOwner && (
                 <FavoriteButton targetType="profile" targetId={project.creator._id} size="sm" />
               )}
             </div>
@@ -1585,53 +1560,26 @@ function InlineEditableInterests({ project, isOwner }: { project: any; isOwner: 
   );
 }
 
-// Small avatar, same fallback-initial pattern as the creator block above —
-// pulled out here since the team card repeats it for the lead, every
-// accepted member, and every pending request.
-function Avatar({ name, imageUrl }: { name: string; imageUrl?: string | null }) {
-  return imageUrl ? (
-    <img src={imageUrl} alt={name} className="w-6 h-6 rounded-full object-cover shrink-0" />
-  ) : (
-    <div
-      className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-      style={{ backgroundColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
-    >
-      {name.charAt(0).toUpperCase()}
-    </div>
-  );
-}
-
-// The existing profile-page Message button, copied here rather than shared:
-// it navigates via getOrCreateConversation the same way (routes/profile.tsx
-// ~136-161), just without PostHog (this page doesn't fire those events).
+// The profile page's Message button, on a compact team row.
 function MessageButton({ userId }: { userId: string }) {
-  const getOrCreateConversation = useMutation(api.messaging.getOrCreateConversation);
-  const navigate = useNavigate();
-  const [starting, setStarting] = useState(false);
-
-  async function handleClick() {
-    if (starting) return;
-    setStarting(true);
-    try {
-      const conversation = await getOrCreateConversation({ otherUserId: userId as any });
-      if (conversation) navigate(`/messages/${conversation._id}`);
-    } catch {
-      // Quiet failure, same as profile.tsx's Message button — nothing
-      // useful to surface inline on a compact team row.
-    } finally {
-      setStarting(false);
-    }
-  }
+  const { start, starting, error } = useStartConversation();
 
   return (
-    <button
-      onClick={handleClick}
-      disabled={starting}
-      className="ml-auto text-xs underline underline-offset-2 hover:opacity-80 disabled:opacity-50 whitespace-nowrap"
-      style={{ color: "var(--garden-citron)" }}
-    >
-      Message
-    </button>
+    <span className="ml-auto flex items-center gap-2">
+      {error && (
+        <span role="alert" className="text-[13.5px] text-red-400">
+          {error}
+        </span>
+      )}
+      <button
+        onClick={() => start(userId)}
+        disabled={starting}
+        className="text-xs underline underline-offset-2 hover:opacity-80 disabled:opacity-50 whitespace-nowrap"
+        style={{ color: "var(--garden-citron)" }}
+      >
+        Message
+      </button>
+    </span>
   );
 }
 
@@ -1677,7 +1625,7 @@ function TeamMemberRow({
 
   return (
     <div className="flex items-center gap-2 text-sm">
-      <Avatar name={name} imageUrl={imageUrl} />
+      <PersonAvatar name={name} imageUrl={imageUrl} size="xs" tone="garden" />
       {profileId ? (
         <Link to={`/profile/${profileId}`} className="hover:opacity-80" style={{ color: "var(--garden-paper)" }}>
           {name}
@@ -2545,7 +2493,7 @@ function LeadTeamTools({
             {pending.map((r: any) => (
               <div key={r.memberId} className="flex flex-col gap-1.5 text-sm">
                 <div className="flex items-start gap-2">
-                  <Avatar name={r.name} imageUrl={r.imageUrl} />
+                  <PersonAvatar name={r.name} imageUrl={r.imageUrl} size="xs" tone="garden" />
                   <div className="flex-1 min-w-0">
                     <Link to={`/profile/${r.profileId}`} className="hover:opacity-80" style={{ color: "var(--garden-paper)" }}>
                       {r.name}
@@ -2805,7 +2753,7 @@ function AddSomeone({ projectId }: { projectId: string }) {
               {results.map((p: any) => (
                 <div key={p.profileId} className="flex flex-col gap-1.5 text-sm">
                   <div className="flex items-center gap-2">
-                    <Avatar name={p.name} imageUrl={p.imageUrl} />
+                    <PersonAvatar name={p.name} imageUrl={p.imageUrl} size="xs" tone="garden" />
                     <span className="flex-1 min-w-0 truncate" style={{ color: "var(--garden-paper)" }}>
                       {p.name}
                     </span>

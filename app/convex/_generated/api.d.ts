@@ -9,6 +9,7 @@
  */
 
 import type * as admin from "../admin.js";
+import type * as admin_accountToOrganization from "../admin/accountToOrganization.js";
 import type * as admin_mergeUsers from "../admin/mergeUsers.js";
 import type * as adminEmails from "../adminEmails.js";
 import type * as analytics from "../analytics.js";
@@ -16,6 +17,7 @@ import type * as announcements from "../announcements.js";
 import type * as artifacts from "../artifacts.js";
 import type * as auth from "../auth.js";
 import type * as authLinking from "../authLinking.js";
+import type * as blocks from "../blocks.js";
 import type * as celebrationTypes from "../celebrationTypes.js";
 import type * as crawler from "../crawler.js";
 import type * as crawlerClassifier from "../crawlerClassifier.js";
@@ -60,6 +62,7 @@ import type * as garden_brandHosts from "../garden/brandHosts.js";
 import type * as garden_capabilities from "../garden/capabilities.js";
 import type * as garden_communities from "../garden/communities.js";
 import type * as garden_communityDomains from "../garden/communityDomains.js";
+import type * as garden_communityLookup from "../garden/communityLookup.js";
 import type * as garden_communityVisibility from "../garden/communityVisibility.js";
 import type * as garden_connect from "../garden/connect.js";
 import type * as garden_connectState from "../garden/connectState.js";
@@ -111,6 +114,7 @@ import type * as garden_ticketRouting from "../garden/ticketRouting.js";
 import type * as garden_waitlistHostFieldMigration from "../garden/waitlistHostFieldMigration.js";
 import type * as helpers from "../helpers.js";
 import type * as http from "../http.js";
+import type * as images from "../images.js";
 import type * as inviteCode from "../inviteCode.js";
 import type * as inviteLookup from "../inviteLookup.js";
 import type * as invites from "../invites.js";
@@ -156,6 +160,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
+  "admin/accountToOrganization": typeof admin_accountToOrganization;
   "admin/mergeUsers": typeof admin_mergeUsers;
   adminEmails: typeof adminEmails;
   analytics: typeof analytics;
@@ -163,6 +168,7 @@ declare const fullApi: ApiFromModules<{
   artifacts: typeof artifacts;
   auth: typeof auth;
   authLinking: typeof authLinking;
+  blocks: typeof blocks;
   celebrationTypes: typeof celebrationTypes;
   crawler: typeof crawler;
   crawlerClassifier: typeof crawlerClassifier;
@@ -207,6 +213,7 @@ declare const fullApi: ApiFromModules<{
   "garden/capabilities": typeof garden_capabilities;
   "garden/communities": typeof garden_communities;
   "garden/communityDomains": typeof garden_communityDomains;
+  "garden/communityLookup": typeof garden_communityLookup;
   "garden/communityVisibility": typeof garden_communityVisibility;
   "garden/connect": typeof garden_connect;
   "garden/connectState": typeof garden_connectState;
@@ -258,6 +265,7 @@ declare const fullApi: ApiFromModules<{
   "garden/waitlistHostFieldMigration": typeof garden_waitlistHostFieldMigration;
   helpers: typeof helpers;
   http: typeof http;
+  images: typeof images;
   inviteCode: typeof inviteCode;
   inviteLookup: typeof inviteLookup;
   invites: typeof invites;

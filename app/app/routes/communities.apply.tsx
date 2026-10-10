@@ -12,10 +12,10 @@
 import { useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { useConvexAuth, useMutation } from "convex/react";
-import { ConvexError } from "convex/values";
 import { Link, useRouteError } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { PAGE_WIDTH } from "../lib/pageWidth";
+import { errorMessage } from "../lib/convexError";
 
 export function meta() {
   return [
@@ -33,14 +33,6 @@ export function ErrorBoundary() {
       </p>
     </PageShell>
   );
-}
-
-function reasonFor(err: unknown, fallback: string): string {
-  if (err instanceof ConvexError) {
-    const data = err.data as { reason?: string } | undefined;
-    if (data?.reason) return data.reason;
-  }
-  return fallback;
 }
 
 // ————— Shared shell + style bits (same tokens as projects.tsx/offerings.tsx) —————
@@ -119,7 +111,7 @@ function ApplyForm() {
       });
       setResult({ slug: res.slug });
     } catch (err) {
-      setError(reasonFor(err, "Couldn't submit the application — try again."));
+      setError(errorMessage(err, "Couldn't submit the application — try again."));
     } finally {
       setBusy(false);
     }

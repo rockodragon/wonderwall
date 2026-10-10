@@ -32,7 +32,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAction, useConvexAuth, useQuery } from "convex/react";
-import { ConvexError } from "convex/values";
 import { Link, useNavigate, useRouteError, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { setPendingIntent } from "../lib/pendingIntent";
@@ -40,6 +39,7 @@ import { GardenErrorState, GardenPage, SectionLabel } from "../garden/ui";
 import { CLAIMS } from "../constants/claims";
 import { FF_V2 } from "../lib/featureFlags";
 import "../garden/garden.css";
+import { errorMessage } from "../lib/convexError";
 
 export function meta() {
   return [
@@ -123,20 +123,6 @@ const LEVELS: LevelCard[] = [
   },
 ];
 
-/** Same shape as settings.tsx's billingErrorMessage — a plain ConvexError
-    string or {reason} reads as a warm line instead of the generic fallback. */
-function checkoutErrorMessage(err: unknown): string {
-  if (err instanceof ConvexError) {
-    const data = err.data as unknown;
-    if (typeof data === "string") return data;
-    if (data && typeof data === "object" && "reason" in data) {
-      const reason = (data as { reason?: unknown }).reason;
-      if (reason) return String(reason);
-    }
-  }
-  return "Checkout didn't open — try again in a moment.";
-}
-
 function LevelButton({
   card,
   autoStart,
@@ -166,7 +152,7 @@ function LevelButton({
       const { url } = await createMembershipCheckout({ level: card.level });
       window.location.assign(url);
     } catch (err) {
-      setError(checkoutErrorMessage(err));
+      setError(errorMessage(err, "Checkout didn't open — try again in a moment."));
       setPending(false);
     }
   }, [card.level, createMembershipCheckout]);

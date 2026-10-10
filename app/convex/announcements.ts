@@ -23,6 +23,7 @@ import { escapeHtml } from "./email/template";
 import { normalizeEmail } from "./garden/eventRsvps";
 import { resolveSenderCommunityName } from "./email/senderCommunity";
 import { normalizeUpdateBody } from "./garden/stories";
+import { isAdmin } from "./helpers";
 
 const targetTypeValidator = v.union(
   v.literal("project"),
@@ -141,11 +142,7 @@ async function assertOwnerOrAdmin(
 ): Promise<void> {
   if (userId === ownerId) return;
   if (coHostIds?.some((c) => c === userId)) return;
-  const profile = await ctx.db
-    .query("profiles")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .unique();
-  if (!profile?.isAdmin) {
+  if (!(await isAdmin(ctx, userId))) {
     throw new ConvexError({ code: "forbidden", reason: "You don't have access to this." });
   }
 }

@@ -12,7 +12,6 @@
 
 import { useState } from "react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { ConvexError } from "convex/values";
 import { Link, useParams, useRouteError } from "react-router";
 import { api } from "../../convex/_generated/api";
 import {
@@ -24,6 +23,7 @@ import {
   SectionLabel,
 } from "../garden/ui";
 import "../garden/garden.css";
+import { errorMessage } from "../lib/convexError";
 
 export function meta() {
   return [
@@ -94,11 +94,7 @@ export default function CoveragePage() {
       const res = await redeem({ code: code! });
       setSeated({ seatsLeft: res.seatsLeft });
     } catch (err) {
-      const reason =
-        err instanceof ConvexError
-          ? (err.data as { reason?: string } | undefined)?.reason
-          : undefined;
-      setRedeemError(reason ?? "Couldn't claim your seat — try again.");
+      setRedeemError(errorMessage(err, "Couldn't claim your seat — try again."));
     } finally {
       setRedeeming(false);
     }

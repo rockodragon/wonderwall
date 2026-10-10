@@ -5,9 +5,9 @@
 // `projects.userId`, never a row.
 //
 // House style (communities.ts / tables.ts): a pure core at the top —
-// stage twin, row-reuse rules, limits, HTML escaping, and the client
-// projections that strip `email` / `claimToken` — unit-tested in
-// projectTeam.test.ts without Convex; thin ctx.db wrappers below.
+// stage twin, row-reuse rules, limits, and the client projections that strip
+// `email` / `claimToken` — unit-tested in projectTeam.test.ts without
+// Convex; thin ctx.db wrappers below.
 
 import { v, ConvexError } from "convex/values";
 import { mutation, query } from "../_generated/server";
@@ -15,7 +15,9 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { isAdminProfile } from "../helpers";
+import { isAdminProfile, isOwnerOrAdmin } from "../helpers";
+import { assertNotBlocked } from "../blocks";
+import { escapeHtml } from "../email/template";
 import { isValidEmail, normalizeEmail } from "./eventRsvps";
 import { can } from "./capabilities";
 import { assertCanPure, getGardenUser } from "./entitlements";
@@ -23,6 +25,7 @@ import { scheduleNotificationEmail } from "../emailHelpers";
 import { toEmbedUrl } from "../videoEmbed";
 import { isHidden } from "../moderationRules";
 import { communityVisibility } from "./communityVisibility";
+import { pieceMediaUrl, profileImageUrl, projectPhotoUrl } from "../images";
 
 // ——————————————————————————————————————————————————————————————
 // Stage — TWIN of app/app/lib/stage.ts (STAGES, isStage, stageLabel,
@@ -197,17 +200,6 @@ export function shouldNotifyStageChange(
   if (previousStage === nextStage) return false;
   if (previousChangedAt === undefined) return true;
   return now - previousChangedAt >= DAY_MS;
-}
-
-/** emails.ts interpolates heading/body raw into HTML — anything a person
- * typed (name, role, message, title) goes through this first (§4). */
-export function escapeHtml(input: string): string {
-  return input
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }
 
 export interface ClaimEmailInput {
@@ -556,13 +548,6 @@ async function getProfile(ctx: Ctx, userId: Id<"users">): Promise<Doc<"profiles"
     .first();
 }
 
-// Same resolution messaging.ts uses: stored file first, external URL second.
-export async function resolveImageUrl(ctx: Ctx, profile: Doc<"profiles"> | null): Promise<string | null> {
-  if (!profile) return null;
-  if (profile.imageStorageId) return await ctx.storage.getUrl(profile.imageStorageId);
-  return profile.imageUrl || null;
-}
-
 async function resolvePerson(
   ctx: Ctx,
   userId: Id<"users"> | undefined,
@@ -572,7 +557,7 @@ async function resolvePerson(
   return {
     profileId: profile?._id ?? null,
     name: profile?.name,
-    imageUrl: await resolveImageUrl(ctx, profile),
+    imageUrl: await profileImageUrl(ctx, profile),
   };
 }
 
@@ -584,10 +569,9 @@ async function requireProject(ctx: Ctx, projectId: Id<"projects">): Promise<Doc<
 
 /** The lead (projects.userId) — or an operator — may manage the team. */
 async function assertLead(ctx: Ctx, project: Doc<"projects">, userId: Id<"users">): Promise<void> {
-  if (project.userId === userId) return;
-  const profile = await getProfile(ctx, userId);
-  if (isAdminProfile(profile)) return;
-  throw new ConvexError({ code: "forbidden", reason: "Only the project lead can do that." });
+  if (!(await isOwnerOrAdmin(ctx, project.userId, userId))) {
+    throw new ConvexError({ code: "forbidden", reason: "Only the project lead can do that." });
+  }
 }
 
 async function requireRole(ctx: Ctx, roleId: Id<"projectRoles">): Promise<Doc<"projectRoles">> {
@@ -642,32 +626,6 @@ async function reopenRoleIfVacated(ctx: MutationCtx, row: Doc<"projectMembers">)
   const role = await ctx.db.get(row.roleId);
   if (!role || role.status !== "filled" || String(role.filledByMemberId) !== String(row._id)) return;
   await ctx.db.patch(role._id, { status: "open", filledByMemberId: undefined });
-}
-
-// Copied from messaging.ts (module-private there): everyone `userId` has
-// blocked plus everyone who has blocked them.
-async function getBlockedUserIds(ctx: Ctx, userId: Id<"users">): Promise<Set<Id<"users">>> {
-  const blockedByUser = await ctx.db
-    .query("blocks")
-    .withIndex("by_blockerId", (q) => q.eq("blockerId", userId))
-    .collect();
-  const blockedUser = await ctx.db
-    .query("blocks")
-    .withIndex("by_blockedId", (q) => q.eq("blockedId", userId))
-    .collect();
-  const blockedIds = new Set<Id<"users">>();
-  for (const block of blockedByUser) blockedIds.add(block.blockedId);
-  for (const block of blockedUser) blockedIds.add(block.blockerId);
-  return blockedIds;
-}
-
-/** §3 "Blocks": refuse when either direction is blocked. The reason is
- * deliberately vague — a block is never announced to the other side. */
-async function assertNotBlocked(ctx: Ctx, a: Id<"users">, b: Id<"users">): Promise<void> {
-  const blocked = await getBlockedUserIds(ctx, a);
-  if (blocked.has(b)) {
-    throw new ConvexError({ code: "blocked", reason: "That isn't possible right now." });
-  }
 }
 
 async function findMemberByUser(
@@ -1467,13 +1425,14 @@ export const getTeam = query({
       getProfile(ctx, project.userId),
       project.userId === userId ? Promise.resolve(null) : getProfile(ctx, userId),
     ]);
+    // Same rule as isOwnerOrAdmin (helpers.ts), on a profile already loaded.
     const isLead = project.userId === userId || isAdminProfile(viewerProfile);
 
     const lead = {
       profileId: leadProfile?._id ?? null,
       userId: project.userId,
       name: leadProfile?.name ?? "The project lead",
-      imageUrl: await resolveImageUrl(ctx, leadProfile),
+      imageUrl: await profileImageUrl(ctx, leadProfile),
     };
 
     const accepted: PersonEntry[] = [];
@@ -1600,8 +1559,8 @@ export const listRoles = query({
 // else its pasted link's still, else the first attached piece's — an
 // uploaded image, a fetched/uploaded cover, or a video provider's thumbnail.
 async function projectCover(ctx: QueryCtx, project: Doc<"projects">): Promise<string | null> {
-  if (project.photoStorageId) return await ctx.storage.getUrl(project.photoStorageId);
-  if (project.photoUrl) return project.photoUrl;
+  const photo = await projectPhotoUrl(ctx, project);
+  if (photo) return photo;
   if (project.mediaPreviewUrl) return project.mediaPreviewUrl;
   const pieces = await ctx.db
     .query("artifacts")
@@ -1610,8 +1569,8 @@ async function projectCover(ctx: QueryCtx, project: Doc<"projects">): Promise<st
   for (const piece of pieces) {
     if (piece.ogImageUrl) return piece.ogImageUrl;
     if (piece.type === "image") {
-      if (piece.mediaStorageId) return await ctx.storage.getUrl(piece.mediaStorageId);
-      if (piece.mediaUrl) return piece.mediaUrl;
+      const media = await pieceMediaUrl(ctx, piece);
+      if (media) return media;
     }
     const embed = toEmbedUrl(piece.mediaUrl);
     if (embed?.thumbnailUrl) return embed.thumbnailUrl;
@@ -1756,7 +1715,7 @@ export const searchPeopleForInvite = query({
         profileId: p._id,
         userId: p.userId,
         name: p.name,
-        imageUrl: await resolveImageUrl(ctx, p),
+        imageUrl: await profileImageUrl(ctx, p),
       });
     }
     return out;

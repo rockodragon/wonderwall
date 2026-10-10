@@ -9,7 +9,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { ConvexError } from "convex/values";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -22,20 +21,15 @@ import {
   formatPeriod,
 } from "../garden/ui";
 import "../garden/garden.css";
+import { errorMessage } from "../lib/convexError";
+import { useIsAdmin } from "../lib/useIsAdmin";
+import { AdminAccessDenied } from "../components/admin/AdminUi";
 
 export function meta() {
   return [
     { title: "Platform Ledger — TheCreative.exchange" },
     { name: "robots", content: "noindex" },
   ];
-}
-
-function reasonFor(err: unknown, fallback: string): string {
-  if (err instanceof ConvexError) {
-    const data = err.data as { reason?: string } | undefined;
-    if (data?.reason) return data.reason;
-  }
-  return fallback;
 }
 
 /** cents can be negative (a recent-events row) — formatMoney alone renders
@@ -319,7 +313,7 @@ function RecordPayoutForm({
       setNote("");
       onDone();
     } catch (err) {
-      setStatus({ kind: "err", text: reasonFor(err, "Couldn't record the payout — try again.") });
+      setStatus({ kind: "err", text: errorMessage(err, "Couldn't record the payout — try again.") });
     } finally {
       setBusy(false);
     }
@@ -795,11 +789,11 @@ function GivingSection({ report }: { report: GivingReport | null | undefined }) 
 // ————— Page —————
 
 export default function AdminLedgerPage() {
-  const profile = useQuery(api.profiles.getMyProfile);
+  const isAdmin = useIsAdmin();
   const report = useQuery(api.garden.reports.getPlatformReport, {}) as PlatformReport | null | undefined;
   const givingReport = useQuery(api.garden.giving.getGivingReport, {}) as GivingReport | null | undefined;
 
-  if (profile === undefined) {
+  if (isAdmin === undefined) {
     return (
       <GardenPage wide>
         <GardenLoading label="Checking access…" />
@@ -807,14 +801,8 @@ export default function AdminLedgerPage() {
     );
   }
 
-  if (!profile?.isAdmin) {
-    return (
-      <GardenPage wide>
-        <h1 className="g-h" style={{ fontSize: "clamp(24px,4.5vw,32px)" }}>
-          Operator access only.
-        </h1>
-      </GardenPage>
-    );
+  if (!isAdmin) {
+    return <AdminAccessDenied />;
   }
 
   return (

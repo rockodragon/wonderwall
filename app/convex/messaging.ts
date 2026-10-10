@@ -1,49 +1,23 @@
 import { v, ConvexError } from "convex/values";
 import { escapeHtml } from "./email/template";
 import { mutation, query } from "./_generated/server";
-import type { QueryCtx } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { auth } from "./auth";
+import { blockBetween, blockedUserIds, findBlock } from "./blocks";
 import { scheduleNotificationEmail } from "./emailHelpers";
 import type { Doc, Id } from "./_generated/dataModel";
 import { isEventHost } from "./eventHosts";
+import { profileImageUrl } from "./images";
 
-// Helper to resolve image URL from storage or external URL
-async function resolveImageUrl(
-  ctx: QueryCtx,
-  profile: Doc<"profiles">,
-): Promise<string | null> {
-  if (profile.imageStorageId) {
-    return await ctx.storage.getUrl(profile.imageStorageId);
-  }
-  return profile.imageUrl || null;
-}
-
-// Helper to get blocked user IDs for a user
-async function getBlockedUserIds(
-  ctx: QueryCtx,
-  userId: Id<"users">,
-): Promise<Set<Id<"users">>> {
-  // Get users this user has blocked
-  const blockedByUser = await ctx.db
-    .query("blocks")
-    .withIndex("by_blockerId", (q) => q.eq("blockerId", userId))
-    .collect();
-
-  // Get users who have blocked this user
-  const blockedUser = await ctx.db
-    .query("blocks")
-    .withIndex("by_blockedId", (q) => q.eq("blockedId", userId))
-    .collect();
-
-  const blockedIds = new Set<Id<"users">>();
-  for (const block of blockedByUser) {
-    blockedIds.add(block.blockedId);
-  }
-  for (const block of blockedUser) {
-    blockedIds.add(block.blockerId);
-  }
-
-  return blockedIds;
+// The conversation between two people, if they have one. conversations has
+// no index on participants, so this reads the table.
+export async function findConversation(
+  ctx: QueryCtx | MutationCtx,
+  a: Id<"users">,
+  b: Id<"users">,
+): Promise<Doc<"conversations"> | undefined> {
+  const all = await ctx.db.query("conversations").collect();
+  return all.find((c) => c.participants.includes(a) && c.participants.includes(b));
 }
 
 /**
@@ -115,18 +89,12 @@ export const getOrCreateConversation = mutation({
     // until now only sendMessage checked; the "Message" button on a profile
     // could still open a thread). Same bidirectional set getConversations
     // filters with. ConvexError so the client can read `data.code`.
-    const blockedUserIds = await getBlockedUserIds(ctx, userId);
-    if (blockedUserIds.has(args.otherUserId)) {
+    if ((await blockedUserIds(ctx, userId)).has(args.otherUserId)) {
       throw new ConvexError({ code: "blocked" });
     }
 
     // Check if conversation already exists
-    const allConversations = await ctx.db.query("conversations").collect();
-    const existing = allConversations.find(
-      (c) =>
-        c.participants.includes(userId) &&
-        c.participants.includes(args.otherUserId),
-    );
+    const existing = await findConversation(ctx, userId, args.otherUserId);
 
     if (existing) {
       return existing;
@@ -175,26 +143,13 @@ export const sendMessage = mutation({
       throw new Error("Message content must be 2000 characters or less");
     }
 
-    // Check if either user has blocked the other
-    const blockByMe = await ctx.db
-      .query("blocks")
-      .withIndex("by_blocker_blocked", (q) =>
-        q.eq("blockerId", userId).eq("blockedId", args.recipientId),
-      )
-      .first();
-
-    if (blockByMe) {
+    // Check if either user has blocked the other. Only the person who blocked
+    // is told so; the other side just can't.
+    const block = await blockBetween(ctx, userId, args.recipientId);
+    if (block === "a_blocked_b") {
       throw new ConvexError("You blocked this person. Unblock them to send a message.");
     }
-
-    const blockByThem = await ctx.db
-      .query("blocks")
-      .withIndex("by_blocker_blocked", (q) =>
-        q.eq("blockerId", args.recipientId).eq("blockedId", userId),
-      )
-      .first();
-
-    if (blockByThem) {
+    if (block === "b_blocked_a") {
       throw new ConvexError("You can't message this person.");
     }
 
@@ -204,12 +159,7 @@ export const sendMessage = mutation({
       .first();
 
     // Get or create conversation
-    const allConversations = await ctx.db.query("conversations").collect();
-    let conversation = allConversations.find(
-      (c) =>
-        c.participants.includes(userId) &&
-        c.participants.includes(args.recipientId),
-    );
+    let conversation = await findConversation(ctx, userId, args.recipientId);
 
     // Daily limit on cold messages — ones to someone who hasn't written
     // back. Replying in a real conversation is never limited. Admins skip it,
@@ -397,7 +347,7 @@ export const getConversations = query({
     if (!userId) return [];
 
     // Get blocked user IDs
-    const blockedUserIds = await getBlockedUserIds(ctx, userId);
+    const blocked = await blockedUserIds(ctx, userId);
 
     // Get all conversations and filter to ones where user is a participant
     const allConversations = await ctx.db
@@ -418,7 +368,7 @@ export const getConversations = query({
         if (!otherUserId) return null;
 
         // Skip conversations with blocked users
-        if (blockedUserIds.has(otherUserId)) return null;
+        if (blocked.has(otherUserId)) return null;
 
         // Get other participant's profile
         const otherProfile = await ctx.db
@@ -429,7 +379,7 @@ export const getConversations = query({
         if (!otherProfile) return null;
 
         // Resolve profile image URL
-        const imageUrl = await resolveImageUrl(ctx, otherProfile);
+        const imageUrl = await profileImageUrl(ctx, otherProfile);
 
         // Get the last message for preview
         const lastMessage = await ctx.db
@@ -549,7 +499,7 @@ export const getMessages = query({
 
         let senderImageUrl: string | null = null;
         if (senderProfile) {
-          senderImageUrl = await resolveImageUrl(ctx, senderProfile);
+          senderImageUrl = await profileImageUrl(ctx, senderProfile);
         }
 
         return {
@@ -607,7 +557,7 @@ export const getConversation = query({
     if (!otherProfile) return null;
 
     // Resolve profile image URL
-    const imageUrl = await resolveImageUrl(ctx, otherProfile);
+    const imageUrl = await profileImageUrl(ctx, otherProfile);
 
     return {
       _id: conversation._id,
@@ -636,7 +586,7 @@ export const getUnreadCount = query({
     if (!userId) return 0;
 
     // Get blocked user IDs
-    const blockedUserIds = await getBlockedUserIds(ctx, userId);
+    const blocked = await blockedUserIds(ctx, userId);
 
     // Get all conversations where user is a participant
     const allConversations = await ctx.db.query("conversations").collect();
@@ -648,7 +598,7 @@ export const getUnreadCount = query({
     // Filter out conversations with blocked users
     const validConversations = userConversations.filter((conv) => {
       const otherUserId = conv.participants.find((p) => p !== userId);
-      return otherUserId && !blockedUserIds.has(otherUserId);
+      return otherUserId && !blocked.has(otherUserId);
     });
 
     // Count unread messages across all valid conversations
@@ -675,7 +625,7 @@ export const getUnreadCount = query({
 
 // ——— Blocking (docs/features/following.md §1 #8) ———
 //
-// The `blocks` table and every read path (getBlockedUserIds, sendMessage,
+// The `blocks` table and every read path (blockedUserIds, sendMessage,
 // getConversations, getUnreadCount) predate this; nothing wrote it. These
 // take USERS ids — a block is between two accounts, not two profiles — so a
 // client holding a profile (profile.tsx) passes `profile.userId`. listBlocked
@@ -701,12 +651,7 @@ export const blockUser = mutation({
       });
     }
 
-    const existing = await ctx.db
-      .query("blocks")
-      .withIndex("by_blocker_blocked", (q) =>
-        q.eq("blockerId", me).eq("blockedId", args.userId),
-      )
-      .first();
+    const existing = await findBlock(ctx, me, args.userId);
     if (existing) return existing._id;
 
     return await ctx.db.insert("blocks", {
@@ -728,12 +673,7 @@ export const unblockUser = mutation({
     const me = await auth.getUserId(ctx);
     if (!me) throw new ConvexError({ code: "unauthenticated" });
 
-    const existing = await ctx.db
-      .query("blocks")
-      .withIndex("by_blocker_blocked", (q) =>
-        q.eq("blockerId", me).eq("blockedId", args.userId),
-      )
-      .first();
+    const existing = await findBlock(ctx, me, args.userId);
     if (existing) {
       await ctx.db.delete(existing._id);
       return true;
@@ -754,14 +694,7 @@ export const isBlocked = query({
     const me = await auth.getUserId(ctx);
     if (!me) return { blockedByMe: false };
 
-    const existing = await ctx.db
-      .query("blocks")
-      .withIndex("by_blocker_blocked", (q) =>
-        q.eq("blockerId", me).eq("blockedId", args.userId),
-      )
-      .first();
-
-    return { blockedByMe: existing !== null };
+    return { blockedByMe: (await findBlock(ctx, me, args.userId)) !== null };
   },
 });
 
@@ -793,7 +726,7 @@ export const listBlocked = query({
           userId: block.blockedId,
           profileId: profile ? profile._id : null,
           name: profile?.name || "Someone",
-          imageUrl: profile ? await resolveImageUrl(ctx, profile) : null,
+          imageUrl: profile ? await profileImageUrl(ctx, profile) : null,
           blockedAt: block.createdAt,
         };
       }),
@@ -934,7 +867,7 @@ export const searchPeopleToMessage = query({
 
     const text = args.query ?? "";
     const needle = normalizePeopleQuery(text);
-    const blockedUserIds = await getBlockedUserIds(ctx, me);
+    const blocked = await blockedUserIds(ctx, me);
 
     type Candidate = {
       userId: Id<"users">;
@@ -979,7 +912,7 @@ export const searchPeopleToMessage = query({
       members,
       query: text,
       selfUserId: me,
-      blockedUserIds,
+      blockedUserIds: blocked,
     });
 
     return await Promise.all(
@@ -987,7 +920,7 @@ export const searchPeopleToMessage = query({
         userId: p.userId,
         profileId: p.profileId,
         name: p.name,
-        imageUrl: await resolveImageUrl(ctx, p.profile),
+        imageUrl: await profileImageUrl(ctx, p.profile),
         following: p.following,
       })),
     );

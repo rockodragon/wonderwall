@@ -7,6 +7,7 @@ import { eventVisibilityChecker } from "./garden/eventVisibility";
 import { isAcceptingPeople } from "./garden/projectTeam";
 import { VISIBLE_PROJECT_STATUSES } from "./moderationRules";
 import { feedLocation } from "./eventAddress";
+import { eventCoverUrl, profileImageUrl } from "./images";
 
 /** What a favorite points at. A profile is a follow and an event is a heart
  * (docs/features/following.md); a project, or one role on it, is a save for
@@ -229,10 +230,7 @@ export const getMyFavorites = query({
         const profile = await ctx.db.get(profileId);
         if (!profile) return null;
 
-        let imageUrl = profile.imageUrl || null;
-        if (profile.imageStorageId) {
-          imageUrl = await ctx.storage.getUrl(profile.imageStorageId);
-        }
+        const imageUrl = await profileImageUrl(ctx, profile);
 
         // Get active wondering if exists
         const wondering = await ctx.db
@@ -290,12 +288,7 @@ export const getMyFavorites = query({
         }
 
         // Resolve cover image URL (cover or first gallery image)
-        let coverImageUrl: string | null = null;
-        if (event.coverImageStorageId) {
-          coverImageUrl = await ctx.storage.getUrl(event.coverImageStorageId);
-        } else if (event.imageStorageIds && event.imageStorageIds.length > 0) {
-          coverImageUrl = await ctx.storage.getUrl(event.imageStorageIds[0]);
-        }
+        const coverImageUrl = await eventCoverUrl(ctx, event);
 
         // Get attendee count
         const applications = await ctx.db

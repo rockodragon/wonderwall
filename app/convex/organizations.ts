@@ -8,6 +8,7 @@ import { internalMutation, mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { auth } from "./auth";
+import { orgLogoUrl, profileImageUrl } from "./images";
 import {
   checkYears,
   isCurrent,
@@ -20,6 +21,7 @@ import {
   slugifyOrgName,
   sortPositions,
 } from "./organizationRules";
+import { isAdminProfile } from "./helpers";
 
 type Ctx = QueryCtx | MutationCtx;
 
@@ -40,15 +42,6 @@ async function requireMe(ctx: MutationCtx) {
   const profile = await profileByUserId(ctx, userId);
   if (!profile) fail("no_profile", "Finish your profile first.");
   return { userId, profile };
-}
-
-async function logoUrl(ctx: Ctx, org: Doc<"organizations">) {
-  return org.logoStorageId ? await ctx.storage.getUrl(org.logoStorageId) : null;
-}
-
-async function avatarUrl(ctx: Ctx, profile: Doc<"profiles">) {
-  if (profile.imageStorageId) return await ctx.storage.getUrl(profile.imageStorageId);
-  return profile.imageUrl || null;
 }
 
 async function positionsOfOrg(ctx: Ctx, organizationId: Id<"organizations">) {
@@ -117,7 +110,7 @@ export async function profileOrganizations(ctx: Ctx, profileId: Id<"profiles">) 
       name: org.name,
       slug: org.slug,
       category: org.category ?? null,
-      logoUrl: await logoUrl(ctx, org),
+      logoUrl: await orgLogoUrl(ctx, org),
       title: p.title ?? null,
       startYear: p.startYear ?? null,
       endYear: p.endYear ?? null,
@@ -132,7 +125,7 @@ export async function profileOrganizations(ctx: Ctx, profileId: Id<"profiles">) 
  * person: name, page and logo. */
 export async function orgByline(ctx: Ctx, organizationId: Id<"organizations"> | undefined) {
   const org = organizationId ? await ctx.db.get(organizationId) : null;
-  return org ? { _id: org._id, name: org.name, slug: org.slug, logoUrl: await logoUrl(ctx, org) } : null;
+  return org ? { _id: org._id, name: org.name, slug: org.slug, logoUrl: await orgLogoUrl(ctx, org) } : null;
 }
 
 /** A person may post as an organization they're currently part of. */
@@ -344,7 +337,7 @@ async function canEdit(ctx: Ctx, org: Doc<"organizations">) {
   if (!userId) return false;
   const profile = await profileByUserId(ctx, userId);
   if (!profile) return false;
-  if (profile.isAdmin) return true;
+  if (isAdminProfile(profile)) return true;
   const position = await positionOf(ctx, org._id, profile._id);
   return !!position?.isAdmin;
 }
@@ -394,7 +387,7 @@ export const getBySlug = query({
       people.push({
         profileId: profile._id,
         name: profile.name,
-        imageUrl: await avatarUrl(ctx, profile),
+        imageUrl: await profileImageUrl(ctx, profile),
         title: p.title ?? null,
         startYear: p.startYear ?? null,
         endYear: p.endYear ?? null,
@@ -423,7 +416,7 @@ export const getBySlug = query({
       category: org.category ?? null,
       tagline: org.tagline ?? null,
       mission: org.mission ?? null,
-      logoUrl: await logoUrl(ctx, org),
+      logoUrl: await orgLogoUrl(ctx, org),
       websiteUrl: org.websiteUrl ?? null,
       instagram: org.instagram ?? null,
       x: org.x ?? null,
@@ -462,7 +455,7 @@ export const search = query({
         slug: o.slug,
         category: o.category ?? null,
         location: o.location ?? null,
-        logoUrl: await logoUrl(ctx, o),
+        logoUrl: await orgLogoUrl(ctx, o),
         nameKey: o.nameKey,
       })),
     );
@@ -483,7 +476,7 @@ export const list = query({
         const faces = [];
         for (const p of current.slice(0, 3)) {
           const profile = await ctx.db.get(p.profileId);
-          if (profile) faces.push({ name: profile.name, imageUrl: await avatarUrl(ctx, profile) });
+          if (profile) faces.push({ name: profile.name, imageUrl: await profileImageUrl(ctx, profile) });
         }
         return {
           _id: o._id,
@@ -492,7 +485,7 @@ export const list = query({
           category: o.category ?? null,
           tagline: o.tagline ?? null,
           location: o.location ?? null,
-          logoUrl: await logoUrl(ctx, o),
+          logoUrl: await orgLogoUrl(ctx, o),
           peopleCount: current.length,
           faces,
         };

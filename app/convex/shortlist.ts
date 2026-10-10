@@ -45,11 +45,12 @@ import { loadGoingCount } from "./events";
 import { isEventHost } from "./eventHosts";
 import { communityVisibility } from "./garden/communityVisibility";
 import { eventVisibilityChecker } from "./garden/eventVisibility";
-import { isProjectFinished, resolveImageUrl } from "./garden/projectTeam";
+import { isProjectFinished } from "./garden/projectTeam";
 import { projectKind } from "./garden/projectsPublic";
 import { isGivenSupport, supportCadence, supportKind } from "./garden/support";
 import { isHidden, isPostedProject } from "./moderationRules";
 import { feedLocation } from "./eventAddress";
+import { eventCoverUrl, pieceMediaUrl, profileImageUrl, projectPhotoUrl } from "./images";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
@@ -203,13 +204,13 @@ function once<K extends string, V>(load: (key: K) => Promise<V>): (key: K) => Pr
   };
 }
 
-/** A person, their picture resolved as everywhere else (resolveImageUrl):
+/** A person, their picture resolved as everywhere else (profileImageUrl):
  * the stored file wins over the legacy URL. */
 async function toPerson(ctx: QueryCtx, profile: Doc<"profiles">): Promise<ShortlistPerson> {
   return {
     profileId: profile._id,
     name: profile.name,
-    imageUrl: await resolveImageUrl(ctx, profile),
+    imageUrl: await profileImageUrl(ctx, profile),
     interests: profile.interests,
   };
 }
@@ -218,9 +219,7 @@ async function toPerson(ctx: QueryCtx, profile: Doc<"profiles">): Promise<Shortl
  * still, then its first image artifact, each resolved the way listProjects
  * resolves it. Artifacts are read only when the first two are missing. */
 async function projectCoverUrl(ctx: QueryCtx, project: Doc<"projects">): Promise<string | null> {
-  const resolvedPhotoUrl = project.photoStorageId
-    ? await ctx.storage.getUrl(project.photoStorageId)
-    : project.photoUrl || null;
+  const resolvedPhotoUrl = await projectPhotoUrl(ctx, project);
   const cover = { resolvedPhotoUrl, mediaPreviewUrl: project.mediaPreviewUrl };
   const quick = coverOf({ ...cover, media: [] });
   if (quick !== null) return quick;
@@ -233,18 +232,16 @@ async function projectCoverUrl(ctx: QueryCtx, project: Doc<"projects">): Promise
       .filter((a) => a.type === "image")
       .map(async (a) => ({
         type: a.type,
-        resolvedMediaUrl: a.mediaStorageId ? await ctx.storage.getUrl(a.mediaStorageId) : a.mediaUrl || null,
+        resolvedMediaUrl: await pieceMediaUrl(ctx, a),
       })),
   );
   return coverOf({ ...cover, media });
 }
 
 /** The desk's picture for an event: its cover, else its first gallery image
- * (resolved as favorites.getMyFavorites does), else a pasted link's still. */
-async function eventCoverUrl(ctx: QueryCtx, event: Doc<"events">): Promise<string | null> {
-  const storageId = event.coverImageStorageId ?? event.imageStorageIds?.[0];
-  const stored = storageId ? await ctx.storage.getUrl(storageId) : null;
-  return stored || event.mediaPreviewUrl || null;
+ * (eventCoverUrl, as everywhere else), else a pasted link's still. */
+async function eventDeskCoverUrl(ctx: QueryCtx, event: Doc<"events">): Promise<string | null> {
+  return (await eventCoverUrl(ctx, event)) || event.mediaPreviewUrl || null;
 }
 
 function readers(ctx: QueryCtx) {
@@ -402,7 +399,7 @@ export const getMine = query({
       const ended = hasEnded(event, now);
       const answerable = relation === "hosting" && !ended && event.status !== "cancelled";
       const [coverUrl, goingCount, pending] = await Promise.all([
-        ended ? null : eventCoverUrl(ctx, event),
+        ended ? null : eventDeskCoverUrl(ctx, event),
         ended ? 0 : loadGoingCount(ctx, event._id),
         answerable
           ? ctx.db

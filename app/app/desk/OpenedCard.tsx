@@ -21,7 +21,7 @@
 
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { Link, useNavigate } from "react-router";
+import { Link } from "react-router";
 import { CaretLeft, CaretRight, X } from "@phosphor-icons/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -39,6 +39,7 @@ import { GoingLine } from "./GoingLine";
 import { HostedBy } from "../components/HostedBy";
 import { useUpdateClick } from "./useUpdateReads";
 import { useFinishCelebration } from "./useCelebrations";
+import { useStartConversation } from "../lib/useStartConversation";
 
 /** ← / → through the list a card was opened from: "2 of 6". `arrived` is
  *  the way the last step went, when this card was reached by one: focus
@@ -370,12 +371,11 @@ function UpdateButton({ action }: { action: Extract<DeskAction, { kind: "update"
  * its link. */
 function CelebrationButton({ action }: { action: Extract<DeskAction, { kind: "celebration" }> }): ReactNode {
   const finishCard = useFinishCelebration();
-  const getOrCreateConversation = useMutation(api.messaging.getOrCreateConversation);
-  const navigate = useNavigate();
-  const [starting, setStarting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const className = `${CARD_BUTTON_CLASS} bg-[#FFE066] text-[#121212] hover:bg-[#FFEA94]`;
   const { button, notificationId } = action;
+  // Done only once the way there is open: that takes the card off the
+  // canvas, and it shouldn't go before the conversation comes up.
+  const { start, starting, error } = useStartConversation({ onOpened: () => finishCard(notificationId) });
+  const className = `${CARD_BUTTON_CLASS} bg-[#FFE066] text-[#121212] hover:bg-[#FFEA94]`;
 
   if (button.kind === "link") {
     return (
@@ -385,26 +385,9 @@ function CelebrationButton({ action }: { action: Extract<DeskAction, { kind: "ce
     );
   }
 
-  const userId = button.userId;
-  async function onClick() {
-    if (starting) return;
-    setStarting(true);
-    setError(null);
-    try {
-      const conversation = await getOrCreateConversation({ otherUserId: userId as Id<"users"> });
-      // Done only once the way there is open: that takes the card off the
-      // canvas, and it shouldn't go before the conversation comes up.
-      finishCard(notificationId);
-      if (conversation) navigate(`/messages/${conversation._id}`);
-    } catch (err) {
-      setError(errorMessage(err));
-      setStarting(false);
-    }
-  }
-
   return (
     <>
-      <button type="button" onClick={onClick} disabled={starting} className={className}>
+      <button type="button" onClick={() => start(button.userId)} disabled={starting} className={className}>
         {button.label}
       </button>
       {error && (

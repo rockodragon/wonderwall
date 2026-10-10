@@ -116,10 +116,9 @@ export function assertCanPure(user: GardenUser, capability: Capability): CanResu
 import type { QueryCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { DEFAULT_COMMUNITY_SLUG } from "./defaultCommunity";
-
-// Kept literal rather than imported from communities.ts, which imports this
-// file (getGardenUser) — same value as communities.ts's COMMUNITY_KIND.
-const COMMUNITY_KIND = "community";
+// From communityLookup.ts, not communities.ts, which imports this file
+// (getGardenUser).
+import { COMMUNITY_KIND } from "./communityLookup";
 
 /** The community a tier check is for. `hostOrgId` is the event's,
  * project's or fund's host org when there is one: if that org is a
