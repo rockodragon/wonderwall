@@ -1,9 +1,11 @@
 import { startTransition, StrictMode } from "react";
 import { hydrateRoot } from "react-dom/client";
 import { HydratedRouter } from "react-router/dom";
+import { startPostHog } from "./lib/posthog";
 
-// Analytics are now handled server-side through Convex actions
-// Use the useAnalytics hook in components to track events
+// PostHog in the browser (lib/posthog.ts): live hosts only. Server-side
+// events still go through Convex (hooks/useAnalytics.ts, convex/posthog.ts).
+startPostHog();
 
 startTransition(() => {
   hydrateRoot(

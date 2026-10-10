@@ -14,6 +14,7 @@ import { normalizePhone } from "./phone";
 import { sendSms } from "./smsSender";
 import { decideCreateOrUpdateUser } from "./authLinking";
 import { joinDefaultCommunity } from "./garden/defaultCommunity";
+import { trackEvent } from "./posthog";
 import { allowedAuthRedirect, gardenNameForUrl, siteNameForUrl } from "./garden/brandHosts";
 
 const CODE_MAX_AGE_SECONDS = 10 * 60; // 10 minutes
@@ -139,6 +140,11 @@ async function afterUserCreatedOrUpdated(
   // Signup and login show its agreements and the platform's beside every
   // way in ("By continuing you agree to…"), so this join counts as agreed.
   await joinDefaultCommunity(ctx, userId, { agreedAt: Date.now() });
+
+  // Tell PostHog a new account exists, under the user id the browser
+  // identifies by. It starts the engagement loops (docs/features/
+  // engagement-loops.md). No email or phone goes with it.
+  await trackEvent(ctx, "user_signed_up", userId);
 }
 
 async function uniqueUserWithVerifiedEmail(ctx: MutationCtx, email: string) {

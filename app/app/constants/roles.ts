@@ -1,4 +1,4 @@
-// Shared role picker copy — used in onboarding and the waitlist follow-up.
+// Shared role picker copy — used in the waitlist follow-up.
 export const ROLES = [
   {
     value: "creative" as const,

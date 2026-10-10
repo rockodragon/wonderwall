@@ -2315,6 +2315,35 @@ export default defineSchema({
     .index("by_userId_status", ["userId", "status"])
     .index("by_seriesId_userId", ["seriesId", "userId"]),
 
+  // Engagement loops (docs/features/engagement-loops.md): the on/off switch,
+  // subject and text an admin has set for a loop. The defaults live in code
+  // (convex/engagement/loops.ts); a row here overrides them once an admin
+  // edits one on /admin/engagement-loops, and a loop with no row runs on its
+  // defaults.
+  engagementLoops: defineTable({
+    key: v.string(), // "share_project_day1" | "share_project_day4"
+    enabled: v.boolean(),
+    subject: v.string(),
+    body: v.string(), // plain text; blank lines start a new paragraph
+    updatedAt: v.number(),
+    updatedBy: v.optional(v.id("users")),
+  }).index("by_key", ["key"]),
+
+  // One row per decision on a PostHog nudge call (convex/engagement/nudges.ts):
+  // sent, or skipped with the reason. The 24-hour rule, "already sent" and the
+  // admin counts all read it. `userId` is missing only when the distinct_id
+  // PostHog sent is not one of our user ids ("unknown_user").
+  nudgeLog: defineTable({
+    loopKey: v.string(),
+    userId: v.optional(v.id("users")),
+    status: v.union(v.literal("sent"), v.literal("skipped")),
+    reason: v.optional(v.string()), // why it was skipped (rules.ts's SkipReason)
+    at: v.number(),
+  })
+    .index("by_userId_at", ["userId", "at"])
+    .index("by_loopKey_at", ["loopKey", "at"])
+    .index("by_loopKey_userId", ["loopKey", "userId"]),
+
   // Per-user email opt-outs by category (convex/emailPreferences.ts). A
   // missing row means all categories are on — this table only ever records
   // an explicit choice. "transactional" (waitlist approval, team invite

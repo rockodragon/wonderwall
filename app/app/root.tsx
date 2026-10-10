@@ -9,7 +9,9 @@ import {
 
 import type { Route } from "./+types/root";
 import { ConvexClientProvider } from "./providers";
-import { Analytics } from "./components/Analytics";
+import { PostHogProvider } from "@posthog/react";
+import { PostHogIdentify } from "./components/PostHogIdentify";
+import { posthog } from "./lib/posthog";
 import { BRAND_BOOT } from "./brand/brands";
 import { BrandTitle } from "./brand/BrandTitle";
 import "./app.css";
@@ -82,11 +84,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <ConvexClientProvider>
-      <Analytics />
-      <BrandTitle />
-      <Outlet />
-    </ConvexClientProvider>
+    <PostHogProvider client={posthog}>
+      <ConvexClientProvider>
+        <PostHogIdentify />
+        <BrandTitle />
+        <Outlet />
+      </ConvexClientProvider>
+    </PostHogProvider>
   );
 }
 
