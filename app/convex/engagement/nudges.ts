@@ -1,10 +1,11 @@
-// Engagement loops, the app's half (docs/features/engagement-loops.md).
-// PostHog decides when and calls POST /api/nudges (engagement/webhook.ts);
-// attemptNudge below decides whether to send and sends through the ordinary
-// email pipeline. Every call is logged to nudgeLog, sent or skipped with the
-// reason, and the admin page (/admin/engagement-loops) reads that log.
+// Engagement loops (docs/features/engagement-loops.md), all in the app.
+// Signup schedules each loop for its day (engagement/schedule.ts, one
+// scheduled run per person per loop); attemptNudge then decides whether to
+// send and sends through the ordinary email pipeline. Every run is logged to
+// nudgeLog, sent or skipped with the reason, and the admin page
+// (/admin/engagement-loops) reads that log. PostHog only measures.
 //
-// No cron anywhere in this: a nudge happens only when PostHog calls.
+// No cron anywhere in this: each nudge is one scheduled run, made at signup.
 
 import { ConvexError, v } from "convex/values";
 import { internalMutation, mutation, query } from "../_generated/server";
@@ -122,21 +123,18 @@ async function gatherFacts(
 
 export type AttemptResult = { status: "sent" } | { status: "skipped"; reason: SkipReason };
 
-/** One PostHog call: decide, send or skip, log it. Never throws for a bad
- * distinct_id: that is a skip ("unknown_user"), so PostHog is not left
- * retrying a call that can never work. A loop key that isn't a loop is the
- * webhook's 400 and never gets here. */
+/** One scheduled nudge (scheduleSignupNudges): decide, send or skip, log it.
+ * A user id that no longer resolves (a deleted account) is a skip
+ * ("unknown_user"), never a throw. */
 export const attemptNudge = internalMutation({
-  args: { loop: v.string(), distinctId: v.string() },
+  args: { loop: v.string(), userId: v.string() },
   handler: async (ctx, args): Promise<AttemptResult> => {
     const loop = await loadLoop(ctx, args.loop);
     if (!loop) throw new Error(`Unknown engagement loop: ${args.loop}`);
 
     const now = Date.now();
-    // PostHog's distinct id is our user id. normalizeId says null for
-    // anything that isn't one (an anonymous browser id, a typo, a template
-    // PostHog never filled in).
-    const userId = ctx.db.normalizeId("users", args.distinctId);
+    // normalizeId says null for anything that isn't a users id.
+    const userId = ctx.db.normalizeId("users", args.userId);
 
     const facts = await gatherFacts(ctx, loop, userId, now);
     const decision = decideNudge(facts);

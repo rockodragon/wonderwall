@@ -13,6 +13,7 @@ import {
   isLoopKey,
   loopDefault,
   resolveLoop,
+  signupNudgePlan,
 } from "./loops";
 
 describe("the default loops", () => {
@@ -158,5 +159,19 @@ describe("buildNudgeEmail", () => {
     expect(html).toContain("Share your project");
     expect(html).toContain("/unsubscribe/tok");
     expect(text).toContain("Share your project: https://thecreative.exchange/projects?new=project");
+  });
+});
+
+describe("signupNudgePlan", () => {
+  it("schedules day 1 and day 4 from signup", () => {
+    const day = 24 * 60 * 60 * 1000;
+    expect(signupNudgePlan()).toEqual([
+      { loop: "share_project_day1", delayMs: day },
+      { loop: "share_project_day4", delayMs: 4 * day },
+    ]);
+  });
+
+  it("gives every loop a day", () => {
+    for (const loop of DEFAULT_LOOPS) expect(loop.afterDays).toBeGreaterThan(0);
   });
 });

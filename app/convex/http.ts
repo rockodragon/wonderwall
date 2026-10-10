@@ -8,7 +8,6 @@ import {
   proxy as posthogProxy,
   proxyPreflight as posthogPreflight,
 } from "./posthog";
-import { nudgeWebhook } from "./engagement/webhook";
 import {
   handleResendEvent,
   verifySvixSignature,
@@ -275,20 +274,6 @@ http.route({
       headers: { "Content-Type": "application/json" },
     });
   }),
-});
-
-// ————————————————————————————————————————————————————————————————
-// Engagement nudges (docs/features/engagement-loops.md): a PostHog workflow
-// decides when and POSTs here; the app re-checks and sends. Needs the
-// NUDGE_WEBHOOK_SECRET env var on this deployment and an X-Nudge-Secret
-// header carrying it, or nothing is sent. engagement/webhook.ts has the
-// answers (503 / 401 / 400 / 404 / 200).
-// ————————————————————————————————————————————————————————————————
-
-http.route({
-  path: "/api/nudges",
-  method: "POST",
-  handler: nudgeWebhook,
 });
 
 // PostHog proxy - bypasses ad blockers by routing through first-party domain
