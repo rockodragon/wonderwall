@@ -1,11 +1,5 @@
 import { v } from "convex/values";
-import {
-  internalMutation,
-  internalAction,
-  internalQuery,
-  mutation,
-  query,
-} from "./_generated/server";
+import { internalMutation, internalAction, internalQuery, mutation, query } from "./_generated/server";
 import { internal, api } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 
@@ -103,7 +97,9 @@ export const updateSourceAfterCrawl = internalMutation({
 });
 
 // Manual trigger: Run crawl now (override schedule)
-export const triggerCrawlNow = mutation({
+// Operator-only (dashboard or `npx convex run`): internal, never callable
+// from a browser (it had no sign-in or admin check; found 2026-10-10).
+export const triggerCrawlNow = internalMutation({
   args: {
     sourceName: v.string(),
   },
@@ -131,7 +127,9 @@ export const triggerCrawlNow = mutation({
 });
 
 // Skip next scheduled crawl
-export const skipNextCrawl = mutation({
+// Operator-only (dashboard or `npx convex run`): internal, never callable
+// from a browser (it had no sign-in or admin check; found 2026-10-10).
+export const skipNextCrawl = internalMutation({
   args: {
     sourceName: v.string(),
   },
@@ -159,7 +157,9 @@ export const skipNextCrawl = mutation({
 });
 
 // Update crawl frequency
-export const updateCrawlFrequency = mutation({
+// Operator-only (dashboard or `npx convex run`): internal, never callable
+// from a browser (it had no sign-in or admin check; found 2026-10-10).
+export const updateCrawlFrequency = internalMutation({
   args: {
     sourceName: v.string(),
     crawlFrequency: v.string(),
@@ -373,7 +373,9 @@ const DEFAULT_SOURCES = [
 ];
 
 // Seed crawler sources
-export const seedCrawlerSources = mutation({
+// Operator-only (dashboard or `npx convex run`): internal, never callable
+// from a browser (it had no sign-in or admin check; found 2026-10-10).
+export const seedCrawlerSources = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();

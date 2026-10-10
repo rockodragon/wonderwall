@@ -236,9 +236,8 @@ function OptionRow({
 /** An existing event, to edit with the same steps as create. */
 export type EventEditTarget = {
   eventId: Id<"events">;
-  /** Tickets are the organizer's; a co-host's save leaves them as they were
-   * (events.update), so the ticket row isn't shown to co-hosts. Nor on a
-   * Table's Event, which sells no tickets of its own. */
+  /** False on a Table's Event, which sells no tickets of its own; every
+   * host (organizer or co-host) edits tickets everywhere else. */
   canEditTickets: boolean;
   /** A Table's Event: its Table's chairs set the limit and its location
    * rules apply, so Limit and the hidden address aren't offered. */
@@ -506,10 +505,12 @@ export function CreateEventModal({
           description,
           datetime,
           endTime,
-          // A co-host's save leaves tickets as they were.
+          // Left out on a Table's Event (events.update never writes them there).
           ...(edit.canEditTickets
             ? {
-                ticketTiers: tiers,
+                // [] when none: events.update only touches tickets when the
+                // save carries them, so "no tiers" has to be said.
+                ticketTiers: tiers ?? [],
                 externalTicketUrl: externalTicketUrl.trim() || undefined,
                 externalTicketPriceCents: externalTicketPrice.trim()
                   ? Math.round(parseFloat(externalTicketPrice) * 100)

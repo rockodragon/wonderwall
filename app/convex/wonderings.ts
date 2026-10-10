@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
 import { auth } from "./auth";
+import { requireOwnProfileRow } from "./helpers";
 
 const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
 
@@ -100,17 +101,7 @@ export const update = mutation({
     imageStorageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
-    const wondering = await ctx.db.get(args.wonderingId);
-    if (!wondering) throw new Error("Wondering not found");
-
-    // Verify ownership
-    const profile = await ctx.db.get(wondering.profileId);
-    if (!profile || profile.userId !== userId) {
-      throw new Error("Not authorized");
-    }
+    const { userId, row: wondering, profile } = await requireOwnProfileRow(ctx, "wonderings", args.wonderingId);
 
     await ctx.db.patch(args.wonderingId, {
       prompt: args.prompt.trim(),
@@ -129,17 +120,7 @@ export const archive = mutation({
     wonderingId: v.id("wonderings"),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
-    const wondering = await ctx.db.get(args.wonderingId);
-    if (!wondering) throw new Error("Wondering not found");
-
-    // Verify ownership
-    const profile = await ctx.db.get(wondering.profileId);
-    if (!profile || profile.userId !== userId) {
-      throw new Error("Not authorized");
-    }
+    const { userId, row: wondering, profile } = await requireOwnProfileRow(ctx, "wonderings", args.wonderingId);
 
     await ctx.db.patch(args.wonderingId, {
       isActive: false,
@@ -249,20 +230,10 @@ export const toggleResponsePublic = mutation({
     responseId: v.id("wonderingResponses"),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const response = await ctx.db.get(args.responseId);
     if (!response) throw new Error("Response not found");
-
-    const wondering = await ctx.db.get(response.wonderingId);
-    if (!wondering) throw new Error("Wondering not found");
-
-    // Verify ownership of wondering
-    const profile = await ctx.db.get(wondering.profileId);
-    if (!profile || profile.userId !== userId) {
-      throw new Error("Not authorized");
-    }
+    // Only the person who asked the wondering decides what's shown.
+    await requireOwnProfileRow(ctx, "wonderings", response.wonderingId);
 
     await ctx.db.patch(args.responseId, {
       isPublic: !response.isPublic,

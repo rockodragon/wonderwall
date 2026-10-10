@@ -18,7 +18,7 @@ import { syncCoHosts } from "../eventHosts";
 // convex/schema.ts — kept as an explicit, reviewable list rather than
 // introspecting the schema's validator tree at runtime. eventCoHosts isn't
 // here: it mirrors events.coHostIds, and repoint re-syncs it from that.
-const USER_ID_FIELDS: { table: string; field: string; array?: boolean }[] = [
+export const USER_ID_FIELDS: { table: string; field: string; array?: boolean }[] = [
   { table: "wonderingResponses", field: "responderId" },
   { table: "events", field: "organizerId" },
   { table: "events", field: "coHostIds", array: true },
@@ -87,7 +87,7 @@ const USER_ID_FIELDS: { table: string; field: string; array?: boolean }[] = [
 
 // Tables that reference the source's PROFILE id rather than their user id
 // directly — resolved via the source's own `profiles` row.
-const PROFILE_ID_FIELDS: { table: string; field: string }[] = [
+export const PROFILE_ID_FIELDS: { table: string; field: string }[] = [
   { table: "attributes", field: "profileId" },
   { table: "links", field: "profileId" },
   { table: "artifacts", field: "profileId" },

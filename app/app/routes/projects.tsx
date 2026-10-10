@@ -499,6 +499,12 @@ export function ProjectCard({
   // role the card leads with is not listed twice.
   const spellRoles = lens === "people" || lens === "work";
   const otherRoles = role ? openRoles.filter((r) => r !== role) : openRoles;
+  // Posted as an organization: the organization, not the person who runs it.
+  const poster = project.organization
+    ? { name: project.organization.name, imageUrl: project.organization.logoUrl as string | null, org: true }
+    : project.creator
+      ? { name: project.creator.name, imageUrl: project.creator.imageUrl as string | null, org: false }
+      : null;
 
   const card = (
     <div
@@ -700,25 +706,26 @@ export function ProjectCard({
           </p>
         )}
         <div className="mt-auto flex items-center justify-between gap-2 pt-2 min-w-0">
-          {project.creator && (
+          {poster && (
             <div className="flex items-center gap-2 min-w-0">
-              {project.creator.imageUrl ? (
+              {/* An organization's logo is square, a person's photo round. */}
+              {poster.imageUrl ? (
                 <img
-                  src={project.creator.imageUrl}
-                  alt={project.creator.name}
-                  className="w-5 h-5 rounded-full object-cover shrink-0"
+                  src={poster.imageUrl}
+                  alt={poster.name}
+                  className={`w-5 h-5 ${poster.org ? "rounded" : "rounded-full"} object-cover shrink-0`}
                 />
               ) : (
                 <div
-                  className="w-5 h-5 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0"
+                  className={`w-5 h-5 ${poster.org ? "rounded" : "rounded-full"} flex items-center justify-center text-[12px] font-bold shrink-0`}
                   style={{ backgroundColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
                 >
-                  {project.creator.name.charAt(0).toUpperCase()}
+                  {poster.name.charAt(0).toUpperCase()}
                 </div>
               )}
               {/* Names are never truncated — the card wraps to fit instead */}
               <span className="text-xs break-words" style={{ color: "var(--garden-muted)" }}>
-                {project.creator.name}
+                {poster.name}
                 {project.community && (
                   <span style={{ color: "var(--garden-dim)" }}> · in {project.community.name}</span>
                 )}

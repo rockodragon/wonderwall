@@ -1,4 +1,5 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { internalQuery } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
@@ -21,6 +22,60 @@ export async function isAdmin(
     .first();
 
   return profile?.isAdmin === true;
+}
+
+/** What a refusal says, per kind of thing a person owns. */
+const OWNED = {
+  projects: { notFound: "That project isn't here.", forbidden: "Only the person who runs this project can change it." },
+  offerings: { notFound: "No such offering.", forbidden: "Creator-only." },
+} as const;
+
+/**
+ * The one ownership check for projects and classes: the signed-in person
+ * and the row, when it's theirs (row.userId) — or, with `orAdmin`, when
+ * they're a platform admin. Everyone else is refused with a ConvexError
+ * the client can show.
+ */
+export async function requireOwner<T extends keyof typeof OWNED>(
+  ctx: QueryCtx | MutationCtx,
+  table: T,
+  id: Id<T>,
+  { orAdmin = false }: { orAdmin?: boolean } = {},
+): Promise<{ userId: Id<"users">; row: Doc<T> }> {
+  const userId = await getAuthUserId(ctx);
+  if (!userId) throw new ConvexError({ code: "unauthenticated" });
+  const row = (await ctx.db.get(id)) as Doc<T> | null;
+  if (!row) throw new ConvexError({ code: "not_found", reason: OWNED[table].notFound });
+  if (row.userId !== userId && !(orAdmin && (await isAdmin(ctx, userId)))) {
+    throw new ConvexError({ code: "forbidden", reason: OWNED[table].forbidden });
+  }
+  return { userId, row };
+}
+
+/** Things on a profile, and what a missing one says. */
+const ON_PROFILE = {
+  artifacts: "Artifact not found",
+  links: "Link not found",
+  wonderings: "Wondering not found",
+} as const;
+
+/**
+ * The one check for changing something on a profile (a piece, a link, a
+ * wondering): it has to be on the signed-in person's own profile. Returns
+ * them, the row and the profile.
+ */
+export async function requireOwnProfileRow<T extends keyof typeof ON_PROFILE>(
+  ctx: QueryCtx | MutationCtx,
+  table: T,
+  id: Id<T>,
+): Promise<{ userId: Id<"users">; row: Doc<T>; profile: Doc<"profiles"> }> {
+  const userId = await auth.getUserId(ctx);
+  if (!userId) throw new Error("Not authenticated");
+  const row = (await ctx.db.get(id)) as Doc<T> | null;
+  if (!row) throw new Error(ON_PROFILE[table]);
+  const profile = await ctx.db.get(row.profileId as Id<"profiles">);
+  if (!profile || profile.userId !== userId) throw new Error("Not authorized");
+  return { userId, row, profile };
 }
 
 /**

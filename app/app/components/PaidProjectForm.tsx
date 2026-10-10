@@ -5,6 +5,7 @@ import { INTERESTS } from "../constants/interests";
 import { errorMessage } from "../lib/convexError";
 import { useLocationField } from "../lib/useLocationField";
 import { CommunityPicker, useDefaultEventCommunity } from "./CommunityPicker";
+import { PostAsPicker } from "./PostAsPicker";
 import { FocusBackdrop } from "./FocusBackdrop";
 import { HireWhenToggle, type HireDraft } from "./HireWhenToggle";
 import { LocationAutocomplete, LocationVerifiedHint } from "./LocationAutocomplete";
@@ -52,6 +53,7 @@ export function PaidProjectForm({
   const [interests, setInterests] = useState<string[]>([]);
   const [showInterests, setShowInterests] = useState(false);
   const [hostOrgId, setHostOrgId] = useState("");
+  const [organizationId, setOrganizationId] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   // Pre-fill from the sidebar switcher's current context (community-ux.md
@@ -121,6 +123,7 @@ export function PaidProjectForm({
         remote,
         interests: interests.length > 0 ? interests : undefined,
         hostOrgId: hostOrgId ? (hostOrgId as any) : undefined,
+        organizationId: organizationId ? (organizationId as any) : undefined,
       });
       onCreated(String(result.projectId));
       onClose();
@@ -155,6 +158,7 @@ export function PaidProjectForm({
         </button>
         <HireWhenToggle value="job" onChange={() => onSwitchToDates({ title, blurb })} />
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <PostAsPicker value={organizationId} onChange={setOrganizationId} />
           <div>
             <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
               Title

@@ -9,11 +9,8 @@ import { BookmarkSimple } from "@phosphor-icons/react";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { ShareButton } from "../components/ShareButton";
 import { usePostHog } from "@posthog/react";
-import { stageLabel, type Stage } from "../lib/stage";
-import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
 import { OrgLogo } from "../components/OrgLogo";
-import { CoverFrame } from "../components/CoverFrame";
-import { EMPTY_COVER } from "../components/emptyCover";
+import { ProjectTile } from "../components/ProjectTile";
 import { yearsLabel } from "../../convex/organizationRules";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { favoritesHref } from "../lib/shortlist/url";
@@ -542,7 +539,7 @@ export default function Profile() {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {openProjects.map((a: any) => (
-              <WorkingOnCard key={a.projectId} project={a} />
+              <ProjectTile key={a.projectId} project={a} />
             ))}
           </div>
         </div>
@@ -773,93 +770,6 @@ export default function Profile() {
 // One line of what an open project is asking for — hiring (its open roles,
 // or a paid posting's own pay), gig dates, raising. Nothing when it's
 // asking for nothing: the stage beside the title already says enough.
-/** An open project on someone's profile, in the Projects page's card
- * (routes/projects.tsx ProjectCard): the 4:5 cover with what it is and its
- * pay on top, then the title, their part in it and what it's after. */
-function WorkingOnCard({ project: a }: { project: any }) {
-  const job = !a.gig && a.kind === "paid";
-  const volunteer = job && budgetKindLabel(a) === "Volunteer";
-  const pay = job && !volunteer && a.budgetType ? budgetAmountLabel(a) : null;
-  const kindWord = a.gig
-    ? "Recurring gig"
-    : job
-      ? volunteer ? "Volunteer" : "Job"
-      : a.raising
-        ? "Seeking funding"
-        : a.openRoles?.length > 0
-          ? "Seeking people"
-          : "Project";
-  const roles: string = (a.openRoles ?? [])
-    .slice(0, 3)
-    .map((r: any) => r.title)
-    .join(", ");
-  const moreRoles = (a.openRoles?.length ?? 0) > 3 ? ` +${a.openRoles.length - 3} more` : "";
-
-  return (
-    <Link
-      to={`/projects/${a.projectId}`}
-      className="group rounded-2xl overflow-hidden border flex flex-col transition-colors hover:border-[var(--app-accent)]"
-      style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)" }}
-    >
-      <div className="relative">
-        {a.imageUrl ? (
-          <CoverFrame src={a.imageUrl} alt={a.title} />
-        ) : (
-          // No photo: a strip on a phone, the full 4:5 where cards sit side
-          // by side and rows must line up (same as ProjectCard).
-          <div className="h-16 sm:h-auto sm:aspect-[4/5]" style={EMPTY_COVER} />
-        )}
-        <div className="absolute inset-x-2 top-2 flex items-start justify-between gap-2">
-          <span
-            className="min-w-0 px-2 py-0.5 rounded-[14px] text-[12px] font-semibold uppercase tracking-[0.06em] leading-snug"
-            style={{
-              fontFamily: "var(--garden-font-mono)",
-              backgroundColor: "rgba(20,20,18,0.72)",
-              color: "var(--garden-paper)",
-            }}
-          >
-            {kindWord}
-          </span>
-          {pay && (
-            <span
-              className="shrink-0 px-2.5 py-1 rounded-full text-xs font-bold"
-              style={{
-                fontFamily: "var(--garden-font-mono)",
-                backgroundColor: "var(--garden-citron)",
-                color: "var(--garden-ink)",
-              }}
-            >
-              {pay}
-            </span>
-          )}
-        </div>
-      </div>
-      <div className="p-4 flex-1 flex flex-col gap-1.5 min-w-0">
-        <h3
-          className="font-semibold line-clamp-2 group-hover:underline"
-          style={{ color: "var(--app-text)", fontFamily: "var(--garden-font-display)" }}
-        >
-          {a.title}
-        </h3>
-        <p className="text-[13.5px]" style={{ color: "var(--app-text-muted)" }}>
-          {[a.role || "Team", stageLabel(a.stage as Stage)].filter(Boolean).join(" · ")}
-        </p>
-        {roles && (
-          <p className="text-[13.5px] line-clamp-2" style={{ color: "var(--app-text-muted)" }}>
-            Looking for {roles}
-            {moreRoles}
-          </p>
-        )}
-        {a.raising && a.goal ? (
-          <p className="text-[13.5px]" style={{ color: "var(--app-text-muted)" }}>
-            ${(a.raisedCents / 100).toLocaleString("en-US")} of ${a.goal.toLocaleString("en-US")} raised
-          </p>
-        ) : null}
-      </div>
-    </Link>
-  );
-}
-
 // The overflow menu for rare/destructive profile actions — just Block today.
 // Same fixed-backdrop dropdown pattern as projects.tsx's PostProjectMenu.
 function ProfileOverflowMenu({

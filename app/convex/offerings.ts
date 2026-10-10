@@ -18,7 +18,7 @@ import type { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { assertCommunityMember, canManageCommunity } from "./garden/communities";
 import { classCheckoutRefusal, classPaymentPath, classPriceProblem } from "./garden/stripeHandlers";
-import { isAdminProfile } from "./helpers";
+import { isAdmin, isAdminProfile, requireOwner } from "./helpers";
 import { communityVisibility } from "./garden/communityVisibility";
 
 const VALID_STATUSES = new Set(["active", "archived"]);
@@ -508,24 +508,12 @@ export const updateOfferingStatus = mutation({
     status: v.string(),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError({ code: "unauthenticated" });
 
     if (!VALID_STATUSES.has(args.status)) {
       throw new ConvexError({ code: "invalid_status", reason: "Not a real status." });
     }
 
-    const offering = await ctx.db.get(args.offeringId);
-    if (!offering) throw new ConvexError({ code: "not_found", reason: "No such offering." });
-
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-
-    if (offering.userId !== userId && !profile?.isAdmin) {
-      throw new ConvexError({ code: "forbidden", reason: "Creator-only." });
-    }
+    const { userId, row: offering } = await requireOwner(ctx, "offerings", args.offeringId, { orAdmin: true });
 
     await ctx.db.patch(args.offeringId, { status: args.status, updatedAt: Date.now() });
     return { ok: true };
@@ -546,20 +534,8 @@ export const updateOffering = mutation({
     clearCommunity: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError({ code: "unauthenticated" });
 
-    const offering = await ctx.db.get(args.offeringId);
-    if (!offering) throw new ConvexError({ code: "not_found", reason: "No such offering." });
-
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-
-    if (offering.userId !== userId && !profile?.isAdmin) {
-      throw new ConvexError({ code: "forbidden", reason: "Creator-only." });
-    }
+    const { userId, row: offering } = await requireOwner(ctx, "offerings", args.offeringId, { orAdmin: true });
 
     if (!args.title.trim()) {
       throw new ConvexError({ code: "missing_title", reason: "Give it a title." });
@@ -580,7 +556,7 @@ export const updateOffering = mutation({
       requested: args.hostOrgId,
       clear: args.clearCommunity,
       paused: !!offering.pausedAt,
-      actorIsAdmin: isAdminProfile(profile),
+      actorIsAdmin: await isAdmin(ctx, userId),
     });
     if (!community.ok) {
       throw new ConvexError({ code: community.code, reason: community.reason });
@@ -631,20 +607,8 @@ export const updateOffering = mutation({
 export const deleteOffering = mutation({
   args: { offeringId: v.id("offerings") },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError({ code: "unauthenticated" });
 
-    const offering = await ctx.db.get(args.offeringId);
-    if (!offering) throw new ConvexError({ code: "not_found", reason: "No such offering." });
-
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-
-    if (offering.userId !== userId && !profile?.isAdmin) {
-      throw new ConvexError({ code: "forbidden", reason: "Creator-only." });
-    }
+    const { userId, row: offering } = await requireOwner(ctx, "offerings", args.offeringId, { orAdmin: true });
 
     await ctx.db.delete(args.offeringId);
     return { ok: true };
@@ -814,20 +778,8 @@ export const startClassCheckout = internalMutation({
 export const listSignupsForOffering = query({
   args: { offeringId: v.id("offerings") },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError({ code: "unauthenticated" });
 
-    const offering = await ctx.db.get(args.offeringId);
-    if (!offering) throw new ConvexError({ code: "not_found", reason: "No such offering." });
-
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-
-    if (offering.userId !== userId && !profile?.isAdmin) {
-      throw new ConvexError({ code: "forbidden", reason: "Creator-only." });
-    }
+    const { userId, row: offering } = await requireOwner(ctx, "offerings", args.offeringId, { orAdmin: true });
 
     const signups = await ctx.db
       .query("offeringSignups")

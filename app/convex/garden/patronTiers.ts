@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError } from "convex/values";
+import { requireOwner } from "../helpers";
 
 export const listTiers = query({
   args: { projectId: v.id("projects") },
@@ -17,12 +18,7 @@ export const listTiers = query({
 export const listAllTiers = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError({ code: "unauthenticated" });
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) throw new ConvexError({ code: "not_found" });
-    if (project.userId !== userId) throw new ConvexError({ code: "forbidden" });
+    const { userId, row: project } = await requireOwner(ctx, "projects", args.projectId);
 
     return await ctx.db
       .query("patronTiers")
@@ -41,12 +37,7 @@ export const createTier = mutation({
     benefits: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError({ code: "unauthenticated" });
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) throw new ConvexError({ code: "not_found" });
-    if (project.userId !== userId) throw new ConvexError({ code: "forbidden" });
+    const { userId, row: project } = await requireOwner(ctx, "projects", args.projectId);
 
     if (args.name.length > 60) {
       throw new ConvexError({ code: "invalid_input", reason: "Name must be 60 characters or fewer." });
@@ -106,15 +97,9 @@ export const updateTier = mutation({
     isActive: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError({ code: "unauthenticated" });
-
     const tier = await ctx.db.get(args.tierId);
     if (!tier) throw new ConvexError({ code: "not_found" });
-
-    const project = await ctx.db.get(tier.projectId);
-    if (!project) throw new ConvexError({ code: "not_found" });
-    if (project.userId !== userId) throw new ConvexError({ code: "forbidden" });
+    const { userId, row: project } = await requireOwner(ctx, "projects", tier.projectId);
 
     if (args.name !== undefined && args.name.length > 60) {
       throw new ConvexError({ code: "invalid_input", reason: "Name must be 60 characters or fewer." });
@@ -151,15 +136,9 @@ export const updateTier = mutation({
 export const deleteTier = mutation({
   args: { tierId: v.id("patronTiers") },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError({ code: "unauthenticated" });
-
     const tier = await ctx.db.get(args.tierId);
     if (!tier) throw new ConvexError({ code: "not_found" });
-
-    const project = await ctx.db.get(tier.projectId);
-    if (!project) throw new ConvexError({ code: "not_found" });
-    if (project.userId !== userId) throw new ConvexError({ code: "forbidden" });
+    const { userId, row: project } = await requireOwner(ctx, "projects", tier.projectId);
 
     const linkedSupport = await ctx.db
       .query("projectSupport")
@@ -182,12 +161,7 @@ export const reorderTiers = mutation({
     tierIds: v.array(v.id("patronTiers")),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError({ code: "unauthenticated" });
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) throw new ConvexError({ code: "not_found" });
-    if (project.userId !== userId) throw new ConvexError({ code: "forbidden" });
+    const { userId, row: project } = await requireOwner(ctx, "projects", args.projectId);
 
     for (let i = 0; i < args.tierIds.length; i++) {
       const tier = await ctx.db.get(args.tierIds[i]);

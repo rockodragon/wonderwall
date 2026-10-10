@@ -279,9 +279,9 @@ describe("every writer keeps eventCoHosts in step", () => {
     const ctx = makeCtx(world([event("a", [ALEX])], [coHostRow("a", ALEX)]), ORG);
     await expect(run(addCoHost, ctx, { eventId: "events:a", userId: ALEX })).rejects.toThrow(/Already a co-host/);
     await expect(run(removeCoHost, ctx, { eventId: "events:a", userId: BO })).rejects.toThrow(/Not a co-host/);
-    // Only the organizer changes the list; a co-host can't.
-    const asAlex = { ...ctx, auth: { getUserIdentity: async () => ({ subject: `${ALEX}|session` }) } };
-    await expect(run(addCoHost, asAlex, { eventId: "events:a", userId: BO })).rejects.toThrow(/Only the organizer/);
+    // Any host changes the list (Rick, 2026-10-10); someone who isn't one can't.
+    const asBo = { ...ctx, auth: { getUserIdentity: async () => ({ subject: `${BO}|session` }) } };
+    await expect(run(addCoHost, asBo, { eventId: "events:a", userId: BO })).rejects.toThrow(/Only the event's hosts/);
     expect(ctx.store.eventCoHosts).toEqual([coHostRow("a", ALEX)]);
   });
 

@@ -1619,6 +1619,55 @@ async function projectCover(ctx: QueryCtx, project: Doc<"projects">): Promise<st
   return null;
 }
 
+/** One project as a card on a profile or an organization's page: its
+ * cover, stage, open roles, pay and raise. `role` is the person's part in
+ * it, or null on an organization's page. */
+async function projectTileRow(ctx: QueryCtx, project: Doc<"projects">, role: string | null) {
+  const [imageUrl, openRoles, gig, tiers] = await Promise.all([
+    projectCover(ctx, project),
+    ctx.db
+      .query("projectRoles")
+      .withIndex("by_projectId_status", (q) => q.eq("projectId", project._id).eq("status", "open"))
+      .collect(),
+    ctx.db
+      .query("gigSeries")
+      .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+      .first(),
+    ctx.db
+      .query("patronTiers")
+      .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+      .collect(),
+  ]);
+  const stage = resolveStage(project);
+  return {
+    projectId: project._id,
+    title: project.title,
+    blurb: project.blurb ?? null,
+    role,
+    stage,
+    kind: project.kind,
+    imageUrl,
+    completed: stage === "completed" || project.status === "completed",
+    openRoles: openRoles.map((r) => ({
+      roleId: r._id,
+      title: r.title,
+      budgetType: r.budgetType ?? null,
+      budget: r.budget ?? null,
+      budgetMax: r.budgetMax ?? null,
+    })),
+    // A paid posting is itself a hire; its pay is the project's own.
+    budgetType: project.kind === "paid" ? (project.budgetType ?? null) : null,
+    budget: project.kind === "paid" ? (project.budget ?? null) : null,
+    budgetMax: project.kind === "paid" ? (project.budgetMax ?? null) : null,
+    gig: gig ? { status: gig.status, venueName: gig.venueName ?? null } : null,
+    raising:
+      !gig &&
+      ((project.goal ?? 0) > 0 || project.stage === "raising" || tiers.some((t) => t.isActive)),
+    goal: project.goal ?? null,
+    raisedCents: project.raisedCents ?? 0,
+  };
+}
+
 export const listAffiliations = query({
   args: { profileId: v.id("profiles") },
   handler: async (ctx, args) => {
@@ -1660,53 +1709,26 @@ export const listAffiliations = query({
     ).filter((r): r is (typeof rows)[number] => r !== null);
     shown.sort((a, b) => b.project.createdAt - a.project.createdAt);
 
-    return await Promise.all(
-      shown.map(async ({ project, role }) => {
-        const [imageUrl, openRoles, gig, tiers] = await Promise.all([
-          projectCover(ctx, project),
-          ctx.db
-            .query("projectRoles")
-            .withIndex("by_projectId_status", (q) => q.eq("projectId", project._id).eq("status", "open"))
-            .collect(),
-          ctx.db
-            .query("gigSeries")
-            .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
-            .first(),
-          ctx.db
-            .query("patronTiers")
-            .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
-            .collect(),
-        ]);
-        const stage = resolveStage(project);
-        return {
-          projectId: project._id,
-          title: project.title,
-          blurb: project.blurb ?? null,
-          role,
-          stage,
-          kind: project.kind,
-          imageUrl,
-          completed: stage === "completed" || project.status === "completed",
-          openRoles: openRoles.map((r) => ({
-            roleId: r._id,
-            title: r.title,
-            budgetType: r.budgetType ?? null,
-            budget: r.budget ?? null,
-            budgetMax: r.budgetMax ?? null,
-          })),
-          // A paid posting is itself a hire; its pay is the project's own.
-          budgetType: project.kind === "paid" ? (project.budgetType ?? null) : null,
-          budget: project.kind === "paid" ? (project.budget ?? null) : null,
-          budgetMax: project.kind === "paid" ? (project.budgetMax ?? null) : null,
-          gig: gig ? { status: gig.status, venueName: gig.venueName ?? null } : null,
-          raising:
-            !gig &&
-            ((project.goal ?? 0) > 0 || project.stage === "raising" || tiers.some((t) => t.isActive)),
-          goal: project.goal ?? null,
-          raisedCents: project.raisedCents ?? 0,
-        };
-      }),
-    );
+    return await Promise.all(shown.map(({ project, role }) => projectTileRow(ctx, project, role)));
+  },
+});
+
+/** Projects posted as an organization, newest first, for its page. */
+export const listOrgProjects = query({
+  args: { organizationId: v.id("organizations") },
+  handler: async (ctx, args) => {
+    const projects = (
+      await ctx.db
+        .query("projects")
+        .withIndex("by_organizationId", (q) => q.eq("organizationId", args.organizationId))
+        .collect()
+    ).filter((p) => p.status !== "archived" && !isHidden(p));
+    const gate = communityVisibility(ctx);
+    const shown = (
+      await Promise.all(projects.map(async (p) => ((await gate.idVisible(p.hostOrgId)) ? p : null)))
+    ).filter((p): p is Doc<"projects"> => p !== null);
+    shown.sort((a, b) => b.createdAt - a.createdAt);
+    return await Promise.all(shown.map((p) => projectTileRow(ctx, p, null)));
   },
 });
 

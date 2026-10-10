@@ -261,7 +261,8 @@ export default function EventDetail() {
   const cta = eventCta({ ...event, requiresApproval: needsApproval }, {
     now,
     who: isGuest ? "guest" : isAuthenticated ? "member" : "unknown",
-    isOrganizer: event.isOrganizer,
+    // Any host runs it: no RSVP button for a co-host either.
+    isOrganizer: !!(event.isHost ?? event.isOrganizer),
     application: going,
     full: spot.full,
     waitlistOn: spot.waitlistOn,
@@ -826,7 +827,6 @@ export default function EventDetail() {
             coHosts={event.coHosts ?? []}
             organizerUserId={event.organizerId}
             savedShown={event.displayHostRows ?? []}
-            isOrganizer={!!event.isOrganizer}
             isGuest={isGuest}
           />
         )}
@@ -839,7 +839,7 @@ export default function EventDetail() {
             eventId: event._id,
             // A Table's dates don't sell their own tickets: the Table's
             // price covers them (events.update refuses a link on one).
-            canEditTickets: !!event.isOrganizer && !event.tableId,
+            canEditTickets: !event.tableId,
             tableEvent: !!event.tableId,
             coverImageUrl: event.coverImageUrl,
             initialValues: {
@@ -2870,7 +2870,6 @@ function HostsPanel({
   coHosts,
   organizerUserId,
   savedShown,
-  isOrganizer,
   isGuest,
 }: {
   eventId: Id<"events">;
@@ -2878,7 +2877,6 @@ function HostsPanel({
   coHosts: { userId: Id<"users">; name: string; imageUrl: string | null; profileId: Id<"profiles"> | null }[];
   organizerUserId: Id<"users">;
   savedShown: ShownRow[];
-  isOrganizer: boolean;
   isGuest: boolean;
 }) {
   const addCoHost = useMutation(api.events.addCoHost);
@@ -2888,7 +2886,7 @@ function HostsPanel({
   const [busy, setBusy] = useState(false);
   const results = useQuery(
     api.garden.projectTeam.searchPeopleForInvite,
-    isOrganizer && q.trim() ? { q } : "skip",
+    q.trim() ? { q } : "skip",
   );
   const existing = new Set(coHosts.map((c) => String(c.userId)));
   const hits = (results ?? []).filter((r) => !existing.has(String(r.userId))).slice(0, 8);
@@ -2940,7 +2938,7 @@ function HostsPanel({
               )}
               <span className="text-[13px] text-gray-600 dark:text-gray-300">{r.role}</span>
             </div>
-            {isOrganizer && r.userId && (
+            {r.userId && (
               <button
                 disabled={busy}
                 onClick={() => run(() => removeCoHost({ eventId, userId: r.userId! }))}
@@ -2953,46 +2951,45 @@ function HostsPanel({
         ))}
       </ul>
 
-      {isOrganizer && (
-        <div>
-          <label htmlFor="cohost-search" className="block text-[15px] font-medium text-gray-900 dark:text-white mb-2">
-            Add a co-host
-          </label>
-          <input
-            id="cohost-search"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search by name"
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg dark:bg-gray-900 dark:text-white text-[15px]"
-          />
-          {error && <p className="mt-2 text-[14px] text-red-600 dark:text-red-400">{error}</p>}
-          {q.trim() && results !== undefined && hits.length === 0 && (
-            <p className="mt-2 text-[14px] text-gray-700 dark:text-gray-200">No one found.</p>
-          )}
-          {hits.length > 0 && (
-            <ul className="mt-2 space-y-2">
-              {hits.map((h) => (
-                <li key={h.userId} className="flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                  <PersonAvatar name={h.name} imageUrl={h.imageUrl} />
-                  <span className="flex-1 min-w-0 truncate text-[15px] text-gray-900 dark:text-white">{h.name}</span>
-                  <button
-                    disabled={busy}
-                    onClick={() =>
-                      run(async () => {
-                        await addCoHost({ eventId, userId: h.userId });
-                        setQ("");
-                      })
-                    }
-                    className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    Add
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
+      {/* Any host adds and removes co-hosts (events.ts requireHostOf). */}
+      <div>
+        <label htmlFor="cohost-search" className="block text-[15px] font-medium text-gray-900 dark:text-white mb-2">
+          Add a co-host
+        </label>
+        <input
+          id="cohost-search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search by name"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg dark:bg-gray-900 dark:text-white text-[15px]"
+        />
+        {error && <p className="mt-2 text-[14px] text-red-600 dark:text-red-400">{error}</p>}
+        {q.trim() && results !== undefined && hits.length === 0 && (
+          <p className="mt-2 text-[14px] text-gray-700 dark:text-gray-200">No one found.</p>
+        )}
+        {hits.length > 0 && (
+          <ul className="mt-2 space-y-2">
+            {hits.map((h) => (
+              <li key={h.userId} className="flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                <PersonAvatar name={h.name} imageUrl={h.imageUrl} />
+                <span className="flex-1 min-w-0 truncate text-[15px] text-gray-900 dark:text-white">{h.name}</span>
+                <button
+                  disabled={busy}
+                  onClick={() =>
+                    run(async () => {
+                      await addCoHost({ eventId, userId: h.userId });
+                      setQ("");
+                    })
+                  }
+                  className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  Add
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <ShownHostsEditor
         eventId={eventId}

@@ -12,6 +12,7 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { slugifyTitle, resolveAvailableSlug } from "./stories";
 import { assertCommunityMember } from "./communities";
+import { assertCanPostAs, orgByline } from "../organizations";
 import { notifyFollowers } from "../follows";
 import { isStage, stageLabel, shouldNotifyStageChange } from "./projectTeam";
 import {
@@ -27,7 +28,7 @@ import { trackEvent } from "../posthog";
 // project is (docs/features/creator-media-cross-post.md, Round 2) — is
 // checked and stored the way artifacts and events store one.
 import { canonicalMediaUrl, schedulePreviewFetch } from "../linkPreview";
-import { isAdmin } from "../helpers";
+import { isAdmin, requireOwner } from "../helpers";
 import { isHidden, isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
 import { communityVisibility, isHiddenCommunityId } from "./communityVisibility";
 
@@ -131,6 +132,8 @@ export const createPassionProject = mutation({
     // owned by the creator, this only tags it; community-groups.md §0).
     // Membership is checked before the tag is ever written.
     hostOrgId: v.optional(v.id("hostOrgs")),
+    // Post as an organization the creator is part of (schema.ts).
+    organizationId: v.optional(v.id("organizations")),
     // Where the project is when it's made. Omitted = planning. Onboarding
     // offers "Thinking about it" / "Working on it" (planning / working).
     stage: v.optional(v.string()),
@@ -154,6 +157,7 @@ export const createPassionProject = mutation({
     if (args.hostOrgId) {
       await assertCommunityMember(ctx, args.hostOrgId, userId);
     }
+    if (args.organizationId) await assertCanPostAs(ctx, userId, args.organizationId);
 
     const mediaUrl = canonicalMediaUrl(args.mediaUrl);
     const now = Date.now();
@@ -178,6 +182,7 @@ export const createPassionProject = mutation({
       nonprofitName: args.benefitsNonprofit ? args.nonprofitName : undefined,
       interests: args.interests,
       hostOrgId: args.hostOrgId,
+      organizationId: args.organizationId,
       location: args.location,
       locationType: args.locationType,
       address: args.address,
@@ -220,25 +225,13 @@ export const updateProject = mutation({
     // = take it out of any community (same pair events.update uses).
     hostOrgId: v.optional(v.id("hostOrgs")),
     clearCommunity: v.optional(v.boolean()),
+    // Who it's posted as. Omitted = leave it; postAsSelf = back to the person.
+    organizationId: v.optional(v.id("organizations")),
+    postAsSelf: v.optional(v.boolean()),
     ...locationArgs,
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError({ code: "unauthenticated" });
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) throw new ConvexError({ code: "not_found" });
-
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-    if (project.userId !== userId && !profile?.isAdmin) {
-      throw new ConvexError({
-        code: "forbidden",
-        reason: "Only the creator or an operator can edit this.",
-      });
-    }
+    const { userId, row: project } = await requireOwner(ctx, "projects", args.projectId, { orAdmin: true });
 
     const patch: Record<string, any> = { updatedAt: Date.now() };
     if (args.title !== undefined) patch.title = args.title;
@@ -321,6 +314,15 @@ export const updateProject = mutation({
     } else if (args.clearCommunity) {
       patch.hostOrgId = undefined;
     }
+    if (args.organizationId) {
+      // Checked against the person who runs it, and only when it changes.
+      if (String(args.organizationId) !== String(project.organizationId ?? "")) {
+        await assertCanPostAs(ctx, project.userId, args.organizationId);
+      }
+      patch.organizationId = args.organizationId;
+    } else if (args.postAsSelf) {
+      patch.organizationId = undefined;
+    }
 
     await ctx.db.patch(args.projectId, patch);
     await schedulePreviewFetch(ctx, "project", args.projectId, fetchPreviewFor);
@@ -339,22 +341,7 @@ const ALLOWED_STATUSES: Record<string, Set<string>> = {
 export const updateProjectStatus = mutation({
   args: { projectId: v.id("projects"), status: v.string() },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError({ code: "unauthenticated" });
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) throw new ConvexError({ code: "not_found" });
-
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-    if (project.userId !== userId && !profile?.isAdmin) {
-      throw new ConvexError({
-        code: "forbidden",
-        reason: "Only the creator or an operator can change this.",
-      });
-    }
+    const { userId, row: project } = await requireOwner(ctx, "projects", args.projectId, { orAdmin: true });
 
     if (!ALLOWED_STATUSES[project.kind]?.has(args.status)) {
       throw new ConvexError({
@@ -383,22 +370,7 @@ export const updateProjectStatus = mutation({
 export const setStage = mutation({
   args: { projectId: v.id("projects"), stage: v.string() },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError({ code: "unauthenticated" });
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) throw new ConvexError({ code: "not_found" });
-
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-    if (project.userId !== userId && !profile?.isAdmin) {
-      throw new ConvexError({
-        code: "forbidden",
-        reason: "Only the creator or an operator can change this.",
-      });
-    }
+    const { userId, row: project } = await requireOwner(ctx, "projects", args.projectId, { orAdmin: true });
 
     if (!isStage(args.stage)) {
       throw new ConvexError({ code: "invalid_stage", reason: "Not a valid stage." });
@@ -543,6 +515,7 @@ export const listProjects = query({
         return {
           ...project,
           resolvedPhotoUrl,
+          organization: await orgByline(ctx, project.organizationId),
           creator: user
             ? {
                 _id: user._id,
@@ -639,6 +612,7 @@ export const getProject = query({
       ...project,
       body: resolvedBody,
       resolvedPhotoUrl,
+      organization: await orgByline(ctx, project.organizationId),
       creator: user
         ? { _id: user._id, name: user.name, imageUrl: user.imageUrl, interests: user.interests, location: user.location }
         : null,
@@ -775,6 +749,7 @@ export const createPaidProject = mutation({
     interests: v.optional(v.array(v.string())),
     // See createPassionProject's hostOrgId comment.
     hostOrgId: v.optional(v.id("hostOrgs")),
+    organizationId: v.optional(v.id("organizations")),
     ...locationArgs,
   },
   handler: async (ctx, args) => {
@@ -787,6 +762,7 @@ export const createPaidProject = mutation({
     if (args.hostOrgId) {
       await assertCommunityMember(ctx, args.hostOrgId, userId);
     }
+    if (args.organizationId) await assertCanPostAs(ctx, userId, args.organizationId);
 
     const mediaUrl = canonicalMediaUrl(args.mediaUrl);
     const now = Date.now();
@@ -810,6 +786,7 @@ export const createPaidProject = mutation({
       storySlug,
       interests: args.interests,
       hostOrgId: args.hostOrgId,
+      organizationId: args.organizationId,
       location: args.location,
       locationType: args.locationType,
       address: args.address,

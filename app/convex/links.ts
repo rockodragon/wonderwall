@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { auth } from "./auth";
+import { requireOwnProfileRow } from "./helpers";
 
 export const getMyLinks = query({
   args: {},
@@ -65,17 +66,7 @@ export const update = mutation({
     url: v.string(),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
-    const link = await ctx.db.get(args.linkId);
-    if (!link) throw new Error("Link not found");
-
-    // Verify ownership
-    const profile = await ctx.db.get(link.profileId);
-    if (!profile || profile.userId !== userId) {
-      throw new Error("Not authorized");
-    }
+    const { userId, row: link, profile } = await requireOwnProfileRow(ctx, "links", args.linkId);
 
     await ctx.db.patch(args.linkId, {
       label: args.label,
@@ -87,17 +78,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { linkId: v.id("links") },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
-    const link = await ctx.db.get(args.linkId);
-    if (!link) throw new Error("Link not found");
-
-    // Verify ownership
-    const profile = await ctx.db.get(link.profileId);
-    if (!profile || profile.userId !== userId) {
-      throw new Error("Not authorized");
-    }
+    const { userId, row: link, profile } = await requireOwnProfileRow(ctx, "links", args.linkId);
 
     await ctx.db.delete(args.linkId);
   },

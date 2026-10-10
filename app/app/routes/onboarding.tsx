@@ -5,6 +5,8 @@ import { useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
 
 import { INTERESTS } from "../constants/interests";
+import { DOORS, PARTNER_OFFERINGS, type Role } from "../constants/roles";
+import { PersonNameHint } from "../components/PersonNameHint";
 import { interestIcon } from "../constants/interestIcons";
 import { DESK_PATH } from "../desk/deskState";
 import { GARDEN_SLUG } from "../lib/communitySlugs";
@@ -68,7 +70,14 @@ export default function Onboarding() {
   const upsertProfile = useMutation(api.profiles.upsertProfile);
   const createPassionProject = useMutation(api.garden.projects.createPassionProject);
 
+  // Which door: a maker, a backer or a partner. Nothing else shows until one
+  // is picked, and the rest of the screen asks what fits it.
+  const [role, setRole] = useState<Role | null>(null);
   const [interests, setInterests] = useState<string[]>([]);
+  const [offerings, setOfferings] = useState<string[]>([]);
+  // A partner's space or organization: it gets its own page, with them on it
+  // (profiles.upsertProfile links orgName to an organization).
+  const [placeName, setPlaceName] = useState("");
   const [title, setTitle] = useState("");
   const [stage, setStage] = useState<StartStage | null>(null);
   // Only asked when the profile has no real name yet (a phone sign-in made on
@@ -97,11 +106,19 @@ export default function Onboarding() {
     }
   }, [authLoading, isAuthenticated, navigate]);
 
-  // Someone who already has a role, a bio or interests (a bookmark, the Back
-  // button, an older member) has nothing to do here.
+  // Someone already onboarded can come back to change their answers (Rick,
+  // 2026-10-10: "a way to let people update their preferences"). The screen
+  // opens on what they chose before; nothing is saved until a button.
+  const [returning, setReturning] = useState<boolean | null>(null);
   useEffect(() => {
-    if (onboarded && !left.current) navigate(DESK_PATH, { replace: true });
-  }, [onboarded, navigate]);
+    if (!profile || returning !== null) return;
+    setReturning(onboarded);
+    if (!onboarded) return;
+    const was = DOORS.find((d) => d.role === profile.primaryRole)?.role ?? null;
+    setRole(was);
+    setInterests((was === "patron" ? profile.supportInterests : profile.interests) ?? []);
+    setOfferings(profile.partnerOfferings ?? []);
+  }, [profile, onboarded, returning]);
 
   useEffect(() => {
     if (mustInvite && !left.current) navigate("/invite", { replace: true });
@@ -109,7 +126,7 @@ export default function Onboarding() {
 
   const ready =
     isAuthenticated && !!profile && signupCommunity !== undefined && myCommunities !== undefined;
-  const showing = ready && !mustInvite && (!onboarded || left.current);
+  const showing = ready && !mustInvite && returning !== null;
 
   const viewed = useRef(false);
   useEffect(() => {
@@ -118,8 +135,15 @@ export default function Onboarding() {
     posthog?.capture("onboarding_viewed", { needs_name: needsName });
   }, [showing, needsName, posthog]);
 
-  function toggleInterest(tag: string) {
-    setInterests((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
+  const toggle = (setList: (f: (prev: string[]) => string[]) => void) => (tag: string) =>
+    setList((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
+  const toggleInterest = toggle(setInterests);
+  const toggleOffering = toggle(setOfferings);
+
+  function pickDoor(next: Role) {
+    setRole(next);
+    setError("");
+    posthog?.capture("onboarding_door_picked", { door: next });
   }
 
   async function leave(exit: OnboardingExit) {
@@ -136,14 +160,22 @@ export default function Onboarding() {
     setError("");
     setBusy(exit);
     try {
-      // A backer's picks are what they want to support; everyone else's are
-      // their interests. Nothing picked leaves what the profile has.
+      // A backer's picks are what they want to support, a partner's what
+      // they offer; a maker's are their interests. Nothing picked leaves what
+      // the profile has.
       const picked = interests.length > 0 ? interests : undefined;
       await upsertProfile({
         name: needsName ? name.trim() : profile.name,
-        ...(exit === "backer" ? { supportInterests: picked } : { interests: picked }),
-        primaryRole: roleForExit(exit),
         ...keepProfileFields(profile),
+        ...(exit === "backer"
+          ? { supportInterests: picked }
+          : exit === "partner"
+            ? {
+                partnerOfferings: offerings.length > 0 ? offerings : undefined,
+                orgName: placeName.trim() || undefined,
+              }
+            : { interests: picked }),
+        primaryRole: roleForExit(exit),
       });
       if (exit === "shared") {
         const { projectId } = await createPassionProject({
@@ -161,10 +193,10 @@ export default function Onboarding() {
         navigate(justPublished(`/projects/${projectId}`), { replace: true });
         return;
       }
-      posthog?.capture(exit === "backer" ? "onboarding_backer_exit" : "onboarding_not_yet", {
-        interests: interests.length,
-        title_typed: !!title.trim(),
-      });
+      posthog?.capture(
+        exit === "backer" ? "onboarding_backer_exit" : exit === "partner" ? "onboarding_partner_exit" : "onboarding_not_yet",
+        { interests: interests.length, offerings: offerings.length, title_typed: !!title.trim() },
+      );
       dropShareProjectIntent();
       navigate(DESK_PATH, { replace: true });
     } catch (err) {
@@ -190,7 +222,7 @@ export default function Onboarding() {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          void leave("shared");
+          if (role === "creative") void leave("shared");
         }}
         className="w-full max-w-[40rem]"
       >
@@ -198,7 +230,7 @@ export default function Onboarding() {
           className="text-[28px] sm:text-[34px] font-semibold leading-tight"
           style={{ color: PAPER, fontFamily: "var(--garden-font-display)", textWrap: "balance" }}
         >
-          What are you interested in or working on?
+          What brings you here?
         </h1>
 
         {needsName && (
@@ -215,72 +247,156 @@ export default function Onboarding() {
               className={FIELD}
               style={{ backgroundColor: RAISED, borderColor: LINE, color: PAPER }}
             />
+            <PersonNameHint name={name} />
           </div>
         )}
 
-        <div role="group" aria-label="Interests, optional" className="mt-7 flex flex-wrap gap-1.5">
-          {INTERESTS.map((tag) => {
-            const on = interests.includes(tag);
-            const Icon = interestIcon(tag);
+        {/* The three doors. Picking one opens the rest of this same screen. */}
+        <div role="radiogroup" aria-label="What brings you here?" className="mt-7 grid gap-2 sm:grid-cols-3">
+          {DOORS.map((d) => {
+            const on = role === d.role;
             return (
               <button
-                key={tag}
+                key={d.role}
                 type="button"
-                aria-pressed={on}
-                onClick={() => toggleInterest(tag)}
-                className={`${PILL} inline-flex items-center gap-1.5`}
-                style={{
-                  backgroundColor: on ? CITRON : RAISED,
-                  borderColor: on ? CITRON : LINE,
-                  color: on ? INK : BODY,
-                }}
+                role="radio"
+                aria-checked={on}
+                onClick={() => pickDoor(d.role)}
+                className={`text-left rounded-xl border px-4 py-3.5 transition-colors ${FOCUS}`}
+                style={{ backgroundColor: on ? CITRON : RAISED, borderColor: on ? CITRON : LINE }}
               >
-                <Icon size={16} weight="regular" aria-hidden />
-                {tag}
+                <span className="block text-[15px] font-semibold" style={{ color: on ? INK : PAPER }}>
+                  {d.label}
+                </span>
+                <span className="block mt-0.5 text-[13.5px]" style={{ color: on ? INK : BODY }}>
+                  {d.hint}
+                </span>
               </button>
             );
           })}
         </div>
 
-        <div className="mt-9">
-          <label htmlFor="onboarding-title" className="block text-[13.5px] font-medium mb-1.5" style={{ color: PAPER }}>
-            Project title
-          </label>
-          <input
-            id="onboarding-title"
-            type="text"
-            autoFocus={!needsName}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className={FIELD}
-            style={{ backgroundColor: RAISED, borderColor: LINE, color: PAPER }}
-          />
-          <p className="mt-1.5 text-[13.5px]" style={{ color: BODY }}>
-            A title is enough. {VISIBILITY_NOTE}
-          </p>
-        </div>
+        {(role === "creative" || role === "patron") && (
+          <>
+            <h2 className="mt-9 text-[15px] font-medium" style={{ color: PAPER }}>
+              {role === "creative" ? "What are you into?" : "What do you want to back?"}
+            </h2>
+            <div role="group" aria-label="Interests, optional" className="mt-3 flex flex-wrap gap-1.5">
+              {INTERESTS.map((tag) => {
+                const on = interests.includes(tag);
+                const Icon = interestIcon(tag);
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => toggleInterest(tag)}
+                    className={`${PILL} inline-flex items-center gap-1.5`}
+                    style={{
+                      backgroundColor: on ? CITRON : RAISED,
+                      borderColor: on ? CITRON : LINE,
+                      color: on ? INK : BODY,
+                    }}
+                  >
+                    <Icon size={16} weight="regular" aria-hidden />
+                    {tag}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
 
-        <div role="group" aria-label="Where it is" className="mt-5 flex flex-wrap gap-1.5">
-          {START_STAGES.map((s) => {
-            const on = stage === s.value;
-            return (
-              <button
-                key={s.value}
-                type="button"
-                aria-pressed={on}
-                onClick={() => setStage(on ? null : s.value)}
-                className={PILL}
-                style={{
-                  backgroundColor: on ? CITRON : RAISED,
-                  borderColor: on ? CITRON : LINE,
-                  color: on ? INK : BODY,
-                }}
-              >
-                {s.label}
-              </button>
-            );
-          })}
-        </div>
+        {role === "creative" && (
+          <>
+            <div className="mt-9">
+              <label htmlFor="onboarding-title" className="block text-[15px] font-medium mb-1.5" style={{ color: PAPER }}>
+                What are you working on?
+              </label>
+              <input
+                id="onboarding-title"
+                type="text"
+                autoFocus={!needsName}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="A title is enough"
+                className={FIELD}
+                style={{ backgroundColor: RAISED, borderColor: LINE, color: PAPER }}
+              />
+              <p className="mt-1.5 text-[13.5px]" style={{ color: BODY }}>
+                {VISIBILITY_NOTE}
+              </p>
+            </div>
+
+            <div role="group" aria-label="Where it is" className="mt-5 flex flex-wrap gap-1.5">
+              {START_STAGES.map((s) => {
+                const on = stage === s.value;
+                return (
+                  <button
+                    key={s.value}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => setStage(on ? null : s.value)}
+                    className={PILL}
+                    style={{
+                      backgroundColor: on ? CITRON : RAISED,
+                      borderColor: on ? CITRON : LINE,
+                      color: on ? INK : BODY,
+                    }}
+                  >
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {role === "partner" && (
+          <>
+            <h2 className="mt-9 text-[15px] font-medium" style={{ color: PAPER }}>
+              What can you offer?
+            </h2>
+            <div role="group" aria-label="What you can offer, optional" className="mt-3 flex flex-wrap gap-1.5">
+              {PARTNER_OFFERINGS.map((offering) => {
+                const on = offerings.includes(offering);
+                return (
+                  <button
+                    key={offering}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => toggleOffering(offering)}
+                    className={PILL}
+                    style={{
+                      backgroundColor: on ? CITRON : RAISED,
+                      borderColor: on ? CITRON : LINE,
+                      color: on ? INK : BODY,
+                    }}
+                  >
+                    {offering}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-7">
+              <label htmlFor="onboarding-place" className="block text-[15px] font-medium mb-1.5" style={{ color: PAPER }}>
+                Your space or organization (optional)
+              </label>
+              <input
+                id="onboarding-place"
+                type="text"
+                value={placeName}
+                onChange={(e) => setPlaceName(e.target.value)}
+                placeholder="Radius Coffee"
+                className={FIELD}
+                style={{ backgroundColor: RAISED, borderColor: LINE, color: PAPER }}
+              />
+              <p className="mt-1.5 text-[13.5px]" style={{ color: BODY }}>
+                It gets its own page. You sign in as yourself.
+              </p>
+            </div>
+          </>
+        )}
 
         {error && (
           <p role="alert" className="mt-6 text-[14px]" style={{ color: ERROR }}>
@@ -288,35 +404,41 @@ export default function Onboarding() {
           </p>
         )}
 
-        <button
-          type="submit"
-          disabled={!title.trim() || busy !== null}
-          className={`mt-8 w-full px-4 py-3 rounded-lg text-[15px] font-semibold disabled:opacity-50 ${FOCUS}`}
-          style={{ backgroundColor: CITRON, color: INK }}
-        >
-          {busy === "shared" ? "Sharing…" : "Share it"}
-        </button>
+        {role === "creative" && (
+          <>
+            <button
+              type="submit"
+              disabled={!title.trim() || busy !== null}
+              className={`mt-8 w-full px-4 py-3 rounded-lg text-[15px] font-semibold disabled:opacity-50 ${FOCUS}`}
+              style={{ backgroundColor: CITRON, color: INK }}
+            >
+              {busy === "shared" ? "Sharing…" : "Share it"}
+            </button>
+            <div className="mt-5">
+              <button
+                type="button"
+                onClick={() => void leave("not_yet")}
+                disabled={busy !== null}
+                className={QUIET}
+                style={{ color: PAPER }}
+              >
+                {returning ? "Save" : "Not yet"}
+              </button>
+            </div>
+          </>
+        )}
 
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+        {(role === "patron" || role === "partner") && (
           <button
             type="button"
-            onClick={() => void leave("not_yet")}
+            onClick={() => void leave(role === "patron" ? "backer" : "partner")}
             disabled={busy !== null}
-            className={QUIET}
-            style={{ color: PAPER }}
+            className={`mt-8 w-full px-4 py-3 rounded-lg text-[15px] font-semibold disabled:opacity-50 ${FOCUS}`}
+            style={{ backgroundColor: CITRON, color: INK }}
           >
-            Not yet
+            {busy ? "Saving…" : returning ? "Save" : "Continue"}
           </button>
-          <button
-            type="button"
-            onClick={() => void leave("backer")}
-            disabled={busy !== null}
-            className={QUIET}
-            style={{ color: BODY }}
-          >
-            I'm here to back creatives
-          </button>
-        </div>
+        )}
       </form>
     </main>
   );

@@ -4,6 +4,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { INTERESTS } from "../constants/interests";
 import { CommunityPicker, useDefaultEventCommunity } from "./CommunityPicker";
+import { PostAsPicker } from "./PostAsPicker";
 import { LocationAutocomplete, LocationVerifiedHint } from "./LocationAutocomplete";
 import { describeMediaLink, MediaLinkField } from "./MediaLinkField";
 import { useLocationField } from "../lib/useLocationField";
@@ -35,6 +36,7 @@ export type ProjectEditTarget = {
   coordinates?: any;
   placeId?: string;
   hostOrgId?: Id<"hostOrgs">;
+  organizationId?: Id<"organizations">;
 };
 
 const labelClass = "block text-xs uppercase tracking-[0.06em] mb-1.5";
@@ -67,6 +69,7 @@ export function ProjectModal({
   const [remote, setRemote] = useState(edit?.remote ?? true);
   const [interests, setInterests] = useState<string[]>(edit?.interests ?? []);
   const [hostOrgId, setHostOrgId] = useState<string>(edit?.hostOrgId ?? "");
+  const [organizationId, setOrganizationId] = useState<string>(edit?.organizationId ?? "");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   // New projects pre-fill the switcher's community, else The Garden — still
@@ -138,6 +141,7 @@ export function ProjectModal({
           ...(remote ? { location: "" } : { ...location.toArgs(), location: location.toArgs().location ?? "" }),
           remote,
           ...(hostOrgId ? { hostOrgId: hostOrgId as Id<"hostOrgs"> } : { clearCommunity: true }),
+          ...(organizationId ? { organizationId: organizationId as Id<"organizations"> } : { postAsSelf: true }),
         });
         onClose();
         return;
@@ -150,6 +154,7 @@ export function ProjectModal({
         remote,
         interests: interests.length > 0 ? interests : undefined,
         hostOrgId: hostOrgId ? (hostOrgId as Id<"hostOrgs">) : undefined,
+        organizationId: organizationId ? (organizationId as Id<"organizations">) : undefined,
       });
       onCreated?.(String(result.projectId));
       onClose();
@@ -228,6 +233,7 @@ export function ProjectModal({
                   page.
                 </p>
               )}
+              <PostAsPicker value={organizationId} onChange={setOrganizationId} />
               <div>
                 <label htmlFor={`${uid}-title`} className={labelClass} style={{ color: "var(--garden-dim)" }}>
                   Title

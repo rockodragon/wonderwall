@@ -1669,9 +1669,15 @@ function ProfileEditForm({
 
         {/* Interests */}
         <div>
-          <label className="block text-sm font-medium mb-2" style={{ color: "var(--app-text-muted)" }}>
-            Interests
-          </label>
+          <div className="flex items-baseline justify-between gap-3 mb-2">
+            <label className="block text-sm font-medium" style={{ color: "var(--app-text-muted)" }}>
+              Interests
+            </label>
+            {/* The onboarding screen, on your current answers. */}
+            <Link to="/onboarding" className="text-[13.5px] hover:underline" style={{ color: "var(--app-accent-ink)" }}>
+              Change what brings you here
+            </Link>
+          </div>
           <div className="flex flex-wrap gap-2">
             {INTERESTS.map((fn) => (
               <button
