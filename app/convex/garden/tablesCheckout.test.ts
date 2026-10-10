@@ -344,7 +344,7 @@ describe("atomic Table checkout adapter", () => {
     });
     await expect(
       handler(getRefundTerms, ctx, { paymentId: "refund", userId: "student" }),
-    ).rejects.toThrow("Admin access");
+    ).rejects.toMatchObject({ data: { code: "forbidden" } });
     await expect(
       handler(getRefundTerms, ctx, { paymentId: "paid", userId: "operator" }),
     ).rejects.toThrow("requiring a refund");
@@ -594,7 +594,7 @@ describe("operator Table migration", () => {
     });
     await expect(
       handler(migrateBatch, ctx, { phase: "offerings" }),
-    ).rejects.toThrow("Admin access");
+    ).rejects.toMatchObject({ data: { code: "forbidden" } });
     expect(ctx.rows("gardenTables")).toHaveLength(0);
   });
 

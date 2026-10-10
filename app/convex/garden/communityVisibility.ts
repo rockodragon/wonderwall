@@ -15,6 +15,7 @@ import type { QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { isAdminProfile } from "../helpers";
 import { canSeeCommunity, isHiddenCommunity } from "./hiddenCommunity";
+import { activeCommunityMemberships } from "./communityLookup";
 
 export interface CommunityViewer {
   isAdmin: boolean;
@@ -38,16 +39,11 @@ export async function loadCommunityViewer(
       .query("profiles")
       .withIndex("by_userId", (q) => q.eq("userId", id))
       .first(),
-    ctx.db
-      .query("communityMembers")
-      .withIndex("by_userId", (q) => q.eq("userId", id))
-      .collect(),
+    activeCommunityMemberships(ctx, id),
   ]);
   return {
     isAdmin: isAdminProfile(profile),
-    activeCommunityIds: new Set(
-      rows.filter((m) => m.status === "active").map((m) => String(m.hostOrgId)),
-    ),
+    activeCommunityIds: new Set(rows.map((m) => String(m.hostOrgId))),
   };
 }
 

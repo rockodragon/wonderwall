@@ -14,7 +14,8 @@ import { internalMutation, mutation, query } from "../_generated/server";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { isAdminProfile } from "../helpers";
+import { isOwnerOrAdmin } from "../helpers";
+import { assertNotBlocked } from "../blocks";
 import { notifyFollowers } from "../follows";
 import { scheduleNotificationEmail } from "../emailHelpers";
 import { slugifyTitle, resolveAvailableSlug } from "./stories";
@@ -24,7 +25,7 @@ import { validateBudgetDeclaration } from "./projects";
 import { ruleOf, summarizeGig } from "./gigSummary";
 import { can } from "./capabilities";
 import { assertCanPure, getGardenUser } from "./entitlements";
-import { escapeHtml } from "./projectTeam";
+import { escapeHtml } from "../email/template";
 import {
   HORIZON_WEEKS,
   MAX_CLIPS,
@@ -113,32 +114,13 @@ async function requireProject(ctx: Ctx, projectId: Id<"projects">): Promise<Doc<
 
 /** The venue (series.hostUserId) — or an operator — manages the series. */
 async function assertHost(ctx: Ctx, series: Doc<"gigSeries">, userId: Id<"users">): Promise<void> {
-  if (series.hostUserId === userId) return;
-  const profile = await getProfile(ctx, userId);
-  if (isAdminProfile(profile)) return;
-  throw new ConvexError({ code: "forbidden", reason: "Only the venue that posted this can do that." });
+  if (!(await isOwnerOrAdmin(ctx, series.hostUserId, userId))) {
+    throw new ConvexError({ code: "forbidden", reason: "Only the venue that posted this can do that." });
+  }
 }
 
 async function isHostOrAdmin(ctx: Ctx, series: Doc<"gigSeries">, userId: Id<"users"> | null): Promise<boolean> {
-  if (!userId) return false;
-  if (series.hostUserId === userId) return true;
-  return isAdminProfile(await getProfile(ctx, userId));
-}
-
-// Same block check projectTeam.ts / messaging.ts use — either direction.
-async function assertNotBlocked(ctx: Ctx, a: Id<"users">, b: Id<"users">): Promise<void> {
-  const [byA, byB] = await Promise.all([
-    ctx.db
-      .query("blocks")
-      .withIndex("by_blockerId", (q) => q.eq("blockerId", a))
-      .collect(),
-    ctx.db
-      .query("blocks")
-      .withIndex("by_blockedId", (q) => q.eq("blockedId", a))
-      .collect(),
-  ]);
-  const blocked = byA.some((r) => r.blockedId === b) || byB.some((r) => r.blockerId === b);
-  if (blocked) throw new ConvexError({ code: "blocked", reason: "That isn't possible right now." });
+  return !!userId && (await isOwnerOrAdmin(ctx, series.hostUserId, userId));
 }
 
 async function notify(

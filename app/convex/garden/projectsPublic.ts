@@ -18,6 +18,7 @@ import { shapeCredits, type CreditEntry } from "./allocations";
 import { summarizeGig } from "./gigSummary";
 import { isHidden, isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
 import { communityVisibility } from "./communityVisibility";
+import { resolveCommunities } from "./communityLookup";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
@@ -240,14 +241,7 @@ export const listProjects = query({
 
     // The community each project was posted into (community-groups.md) —
     // one lookup per distinct org, only real communities surface.
-    const hostOrgIds = [
-      ...new Set(newestFirst.map((p) => p.hostOrgId).filter((id): id is NonNullable<typeof id> => !!id)),
-    ];
-    const orgs = await Promise.all(hostOrgIds.map((id) => ctx.db.get(id)));
-    const communityById = new Map<string, { name: string; slug: string }>();
-    for (const org of orgs) {
-      if (org && org.kind === "community") communityById.set(String(org._id), { name: org.name, slug: org.slug });
-    }
+    const communityById = await resolveCommunities(ctx, newestFirst.map((p) => p.hostOrgId));
 
     // Live booking (docs/features/live-booking.md §5): the public page is
     // the front door for "what work is out there", so a gig's schedule

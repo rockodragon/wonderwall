@@ -18,6 +18,7 @@ import { action, internalAction } from "../_generated/server";
 import { api, internal } from "../_generated/api";
 import { auth } from "../auth";
 import { routeTicketMoney } from "./ticketRouting";
+import { COMMUNITY_KIND, isActiveCommunityOrg } from "./communityLookup";
 // Pure money logic lives in the dependency-free handler file so the checkout
 // action and the webhook share one authority (and so it's unit-testable
 // without this file's node runtime / Stripe SDK).
@@ -490,7 +491,7 @@ export const createPoolContributionCheckout = action({
     if (!hostOrg) {
       throw new ConvexError({ reason: "That project pool isn't set up yet — check back soon." });
     }
-    if (hostOrg.kind !== "platform" && hostOrg.kind !== "community") {
+    if (hostOrg.kind !== "platform" && hostOrg.kind !== COMMUNITY_KIND) {
       throw new ConvexError({
         reason:
           "This organization's fund runs through its own giving link, not the project pool — look for the Give button on their page.",
@@ -772,7 +773,7 @@ export const createProductCheckout = action({
     if (product.status !== "active") {
       throw new ConvexError("This product isn't for sale right now.");
     }
-    if (org.kind !== "community" || (org.status ?? "active") !== "active") {
+    if (!isActiveCommunityOrg(org)) {
       throw new ConvexError("This community isn't set up to sell right now.");
     }
 

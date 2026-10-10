@@ -26,6 +26,7 @@ import { mutation, query, internalMutation } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError } from "convex/values";
+import { requireOperator } from "../helpers";
 import { guestBackingThrottled } from "./stripeHandlers";
 import { isHidden } from "../moderationRules";
 import { emailFirstCheer, isFirstCheerReceived } from "../engagement/firstCheer";
@@ -565,16 +566,7 @@ export const listMySupportGiven = query({
 export const confirmSupport = mutation({
   args: { supportId: v.id("projectSupport") },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError({ code: "unauthenticated" });
-
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-    if (!profile?.isAdmin) {
-      throw new ConvexError({ code: "forbidden", reason: "Operator-only." });
-    }
+    await requireOperator(ctx);
 
     const entry = await ctx.db.get(args.supportId);
     if (!entry) throw new ConvexError({ code: "not_found" });

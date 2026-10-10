@@ -14,10 +14,9 @@
 import { v } from "convex/values";
 import { ConvexError } from "convex/values";
 import { query } from "../_generated/server";
-import type { QueryCtx } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Id } from "../_generated/dataModel";
-import { isAdminProfile } from "../helpers";
+import { requireOperator } from "../helpers";
 import {
   computePoolBalance,
   computePoolInflows,
@@ -380,25 +379,6 @@ export function payoutDescription(hostOrgName: string): string {
 // ——————————————————————————————————————————————————————————————
 // Convex wrappers
 // ——————————————————————————————————————————————————————————————
-
-/** Same gate as operator.ts's requireOperator — every export in this file
- * is an operator-only read. */
-async function requireOperator(ctx: QueryCtx): Promise<Id<"users">> {
-  const userId = await getAuthUserId(ctx);
-  if (!userId) throw new ConvexError({ code: "unauthenticated" });
-
-  const profile = await ctx.db
-    .query("profiles")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .unique();
-  if (!isAdminProfile(profile)) {
-    throw new ConvexError({
-      code: "forbidden",
-      reason: "This is an operator tool — this account doesn't have that access.",
-    });
-  }
-  return userId;
-}
 
 export const getPlatformReport = query({
   args: {},

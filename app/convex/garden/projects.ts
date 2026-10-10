@@ -12,6 +12,7 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { slugifyTitle, resolveAvailableSlug } from "./stories";
 import { assertCommunityMember } from "./communities";
+import { COMMUNITY_KIND, resolveCommunities } from "./communityLookup";
 import { assertCanPostAs, orgByline } from "../organizations";
 import { notifyFollowers } from "../follows";
 import { isStage, stageLabel, shouldNotifyStageChange } from "./projectTeam";
@@ -467,15 +468,9 @@ export const listProjects = query({
     // admins and that community's members.
     const projects = await communityVisibility(ctx).filter(posted);
 
-    // Batch the hostOrgs lookups: one ctx.db.get per DISTINCT community, not
-    // one per project (several posted projects can share a community).
-    const hostOrgIds = [...new Set(projects.map((p) => p.hostOrgId).filter((id): id is Id<"hostOrgs"> => !!id))];
-    const hostOrgs = await Promise.all(hostOrgIds.map((id) => ctx.db.get(id)));
-    const communityById = new Map<string, { name: string; slug: string }>();
-    hostOrgIds.forEach((id, i) => {
-      const org = hostOrgs[i];
-      if (org && org.kind === "community") communityById.set(String(id), { name: org.name, slug: org.slug });
-    });
+    // One ctx.db.get per DISTINCT community, not one per project (several
+    // posted projects can share a community).
+    const communityById = await resolveCommunities(ctx, projects.map((p) => p.hostOrgId));
 
     const now = Date.now();
     const withDetails = await Promise.all(
@@ -618,7 +613,7 @@ export const getProject = query({
         : null,
       media: resolvedMedia,
       supportCount: support.length,
-      community: communityOrg && communityOrg.kind === "community" ? { name: communityOrg.name, slug: communityOrg.slug } : null,
+      community: communityOrg && communityOrg.kind === COMMUNITY_KIND ? { name: communityOrg.name, slug: communityOrg.slug } : null,
       gig,
       ...(await summarizeAsks(ctx, project, !!gig)),
     };

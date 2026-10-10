@@ -9,7 +9,11 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { can } from "./capabilities";
 import type { GardenUser } from "./capabilities";
 import { getGardenUser, throwDenial } from "./entitlements";
-import { COMMUNITY_KIND } from "./communities";
+import {
+  activeCommunityMemberships,
+  isActiveCommunityOrg,
+  resolveCommunities,
+} from "./communityLookup";
 import { communityVisibility } from "./communityVisibility";
 import type { QueryCtx, MutationCtx } from "../_generated/server";
 import { assertCommunityMember } from "./communities";
@@ -31,33 +35,6 @@ import {
   notifyRemoved,
   notifyRequestAccepted,
 } from "./tableNotify";
-
-/** Batches hostOrgs lookups into one Map keyed by hostOrgId string — every
- * gardenTables row has a hostOrgId (it's required, unlike projects/events/
- * offerings), but only communities (kind COMMUNITY_KIND) are ever surfaced
- * as `community` — the platform org itself is never listed. */
-async function resolveCommunities(
-  ctx: {
-    db: {
-      get: (
-        id: Id<"hostOrgs">,
-      ) => Promise<{ kind: string; name: string; slug: string } | null>;
-    };
-  },
-  hostOrgIds: (Id<"hostOrgs"> | undefined)[],
-): Promise<Map<string, { name: string; slug: string }>> {
-  const distinct = [
-    ...new Set(hostOrgIds.filter((id): id is Id<"hostOrgs"> => !!id)),
-  ];
-  const orgs = await Promise.all(distinct.map((id) => ctx.db.get(id)));
-  const out = new Map<string, { name: string; slug: string }>();
-  distinct.forEach((id, i) => {
-    const org = orgs[i];
-    if (org && org.kind === COMMUNITY_KIND)
-      out.set(String(id), { name: org.name, slug: org.slug });
-  });
-  return out;
-}
 
 // ——— Pure core ———
 
@@ -551,20 +528,10 @@ export const getCreatorPolicy = query({
         canCreatePaidOrSeries: false,
         communities: [],
       };
-    const rows = await ctx.db
-      .query("communityMembers")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .collect();
     const communities = [];
-    for (const row of rows) {
-      if (row.status !== "active") continue;
+    for (const row of await activeCommunityMemberships(ctx, userId)) {
       const org = await ctx.db.get(row.hostOrgId);
-      if (
-        !org ||
-        org.kind !== "community" ||
-        (org.status && org.status !== "active")
-      )
-        continue;
+      if (!org || !isActiveCommunityOrg(org)) continue;
       communities.push({
         _id: org._id,
         name: org.name,
@@ -1058,11 +1025,7 @@ async function addDatesDenial(
 ): Promise<{ code: string; reason: string } | null> {
   if (await hasTableCommunityMembership(ctx, userId, hostOrgId)) return null;
   const org = hostOrgId ? await ctx.db.get(hostOrgId) : null;
-  if (
-    !org ||
-    org.kind !== COMMUNITY_KIND ||
-    (org.status && org.status !== "active")
-  )
+  if (!org || !isActiveCommunityOrg(org))
     return {
       code: "community_required",
       reason:

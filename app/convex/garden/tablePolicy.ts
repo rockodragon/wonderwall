@@ -2,6 +2,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { getGardenUser } from "./entitlements";
 import { communityVisibility } from "./communityVisibility";
+import { getCommunityMember, isActiveCommunityOrg } from "./communityLookup";
 
 export function normalizeTable(table: Doc<"gardenTables">) {
   return {
@@ -28,18 +29,8 @@ export async function hasTableCommunityMembership(
 ): Promise<boolean> {
   if (!hostOrgId) return false;
   const org = await ctx.db.get(hostOrgId);
-  if (
-    !org ||
-    org.kind !== "community" ||
-    (org.status && org.status !== "active")
-  )
-    return false;
-  const member = await ctx.db
-    .query("communityMembers")
-    .withIndex("by_hostOrgId_userId", (q) =>
-      q.eq("hostOrgId", hostOrgId).eq("userId", userId),
-    )
-    .unique();
+  if (!org || !isActiveCommunityOrg(org)) return false;
+  const member = await getCommunityMember(ctx, hostOrgId, userId);
   if (!member || member.status !== "active") return false;
   const viewer = await getGardenUser(ctx, userId, hostOrgId);
   return ["seat", "five", "host"].includes(viewer.level);

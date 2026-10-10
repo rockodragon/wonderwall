@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { makeCtx } from "../test-support/convexContext";
 import {
   PEOPLE_TO_MESSAGE_LIMIT,
+  findConversation,
   normalizePeopleQuery,
   rankPeopleToMessage,
 } from "./messaging";
@@ -181,5 +183,22 @@ describe("rankPeopleToMessage: two or more characters", () => {
 
   it("honors a smaller limit", () => {
     expect(rank({ query: "ma", followed, members, limit: 2 })).toHaveLength(2);
+  });
+});
+
+describe("findConversation", () => {
+  const conversations = [
+    { _id: "conversations:ab", participants: ["users:a", "users:b"] },
+    { _id: "conversations:ac", participants: ["users:a", "users:c"] },
+  ];
+  const ctx = () => makeCtx({ conversations }, null);
+
+  it("finds the pair whichever way round they're asked", async () => {
+    expect((await findConversation(ctx(), "users:a" as any, "users:b" as any))?._id).toBe("conversations:ab");
+    expect((await findConversation(ctx(), "users:b" as any, "users:a" as any))?._id).toBe("conversations:ab");
+  });
+
+  it("doesn't return someone's conversation with a third person", async () => {
+    expect(await findConversation(ctx(), "users:b" as any, "users:c" as any)).toBeUndefined();
   });
 });

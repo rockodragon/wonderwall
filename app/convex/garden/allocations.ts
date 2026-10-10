@@ -15,9 +15,8 @@
 import { v } from "convex/values";
 import { ConvexError } from "convex/values";
 import { mutation, query } from "../_generated/server";
-import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Id } from "../_generated/dataModel";
-import { isAdminProfile } from "../helpers";
+import { requireOperator } from "../helpers";
 import { scheduleNotificationEmail } from "../emailHelpers";
 import { escapeHtml } from "../email/template";
 import { NAMED_FUNDS } from "../../app/lib/namedFunds";
@@ -306,20 +305,7 @@ export const recordAllocation = mutation({
     note: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError({ code: "unauthenticated" });
-
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-    if (!isAdminProfile(profile)) {
-      throw new ConvexError({
-        code: "forbidden",
-        reason:
-          "The allocations ledger is entered by operators — this account doesn't have that access.",
-      });
-    }
+    await requireOperator(ctx);
 
     if (!isValidAmountCents(args.amountCents)) {
       throw new ConvexError({
@@ -409,7 +395,7 @@ export const recordAllocation = mutation({
   },
 });
 
-/** Operator-only (same isAdminProfile gate as recordAllocation) — records
+/** Operator-only (same requireOperator gate as recordAllocation) — records
  * the three direct pool inflows the Stripe webhook never sees (topup_in,
  * sponsor_in, entry_fee_in) plus adjustment (a refund/chargeback clawback,
  * or any other manual correction).
@@ -435,20 +421,7 @@ export const recordContribution = mutation({
     period: v.string(),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError({ code: "unauthenticated" });
-
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-    if (!isAdminProfile(profile)) {
-      throw new ConvexError({
-        code: "forbidden",
-        reason:
-          "The pool ledger is entered by operators — this account doesn't have that access.",
-      });
-    }
+    await requireOperator(ctx);
 
     const hostOrg = await ctx.db
       .query("hostOrgs")

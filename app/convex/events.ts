@@ -5,6 +5,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { auth } from "./auth";
 import { scheduleNotificationEmail } from "./emailHelpers";
 import { assertCommunityMember } from "./garden/communities";
+import { resolveCommunities } from "./garden/communityLookup";
 import { formatFollowedEventDate, notifyFollowers } from "./follows";
 import { canonicalMediaUrl, schedulePreviewFetch } from "./linkPreview";
 import { mergeGuests, summarizeGuests, type GuestInput } from "./eventGuests";
@@ -175,23 +176,6 @@ export function addsTableEventTicketLink(
 // from "./events" keep working, and so events.test.ts can test the pure
 // part alongside this file's other pure helpers.
 export { isFreeEvent, eventVisibilityChecker } from "./garden/eventVisibility";
-
-// Batches hostOrgs lookups for a set of events into a single Map keyed by
-// hostOrgId string — never one ctx.db.get per event (several events can
-// share a community). Used by both `list` and `get`.
-async function resolveCommunities(
-  ctx: { db: { get: (id: Id<"hostOrgs">) => Promise<{ name: string; slug: string } | null> } },
-  hostOrgIds: (Id<"hostOrgs"> | undefined)[],
-): Promise<Map<string, { name: string; slug: string }>> {
-  const distinct = [...new Set(hostOrgIds.filter((id): id is Id<"hostOrgs"> => !!id))];
-  const orgs = await Promise.all(distinct.map((id) => ctx.db.get(id)));
-  const out = new Map<string, { name: string; slug: string }>();
-  distinct.forEach((id, i) => {
-    const org = orgs[i];
-    if (org) out.set(String(id), { name: org.name, slug: org.slug });
-  });
-  return out;
-}
 
 // The going count and the event limit live in ./eventSpots (garden/eventRsvps.ts
 // needs them too, and importing this file from there would be a cycle).

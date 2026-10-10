@@ -17,6 +17,10 @@ describe("escapeHtml", () => {
   it("leaves plain text untouched", () => {
     expect(escapeHtml("New event application")).toBe("New event application");
   });
+
+  it("escapes & first so entities aren't double-encoded", () => {
+    expect(escapeHtml("&lt;")).toBe("&amp;lt;");
+  });
 });
 
 describe("renderNotificationEmail brandName", () => {

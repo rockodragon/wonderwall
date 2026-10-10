@@ -16,6 +16,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { internalMutation, internalQuery, query } from "../_generated/server";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
+import { COMMUNITY_KIND, getCommunityMember } from "./communityLookup";
 
 export const DEFAULT_COMMUNITY_SLUG = "the-garden";
 // The San Diego secular community — The Creative Exchange San Diego, at
@@ -53,10 +54,7 @@ export async function joinDefaultCommunity(
   if (!org) return false;
   if (org.joinPolicy === "invite") return false;
   const orgId = org._id;
-  const existing = await ctx.db
-    .query("communityMembers")
-    .withIndex("by_hostOrgId_userId", (q) => q.eq("hostOrgId", orgId).eq("userId", userId))
-    .unique();
+  const existing = await getCommunityMember(ctx, orgId, userId);
   if (existing) return false;
   await ctx.db.insert("communityMembers", {
     hostOrgId: orgId,
@@ -86,12 +84,7 @@ export const getSignupCommunity = query({
     const org = await getDefaultCommunity(ctx);
     if (!org) return null;
     const userId = await getAuthUserId(ctx);
-    const row = userId
-      ? await ctx.db
-          .query("communityMembers")
-          .withIndex("by_hostOrgId_userId", (q) => q.eq("hostOrgId", org._id).eq("userId", userId))
-          .unique()
-      : null;
+    const row = userId ? await getCommunityMember(ctx, org._id, userId) : null;
     return {
       id: org._id,
       slug: org.slug,
@@ -128,12 +121,7 @@ export const backfillDefaultCommunity = internalMutation({
     let added = 0;
     let alreadyIn = 0;
     for (const user of page.page) {
-      const existing = await ctx.db
-        .query("communityMembers")
-        .withIndex("by_hostOrgId_userId", (q) =>
-          q.eq("hostOrgId", org._id).eq("userId", user._id),
-        )
-        .unique();
+      const existing = await getCommunityMember(ctx, org._id, user._id);
       if (existing) {
         alreadyIn++;
         continue;
@@ -185,7 +173,7 @@ export const getCheckoutCommunity = internalQuery({
   handler: async (ctx, args) => {
     const garden = await getDefaultCommunity(ctx);
     const org = args.communityId ? await ctx.db.get(args.communityId) : garden;
-    if (!org || org.kind !== "community") {
+    if (!org || org.kind !== COMMUNITY_KIND) {
       return { ok: false as const, reason: "That community isn't there." };
     }
     if (org.status && org.status !== "active") {
@@ -220,7 +208,7 @@ export const seedCreateSd = internalMutation({
     const id = await ctx.db.insert("hostOrgs", {
       name: "The Creative Exchange San Diego",
       slug: CREATE_SD_SLUG,
-      kind: "community",
+      kind: COMMUNITY_KIND,
       tagline: "San Diego's creative community.",
       locationLabel: "San Diego",
       websiteUrl: "https://createsd.org",

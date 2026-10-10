@@ -32,7 +32,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "../_generated/api";
 import { scheduleNotificationEmail } from "../emailHelpers";
 import { escapeHtml } from "../email/template";
-import { isAdminProfile } from "../helpers";
+import { requireOperator } from "../helpers";
 import { SPLITS } from "./capabilities";
 import { getCommunityMember } from "./communities";
 import { communityVisibility } from "./communityVisibility";
@@ -1179,12 +1179,7 @@ export const defaultOpenGifts = internalMutation({
 export const getGivingReport = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError({ code: "unauthenticated" });
-    const me = await profileFor(ctx, userId);
-    if (!isAdminProfile(me)) {
-      throw new ConvexError({ code: "forbidden", reason: "This is an operator tool — this account doesn't have that access." });
-    }
+    await requireOperator(ctx);
 
     const [gifts, giftPayments, backingPayments, contributions] = await Promise.all([
       ctx.db.query("memberGifts").collect(),
