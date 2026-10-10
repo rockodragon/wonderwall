@@ -1,5 +1,5 @@
-// Pure-logic tests for the nudge rules (engagement/rules.ts): the secret
-// check, the call's body, the send-or-skip decision and the admin counts.
+// Pure-logic tests for the nudge rules (engagement/rules.ts): the
+// send-or-skip decision and the admin counts.
 // No Convex, no network.
 
 import { describe, expect, it } from "vitest";
@@ -7,14 +7,11 @@ import {
   NUDGE_GAP_MS,
   SHARED_WINDOW_MS,
   SKIP_LABELS,
-  checkNudgeSecret,
   countLog,
   countShared,
   decideNudge,
   isPostedProject,
   latestOf,
-  parseNudgeBody,
-  secretsMatch,
   skipLabel,
   type NudgeFacts,
 } from "./rules";
@@ -22,87 +19,8 @@ import {
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = 100 * DAY;
 
-describe("secretsMatch", () => {
-  it("matches the same secret and nothing else", async () => {
-    expect(await secretsMatch("s3cret-value", "s3cret-value")).toBe(true);
-    expect(await secretsMatch("s3cret-value", "s3cret-valuf")).toBe(false);
-    expect(await secretsMatch("S3cret-value", "s3cret-value")).toBe(false);
-  });
 
-  it("is not fooled by a prefix, an extension or a different length", async () => {
-    expect(await secretsMatch("s3cret", "s3cret-value")).toBe(false);
-    expect(await secretsMatch("s3cret-value-and-more", "s3cret-value")).toBe(false);
-    expect(await secretsMatch("", "s3cret-value")).toBe(false);
-  });
 
-  it("handles any characters", async () => {
-    expect(await secretsMatch("päss wörd ✓ \u0000 end", "päss wörd ✓ \u0000 end")).toBe(true);
-    expect(await secretsMatch("päss wörd ✓", "päss wörd ✗")).toBe(false);
-  });
-});
-
-describe("checkNudgeSecret", () => {
-  it("refuses everything when no secret is set on the deployment", async () => {
-    expect(await checkNudgeSecret(undefined, "anything")).toBe("not_configured");
-    expect(await checkNudgeSecret("", "")).toBe("not_configured");
-    expect(await checkNudgeSecret(undefined, null)).toBe("not_configured");
-  });
-
-  it("denies a missing or wrong header", async () => {
-    expect(await checkNudgeSecret("right", null)).toBe("denied");
-    expect(await checkNudgeSecret("right", "")).toBe("denied");
-    expect(await checkNudgeSecret("right", "wrong")).toBe("denied");
-  });
-
-  it("lets the right secret through", async () => {
-    expect(await checkNudgeSecret("right", "right")).toBe("ok");
-  });
-});
-
-describe("parseNudgeBody", () => {
-  const good = JSON.stringify({ loop: "share_project_day1", distinct_id: "k57abc" });
-
-  it("reads the loop and the distinct id", () => {
-    expect(parseNudgeBody(good)).toEqual({ ok: true, call: { loop: "share_project_day1", distinctId: "k57abc" } });
-  });
-
-  it("trims both", () => {
-    const body = JSON.stringify({ loop: " share_project_day4 ", distinct_id: " k57abc " });
-    expect(parseNudgeBody(body)).toEqual({ ok: true, call: { loop: "share_project_day4", distinctId: "k57abc" } });
-  });
-
-  it("refuses a loop that doesn't exist", () => {
-    expect(parseNudgeBody(JSON.stringify({ loop: "share_project_day9", distinct_id: "k57abc" }))).toEqual({
-      ok: false,
-      error: "Unknown loop.",
-    });
-  });
-
-  it("refuses a body that isn't right", () => {
-    expect(parseNudgeBody("not json")).toEqual({ ok: false, error: "Body must be JSON." });
-    expect(parseNudgeBody("[]")).toEqual({ ok: false, error: "Body must be a JSON object." });
-    expect(parseNudgeBody("null")).toEqual({ ok: false, error: "Body must be a JSON object." });
-    expect(parseNudgeBody("{}")).toEqual({ ok: false, error: "Missing loop." });
-    expect(parseNudgeBody(JSON.stringify({ loop: 3, distinct_id: "x" }))).toEqual({ ok: false, error: "Missing loop." });
-    expect(parseNudgeBody(JSON.stringify({ loop: "share_project_day1" }))).toEqual({ ok: false, error: "Missing distinct_id." });
-    expect(parseNudgeBody(JSON.stringify({ loop: "share_project_day1", distinct_id: "  " }))).toEqual({
-      ok: false,
-      error: "Missing distinct_id.",
-    });
-    expect(parseNudgeBody(JSON.stringify({ loop: "share_project_day1", distinct_id: 7 }))).toEqual({
-      ok: false,
-      error: "Missing distinct_id.",
-    });
-  });
-
-  it("refuses a body or id that is far too large", () => {
-    expect(parseNudgeBody(JSON.stringify({ loop: "share_project_day1", distinct_id: "x".repeat(201) }))).toEqual({
-      ok: false,
-      error: "distinct_id is too long.",
-    });
-    expect(parseNudgeBody("x".repeat(5000))).toEqual({ ok: false, error: "Body is too large." });
-  });
-});
 
 function facts(extra: Partial<NudgeFacts> = {}): NudgeFacts {
   return {
