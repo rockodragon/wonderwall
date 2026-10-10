@@ -1,5 +1,5 @@
-// Engagement loops (docs/features/engagement-loops.md): PostHog decides when,
-// the app decides whether and sends. This file is the loops themselves: their
+// Engagement loops (docs/features/engagement-loops.md): the app keeps the
+// clock (signupNudgePlan), decides whether, and sends. This file is the loops themselves: their
 // keys, the default words, how a row an admin has edited overrides them, and
 // the email built from them. Pure: no Convex, no network, so the unit tests
 // (loops.test.ts) and the admin page can both read it.
@@ -13,13 +13,11 @@ export type LoopDefault = {
   key: string;
   /** What the admin page calls it. */
   name: string;
-  /** When PostHog calls, for the setup box. PostHog owns the timing; this is
-   * a reminder of what was set up there. */
+  /** When it runs, in words. */
   when: string;
   /** Which email setting turns it off. Nudges are never "transactional". */
   category: "activity";
-  /** The app re-checks this before every send, because PostHog can't see the
-   * app's data. */
+  /** The app re-checks this before every send. */
   condition: LoopCondition;
   enabled: boolean;
   subject: string;

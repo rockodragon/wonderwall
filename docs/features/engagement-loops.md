@@ -35,11 +35,14 @@ A delay changed in code applies to people who sign up after the deploy. Runs alr
 
 ## /admin/engagement-loops (admins only)
 
-- One row per loop: an on/off switch, its subject and text (editable, no deploy), and when it runs.
-- Counts for the last 7 and 30 days:
-  - sent;
-  - skipped, by reason;
-  - shared: a project created within 7 days of the send.
+Drawn as a flow, like a visual builder: signup, each wait, each email, and where it stops. Each email shows its on/off switch and one line: sent and shared in the last 30 days.
+
+Clicking an email opens a drawer with the rest:
+- its subject and text (editable, no deploy);
+- results for 7 or 30 days: sent, shared (a project created within 7 days of the send), and skipped by reason;
+- the checks it runs before sending, folded.
+
+Timing is code (`afterDays`), so the page shows it but doesn't edit it.
 
 ## Measuring in PostHog
 
