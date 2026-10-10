@@ -67,6 +67,25 @@ describe("a co-host", () => {
     expect(saved.ticketTiers).toEqual([expect.objectContaining({ name: "General", priceCents: 2500 })]);
   });
 
+  it("a save without ticket fields leaves the tickets alone", async () => {
+    const ctx = world();
+    ctx.store.events[0].ticketTiers = [{ name: "General", priceCents: 2500 }];
+    ctx.store.events[0].externalTicketUrl = "https://tickets.example.com/cr";
+    await run(update, ctx, {
+      eventId: "events:cr",
+      title: "Creative Renaissance",
+      description: "New words",
+      datetime: start,
+      tags: [],
+      requiresApproval: false,
+    });
+    expect(ctx.store.events[0]).toMatchObject({
+      description: "New words",
+      ticketTiers: [{ name: "General", priceCents: 2500 }],
+      externalTicketUrl: "https://tickets.example.com/cr",
+    });
+  });
+
   it("adds and removes co-hosts", async () => {
     const ctx = world();
     await run(addCoHost, ctx, { eventId: "events:cr", userId: "users:jo" });

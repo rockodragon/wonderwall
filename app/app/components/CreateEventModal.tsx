@@ -508,7 +508,9 @@ export function CreateEventModal({
           // Left out on a Table's Event (events.update never writes them there).
           ...(edit.canEditTickets
             ? {
-                ticketTiers: tiers,
+                // [] when none: events.update only touches tickets when the
+                // save carries them, so "no tiers" has to be said.
+                ticketTiers: tiers ?? [],
                 externalTicketUrl: externalTicketUrl.trim() || undefined,
                 externalTicketPriceCents: externalTicketPrice.trim()
                   ? Math.round(parseFloat(externalTicketPrice) * 100)
