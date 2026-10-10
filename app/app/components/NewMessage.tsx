@@ -1,10 +1,8 @@
-import { useMutation, useQuery } from "convex/react";
-import { usePostHog } from "@posthog/react";
+import { useQuery } from "convex/react";
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type RefObject } from "react";
-import { useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
-import { errorMessage } from "../lib/convexError";
 import { initialsOf } from "../lib/initials";
+import { useStartConversation } from "../lib/useStartConversation";
 
 // How long to wait after the last key before searching.
 const DEBOUNCE_MS = 150;
@@ -35,9 +33,7 @@ export function NewMessage({
   onClose: (restoreFocus: boolean) => void;
   anchorRef: RefObject<HTMLElement | null>;
 }) {
-  const navigate = useNavigate();
-  const posthog = usePostHog();
-  const getOrCreateConversation = useMutation(api.messaging.getOrCreateConversation);
+  const { start, starting, error, clearError } = useStartConversation();
 
   const inputId = useId();
   const listId = useId();
@@ -46,8 +42,8 @@ export function NewMessage({
   const [text, setText] = useState("");
   const [debounced, setDebounced] = useState("");
   const [active, setActive] = useState(0);
-  const [starting, setStarting] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Who was picked, so their row shows the spinner.
+  const [picked, setPicked] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebounced(text), DEBOUNCE_MS);
@@ -64,7 +60,7 @@ export function NewMessage({
   // Once a person is picked there is no backing out: the conversation is
   // already opening.
   const close = (restoreFocus: boolean) => {
-    if (starting === null) onClose(restoreFocus);
+    if (!starting) onClose(restoreFocus);
   };
 
   // A click anywhere else closes the box.
@@ -72,7 +68,7 @@ export function NewMessage({
     const onDown = (e: MouseEvent) => {
       const target = e.target as Node;
       if (cardRef.current?.contains(target) || anchorRef.current?.contains(target)) return;
-      if (starting === null) onClose(false);
+      if (!starting) onClose(false);
     };
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
@@ -87,23 +83,14 @@ export function NewMessage({
     if (current >= 0) document.getElementById(optionId(current))?.scrollIntoView({ block: "nearest" });
   }, [current]);
 
-  const pick = async (person: Person) => {
+  const pick = (person: Person) => {
     if (starting) return;
-    setStarting(person.userId);
-    setError(null);
-    try {
-      const conversation = await getOrCreateConversation({ otherUserId: person.userId });
-      if (!conversation) throw new Error("No conversation");
-      posthog?.capture("conversation_started", {
-        profileId: person.profileId,
-        profileName: person.name,
-        source: "messages_new",
-      });
-      navigate(`/messages/${conversation._id}`);
-    } catch (err) {
-      setError(errorMessage(err));
-      setStarting(null);
-    }
+    setPicked(person.userId);
+    void start(person.userId, {
+      profileId: person.profileId,
+      profileName: person.name,
+      source: "messages_new",
+    });
   };
 
   // Escape closes from anywhere in the box (the input or Cancel).
@@ -126,7 +113,7 @@ export function NewMessage({
       e.preventDefault();
       if (e.nativeEvent.isComposing) return;
       const person = people?.[current];
-      if (person) void pick(person);
+      if (person) pick(person);
     }
   };
 
@@ -164,12 +151,12 @@ export function NewMessage({
           autoComplete="off"
           spellCheck={false}
           autoFocus
-          readOnly={starting !== null}
+          readOnly={starting}
           value={text}
           onChange={(e) => {
             setText(e.target.value);
             setActive(0);
-            setError(null);
+            clearError();
           }}
           onKeyDown={onKeyDown}
           placeholder="Search people you follow"
@@ -197,7 +184,7 @@ export function NewMessage({
           id={listId}
           role="listbox"
           aria-label="People"
-          aria-busy={starting !== null}
+          aria-busy={starting}
           className="border-t"
           style={{ borderColor: "var(--app-hairline)" }}
         >
@@ -207,19 +194,19 @@ export function NewMessage({
               id={optionId(i)}
               role="option"
               aria-selected={i === current}
-              aria-disabled={starting !== null}
+              aria-disabled={starting}
               // Keep focus in the box so a click doesn't blur it first.
               onMouseDown={(e) => e.preventDefault()}
-              onMouseMove={() => starting === null && setActive(i)}
-              onClick={() => void pick(person)}
-              className={`flex items-center gap-3 px-4 py-2.5 ${starting !== null ? "cursor-wait" : "cursor-pointer"}`}
+              onMouseMove={() => !starting && setActive(i)}
+              onClick={() => pick(person)}
+              className={`flex items-center gap-3 px-4 py-2.5 ${starting ? "cursor-wait" : "cursor-pointer"}`}
               style={{ backgroundColor: i === current ? "var(--app-hairline-raised)" : undefined }}
             >
               <Face person={person} />
               <span className="flex-1 min-w-0 text-sm font-medium truncate" style={{ color: "var(--app-text)" }}>
                 {person.name}
               </span>
-              {starting === person.userId ? (
+              {starting && picked === person.userId ? (
                 <span
                   className="w-4 h-4 flex-shrink-0 animate-spin rounded-full border-2 border-t-transparent"
                   style={{ borderColor: "var(--app-accent)", borderTopColor: "transparent" }}

@@ -20,6 +20,7 @@ import {
   SortButton,
   ariaSortFor,
 } from "../components/admin/AdminUi";
+import { useIsAdmin } from "../lib/useIsAdmin";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Crawler Admin | TheCreative.exchange" }];
@@ -130,7 +131,7 @@ const SEGMENTS = {
 };
 
 export default function CrawlerAdmin() {
-  const profile = useQuery(api.profiles.getMyProfile);
+  const isAdmin = useIsAdmin();
   const stats = useQuery(api.crawler.getStats);
   const queueStatus = useQuery(api.crawler.getQueueStatus);
   const orgs = useQuery(api.crawler.listOrganizations, { limit: 50 });
@@ -326,11 +327,11 @@ export default function CrawlerAdmin() {
   });
 
   // Check admin access - AFTER all hooks
-  if (profile === undefined) {
+  if (isAdmin === undefined) {
     return <AdminLoading>Checking access…</AdminLoading>;
   }
 
-  if (!profile?.isAdmin) {
+  if (!isAdmin) {
     return <AdminAccessDenied />;
   }
 

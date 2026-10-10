@@ -25,11 +25,11 @@ import {
   PostOfferingForm,
   SignupModal,
   domainFromUrl,
-  errorMessage,
   formatDateOnly,
   formatDateTime,
   formatPrice,
 } from "./offerings";
+import { errorMessage } from "../lib/convexError";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 
 // Loader-less (this whole app is a client-only SPA over useQuery — same as

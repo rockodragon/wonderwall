@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
+import { errorMessage } from "../lib/convexError";
 
 // Shared across the three owner-facing surfaces (docs/announcements-prd.md,
 // UI/UX Specifications: "one <AnnouncementComposer targetType targetId />
@@ -259,14 +260,4 @@ function relativeTime(timestamp: number): string {
   if (hours > 0) return `${hours}h ago`;
   if (minutes > 0) return `${minutes}m ago`;
   return "just now";
-}
-
-// Same helper as offerings.tsx/projects.tsx (ConvexError({code, reason}) —
-// the garden convention this module follows).
-function errorMessage(err: unknown): string {
-  const data = (err as { data?: unknown })?.data;
-  if (data && typeof data === "object" && "reason" in data) {
-    return String((data as { reason: unknown }).reason);
-  }
-  return "Something went wrong — try again.";
 }

@@ -25,6 +25,7 @@ import {
 } from "../components/admin/AdminUi";
 import { errorMessage } from "../lib/convexError";
 import { NUDGE_SECRET_ENV, NUDGE_SECRET_HEADER, nudgeWebhookBody, nudgeWebhookUrl } from "../lib/nudgeWebhook";
+import { useIsAdmin } from "../lib/useIsAdmin";
 
 export const meta: MetaFunction = () => [
   { title: "Engagement loops | Admin" },
@@ -36,12 +37,11 @@ type Loop = Loops[number];
 type Window = Loop["last7"];
 
 export default function AdminEngagementLoopsPage() {
-  const profile = useQuery(api.profiles.getMyProfile);
-  const isAdmin = profile?.isAdmin === true;
-  const loops = useQuery(api.engagement.nudges.adminOverview, isAdmin ? {} : "skip");
+  const isAdmin = useIsAdmin();
+  const loops = useQuery(api.engagement.nudges.adminOverview, isAdmin === true ? {} : "skip");
   const webhookUrl = nudgeWebhookUrl(import.meta.env.VITE_CONVEX_URL as string | undefined);
 
-  if (profile === undefined) {
+  if (isAdmin === undefined) {
     return <AdminLoading>Checking access…</AdminLoading>;
   }
   if (!isAdmin) {

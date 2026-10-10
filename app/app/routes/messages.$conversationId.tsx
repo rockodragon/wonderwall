@@ -1,5 +1,4 @@
 import { useMutation, useQuery } from "convex/react";
-import { ConvexError } from "convex/values";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
@@ -7,6 +6,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { FF_DESK } from "../lib/featureFlags";
 import { FULL_HEIGHT } from "../lib/phoneBar";
 import { exactTime, startsStretch, stretchLabel } from "../lib/messageTime";
+import { errorMessage } from "../lib/convexError";
 
 // The thread reads as one column, not edge to edge (Rick, 2026-10-01): full
 // width on a phone, then 768px, then 896px on a big screen. Bubbles stop at
@@ -85,11 +85,7 @@ export default function ConversationView() {
       inputRef.current?.focus();
     } catch (err) {
       console.error("Failed to send message:", err);
-      setSendError(
-        err instanceof ConvexError && typeof err.data === "string"
-          ? err.data
-          : "Your message didn't send. Try again.",
-      );
+      setSendError(errorMessage(err, "Your message didn't send. Try again."));
     } finally {
       setSending(false);
     }

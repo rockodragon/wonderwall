@@ -9,7 +9,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useAction, useConvexAuth, useQuery } from "convex/react";
-import { ConvexError } from "convex/values";
 import { useLocation, useNavigate, useParams, useRouteError, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -30,6 +29,7 @@ import { CLAIMS } from "../constants/claims";
 import { setPendingIntent } from "../lib/pendingIntent";
 import { MIN_PASSWORD_LENGTH, needsAccount, supportFormProblem } from "../lib/storySupport";
 import "../garden/garden.css";
+import { errorMessage } from "../lib/convexError";
 
 export function meta() {
   return [
@@ -84,14 +84,6 @@ const PRESETS_CENTS = [1000, 2500, 5000, 10000]; // $10 · $25 · $50 · $100
 // Twin of MIN_BACKING_CENTS in convex/garden/stripeHandlers.ts. The server is
 // the authority; this only catches an obvious miss before the round trip.
 const MIN_CENTS = 500;
-
-function reasonFor(err: unknown, fallback: string): string {
-  if (err instanceof ConvexError) {
-    const data = err.data as { reason?: string } | undefined;
-    if (data?.reason) return data.reason;
-  }
-  return fallback;
-}
 
 type StoryBackers = { count: number; names: string[]; otherCount: number };
 
@@ -232,7 +224,7 @@ function SupportForm({ projectId, onCancel }: { projectId: Id<"projects">; onCan
       // Leaving for Stripe. The button stays disabled through the handoff.
       window.location.assign(url);
     } catch (err) {
-      setError(reasonFor(err, "Couldn't start checkout. Try again."));
+      setError(errorMessage(err, "Couldn't start checkout. Try again."));
       setBusy(null);
     }
   }

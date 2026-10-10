@@ -5,18 +5,10 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { ConvexError } from "convex/values";
 import { useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-
-function reasonFor(err: unknown, fallback: string): string {
-  if (err instanceof ConvexError) {
-    const data = err.data as { reason?: string } | undefined;
-    if (data?.reason) return data.reason;
-  }
-  return fallback;
-}
+import { errorMessage } from "../lib/convexError";
 
 type Target =
   | { kind: "project"; id: Id<"projects"> }
@@ -69,7 +61,7 @@ export function AdminMenu({
       if (target.kind === "event") await setEventHidden({ eventId: target.id, hidden: !hidden });
       else await setProjectHidden({ projectId: target.id, hidden: !hidden });
     } catch (err) {
-      window.alert(reasonFor(err, `Couldn't ${hidden ? "unhide" : "hide"} this ${noun}. Try again.`));
+      window.alert(errorMessage(err, `Couldn't ${hidden ? "unhide" : "hide"} this ${noun}. Try again.`));
     } finally {
       setBusy(false);
     }
@@ -84,7 +76,7 @@ export function AdminMenu({
       else await deleteProject({ projectId: target.id });
       navigate(target.kind === "event" ? "/events" : "/projects", { replace: true });
     } catch (err) {
-      window.alert(reasonFor(err, `Couldn't delete this ${noun}. Try again.`));
+      window.alert(errorMessage(err, `Couldn't delete this ${noun}. Try again.`));
       setBusy(false);
     }
   }

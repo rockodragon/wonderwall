@@ -6,10 +6,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { ConvexError } from "convex/values";
 import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { SiteHeader } from "../components/SiteHeader";
+import { errorMessage } from "../lib/convexError";
 
 export function meta() {
   return [
@@ -18,17 +18,7 @@ export function meta() {
   ];
 }
 
-// Convex surfaces a thrown ConvexError's payload on err.data, not
-// err.message (same pattern as offerings.tsx's errorMessage / projects.tsx).
 // getClaim's codes are blocked, expired, forbidden.
-function reasonFor(err: unknown, fallback: string): string {
-  if (err instanceof ConvexError) {
-    const data = err.data as { reason?: string } | undefined;
-    if (data?.reason) return data.reason;
-  }
-  return fallback;
-}
-
 export default function ClaimToken() {
   const { token } = useParams();
   const navigate = useNavigate();
@@ -52,7 +42,7 @@ export default function ClaimToken() {
       })
       .catch((err) => {
         claimed.current = false;
-        setError(reasonFor(err, "This link couldn't be used."));
+        setError(errorMessage(err, "This link couldn't be used."));
       });
   }, [isAuthenticated, token, claimInvite, navigate]);
 

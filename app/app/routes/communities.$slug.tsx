@@ -9,7 +9,6 @@
 import { useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
-import { ConvexError } from "convex/values";
 import { Link, useParams, useRouteError, useSearchParams } from "react-router";
 import { FF_V2 } from "../lib/featureFlags";
 import { descriptionBlocks, descriptionPlainText } from "../lib/descriptionBlocks";
@@ -24,6 +23,7 @@ import { PAGE_WIDTH } from "../lib/pageWidth";
 import { SITE_ORIGIN } from "../lib/eventCalendar";
 import { GARDEN } from "../brand/brands";
 import { GardenLockup } from "../brand/GardenMark";
+import { errorMessage } from "../lib/convexError";
 
 // Indexed (Rick, 2026-10-02: communities should be findable). The title,
 // description and canonical URL are the community's own — CommunityHead.
@@ -40,14 +40,6 @@ export function ErrorBoundary() {
       </p>
     </PageShell>
   );
-}
-
-function reasonFor(err: unknown, fallback: string): string {
-  if (err instanceof ConvexError) {
-    const data = err.data as { reason?: string } | undefined;
-    if (data?.reason) return data.reason;
-  }
-  return fallback;
 }
 
 // ————— Shared shell + style bits (garden tokens, app-shell conventions —
@@ -224,7 +216,7 @@ function JoinControl({ community }: { community: Community }) {
       try {
         await joinCommunity({ hostOrgId: community._id, agreed: true });
       } catch (err) {
-        setNote(reasonFor(err, "Couldn't save that — try again."));
+        setNote(errorMessage(err, "Couldn't save that — try again."));
       } finally {
         setBusy(false);
       }
@@ -235,7 +227,7 @@ function JoinControl({ community }: { community: Community }) {
       try {
         await leaveCommunity({ hostOrgId: community._id });
       } catch (err) {
-        setNote(reasonFor(err, "Couldn't leave — try again."));
+        setNote(errorMessage(err, "Couldn't leave — try again."));
       } finally {
         setBusy(false);
       }
@@ -279,7 +271,7 @@ function JoinControl({ community }: { community: Community }) {
     try {
       await joinCommunity({ hostOrgId: community._id, agreed: true });
     } catch (err) {
-      setNote(reasonFor(err, "Couldn't join — try again."));
+      setNote(errorMessage(err, "Couldn't join — try again."));
     } finally {
       setBusy(false);
     }
@@ -386,7 +378,7 @@ function EditCommunityForm({ community }: { community: Community }) {
       });
       setStatus({ kind: "ok", text: "Saved." });
     } catch (err) {
-      setStatus({ kind: "err", text: reasonFor(err, "Couldn't save — try again.") });
+      setStatus({ kind: "err", text: errorMessage(err, "Couldn't save — try again.") });
     } finally {
       setBusy(false);
     }
@@ -484,7 +476,7 @@ function MemberRoster({ hostOrgId, isOwner }: { hostOrgId: Id<"hostOrgs">; isOwn
     try {
       await setMemberStatus({ hostOrgId, userId: userId as Id<"users">, status: next });
     } catch (err) {
-      setError(reasonFor(err, "Couldn't update that member — try again."));
+      setError(errorMessage(err, "Couldn't update that member — try again."));
     } finally {
       setBusyId(null);
     }
@@ -496,7 +488,7 @@ function MemberRoster({ hostOrgId, isOwner }: { hostOrgId: Id<"hostOrgs">; isOwn
     try {
       await setMemberRole({ hostOrgId, userId: userId as Id<"users">, role });
     } catch (err) {
-      setError(reasonFor(err, "Couldn't update that member — try again."));
+      setError(errorMessage(err, "Couldn't update that member — try again."));
     } finally {
       setBusyId(null);
     }
@@ -509,7 +501,7 @@ function MemberRoster({ hostOrgId, isOwner }: { hostOrgId: Id<"hostOrgs">; isOwn
       await transferOwnership({ hostOrgId, userId: userId as Id<"users"> });
       setConfirmTransferId(null);
     } catch (err) {
-      setError(reasonFor(err, "Couldn't transfer ownership — try again."));
+      setError(errorMessage(err, "Couldn't transfer ownership — try again."));
     } finally {
       setBusyId(null);
     }
@@ -674,7 +666,7 @@ function ProductCard({ product, slug }: { product: Product; slug: string }) {
       const { url } = await createProductCheckout({ productId: product._id });
       window.location.href = url;
     } catch (err) {
-      setError(reasonFor(err, "Couldn't start checkout — try again."));
+      setError(errorMessage(err, "Couldn't start checkout — try again."));
       setBusy(false);
     }
   }
@@ -857,7 +849,7 @@ function CreateProductForm({ hostOrgId }: { hostOrgId: Id<"hostOrgs"> }) {
       setDescription("");
       setResources([]);
     } catch (err) {
-      setStatus({ kind: "err", text: reasonFor(err, "Couldn't create the product — try again.") });
+      setStatus({ kind: "err", text: errorMessage(err, "Couldn't create the product — try again.") });
     } finally {
       setBusy(false);
     }
@@ -940,7 +932,7 @@ function EditProductRow({ product }: { product: Product }) {
     try {
       await updateProduct({ productId: product._id, status: product.status === "active" ? "archived" : "active" });
     } catch (err) {
-      setStatus({ kind: "err", text: reasonFor(err, "Couldn't update that product — try again.") });
+      setStatus({ kind: "err", text: errorMessage(err, "Couldn't update that product — try again.") });
     } finally {
       setBusy(false);
     }
@@ -960,7 +952,7 @@ function EditProductRow({ product }: { product: Product }) {
       setEditing(false);
       setResourcesLoaded(false);
     } catch (err) {
-      setStatus({ kind: "err", text: reasonFor(err, "Couldn't save — try again.") });
+      setStatus({ kind: "err", text: errorMessage(err, "Couldn't save — try again.") });
     } finally {
       setBusy(false);
     }

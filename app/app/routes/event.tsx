@@ -33,7 +33,6 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { ConvexError } from "convex/values";
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
@@ -53,7 +52,7 @@ import { InviteToThis } from "../components/InviteToThis";
 import { ShowcaseContent, SHOWCASE_EVENT_ID } from "../components/ShowcaseContent";
 import { hostLabels } from "../lib/eventHosts";
 import { HostedBy } from "../components/HostedBy";
-import { errorMessage } from "../lib/convexError";
+import { errorMessage, isNotSignedIn } from "../lib/convexError";
 import { CreateEventModal } from "../components/CreateEventModal";
 import type { TicketTier } from "../components/TicketTierEditor";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
@@ -68,6 +67,8 @@ import { setPendingIntent } from "../lib/pendingIntent";
 import { guestsToCsv, summarizeGuests, formatDollars, paidLabel } from "../../convex/eventGuests";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { eventCta, type EventCta } from "../lib/eventCta";
+import { useStartConversation } from "../lib/useStartConversation";
+import { PersonAvatar } from "../components/PersonAvatar";
 
 const COVER_COLORS = [
   { name: "Blue", value: "blue", gradient: "from-blue-500 to-blue-600" },
@@ -886,24 +887,6 @@ export default function EventDetail() {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function rsvpErrorMessage(err: unknown): string {
-  if (err instanceof ConvexError) {
-    const data = err.data as { reason?: string } | string | undefined;
-    if (typeof data === "string" && data) return data;
-    if (data && typeof data === "object" && data.reason) return data.reason;
-  }
-  return "Something went wrong — try again.";
-}
-
-function isNotSignedInError(err: unknown): boolean {
-  return (
-    err instanceof ConvexError &&
-    typeof err.data === "object" &&
-    err.data !== null &&
-    (err.data as { code?: string }).code === "not_signed_in"
-  );
-}
-
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function useGuestRsvp(
@@ -970,11 +953,7 @@ function useGuestRsvp(
       setCode("");
       setStep("code");
     } catch (err) {
-      setError(
-        err instanceof ConvexError
-          ? rsvpErrorMessage(err)
-          : "Couldn't send a code. Check it and try again.",
-      );
+      setError(errorMessage(err, "Couldn't send a code. Check it and try again."));
     } finally {
       setSubmitting(false);
     }
@@ -1009,10 +988,7 @@ function useGuestRsvp(
         setStep("done");
         return;
       } catch (err) {
-        const notReady =
-          isNotSignedInError(err) ||
-          (err instanceof Error && err.message.includes("Not authenticated"));
-        if (notReady && attempt < 6) {
+        if (isNotSignedIn(err) && attempt < 6) {
           await sleep(500);
           continue;
         }
@@ -1041,7 +1017,7 @@ function useGuestRsvp(
     } catch (err) {
       // Signed in but the RSVP didn't save: the code is spent, so the button
       // retries just the save.
-      setError(rsvpErrorMessage(err));
+      setError(errorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -1590,7 +1566,7 @@ function VideoLinkField({
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {
-      setError(videoErrorMessage(err));
+      setError(errorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -1650,14 +1626,6 @@ function VideoLinkField({
   );
 }
 
-function videoErrorMessage(err: unknown): string {
-  const data = (err as { data?: unknown })?.data;
-  if (data && typeof data === "object" && "reason" in data) {
-    return String((data as { reason: unknown }).reason);
-  }
-  return "Something went wrong — try again.";
-}
-
 /** "Tickets" card — one row per paid tier, each with its own Stripe Checkout
     buy button (one-time payment; recorded by the webhook into
     ticketPurchases). Free RSVPs/applications work unchanged alongside. */
@@ -1686,7 +1654,7 @@ function TicketsCard({
     } catch (err) {
       console.error("Ticket checkout failed:", err);
       // "Sold out" and the like say so; anything else is a retry.
-      setError(err instanceof ConvexError ? rsvpErrorMessage(err) : "Couldn't start checkout. Please try again.");
+      setError(errorMessage(err, "Couldn't start checkout. Please try again."));
       setBuyingTier(null);
     }
   }
@@ -1904,7 +1872,7 @@ function WaitlistCard({
     try {
       await join({ eventId });
     } catch (err) {
-      setError(rsvpErrorMessage(err));
+      setError(errorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -1946,7 +1914,7 @@ function CantMakeIt({ eventId, label = "Can't make it" }: { eventId: Id<"events"
     try {
       await cancel({ eventId });
     } catch (err) {
-      setError(rsvpErrorMessage(err));
+      setError(errorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -2014,7 +1982,7 @@ function JoinOrApplyCard({ eventId, mode }: { eventId: Id<"events">; mode: "appl
       setMessage("");
     } catch (err) {
       // A full event says so; the page then offers the waitlist.
-      setError(rsvpErrorMessage(err));
+      setError(errorMessage(err));
     } finally {
       setSending(false);
     }
@@ -2418,7 +2386,7 @@ function PayPalTicketCard({
       const res = await start({ eventId, agreed: true });
       window.location.assign(res.url);
     } catch (err) {
-      setError(rsvpErrorMessage(err));
+      setError(errorMessage(err));
       setBusy(false);
     }
   }
@@ -2586,7 +2554,7 @@ function WaitlistPanel({
       if (what === "admit") await admit({ entryId: id });
       else await remove({ entryId: id });
     } catch (err) {
-      setError(rsvpErrorMessage(err));
+      setError(errorMessage(err));
     } finally {
       setBusyId(null);
     }
@@ -2814,30 +2782,13 @@ function GuestsPanel({
 /** Opens a conversation with one guest, the way a profile's Message
  * button does (routes/profile.tsx). */
 function MessageGuestButton({ userId }: { userId: string }) {
-  const getOrCreateConversation = useMutation(api.messaging.getOrCreateConversation);
-  const navigate = useNavigate();
-  const [starting, setStarting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function open() {
-    if (starting) return;
-    setStarting(true);
-    setError(null);
-    try {
-      const conversation = await getOrCreateConversation({ otherUserId: userId as Id<"users"> });
-      if (conversation) navigate(`/messages/${conversation._id}`);
-    } catch (err) {
-      const blocked = (err as { data?: { code?: string } })?.data?.code === "blocked";
-      setError(blocked ? "You can't message this person." : errorMessage(err));
-      setStarting(false);
-    }
-  }
+  const { start, starting, error } = useStartConversation();
 
   return (
     <>
       <button
         type="button"
-        onClick={open}
+        onClick={() => start(userId)}
         disabled={starting}
         className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
       >
@@ -2849,18 +2800,6 @@ function MessageGuestButton({ userId }: { userId: string }) {
         </span>
       )}
     </>
-  );
-}
-
-function PersonAvatar({ name, imageUrl }: { name: string; imageUrl: string | null }) {
-  return (
-    <span className="w-9 h-9 shrink-0 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden">
-      {imageUrl ? (
-        <img src={imageUrl} alt="" className="w-full h-full object-cover" />
-      ) : (
-        <span className="text-xs font-medium text-gray-700 dark:text-gray-200">{name.charAt(0)}</span>
-      )}
-    </span>
   );
 }
 
@@ -2922,7 +2861,7 @@ function HostsPanel({
             key={r.userId ?? "organizer"}
             className="flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl"
           >
-            <PersonAvatar name={r.name} imageUrl={r.imageUrl} />
+            <PersonAvatar name={r.name} imageUrl={r.imageUrl} size="rowXs" tone="gray" />
             <div className="flex-1 min-w-0">
               {r.profileId && !isGuest ? (
                 <Link
@@ -2971,7 +2910,7 @@ function HostsPanel({
           <ul className="mt-2 space-y-2">
             {hits.map((h) => (
               <li key={h.userId} className="flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                <PersonAvatar name={h.name} imageUrl={h.imageUrl} />
+                <PersonAvatar name={h.name} imageUrl={h.imageUrl} size="rowXs" tone="gray" />
                 <span className="flex-1 min-w-0 truncate text-[15px] text-gray-900 dark:text-white">{h.name}</span>
                 <button
                   disabled={busy}
@@ -3109,7 +3048,7 @@ function ShownHostsEditor({
       <ul className="space-y-2 mb-4">
         {rows.map((r, i) => (
           <li key={`${r.kind}-${r.refId}`} className="flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-            <PersonAvatar name={r.name} imageUrl={r.imageUrl} />
+            <PersonAvatar name={r.name} imageUrl={r.imageUrl} size="rowXs" tone="gray" />
             <div className="flex-1 min-w-0">
               <span className="block text-[15px] font-medium text-gray-900 dark:text-white truncate">{r.name}</span>
               <span className="text-[13px] text-gray-600 dark:text-gray-300">
@@ -3155,7 +3094,7 @@ function ShownHostsEditor({
         <ul className="mt-2 space-y-2">
           {orgHits.map((o) => (
             <li key={`o-${o._id}`} className="flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-              <PersonAvatar name={o.name} imageUrl={o.logoUrl} />
+              <PersonAvatar name={o.name} imageUrl={o.logoUrl} size="rowXs" tone="gray" />
               <span className="flex-1 min-w-0 truncate text-[15px] text-gray-900 dark:text-white">
                 {o.name} <span className="text-[13px] text-gray-600 dark:text-gray-300">Organization</span>
               </span>
@@ -3169,7 +3108,7 @@ function ShownHostsEditor({
           ))}
           {personHits.map((h) => (
             <li key={`u-${h.userId}`} className="flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-              <PersonAvatar name={h.name} imageUrl={h.imageUrl} />
+              <PersonAvatar name={h.name} imageUrl={h.imageUrl} size="rowXs" tone="gray" />
               <span className="flex-1 min-w-0 truncate text-[15px] text-gray-900 dark:text-white">{h.name}</span>
               <button
                 className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium bg-blue-600 text-white hover:bg-blue-700"
