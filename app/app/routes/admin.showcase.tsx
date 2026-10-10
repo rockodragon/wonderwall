@@ -35,6 +35,7 @@ import {
   AdminLoading,
   AdminNotice,
 } from "../components/admin/AdminUi";
+import { useIsAdmin } from "../lib/useIsAdmin";
 
 export const meta: MetaFunction = () => [
   { title: "Showcase jury | TheCreative.exchange" },
@@ -294,7 +295,7 @@ function ApplicationCard({
 }
 
 export default function AdminShowcasePage() {
-  const profile = useQuery(api.profiles.getMyProfile);
+  const isAdmin = useIsAdmin();
   const applications = useQuery(api.showcase.adminList);
   const castVote = useMutation(api.showcase.castVote);
   const clearVote = useMutation(api.showcase.clearVote);
@@ -319,11 +320,11 @@ export default function AdminShowcasePage() {
     }
   }
 
-  if (profile === undefined) {
+  if (isAdmin === undefined) {
     return <AdminLoading>Checking access…</AdminLoading>;
   }
 
-  if (!profile?.isAdmin) {
+  if (!isAdmin) {
     return <AdminAccessDenied />;
   }
 

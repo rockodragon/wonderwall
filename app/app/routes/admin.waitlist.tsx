@@ -41,6 +41,7 @@ import {
   SortButton,
   ariaSortFor,
 } from "../components/admin/AdminUi";
+import { useIsAdmin } from "../lib/useIsAdmin";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Waitlist Admin | TheCreative.exchange" }];
@@ -68,7 +69,7 @@ function signalCount(entry: WaitlistEntry): number {
 }
 
 export default function AdminWaitlistPage() {
-  const profile = useQuery(api.profiles.getMyProfile);
+  const isAdmin = useIsAdmin();
   const entries = useQuery(api.waitlist.listForAdmin);
   const approveEntry = useMutation(api.waitlist.approveEntry);
   const deleteEntry = useMutation(api.waitlist.deleteEntry);
@@ -314,11 +315,11 @@ export default function AdminWaitlistPage() {
     getSortedRowModel: getSortedRowModel(),
   });
 
-  if (profile === undefined) {
+  if (isAdmin === undefined) {
     return <AdminLoading>Checking access…</AdminLoading>;
   }
 
-  if (!profile?.isAdmin) {
+  if (!isAdmin) {
     return <AdminAccessDenied />;
   }
 

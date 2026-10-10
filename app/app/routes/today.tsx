@@ -34,6 +34,7 @@ import { PhoneNeedsYou } from "../components/shortlist/PhoneParts";
 import { useShortlist } from "../lib/shortlist/useShortlist";
 import { GardenLockup } from "../brand/GardenMark";
 import { useDeskCommunity } from "../desk/deskState";
+import { bylineOf } from "../lib/byline";
 
 export function meta() {
   return [{ title: "Today — The Garden" }];
@@ -554,7 +555,7 @@ function ProjectRow({ project, flip }: { project: Project; flip: boolean }) {
   const daysLeft = project.raiseByDate && project.raiseByDate > Date.now() ? Math.max(1, Math.ceil((project.raiseByDate - Date.now()) / 86400000)) : null;
   const meta = [
     stageLabel(resolveStage(project)),
-    project.organization?.name ?? project.creator?.name ?? "A Garden creative",
+    bylineOf(project)?.name ?? "A Garden creative",
     funded ? `${funded.raised} of ${funded.goal}` : null,
     daysLeft ? `${daysLeft} ${daysLeft === 1 ? "day" : "days"} left` : null,
   ].filter(Boolean);
@@ -605,7 +606,7 @@ function GigRow({ project }: { project: Project }) {
       <div className="min-w-0">
         <span className="block truncate text-[15px] font-medium group-hover:underline">{project.title}</span>
         <p className="truncate text-[13px]" style={{ color: "var(--app-text-dim)" }}>
-          {[project.organization?.name ?? project.creator?.name, when].filter(Boolean).join(" · ")}
+          {[bylineOf(project)?.name, when].filter(Boolean).join(" · ")}
         </p>
       </div>
       <div className="flex flex-wrap gap-1.5">

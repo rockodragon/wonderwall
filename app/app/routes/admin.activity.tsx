@@ -19,6 +19,7 @@ import {
   AdminHeader,
   AdminLoading,
 } from "../components/admin/AdminUi";
+import { useIsAdmin } from "../lib/useIsAdmin";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Activity | Admin" }, { name: "robots", content: "noindex" }];
@@ -56,13 +57,13 @@ function relativeTime(at: number, now: number): string {
 }
 
 export default function AdminActivityPage() {
-  const profile = useQuery(api.profiles.getMyProfile);
+  const isAdmin = useIsAdmin();
   const activity = useQuery(api.garden.activity.getRecentActivity);
 
-  if (profile === undefined) {
+  if (isAdmin === undefined) {
     return <AdminLoading>Checking access…</AdminLoading>;
   }
-  if (!profile?.isAdmin) {
+  if (!isAdmin) {
     return <AdminAccessDenied />;
   }
 

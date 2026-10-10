@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -8,7 +8,6 @@ import { EmbedStill, PlayBadge } from "../components/EmbedStill";
 import { BookmarkSimple } from "@phosphor-icons/react";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { ShareButton } from "../components/ShareButton";
-import { usePostHog } from "@posthog/react";
 import { OrgLogo } from "../components/OrgLogo";
 import { ProjectTile } from "../components/ProjectTile";
 import { yearsLabel } from "../../convex/organizationRules";
@@ -16,13 +15,13 @@ import { PAGE_WIDTH } from "../lib/pageWidth";
 import { favoritesHref } from "../lib/shortlist/url";
 import { BackLink } from "../components/BackLink";
 import { FF_TABLES } from "../lib/featureFlags";
+import { useStartConversation } from "../lib/useStartConversation";
 
 // Matches listAffiliations's return shape (project-teams.md §4). Annotated
 // explicitly here — not inferred from the query — so this section still
 // typechecks while app/convex/garden/projectTeam.ts is still being written.
 export default function Profile() {
   const { profileId } = useParams();
-  const navigate = useNavigate();
   const myProfile = useQuery(api.profiles.getMyProfile);
   const profile = useQuery(
     api.profiles.getProfile,
@@ -54,11 +53,13 @@ export default function Profile() {
   const loosePieces = (profile?.artifacts ?? []).filter((a: any) => !a.projectId);
   const organizations = profile?.organizations ?? [];
   const currentOrgs = organizations.filter((o) => o.current);
-  const getOrCreateConversation = useMutation(
-    api.messaging.getOrCreateConversation,
-  );
-  const posthog = usePostHog();
-  const [startingConversation, setStartingConversation] = useState(false);
+  const {
+    start: startConversation,
+    starting: startingConversation,
+    error: conversationError,
+  } = useStartConversation({
+    track: profile ? { profileId: profile._id, profileName: profile.name } : undefined,
+  });
 
   // Check if viewing own profile
   const isOwnProfile = myProfile?._id === profileId;
@@ -87,28 +88,6 @@ export default function Profile() {
       recordView({ profileId: profileId as Id<"profiles"> }).catch(() => {});
     }
   }, [profileId, recordView]);
-
-  // Start a conversation with this user
-  const handleStartConversation = async () => {
-    if (!profile?.userId || startingConversation) return;
-    setStartingConversation(true);
-    try {
-      const conversation = await getOrCreateConversation({
-        otherUserId: profile.userId,
-      });
-      posthog?.capture("conversation_started", {
-        profileId: profile._id,
-        profileName: profile.name,
-      });
-      if (conversation) {
-        navigate(`/messages/${conversation._id}`);
-      }
-    } catch (error) {
-      console.error("Failed to start conversation:", error);
-    } finally {
-      setStartingConversation(false);
-    }
-  };
 
   const handleToggleBlock = async () => {
     if (!profile?.userId) return;
@@ -297,7 +276,7 @@ export default function Profile() {
               <FavoriteButton targetType="profile" targetId={profile._id} />
               {!isOwnProfile && (
                 <button
-                  onClick={handleStartConversation}
+                  onClick={() => profile.userId && startConversation(profile.userId)}
                   disabled={startingConversation}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-colors disabled:opacity-50 hover:border-[var(--app-accent)]"
                   style={{
@@ -337,6 +316,11 @@ export default function Profile() {
                 />
               )}
             </div>
+            {conversationError && (
+              <p role="alert" className="text-[13.5px] text-red-600 dark:text-red-400">
+                {conversationError}
+              </p>
+            )}
             {/* Your own profile is where a phone finds the Shortlist: the
                 bottom bar's bookmark says so, and so does this, in the place
                 Message sits on anyone else's. */}

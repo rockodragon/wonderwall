@@ -13,12 +13,12 @@
 
 import { useState } from "react";
 import { useAction, useConvexAuth, useQuery } from "convex/react";
-import { ConvexError } from "convex/values";
 import { Link, useNavigate, useRouteError } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { setPendingIntent } from "../lib/pendingIntent";
 import { GardenErrorState, GardenPage, SectionLabel } from "../garden/ui";
 import "../garden/garden.css";
+import { errorMessage } from "../lib/convexError";
 
 const SEAT_PRICE = 10; // $/seat/month, the published price
 
@@ -42,18 +42,6 @@ export function ErrorBoundary() {
       </div>
     </GardenPage>
   );
-}
-
-function errorMessage(err: unknown): string {
-  if (err instanceof ConvexError) {
-    const data = err.data as unknown;
-    if (typeof data === "string") return data;
-    if (data && typeof data === "object" && "reason" in data) {
-      const reason = (data as { reason?: unknown }).reason;
-      if (reason) return String(reason);
-    }
-  }
-  return "Checkout didn't open. Try again in a moment.";
 }
 
 export default function CoverageIndex() {
@@ -92,7 +80,7 @@ export default function CoverageIndex() {
       });
       window.location.assign(url);
     } catch (err) {
-      setError(errorMessage(err));
+      setError(errorMessage(err, "Checkout didn't open. Try again in a moment."));
       setPending(false);
     }
   }

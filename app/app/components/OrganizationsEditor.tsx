@@ -1,11 +1,11 @@
 import { useMutation, useQuery } from "convex/react";
-import { ConvexError } from "convex/values";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { ORG_LIMITS, orgNameKey } from "../../convex/organizationRules";
 import { OrgLogo } from "./OrgLogo";
+import { errorMessage } from "../lib/convexError";
 
 // Settings › Profile: the organizations on your profile
 // (docs/features/organizations.md). Every change saves on its own — like
@@ -20,11 +20,6 @@ const INPUT_STYLE = {
   backgroundColor: "var(--app-surface-raised)",
   color: "var(--app-text)",
 } as const;
-
-function reasonOf(err: unknown): string {
-  const reason = err instanceof ConvexError ? (err.data as { reason?: string } | null)?.reason : undefined;
-  return reason || "That didn't save. Try again.";
-}
 
 export function OrganizationsEditor() {
   const mine = useQuery(api.organizations.mine);
@@ -56,7 +51,7 @@ export function OrganizationsEditor() {
       await fn();
       setQuery("");
     } catch (err) {
-      setError(reasonOf(err));
+      setError(errorMessage(err, "That didn't save. Try again."));
     } finally {
       setBusy(false);
     }
@@ -197,7 +192,7 @@ function PositionRow({
     try {
       await update({ organizationId: position.organizationId, ...next });
     } catch (err) {
-      onError(reasonOf(err));
+      onError(errorMessage(err, "That didn't save. Try again."));
       setTitle(position.title ?? "");
       setStart(position.startYear ? String(position.startYear) : "");
       setEnd(position.endYear ? String(position.endYear) : "");
@@ -210,7 +205,7 @@ function PositionRow({
     try {
       await leave({ organizationId: position.organizationId });
     } catch (err) {
-      onError(reasonOf(err));
+      onError(errorMessage(err, "That didn't save. Try again."));
     }
   }
 

@@ -25,6 +25,19 @@ describe("joinWithInvite", () => {
     vi.useRealTimers();
   });
 
+  it("waits out not_signed_in the same way", async () => {
+    vi.useFakeTimers();
+    const join = vi
+      .fn()
+      .mockRejectedValueOnce(new ConvexError({ code: "not_signed_in" }))
+      .mockResolvedValueOnce({ ok: true });
+    const result = joinWithInvite(join, GARDEN, "K7M4QD");
+    await vi.runAllTimersAsync();
+    expect(await result).toBeNull();
+    expect(join).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+  });
+
   it("stops at a refused code and says why", async () => {
     const join = vi
       .fn()

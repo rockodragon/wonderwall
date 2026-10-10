@@ -11,7 +11,7 @@
 
 import { Component, useCallback, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { Link, useNavigate } from "react-router";
+import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useReducedMotion } from "../hooks/useMediaQuery";
@@ -28,11 +28,11 @@ import {
   rememberCelebrated,
   type CelebrationLike,
 } from "../lib/celebrations";
-import { errorMessage } from "../lib/convexError";
 import { formatMoney } from "../garden/ui";
 import { DESK, DESK_SCRIPT } from "../desk/tokens";
 import { CelebrationMark } from "./CelebrationMark";
 import { LinkedText } from "./LinkedText";
+import { useStartConversation } from "../lib/useStartConversation";
 
 const MONO: CSSProperties = { fontFamily: "var(--garden-font-mono)" };
 const DISPLAY: CSSProperties = { fontFamily: "var(--garden-font-display)" };
@@ -206,28 +206,11 @@ function CelebrationCard({ celebration: c, onFinish }: { celebration: Celebratio
 /** "Say thanks": starts (or reopens) a conversation with them, the way a
  * profile's Message button does, and marks the card done once it's open. */
 function ThanksButton({ userId, label, onDone, style }: { userId: string; label: string; onDone: () => void; style: CSSProperties }) {
-  const getOrCreateConversation = useMutation(api.messaging.getOrCreateConversation);
-  const navigate = useNavigate();
-  const [starting, setStarting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function onClick() {
-    if (starting) return;
-    setStarting(true);
-    setError(null);
-    try {
-      const conversation = await getOrCreateConversation({ otherUserId: userId as Id<"users"> });
-      onDone();
-      if (conversation) navigate(`/messages/${conversation._id}`);
-    } catch (err) {
-      setError(errorMessage(err));
-      setStarting(false);
-    }
-  }
+  const { start, starting, error } = useStartConversation({ onOpened: onDone });
 
   return (
     <>
-      <button type="button" onClick={onClick} disabled={starting} className={BUTTON} style={style}>
+      <button type="button" onClick={() => start(userId)} disabled={starting} className={BUTTON} style={style}>
         {label}
       </button>
       {error && (

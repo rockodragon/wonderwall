@@ -28,6 +28,8 @@ import {
   type StatusWord,
   type UpdateStatus,
 } from "../lib/updates";
+import { useIsAdmin } from "../lib/useIsAdmin";
+import { AdminAccessDenied, AdminLoading } from "../components/admin/AdminUi";
 
 export const meta: MetaFunction = () => [{ title: "Updates | TheCreative.exchange" }];
 
@@ -47,10 +49,9 @@ const STATUS_STYLE: Record<StatusWord, string> = {
 type Editing = "new" | Id<"updates"> | null;
 
 export default function AdminUpdatesPage() {
-  const profile = useQuery(api.profiles.getMyProfile);
-  const isAdmin = profile?.isAdmin === true;
-  const updates = useQuery(api.updates.adminList, isAdmin ? {} : "skip");
-  const communities = useQuery(api.garden.communities.listCommunities, isAdmin ? {} : "skip");
+  const isAdmin = useIsAdmin();
+  const updates = useQuery(api.updates.adminList, isAdmin === true ? {} : "skip");
+  const communities = useQuery(api.garden.communities.listCommunities, isAdmin === true ? {} : "skip");
   const addStarterDrafts = useMutation(api.updates.addStarterDrafts);
 
   const [editing, setEditing] = useState<Editing>(null);
@@ -75,23 +76,12 @@ export default function AdminUpdatesPage() {
     }
   }
 
-  if (profile === undefined) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-gray-700">Checking access…</div>
-      </div>
-    );
+  if (isAdmin === undefined) {
+    return <AdminLoading>Checking access…</AdminLoading>;
   }
 
   if (!isAdmin) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <h1 className="mb-2 text-2xl font-bold text-gray-900">Access Denied</h1>
-          <p className="text-gray-700">You don't have permission to access this page.</p>
-        </div>
-      </div>
-    );
+    return <AdminAccessDenied />;
   }
 
   const all = updates ?? [];

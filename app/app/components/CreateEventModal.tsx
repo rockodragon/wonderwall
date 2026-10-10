@@ -1,6 +1,5 @@
 import { usePostHog } from "@posthog/react";
 import { useMutation, useQuery } from "convex/react";
-import { ConvexError } from "convex/values";
 import { useEffect, useId, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
@@ -594,13 +593,7 @@ export function CreateEventModal({
     } catch (err) {
       // The server's own reason when it gave one (a bad ticket link, a tier
       // price); otherwise the generic line.
-      setError(
-        err instanceof ConvexError
-          ? errorMessage(err)
-          : edit
-            ? "Failed to update event"
-            : "Failed to create event",
-      );
+      setError(errorMessage(err, edit ? "Failed to update event" : "Failed to create event"));
     } finally {
       setSaving(false);
     }

@@ -16,7 +16,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { ConvexError } from "convex/values";
 import { Link, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -26,6 +25,7 @@ import { useAnalytics } from "../hooks/useAnalytics";
 import { GardenPage, formatDate, formatMoney, formatPeriod } from "../garden/ui";
 import "../garden/garden.css";
 import { SOPHIA_FUND_SLUG } from "../lib/namedFunds";
+import { errorMessage } from "../lib/convexError";
 
 export function meta() {
   return [{ title: "Give — The Garden" }, { name: "robots", content: "noindex" }];
@@ -57,18 +57,6 @@ const PAPER = "var(--g-paper)";
 const BODY = "var(--g-body)";
 const CITRON = "var(--g-citron)";
 const HAIR = "var(--g-hairline)";
-
-function reasonFrom(err: unknown, fallback: string): string {
-  if (err instanceof ConvexError) {
-    const data = err.data as unknown;
-    if (typeof data === "string") return data;
-    if (data && typeof data === "object" && "reason" in data) {
-      const reason = (data as { reason?: unknown }).reason;
-      if (reason) return String(reason);
-    }
-  }
-  return fallback;
-}
 
 function initials(name: string): string {
   return (
@@ -487,11 +475,11 @@ function Chooser({
           }
           window.location.assign(url);
         } catch (err) {
-          onDecided({ ...done, checkoutError: reasonFrom(err, "Couldn't start checkout. Try again.") });
+          onDecided({ ...done, checkoutError: errorMessage(err, "Couldn't start checkout. Try again.") });
         }
       }
     } catch (err) {
-      setError(reasonFrom(err, "Couldn't save that. Try again."));
+      setError(errorMessage(err, "Couldn't save that. Try again."));
       setBusy(false);
     }
   }
@@ -985,7 +973,7 @@ function PlusUpForm({
       // Leaving for Stripe: the button stays disabled through the handoff.
       window.location.assign(url);
     } catch (err) {
-      setError(reasonFrom(err, "Couldn't start checkout. Try again."));
+      setError(errorMessage(err, "Couldn't start checkout. Try again."));
       setBusy(false);
     }
   }

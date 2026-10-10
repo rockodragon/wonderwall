@@ -13,6 +13,7 @@ import { errorMessage } from "../lib/convexError";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import { MAX_CLIPS, MAX_NOTE_LENGTH, PAID_METHODS, isClipArtifact, type PaidMethod } from "../../convex/garden/gigRules";
 import { shiftEndTime } from "../lib/shiftEndTime";
+import { PersonAvatar } from "./PersonAvatar";
 
 const PAID_METHOD_LABELS: Record<PaidMethod, string> = {
   venmo: "Venmo",
@@ -37,19 +38,6 @@ function DetailCard({ label, children }: { label: string; children: ReactNode })
         {label}
       </div>
       {children}
-    </div>
-  );
-}
-
-function Avatar({ name, imageUrl }: { name: string; imageUrl?: string | null }) {
-  return imageUrl ? (
-    <img src={imageUrl} alt={name} className="w-6 h-6 rounded-full object-cover shrink-0" />
-  ) : (
-    <div
-      className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-      style={{ backgroundColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
-    >
-      {name.charAt(0).toUpperCase()}
     </div>
   );
 }
@@ -374,7 +362,7 @@ function OpenSlotResponders({ slotId }: { slotId: any }) {
     <div className="mt-2.5 flex flex-col gap-3">
       {responders.map((r: any) => (
         <div key={r.responseId} className="flex items-start gap-2">
-          <Avatar name={r.name} imageUrl={r.imageUrl} />
+          <PersonAvatar name={r.name} imageUrl={r.imageUrl} size="xs" tone="garden" />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <Link
@@ -679,7 +667,7 @@ function SlotRow({
         <div className="flex items-center gap-2">
           {slot.booked && (
             <Link to={`/profile/${slot.booked.profileId}`} className="flex items-center gap-1.5 hover:opacity-80">
-              <Avatar name={slot.booked.name} imageUrl={slot.booked.imageUrl} />
+              <PersonAvatar name={slot.booked.name} imageUrl={slot.booked.imageUrl} size="xs" tone="garden" />
               <span className="text-sm" style={{ color: "var(--garden-paper)" }}>
                 {slot.booked.name}
               </span>
