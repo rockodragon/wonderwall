@@ -23,6 +23,7 @@ import {
 import { syncCoHosts } from "../eventHosts";
 import { eventHasStarted } from "../eventWindow";
 import { primaryOrgByUserId } from "../organizations";
+import { profileImageUrl, projectPhotoUrl } from "../images";
 import { MIN_CLASS_PRICE_CENTS, MAX_CLASS_PRICE_CENTS } from "./stripeHandlers";
 import {
   inviteToRunAgain,
@@ -116,16 +117,6 @@ export function visibleMeetingUrl(
 }
 
 // Canonical public projections. Never expose enrollment rows or contact details.
-/** The cover: an uploaded picture (4:5, from the cover picker), else the
- * older pasted address. */
-async function tablePhotoUrl(ctx: QueryCtx, table: Doc<"gardenTables">) {
-  if (table.photoStorageId) {
-    const url = await ctx.storage.getUrl(table.photoStorageId);
-    if (url) return url;
-  }
-  return table.photoUrl;
-}
-
 async function tableSummary(
   ctx: QueryCtx,
   table: Doc<"gardenTables">,
@@ -158,11 +149,7 @@ async function tableSummary(
     .filter((s) => s.startsAt >= Date.now())
     .sort((a, b) => a.startsAt - b.startsAt)[0];
   const { membership: _private, ...publicViewer } = viewer;
-  const imageUrl = profile
-    ? profile.imageStorageId
-      ? await ctx.storage.getUrl(profile.imageStorageId)
-      : profile.imageUrl || null
-    : null;
+  const imageUrl = await profileImageUrl(ctx, profile);
   const primaryOrg = profile
     ? await primaryOrgByUserId(ctx, profile.userId)
     : null;
@@ -178,7 +165,9 @@ async function tableSummary(
     program: table.program,
     cadence: table.cadence,
     blurb: table.blurb,
-    photoUrl: await tablePhotoUrl(ctx, table),
+    // The cover: an uploaded picture (4:5, from the cover picker), else the
+    // older pasted address.
+    photoUrl: (await projectPhotoUrl(ctx, table)) ?? undefined,
     ...normalizeTable(table),
     hostRoleLabel: table.hostRoleLabel ?? "Hosted by",
     hostLabel: table.hostRoleLabel ?? "Hosted by",

@@ -3,6 +3,7 @@ import { mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
 import { auth } from "./auth";
 import { requireOwnProfileRow } from "./helpers";
+import { profileImageUrl } from "./images";
 
 const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
 
@@ -178,9 +179,7 @@ export const getPublicResponses = query({
         return {
           ...response,
           responderName: responderProfile?.name || "Anonymous",
-          responderImageUrl: responderProfile?.imageStorageId
-            ? await ctx.storage.getUrl(responderProfile.imageStorageId)
-            : responderProfile?.imageUrl || null,
+          responderImageUrl: await profileImageUrl(ctx, responderProfile),
           isOwnResponse: userId === response.responderId,
         };
       }),

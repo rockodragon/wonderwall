@@ -20,6 +20,7 @@ import { assertCommunityMember, canManageCommunity } from "./garden/communities"
 import { classCheckoutRefusal, classPaymentPath, classPriceProblem } from "./garden/stripeHandlers";
 import { isAdmin, isAdminProfile, requireOwner } from "./helpers";
 import { communityVisibility } from "./garden/communityVisibility";
+import { profileImageUrl, projectPhotoUrl } from "./images";
 
 const VALID_STATUSES = new Set(["active", "archived"]);
 
@@ -401,9 +402,7 @@ export const listOfferings = query({
             .collect(),
         ]);
 
-        const resolvedPhotoUrl = offering.photoStorageId
-          ? await ctx.storage.getUrl(offering.photoStorageId)
-          : (offering.photoUrl ?? null);
+        const resolvedPhotoUrl = await projectPhotoUrl(ctx, offering);
 
         return {
           ...withPauseView(offering, viewer ? canModerateOffering(offering, viewer) : false),
@@ -413,7 +412,7 @@ export const listOfferings = query({
             ? {
                 _id: user._id,
                 name: user.name,
-                imageUrl: user.imageUrl,
+                imageUrl: await profileImageUrl(ctx, user),
               }
             : null,
           community: offering.hostOrgId ? (communityById.get(String(offering.hostOrgId)) ?? null) : null,
@@ -479,9 +478,7 @@ export const getOffering = query({
       resolveCommunities(ctx, [offering.hostOrgId]),
     ]);
 
-    const resolvedPhotoUrl = offering.photoStorageId
-      ? await ctx.storage.getUrl(offering.photoStorageId)
-      : (offering.photoUrl ?? null);
+    const resolvedPhotoUrl = await projectPhotoUrl(ctx, offering);
 
     return {
       ...withPauseView(offering, canModerate),
@@ -491,7 +488,7 @@ export const getOffering = query({
         ? {
             _id: user._id,
             name: user.name,
-            imageUrl: user.imageUrl,
+            imageUrl: await profileImageUrl(ctx, user),
           }
         : null,
       community: offering.hostOrgId ? (communityById.get(String(offering.hostOrgId)) ?? null) : null,

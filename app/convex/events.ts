@@ -30,6 +30,7 @@ import { getTableParticipation } from "./garden/tablePolicy";
 import { notifyDateCanceled, notifyDateChanged } from "./garden/tableNotify";
 import { isEventListed } from "./eventWindow";
 import { isSafeHttpsUrl } from "./garden/richText";
+import { eventCoverUrl, orgLogoUrl, profileImageUrl } from "./images";
 
 // ——— Pure validation helpers (unit-tested in events.test.ts) ———
 
@@ -237,7 +238,7 @@ async function loadDisplayHosts(
     } else if (d.kind === "org") {
       const o = await ctx.db.get(d.organizationId);
       if (!o) continue;
-      const logo = o.logoStorageId ? await ctx.storage.getUrl(o.logoStorageId) : null;
+      const logo = await orgLogoUrl(ctx, o);
       out.push({
         kind: "org",
         refId: String(o._id),
@@ -254,7 +255,7 @@ async function loadDisplayHosts(
         .withIndex("by_userId", (q) => q.eq("userId", d.userId))
         .first();
       if (!p) continue;
-      const img = p.imageStorageId ? await ctx.storage.getUrl(p.imageStorageId) : p.imageUrl || null;
+      const img = await profileImageUrl(ctx, p);
       out.push({ kind: "user", refId: String(d.userId), name: p.name, profileId: p._id, imageUrl: img, exact: true });
     }
   }
@@ -339,16 +340,7 @@ async function toCardEvents(ctx: QueryCtx, events: Doc<"events">[]) {
 
   return await Promise.all(
     events.map(async (event) => {
-      let coverImageUrl: string | null = null;
-
-      // Try cover image first
-      if (event.coverImageStorageId) {
-        coverImageUrl = await ctx.storage.getUrl(event.coverImageStorageId);
-      }
-      // Fall back to first gallery image
-      else if (event.imageStorageIds && event.imageStorageIds.length > 0) {
-        coverImageUrl = await ctx.storage.getUrl(event.imageStorageIds[0]);
-      }
+      const coverImageUrl = await eventCoverUrl(ctx, event);
 
       const [attendeeCount, hosts] = await Promise.all([
         loadGoingCount(ctx, event._id),
@@ -434,16 +426,10 @@ export const get = query({
       .withIndex("by_userId", (q) => q.eq("userId", event.organizerId))
       .first();
 
-    // Resolve organizer image URL
-    let organizerImageUrl = profile?.imageUrl || null;
-    if (profile?.imageStorageId) {
-      organizerImageUrl = await ctx.storage.getUrl(profile.imageStorageId);
-    }
+    const organizerImageUrl = await profileImageUrl(ctx, profile);
 
-    // Resolve cover image URL
-    const coverImageUrl = event.coverImageStorageId
-      ? await ctx.storage.getUrl(event.coverImageStorageId)
-      : null;
+    // Cover, else the first gallery image — the same picture the cards show.
+    const coverImageUrl = await eventCoverUrl(ctx, event);
 
     // Resolve gallery image URLs
     const galleryImageUrls = event.imageStorageIds
@@ -531,8 +517,7 @@ export const get = query({
         .query("profiles")
         .withIndex("by_userId", (q) => q.eq("userId", coId))
         .first();
-      let img = p?.imageUrl || null;
-      if (p?.imageStorageId) img = await ctx.storage.getUrl(p.imageStorageId);
+      const img = await profileImageUrl(ctx, p);
       coHosts.push({
         userId: coId,
         name: p?.name ?? "Someone",
@@ -1125,7 +1110,7 @@ export const getApplications = query({
           applicant: profile
             ? {
                 name: profile.name,
-                imageUrl: profile.imageUrl,
+                imageUrl: await profileImageUrl(ctx, profile),
                 bio: profile.bio,
               }
             : null,
@@ -1269,10 +1254,7 @@ export const getAttendees = query({
         .query("profiles")
         .withIndex("by_userId", (q) => q.eq("userId", userId))
         .first();
-      let imageUrl = profile?.imageUrl || null;
-      if (profile?.imageStorageId) {
-        imageUrl = await ctx.storage.getUrl(profile.imageStorageId);
-      }
+      const imageUrl = await profileImageUrl(ctx, profile);
       return { profileId: profile?._id || null, name: profile?.name || "Anonymous", imageUrl };
     }
 
@@ -1414,17 +1396,9 @@ export const search = query({
     // Resolve cover images
     const eventsWithImages = await Promise.all(
       visible.slice(0, 20).map(async (event) => {
-        let coverImageUrl: string | null = null;
-
-        if (event.coverImageStorageId) {
-          coverImageUrl = await ctx.storage.getUrl(event.coverImageStorageId);
-        } else if (event.imageStorageIds && event.imageStorageIds.length > 0) {
-          coverImageUrl = await ctx.storage.getUrl(event.imageStorageIds[0]);
-        }
-
         return {
           ...redactHiddenAddress(event),
-          coverImageUrl,
+          coverImageUrl: await eventCoverUrl(ctx, event),
         };
       }),
     );

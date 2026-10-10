@@ -1,4 +1,5 @@
 import { query } from "./_generated/server";
+import { profileImageUrl, storedOrExternalUrl } from "./images";
 
 // Get public wonderings with profile info for landing page
 export const getFeaturedWonderings = query({
@@ -15,11 +16,7 @@ export const getFeaturedWonderings = query({
         if (profile.isAdmin) return null;
 
         // Get profile image URL if exists
-        let imageUrl = profile.imageUrl;
-        if (profile.imageStorageId) {
-          imageUrl =
-            (await ctx.storage.getUrl(profile.imageStorageId)) ?? undefined;
-        }
+        const imageUrl = (await profileImageUrl(ctx, profile)) ?? undefined;
 
         // Get wondering image URL if exists
         let wonderingImageUrl = null;
@@ -70,18 +67,11 @@ export const getFeaturedWorks = query({
         if (profile.isAdmin) return null;
 
         // Get profile image URL if exists
-        let profileImageUrl = profile.imageUrl;
-        if (profile.imageStorageId) {
-          profileImageUrl =
-            (await ctx.storage.getUrl(profile.imageStorageId)) ?? undefined;
-        }
+        const imageUrl = (await profileImageUrl(ctx, profile)) ?? undefined;
 
         // Get artifact media URL
-        let mediaUrl = artifact.mediaUrl;
-        if (artifact.mediaStorageId) {
-          mediaUrl =
-            (await ctx.storage.getUrl(artifact.mediaStorageId)) ?? undefined;
-        }
+        const mediaUrl =
+          (await storedOrExternalUrl(ctx, artifact.mediaStorageId, artifact.mediaUrl)) ?? undefined;
 
         return {
           _id: artifact._id,
@@ -93,7 +83,7 @@ export const getFeaturedWorks = query({
           profile: {
             _id: profile._id,
             name: profile.name,
-            imageUrl: profileImageUrl,
+            imageUrl,
             interests: profile.interests?.slice(0, 2) || [],
           },
         };

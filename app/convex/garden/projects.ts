@@ -31,6 +31,7 @@ import { canonicalMediaUrl, schedulePreviewFetch } from "../linkPreview";
 import { isAdmin, requireOwner } from "../helpers";
 import { isHidden, isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
 import { communityVisibility, isHiddenCommunityId } from "./communityVisibility";
+import { profileImageUrl, projectPhotoUrl, storedOrExternalUrl } from "../images";
 
 // Following fan-out (docs/features/following.md §1 #5): "Name posted Title"
 // to everyone following the poster, once per created row. `userId` is a
@@ -502,15 +503,11 @@ export const listProjects = query({
         const resolvedMedia = await Promise.all(
           media.map(async (artifact) => ({
             ...artifact,
-            resolvedMediaUrl: artifact.mediaStorageId
-              ? await ctx.storage.getUrl(artifact.mediaStorageId)
-              : artifact.mediaUrl || null,
+            resolvedMediaUrl: await storedOrExternalUrl(ctx, artifact.mediaStorageId, artifact.mediaUrl),
           })),
         );
 
-        const resolvedPhotoUrl = project.photoStorageId
-          ? await ctx.storage.getUrl(project.photoStorageId)
-          : project.photoUrl || null;
+        const resolvedPhotoUrl = await projectPhotoUrl(ctx, project);
 
         return {
           ...project,
@@ -520,7 +517,7 @@ export const listProjects = query({
             ? {
                 _id: user._id,
                 name: user.name,
-                imageUrl: user.imageUrl,
+                imageUrl: await profileImageUrl(ctx, user),
                 interests: user.interests,
                 location: user.location,
               }
@@ -593,15 +590,11 @@ export const getProject = query({
     const resolvedMedia = await Promise.all(
       media.map(async (artifact) => ({
         ...artifact,
-        resolvedMediaUrl: artifact.mediaStorageId
-          ? await ctx.storage.getUrl(artifact.mediaStorageId)
-          : artifact.mediaUrl || null,
+        resolvedMediaUrl: await storedOrExternalUrl(ctx, artifact.mediaStorageId, artifact.mediaUrl),
       })),
     );
 
-    const resolvedPhotoUrl = project.photoStorageId
-      ? await ctx.storage.getUrl(project.photoStorageId)
-      : project.photoUrl || null;
+    const resolvedPhotoUrl = await projectPhotoUrl(ctx, project);
 
     // Media blocks come back carrying the URL their storageId resolves to,
     // the same shape resolvedMedia above already uses, so the renderer never
@@ -614,7 +607,13 @@ export const getProject = query({
       resolvedPhotoUrl,
       organization: await orgByline(ctx, project.organizationId),
       creator: user
-        ? { _id: user._id, name: user.name, imageUrl: user.imageUrl, interests: user.interests, location: user.location }
+        ? {
+            _id: user._id,
+            name: user.name,
+            imageUrl: await profileImageUrl(ctx, user),
+            interests: user.interests,
+            location: user.location,
+          }
         : null,
       media: resolvedMedia,
       supportCount: support.length,

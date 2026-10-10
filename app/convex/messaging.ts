@@ -6,17 +6,7 @@ import { auth } from "./auth";
 import { scheduleNotificationEmail } from "./emailHelpers";
 import type { Doc, Id } from "./_generated/dataModel";
 import { isEventHost } from "./eventHosts";
-
-// Helper to resolve image URL from storage or external URL
-async function resolveImageUrl(
-  ctx: QueryCtx,
-  profile: Doc<"profiles">,
-): Promise<string | null> {
-  if (profile.imageStorageId) {
-    return await ctx.storage.getUrl(profile.imageStorageId);
-  }
-  return profile.imageUrl || null;
-}
+import { profileImageUrl } from "./images";
 
 // Helper to get blocked user IDs for a user
 async function getBlockedUserIds(
@@ -429,7 +419,7 @@ export const getConversations = query({
         if (!otherProfile) return null;
 
         // Resolve profile image URL
-        const imageUrl = await resolveImageUrl(ctx, otherProfile);
+        const imageUrl = await profileImageUrl(ctx, otherProfile);
 
         // Get the last message for preview
         const lastMessage = await ctx.db
@@ -549,7 +539,7 @@ export const getMessages = query({
 
         let senderImageUrl: string | null = null;
         if (senderProfile) {
-          senderImageUrl = await resolveImageUrl(ctx, senderProfile);
+          senderImageUrl = await profileImageUrl(ctx, senderProfile);
         }
 
         return {
@@ -607,7 +597,7 @@ export const getConversation = query({
     if (!otherProfile) return null;
 
     // Resolve profile image URL
-    const imageUrl = await resolveImageUrl(ctx, otherProfile);
+    const imageUrl = await profileImageUrl(ctx, otherProfile);
 
     return {
       _id: conversation._id,
@@ -793,7 +783,7 @@ export const listBlocked = query({
           userId: block.blockedId,
           profileId: profile ? profile._id : null,
           name: profile?.name || "Someone",
-          imageUrl: profile ? await resolveImageUrl(ctx, profile) : null,
+          imageUrl: profile ? await profileImageUrl(ctx, profile) : null,
           blockedAt: block.createdAt,
         };
       }),
@@ -987,7 +977,7 @@ export const searchPeopleToMessage = query({
         userId: p.userId,
         profileId: p.profileId,
         name: p.name,
-        imageUrl: await resolveImageUrl(ctx, p.profile),
+        imageUrl: await profileImageUrl(ctx, p.profile),
         following: p.following,
       })),
     );
