@@ -159,7 +159,7 @@ type UpdateRow = {
   createdAt: number;
   editedAt?: number;
   authorUserId: Id<"users">;
-  author: { name: string; imageUrl?: string; profileId: string } | null;
+  author: { name: string; imageUrl?: string | null; profileId: string } | null;
 };
 
 function UpdateCard({ update, canManage }: { update: UpdateRow; canManage: boolean }) {

@@ -25,7 +25,7 @@ import { scheduleNotificationEmail } from "../emailHelpers";
 import { toEmbedUrl } from "../videoEmbed";
 import { isHidden } from "../moderationRules";
 import { communityVisibility } from "./communityVisibility";
-import { profileImageUrl, projectPhotoUrl, storedOrExternalUrl } from "../images";
+import { pieceMediaUrl, profileImageUrl, projectPhotoUrl } from "../images";
 
 // ——————————————————————————————————————————————————————————————
 // Stage — TWIN of app/app/lib/stage.ts (STAGES, isStage, stageLabel,
@@ -1425,6 +1425,7 @@ export const getTeam = query({
       getProfile(ctx, project.userId),
       project.userId === userId ? Promise.resolve(null) : getProfile(ctx, userId),
     ]);
+    // Same rule as isOwnerOrAdmin (helpers.ts), on a profile already loaded.
     const isLead = project.userId === userId || isAdminProfile(viewerProfile);
 
     const lead = {
@@ -1568,7 +1569,7 @@ async function projectCover(ctx: QueryCtx, project: Doc<"projects">): Promise<st
   for (const piece of pieces) {
     if (piece.ogImageUrl) return piece.ogImageUrl;
     if (piece.type === "image") {
-      const media = await storedOrExternalUrl(ctx, piece.mediaStorageId, piece.mediaUrl);
+      const media = await pieceMediaUrl(ctx, piece);
       if (media) return media;
     }
     const embed = toEmbedUrl(piece.mediaUrl);

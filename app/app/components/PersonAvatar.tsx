@@ -61,15 +61,19 @@ export function PersonAvatar({
   const rounded = shape === "square" ? "rounded" : "rounded-full";
   const initial = name.trim().charAt(0).toUpperCase() || "·";
   const { className: toneClass, style } = TONES[tone] as { className: string; style?: CSSProperties };
+  // The tone's background sits behind a picture too, so a transparent logo
+  // keeps its circle. The name is always beside the face, so the face is
+  // decoration for a screen reader.
   return imageUrl ? (
     <img
       src={imageUrl}
       alt=""
-      className={`${dimensions} shrink-0 ${rounded} object-cover ${className}`}
+      className={`${dimensions} shrink-0 ${rounded} object-cover ${toneClass} ${className}`}
+      style={style}
     />
   ) : (
     <span
-      aria-label={name}
+      aria-hidden="true"
       className={`${dimensions} flex shrink-0 items-center justify-center ${rounded} ${toneClass} ${className}`}
       style={style}
     >

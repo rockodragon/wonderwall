@@ -13,6 +13,7 @@ import { makeCtx, run, type Row } from "../test-support/convexContext";
 import {
   eventCoverUrl,
   orgLogoUrl,
+  pieceMediaUrl,
   profileImageUrl,
   projectPhotoUrl,
   storedOrExternalUrl,
@@ -166,6 +167,19 @@ describe("eventCoverUrl", () => {
   });
 });
 
+describe("pieceMediaUrl", () => {
+  it("is the uploaded file when there is one, else the link", async () => {
+    const ctx = storageOf({ f1: "https://files/f1" });
+    expect(await pieceMediaUrl(ctx, { mediaStorageId: sid("f1"), mediaUrl: "https://site/page" })).toBe("https://files/f1");
+    expect(await pieceMediaUrl(ctx, { mediaUrl: "https://youtu.be/x" })).toBe("https://youtu.be/x");
+  });
+  it("never puts the link in for an upload that's gone (pages show a file as an <img>)", async () => {
+    const ctx = storageOf({});
+    expect(await pieceMediaUrl(ctx, { mediaStorageId: sid("gone"), mediaUrl: "https://site/page" })).toBeNull();
+    expect(await pieceMediaUrl(ctx, {})).toBeNull();
+  });
+});
+
 describe("orgLogoUrl", () => {
   it("the stored logo, or null", async () => {
     const ctx = storageOf({ logo: "https://files/logo" });
@@ -308,12 +322,18 @@ describe("an event's cover", () => {
   });
   const urls = { "_storage:g1": "https://files/g1", "_storage:host": "https://files/host" };
 
-  it("the event page shows the first gallery image when there is no cover, like the cards", async () => {
+  // The card falls back to the gallery on the server. The page gets only
+  // the stored cover: its host controls (Change / Remove, the edit form)
+  // read coverImageUrl, and the page does the gallery fallback itself
+  // (routes/event.tsx). Found by review 2026-10-10: a gallery stand-in
+  // showed as a cover that Remove couldn't remove.
+  it("a card falls back to the first gallery image; the page's coverImageUrl is only the stored cover", async () => {
     const data = eventWorld({ imageStorageIds: ["_storage:g1"] });
     const page = await run(getEvent, withStorage(makeCtx(data, null), urls), { eventId: "events:e1" });
     const [card] = await run(listEvents, withStorage(makeCtx(data, null), urls), {});
     expect(card.coverImageUrl).toBe("https://files/g1");
-    expect(page.coverImageUrl).toBe("https://files/g1");
+    expect(page.coverImageUrl).toBeNull();
+    expect(page.galleryImageUrls).toEqual(["https://files/g1"]);
   });
 
   it("the organizer's uploaded avatar shows on the event page", async () => {

@@ -32,7 +32,7 @@ import { canonicalMediaUrl, schedulePreviewFetch } from "../linkPreview";
 import { isAdmin, requireOwner } from "../helpers";
 import { isHidden, isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
 import { communityVisibility, isHiddenCommunityId } from "./communityVisibility";
-import { profileImageUrl, projectPhotoUrl, storedOrExternalUrl } from "../images";
+import { pieceMediaUrl, profileImageUrl, projectPhotoUrl } from "../images";
 
 // Following fan-out (docs/features/following.md §1 #5): "Name posted Title"
 // to everyone following the poster, once per created row. `userId` is a
@@ -498,7 +498,7 @@ export const listProjects = query({
         const resolvedMedia = await Promise.all(
           media.map(async (artifact) => ({
             ...artifact,
-            resolvedMediaUrl: await storedOrExternalUrl(ctx, artifact.mediaStorageId, artifact.mediaUrl),
+            resolvedMediaUrl: await pieceMediaUrl(ctx, artifact),
           })),
         );
 
@@ -585,7 +585,7 @@ export const getProject = query({
     const resolvedMedia = await Promise.all(
       media.map(async (artifact) => ({
         ...artifact,
-        resolvedMediaUrl: await storedOrExternalUrl(ctx, artifact.mediaStorageId, artifact.mediaUrl),
+        resolvedMediaUrl: await pieceMediaUrl(ctx, artifact),
       })),
     );
 

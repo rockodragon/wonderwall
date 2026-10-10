@@ -10,7 +10,7 @@ import { slugifyTitle, resolveAvailableSlug } from "./garden/stories";
 import { normalizeUrl, isSafeHttpUrl } from "./garden/richText";
 import { parseOgMeta } from "./ogParse";
 import { requireOwnProfileRow } from "./helpers";
-import { profileImageUrl, storedOrExternalUrl } from "./images";
+import { pieceMediaUrl, profileImageUrl } from "./images";
 
 export const getMyArtifacts = query({
   args: {},
@@ -33,7 +33,7 @@ export const getMyArtifacts = query({
     // Resolve storage URLs
     const withUrls = await Promise.all(
       artifacts.map(async (artifact) => {
-        const resolvedMediaUrl = await storedOrExternalUrl(ctx, artifact.mediaStorageId, artifact.mediaUrl);
+        const resolvedMediaUrl = await pieceMediaUrl(ctx, artifact);
         return { ...artifact, resolvedMediaUrl };
       }),
     );
@@ -50,7 +50,7 @@ export const get = query({
     if (!artifact) return null;
 
     // Resolve media URL
-    const resolvedMediaUrl = await storedOrExternalUrl(ctx, artifact.mediaStorageId, artifact.mediaUrl);
+    const resolvedMediaUrl = await pieceMediaUrl(ctx, artifact);
 
     // Get profile info
     const profile = await ctx.db.get(artifact.profileId);
@@ -372,7 +372,7 @@ export const getAllArtifacts = query({
     // Resolve storage URLs and get profile info
     const withDetails = await Promise.all(
       artifacts.map(async (artifact) => {
-        const resolvedMediaUrl = await storedOrExternalUrl(ctx, artifact.mediaStorageId, artifact.mediaUrl);
+        const resolvedMediaUrl = await pieceMediaUrl(ctx, artifact);
 
         const profile = await ctx.db.get(artifact.profileId);
 

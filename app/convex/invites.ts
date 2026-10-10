@@ -398,7 +398,7 @@ export const redeemBySlug = mutation({
       userId: inviterProfile.userId,
     });
     const placeName = joinedCommunity?.name ?? "TheCreative.exchange";
-    const newUserImageUrl = newUserProfile?.imageUrl;
+    const newUserImageUrl = (await profileImageUrl(ctx, newUserProfile)) ?? undefined;
     // /profile/:id takes a profile id, not the invite slug (favorites.ts
     // and likesDigest.ts link the same way).
     const profileLinkUrl = newUserProfile ? `/profile/${newUserProfile._id}` : undefined;

@@ -7,7 +7,7 @@ import { normalizeHandle, PAYOUT_KINDS, type PayoutHandles } from "./garden/gigR
 import { fillOrgWebsite, linkOrgByName, profileOrganizations, unlinkPrimaryOrg } from "./organizations";
 import { normalizeOrgUrl } from "./organizationRules";
 import { communityVisibility } from "./garden/communityVisibility";
-import { profileImageUrl, storedOrExternalUrl } from "./images";
+import { pieceMediaUrl, profileImageUrl } from "./images";
 
 export { normalizeOrgUrl };
 
@@ -121,7 +121,7 @@ export const getProfile = query({
     const artifactsWithUrls = await Promise.all(
       artifacts.map(async (artifact) => {
         // Resolve storage URL if exists
-        const resolvedMediaUrl = await storedOrExternalUrl(ctx, artifact.mediaStorageId, artifact.mediaUrl);
+        const resolvedMediaUrl = await pieceMediaUrl(ctx, artifact);
 
         return {
           ...artifact,

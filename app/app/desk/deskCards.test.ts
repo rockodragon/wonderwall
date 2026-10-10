@@ -440,6 +440,16 @@ describe("project cards", () => {
     expect(projectCard(gig, ["projects"], money).face.kicker).toBe("RECURRING GIG");
   });
 
+  it("name the organization a project is posted as, not the person who runs it", () => {
+    const card = projectCard(
+      project("o", { creator: { name: "David Russo" }, organization: { name: "Abiding Practice" } }),
+      ["projects"],
+      money,
+    );
+    expect(card.face.foot).toBe("Abiding Practice");
+    expect(card.detail.host).toBe("By Abiding Practice");
+  });
+
   it("call an unpaid posting volunteer work, not a job", () => {
     const card = projectCard(project("v", { kind: "paid", budgetType: "volunteer" }), ["projects"], money);
     expect(card.face.kicker).toBe("VOLUNTEER");

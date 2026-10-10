@@ -81,6 +81,21 @@ export async function eventCoverUrl(
   return await storedOrExternalUrl(ctx, event.imageStorageIds?.[0], null);
 }
 
+/**
+ * A piece's media (artifacts, gig clips): its uploaded file when it has one,
+ * else its link. Unlike a project photo, a missing upload does NOT fall back
+ * to the link: a piece can carry both a file and a web-page link (the work
+ * composer saves both), and pages treat "has a file" as "show an image", so
+ * the link would land in an <img>. Review 2026-10-10.
+ */
+export async function pieceMediaUrl(
+  ctx: StorageCtx,
+  piece: { mediaStorageId?: Id<"_storage">; mediaUrl?: string },
+): Promise<string | null> {
+  if (piece.mediaStorageId) return await storedOrExternalUrl(ctx, piece.mediaStorageId, null);
+  return piece.mediaUrl || null;
+}
+
 /** An organization's logo, or null when it has none. */
 export async function orgLogoUrl(
   ctx: StorageCtx,

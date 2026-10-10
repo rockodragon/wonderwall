@@ -7,7 +7,7 @@ import {
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { profileImageUrl, storedOrExternalUrl } from "./images";
+import { pieceMediaUrl, profileImageUrl } from "./images";
 
 // Generate embeddings using OpenAI
 async function generateEmbedding(text: string): Promise<number[]> {
@@ -278,7 +278,7 @@ export const getSearchResultDetails = query({
           if (artifact) {
             // Get profile for artifact
             const profile = await ctx.db.get(artifact.profileId);
-            const mediaUrl = await storedOrExternalUrl(ctx, artifact.mediaStorageId, artifact.mediaUrl);
+            const mediaUrl = await pieceMediaUrl(ctx, artifact);
             entityData = {
               _id: artifact._id,
               type: artifact.type,

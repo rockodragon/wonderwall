@@ -28,6 +28,7 @@ import { communityVisibility } from "./communityVisibility";
 import { isEventListed } from "../eventWindow";
 import { feedLocation } from "../eventAddress";
 import { COMMUNITY_KIND, communityMembershipsOf, getCommunityMember } from "./communityLookup";
+import { projectPhotoUrl } from "../images";
 
 // Defined in communityLookup.ts (so smaller modules can use them); exported
 // here too because most callers import them from communities.
@@ -543,6 +544,9 @@ export const getCommunity = query({
 
     // Projects show here as they do on browse (moderationRules.ts).
     const visibleProjects = projects.filter((p) => VISIBLE_PROJECT_STATUSES.has(p.status) && isPostedProject(p));
+    const photoById = new Map(
+      await Promise.all(visibleProjects.map(async (p) => [String(p._id), await projectPhotoUrl(ctx, p)] as const)),
+    );
     const creatorNames = await profileNames(ctx, [
       ...new Set(visibleProjects.map((p) => p.userId)),
     ]);
@@ -598,7 +602,8 @@ export const getCommunity = query({
           title: p.title,
           kind: p.kind,
           blurb: p.blurb,
-          photoUrl: p.photoUrl,
+          // The uploaded photo first, like every other project card.
+          photoUrl: photoById.get(String(p._id)) ?? null,
           storySlug: p.storySlug,
           byName: creatorNames.get(String(p.userId)) ?? "A creative",
         })),

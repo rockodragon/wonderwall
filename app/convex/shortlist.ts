@@ -50,7 +50,7 @@ import { projectKind } from "./garden/projectsPublic";
 import { isGivenSupport, supportCadence, supportKind } from "./garden/support";
 import { isHidden, isPostedProject } from "./moderationRules";
 import { feedLocation } from "./eventAddress";
-import { eventCoverUrl, profileImageUrl, projectPhotoUrl, storedOrExternalUrl } from "./images";
+import { eventCoverUrl, pieceMediaUrl, profileImageUrl, projectPhotoUrl } from "./images";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
@@ -232,7 +232,7 @@ async function projectCoverUrl(ctx: QueryCtx, project: Doc<"projects">): Promise
       .filter((a) => a.type === "image")
       .map(async (a) => ({
         type: a.type,
-        resolvedMediaUrl: await storedOrExternalUrl(ctx, a.mediaStorageId, a.mediaUrl),
+        resolvedMediaUrl: await pieceMediaUrl(ctx, a),
       })),
   );
   return coverOf({ ...cover, media });

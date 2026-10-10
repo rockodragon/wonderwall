@@ -36,7 +36,7 @@ import { requireOperator } from "../helpers";
 import { SPLITS } from "./capabilities";
 import { getCommunityMember } from "./communities";
 import { communityVisibility } from "./communityVisibility";
-import { profileImageUrl } from "../images";
+import { profileImageUrl, projectPhotoUrl } from "../images";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
@@ -900,12 +900,13 @@ export const listProjectsForGift = query({
       .slice(0, PICKER_LIMIT);
     const visible = ranked.map((r) => r.p);
     const owners = ranked.map((r) => r.owner);
+    const photos = await Promise.all(visible.map((p) => projectPhotoUrl(ctx, p)));
     return visible.map((p, i) => ({
       ownerFollowed: ranked[i].ownerFollowed,
       projectId: p._id,
       title: p.title,
       blurb: p.blurb,
-      photoUrl: p.photoUrl,
+      photoUrl: photos[i],
       storySlug: p.storySlug,
       ownerName: owners[i]?.name ?? "A creative",
       raisedCents: p.raisedCents ?? 0,

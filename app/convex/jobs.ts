@@ -3,7 +3,7 @@ import { escapeHtml } from "./email/template";
 import { mutation, query } from "./_generated/server";
 import { auth } from "./auth";
 import { scheduleNotificationEmail } from "./emailHelpers";
-import { profileImageUrl, storedOrExternalUrl } from "./images";
+import { pieceMediaUrl, profileImageUrl } from "./images";
 
 /**
  * Get all jobs with filters
@@ -222,7 +222,7 @@ export const getJobInterests = query({
             const artifact = await ctx.db.get(artifactId);
             if (!artifact) return null;
 
-            const mediaUrl = await storedOrExternalUrl(ctx, artifact.mediaStorageId, artifact.mediaUrl);
+            const mediaUrl = await pieceMediaUrl(ctx, artifact);
 
             return {
               ...artifact,
@@ -278,7 +278,7 @@ export const getUserJobInterest = query({
         const artifact = await ctx.db.get(artifactId);
         if (!artifact) return null;
 
-        const mediaUrl = await storedOrExternalUrl(ctx, artifact.mediaStorageId, artifact.mediaUrl);
+        const mediaUrl = await pieceMediaUrl(ctx, artifact);
 
         return {
           ...artifact,

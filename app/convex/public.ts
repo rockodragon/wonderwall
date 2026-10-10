@@ -1,5 +1,5 @@
 import { query } from "./_generated/server";
-import { profileImageUrl, storedOrExternalUrl } from "./images";
+import { pieceMediaUrl, profileImageUrl } from "./images";
 
 // Get public wonderings with profile info for landing page
 export const getFeaturedWonderings = query({
@@ -71,7 +71,7 @@ export const getFeaturedWorks = query({
 
         // Get artifact media URL
         const mediaUrl =
-          (await storedOrExternalUrl(ctx, artifact.mediaStorageId, artifact.mediaUrl)) ?? undefined;
+          (await pieceMediaUrl(ctx, artifact)) ?? undefined;
 
         return {
           _id: artifact._id,

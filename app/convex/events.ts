@@ -31,7 +31,7 @@ import { getTableParticipation } from "./garden/tablePolicy";
 import { notifyDateCanceled, notifyDateChanged } from "./garden/tableNotify";
 import { isEventListed } from "./eventWindow";
 import { isSafeHttpsUrl } from "./garden/richText";
-import { eventCoverUrl, orgLogoUrl, profileImageUrl } from "./images";
+import { eventCoverUrl, orgLogoUrl, profileImageUrl, storedOrExternalUrl } from "./images";
 
 // ——— Pure validation helpers (unit-tested in events.test.ts) ———
 
@@ -412,8 +412,12 @@ export const get = query({
 
     const organizerImageUrl = await profileImageUrl(ctx, profile);
 
-    // Cover, else the first gallery image — the same picture the cards show.
-    const coverImageUrl = await eventCoverUrl(ctx, event);
+    // The cover stored on the event, and only that: the host's cover controls
+    // (Change / Remove, the edit form) read this field, so a gallery stand-in
+    // would show as a cover that Remove can't remove. The page falls back to
+    // the first gallery image itself (routes/event.tsx). Cards use
+    // eventCoverUrl, which does the fallback on the server.
+    const coverImageUrl = await storedOrExternalUrl(ctx, event.coverImageStorageId, null);
 
     // Resolve gallery image URLs
     const galleryImageUrls = event.imageStorageIds

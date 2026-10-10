@@ -26,7 +26,7 @@ import { ruleOf, summarizeGig } from "./gigSummary";
 import { can } from "./capabilities";
 import { assertCanPure, getGardenUser } from "./entitlements";
 import { escapeHtml } from "../email/template";
-import { profileImageUrl, storedOrExternalUrl } from "../images";
+import { pieceMediaUrl, profileImageUrl } from "../images";
 import {
   HORIZON_WEEKS,
   MAX_CLIPS,
@@ -1290,7 +1290,7 @@ export const listResponders = query({
           artifactId: a._id,
           type: a.type,
           title: a.title ?? null,
-          mediaUrl: await storedOrExternalUrl(ctx, a.mediaStorageId, a.mediaUrl),
+          mediaUrl: await pieceMediaUrl(ctx, a),
           linkUrl: a.mediaUrl ?? null,
           ogImageUrl: a.ogImageUrl ?? null,
         });

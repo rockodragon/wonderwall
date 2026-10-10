@@ -21,6 +21,7 @@ import {
   slugifyOrgName,
   sortPositions,
 } from "./organizationRules";
+import { isAdminProfile } from "./helpers";
 
 type Ctx = QueryCtx | MutationCtx;
 
@@ -336,7 +337,7 @@ async function canEdit(ctx: Ctx, org: Doc<"organizations">) {
   if (!userId) return false;
   const profile = await profileByUserId(ctx, userId);
   if (!profile) return false;
-  if (profile.isAdmin) return true;
+  if (isAdminProfile(profile)) return true;
   const position = await positionOf(ctx, org._id, profile._id);
   return !!position?.isAdmin;
 }

@@ -160,7 +160,7 @@ async function purchasesFor(ctx: Ctx, productId: Id<"communityProducts">, userId
 async function viewerManages(ctx: Ctx, hostOrgId: Id<"hostOrgs">, userId: Id<"users"> | null): Promise<boolean> {
   if (!userId) return false;
   if (await isAdmin(ctx, userId)) return true;
-  const m =await getCommunityMember(ctx, hostOrgId, userId);
+  const m = await getCommunityMember(ctx, hostOrgId, userId);
   return !!m && m.status === "active" && canManageCommunity(m.role);
 }
 

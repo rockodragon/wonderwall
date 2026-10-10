@@ -46,7 +46,7 @@ const RULES: Rule[] = [
   {
     name: "profile looked up by userId inline",
     pattern: /query\(\s*"profiles"\s*\)\s*\.withIndex\(\s*"by_userId"/g,
-    limit: 115,
+    limit: 113,
     home: "convex/helpers.ts",
     use: "a shared profile lookup in convex/helpers.ts (one is coming; until then copy nothing new)",
   },
@@ -80,7 +80,7 @@ const RULES: Rule[] = [
   {
     name: "inline profile.isAdmin check",
     pattern: /profile\??\.isAdmin\b/g,
-    limit: 24,
+    limit: 21,
     home: "convex/helpers.ts",
     use: "isAdmin / isAdminProfile / requireOperator / requireAdminCtx in convex/helpers.ts, or useIsAdmin in app/lib",
   },
