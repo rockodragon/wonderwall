@@ -91,6 +91,9 @@ describe("START_STAGES", () => {
 });
 
 describe("roleForExit", () => {
+  it("records a partner for the space-or-resources door", () => {
+    expect(roleForExit("partner")).toBe("partner");
+  });
   it("records a creative for sharing and for Not yet", () => {
     expect(roleForExit("shared")).toBe("creative");
     expect(roleForExit("not_yet")).toBe("creative");

@@ -45,16 +45,17 @@ export const START_STAGES = [
 
 export type StartStage = (typeof START_STAGES)[number]["value"];
 
-/** The three ways off the onboarding screen. */
-export type OnboardingExit = "shared" | "not_yet" | "backer";
+/** The ways off the onboarding screen: a maker shares a project or not
+ *  yet; a backer and a partner continue. */
+export type OnboardingExit = "shared" | "not_yet" | "backer" | "partner";
 
 /** The role each exit records. primaryRole is what the app reads as
  *  "onboarding done" (onboardingGate.ts, oauth-callback.tsx), so every exit
- *  sets one. "I'm here to back creatives" is the Patron role. Everyone else
- *  is a creative, which is also what a profile with no role has always been
- *  counted as (convex/garden/stats.ts isCreativeProfile). */
-export function roleForExit(exit: OnboardingExit): "creative" | "patron" {
-  return exit === "backer" ? "patron" : "creative";
+ *  sets one. A maker is a creative, which is also what a profile with no
+ *  role has always been counted as (convex/garden/stats.ts
+ *  isCreativeProfile). */
+export function roleForExit(exit: OnboardingExit): "creative" | "patron" | "partner" {
+  return exit === "backer" ? "patron" : exit === "partner" ? "partner" : "creative";
 }
 
 /** A name is the one thing the screen insists on, and only when the account
