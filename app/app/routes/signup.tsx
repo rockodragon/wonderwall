@@ -266,11 +266,10 @@ export default function Signup() {
 
       await redeemInviteAfterSignIn();
 
-      posthog?.capture("user_signed_up", {
-        method: "phone",
-        invite_slug: inviteSlug,
-        inviter_name: inviterInfo?.name,
-      });
+      // The browser's signup event. user_signed_up is the server's (convex
+      // auth.ts), under the user id, and is what PostHog workflows trigger on.
+      // No email, phone or names go to PostHog (PostHogIdentify sends id + name).
+      posthog?.capture("signup_completed", { method: "phone", invite_slug: inviteSlug });
 
       navigate("/onboarding", { replace: true });
     } catch (err) {
@@ -345,14 +344,9 @@ export default function Signup() {
         });
       }
 
-      // Identify user and capture signup event
-      posthog?.identify(email, { email, name, invite_slug: inviteSlug });
-      posthog?.capture("user_signed_up", {
-        email,
-        name,
-        invite_slug: inviteSlug,
-        inviter_name: inviterInfo?.name,
-      });
+      // The browser's signup event; identity is PostHogIdentify's (user id,
+      // never the email). user_signed_up is the server's.
+      posthog?.capture("signup_completed", { method: "password", invite_slug: inviteSlug });
 
       navigate("/onboarding", { replace: true });
     } catch (err) {

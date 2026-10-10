@@ -93,7 +93,7 @@ export default function Login() {
 
       // Identify user and capture login event
       posthog?.identify(email, { email });
-      posthog?.capture("user_logged_in", { email });
+      posthog?.capture("user_logged_in", { method: "password" });
       // Redirect happens automatically via useEffect when auth state updates
     } catch (err) {
       setError("Invalid email or password");
