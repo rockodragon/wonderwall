@@ -856,12 +856,16 @@ export const update = mutation({
       datetime: args.datetime,
       endTime: args.endTime,
       // Any host edits tickets (Rick, 2026-10-10: a co-host "should be able
-      // to make any edits"), but only when the save carries them: the form
-      // always sends ticketTiers with them, and a caller that leaves them
-      // out (an older page, a co-host's save before this change) must not
-      // wipe the organizer's tickets. A Table's Event sells none (the
-      // Table's price covers it), so its ticket fields are never written.
-      ...(!event.tableId && args.ticketTiers !== undefined
+      // to make any edits"), but only when the save carries a ticket field:
+      // a caller that leaves them all out (an older page, a co-host's save
+      // before this change) must not wipe the organizer's tickets. The form
+      // sends ticketTiers ([] for none) whenever it manages tickets. A
+      // Table's Event sells none (the Table's price covers it), so its
+      // ticket fields are never written.
+      ...(!event.tableId &&
+      (args.ticketTiers !== undefined ||
+        args.externalTicketUrl !== undefined ||
+        args.externalTicketPriceCents !== undefined)
         ? { ticketTiers: tiers, externalTicketUrl, externalTicketPriceCents }
         : {}),
       location: args.location?.trim(),
