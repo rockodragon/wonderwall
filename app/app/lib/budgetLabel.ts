@@ -19,7 +19,9 @@
 // Server-side twin: convex/garden/projectsPublic.ts's resolveMoneyLine, which
 // writes the longer money line on the same cards. It can't import this file —
 // Convex functions don't import from app/ — so the two are kept aligned by
-// hand and by their tests.
+// hand and by their tests. Both write amounts with convex/money.ts.
+
+import { formatDollars } from "../../convex/money";
 
 /** The honest money states a paid posting can declare. "confidential" is
  * newer than the original four (added for role postings, projectTeam.ts's
@@ -39,10 +41,6 @@ export interface BudgetDeclaration {
 
 function isRealAmount(n: number | undefined): n is number {
   return typeof n === "number" && Number.isFinite(n) && n > 0;
-}
-
-function formatDollars(amount: number): string {
-  return `$${amount.toLocaleString("en-US")}`;
 }
 
 /**

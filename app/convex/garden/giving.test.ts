@@ -14,7 +14,6 @@ import {
   buildGiftReceivedEmail,
   buildMemberGiftOutContribution,
   computeGivingReport,
-  formatCents,
   giftDecisionProblem,
   giftDefaultDue,
   planTransfers,
@@ -22,6 +21,7 @@ import {
   type GiftLike,
   type PlusUpLike,
 } from "./giving";
+import { formatCents } from "../money";
 
 const DAY = 24 * 60 * 60 * 1000;
 

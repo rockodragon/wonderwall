@@ -3,7 +3,7 @@
 // signed in can add a position to their own profile; an organization's
 // admins edit its page and its people.
 
-import { v, ConvexError } from "convex/values";
+import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -22,12 +22,9 @@ import {
   sortPositions,
 } from "./organizationRules";
 import { isAdminProfile } from "./helpers";
+import { fail } from "./errors";
 
 type Ctx = QueryCtx | MutationCtx;
-
-function fail(code: string, reason: string): never {
-  throw new ConvexError({ code, reason });
-}
 
 async function profileByUserId(ctx: Ctx, userId: Id<"users">) {
   return await ctx.db

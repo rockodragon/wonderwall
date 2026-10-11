@@ -20,7 +20,7 @@ import { requireOperator } from "../helpers";
 import { scheduleNotificationEmail } from "../emailHelpers";
 import { escapeHtml } from "../email/template";
 import { NAMED_FUNDS } from "../../app/lib/namedFunds";
-import { formatCents } from "./giving";
+import { formatCents } from "../money";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core

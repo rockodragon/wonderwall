@@ -37,6 +37,7 @@ import { SPLITS } from "./capabilities";
 import { getCommunityMember } from "./communities";
 import { communityVisibility } from "./communityVisibility";
 import { profileImageUrl, projectPhotoUrl } from "../images";
+import { formatCents } from "../money";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
@@ -131,13 +132,6 @@ export function previousPeriod(period: string): string {
 export function periodFromMs(ms: number): string {
   const d = new Date(ms);
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
-}
-
-export function formatCents(cents: number): string {
-  const dollars = cents / 100;
-  return Number.isInteger(dollars)
-    ? `$${dollars.toLocaleString("en-US")}`
-    : `$${dollars.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 // ——— Row shapes the decision writes (pure, so the amounts are pinned) ———

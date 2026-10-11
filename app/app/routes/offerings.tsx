@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
+import { formatCents } from "../../convex/money";
 import { CLAIMS } from "../constants/claims";
 import { INTERESTS } from "../constants/interests";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
@@ -57,12 +58,8 @@ export const FORMAT_LABELS: Record<string, string> = Object.fromEntries(
 
 export function formatPrice(priceCents?: number): string {
   if (!priceCents) return "Free";
-  // Whole dollars stay bare ($25); anything else shows both cent digits
-  // ($12.50, never $12.5) — this string labels the Pay button.
-  return `$${(priceCents / 100).toLocaleString(undefined, {
-    minimumFractionDigits: priceCents % 100 === 0 ? 0 : 2,
-    maximumFractionDigits: 2,
-  })}`;
+  // This string labels the Pay button.
+  return formatCents(priceCents);
 }
 
 // Same display convention as event.tsx's datetime rendering.

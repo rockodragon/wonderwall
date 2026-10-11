@@ -733,10 +733,6 @@ function SfLabel({ children }: { children: ReactNode }) {
   );
 }
 
-function formatDollars(cents: number): string {
-  return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
-}
-
 /** One-time / Monthly, the Give button, and "Tax-deductible" with an "i" that
  * opens the fine print inline (not a floating popover, so it can't clip on a
  * phone). Used at the top of the page and again after a long ledger; the
@@ -843,7 +839,7 @@ function GiveControls({
   );
 }
 
-function SophiaFundView({
+export function SophiaFundView({
   name,
   about,
   orgName,
@@ -914,16 +910,16 @@ function SophiaFundView({
         <dl className="g-card" style={{ margin: 0, padding: "4px 18px" }}>
           <div style={{ ...statRow, borderBottom: "1px solid var(--g-hairline)" }}>
             <dt style={{ fontSize: 15, color: "var(--g-body)" }}>Available to grant</dt>
-            <dd className="g-h" style={{ margin: 0, fontSize: 20 }}>{formatDollars(availableCents)}</dd>
+            <dd className="g-h" style={{ margin: 0, fontSize: 20 }}>{formatMoney(availableCents)}</dd>
           </div>
           <div style={{ ...statRow, borderBottom: "1px solid var(--g-hairline)" }}>
             <dt style={{ fontSize: 15, color: "var(--g-body)" }}>Granted to date</dt>
-            <dd className="g-h" style={{ margin: 0, fontSize: 20 }}>{formatDollars(grantedCents)}</dd>
+            <dd className="g-h" style={{ margin: 0, fontSize: 20 }}>{formatMoney(grantedCents)}</dd>
           </div>
           <div style={{ ...statRow, alignItems: "center", padding: "12px 0" }}>
             <dt className="g-label">Total</dt>
             <dd className="g-h" style={{ margin: 0, fontSize: 28 }}>
-              {formatDollars(availableCents + grantedCents)}
+              {formatMoney(availableCents + grantedCents)}
             </dd>
           </div>
         </dl>

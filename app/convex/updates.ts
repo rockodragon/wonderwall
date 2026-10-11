@@ -11,7 +11,7 @@
 // Conventions follow announcements.ts: getAuthUserId from
 // @convex-dev/auth/server, ConvexError with a plain {code, reason} payload.
 
-import { v, ConvexError } from "convex/values";
+import { v } from "convex/values";
 import {
   query,
   mutation,
@@ -23,6 +23,7 @@ import { internal } from "./_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireAdmin } from "./helpers";
+import { fail } from "./errors";
 import { getCommunityMember } from "./garden/communityLookup";
 import { scheduleNotificationEmail } from "./emailHelpers";
 import { escapeHtml } from "./email/template";
@@ -49,14 +50,6 @@ type UpdateStatus = "draft" | "published" | "archived";
 
 const audienceValidator = v.union(v.literal("everyone"), v.literal("community"), v.literal("new"));
 const statusValidator = v.union(v.literal("draft"), v.literal("published"), v.literal("archived"));
-
-/** What a handler throws: ConvexError needs a plain object, so a `type`. */
-type UpdateErrorPayload = { code: string; reason: string };
-
-function fail(code: string, reason: string): never {
-  const payload: UpdateErrorPayload = { code, reason };
-  throw new ConvexError(payload);
-}
 
 /** An in-app path ("/events/…", not "//host") or an https:// link. */
 export function isValidActionUrl(url: string): boolean {

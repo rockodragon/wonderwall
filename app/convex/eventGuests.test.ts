@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { mergeGuests, summarizeGuests, guestsToCsv, formatDollars, paidLabel } from "./eventGuests";
+import { mergeGuests, summarizeGuests, guestsToCsv, paidLabel } from "./eventGuests";
+import { formatCents } from "./money";
 
 describe("mergeGuests", () => {
   it("merges an RSVP and a ticket purchase by email", () => {
@@ -35,13 +36,13 @@ describe("summary and csv", () => {
       { name: "C", email: "c@x.com", status: "pending", paidCents: 900, addedAt: 3 },
     ]);
     expect(summarizeGuests(rows)).toEqual({ going: 2, paid: 1, collectedCents: 2500 });
-    expect(formatDollars(2550)).toBe("$25.50");
+    expect(formatCents(2550)).toBe("$25.50");
   });
   it("writes whole dollars plain, cents when there are some, and groups thousands", () => {
-    expect(formatDollars(2500)).toBe("$25");
-    expect(formatDollars(1250)).toBe("$12.50");
-    expect(formatDollars(150000)).toBe("$1,500");
-    expect(formatDollars(150050)).toBe("$1,500.50");
+    expect(formatCents(2500)).toBe("$25");
+    expect(formatCents(1250)).toBe("$12.50");
+    expect(formatCents(150000)).toBe("$1,500");
+    expect(formatCents(150050)).toBe("$1,500.50");
   });
   it("escapes csv cells", () => {
     const csv = guestsToCsv([

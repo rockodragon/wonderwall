@@ -64,7 +64,8 @@ import { toEmbedUrl } from "../lib/videoEmbed";
 import { buildTicketLink, isCheckoutSessionId, isPayPalPaymentLink } from "../../convex/garden/ticketLink";
 import { claimPendingTickets, stashTicketSession } from "../lib/pendingTicket";
 import { setPendingIntent } from "../lib/pendingIntent";
-import { guestsToCsv, summarizeGuests, formatDollars, paidLabel } from "../../convex/eventGuests";
+import { guestsToCsv, summarizeGuests, paidLabel } from "../../convex/eventGuests";
+import { formatCents } from "../../convex/money";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { eventCta, type EventCta } from "../lib/eventCta";
 import { useStartConversation } from "../lib/useStartConversation";
@@ -1682,7 +1683,7 @@ function TicketsCard({
                 <p className="font-medium text-gray-900 dark:text-white">
                   {tier.name}{" "}
                   <span className="text-gray-500 dark:text-gray-400 font-normal">
-                    · {formatDollars(tier.priceCents)}
+                    · {formatCents(tier.priceCents)}
                   </span>
                 </p>
                 {tier.description && (
@@ -1708,7 +1709,7 @@ function TicketsCard({
                 >
                   {buyingTier === tier.name
                     ? "Redirecting..."
-                    : `Buy ${formatDollars(tier.priceCents)}`}
+                    : `Buy ${formatCents(tier.priceCents)}`}
                 </button>
               )}
             </div>
@@ -2134,7 +2135,7 @@ function LinkOutCard({
             margin: "2px 0 16px",
           }}
         >
-          {formatDollars(priceCents)}
+          {formatCents(priceCents)}
         </p>
       ) : (
         <div style={{ height: 12 }} />
@@ -2396,7 +2397,7 @@ function PayPalTicketCard({
       <p style={{ color: "var(--garden-dim)", fontSize: 13, margin: 0 }}>Admission</p>
       {priceCents ? (
         <p style={{ color: "var(--garden-paper)", fontSize: 32, fontWeight: 700, lineHeight: 1.1, margin: "2px 0 16px" }}>
-          {formatDollars(priceCents)}
+          {formatCents(priceCents)}
         </p>
       ) : (
         <div style={{ height: 12 }} />
@@ -2675,7 +2676,7 @@ function GuestsPanel({
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <p className="text-[15px] font-medium text-gray-900 dark:text-white">
-          {summary.paid} paid · {formatDollars(summary.collectedCents)} collected
+          {summary.paid} paid · {formatCents(summary.collectedCents)} collected
         </p>
         <button
           onClick={downloadCsv}

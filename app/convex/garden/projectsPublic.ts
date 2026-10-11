@@ -20,6 +20,7 @@ import { summarizeGig } from "./gigSummary";
 import { isHidden, isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
 import { communityVisibility } from "./communityVisibility";
 import { projectPhotoUrl } from "../images";
+import { formatDollars } from "../money";
 import { resolveCommunities } from "./communityLookup";
 
 // ——————————————————————————————————————————————————————————————
@@ -76,18 +77,6 @@ export interface ProjectCard {
   stage?: string;
 }
 
-/** Dollar formatting for this file's own money lines — a display-only
- * analog of ui.tsx's formatMoney (which is cents-in), kept local since
- * Convex functions don't import from app/. Whole dollars print bare;
- * fractional amounts (raisedCents/100 can land on odd cents) keep 2dp. */
-function formatDollars(amount: number): string {
-  const isWhole = Number.isInteger(amount);
-  return `$${amount.toLocaleString("en-US", {
-    minimumFractionDigits: isWhole ? 0 : 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
 /**
  * The money line for a project card/detail: paid → whichever of the four
  * declared money states this posting is in (see garden/projects.ts's
@@ -103,7 +92,8 @@ function formatDollars(amount: number): string {
  *
  * Client-side twin: app/app/lib/budgetLabel.ts, which writes the shorter
  * badge on the same cards. Convex functions don't import from app/, so the
- * two are kept aligned by hand and by their tests.
+ * two are kept aligned by hand and by their tests; both write amounts with
+ * convex/money.ts.
  */
 export function resolveMoneyLine(project: {
   kind: string;
