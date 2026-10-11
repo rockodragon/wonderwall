@@ -11,6 +11,7 @@ import { internalMutation } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { syncCoHosts } from "../eventHosts";
+import { getProfileByUserId } from "../helpers";
 
 // Every table with a `v.id("users")` field whose rows count as "real
 // content" on an account (i.e. NOT just the account's own empty profile or
@@ -128,10 +129,7 @@ async function scanForContent(
     if (count > 0) blockers[`${table}.${field}`] = count;
   }
 
-  const profile = await ctx.db
-    .query("profiles")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .first();
+  const profile = await getProfileByUserId(ctx, userId);
 
   if (profile) {
     for (const { table, field } of PROFILE_ID_FIELDS) {
@@ -226,10 +224,7 @@ async function mergeProfiles(
   sourceProfile: Doc<"profiles">,
   targetUserId: Id<"users">,
 ): Promise<{ targetProfileId: Id<"profiles">; filled: string[] }> {
-  const targetProfile = await ctx.db
-    .query("profiles")
-    .withIndex("by_userId", (q) => q.eq("userId", targetUserId))
-    .first();
+  const targetProfile = await getProfileByUserId(ctx, targetUserId);
   if (!targetProfile) {
     await ctx.db.patch(sourceProfile._id, { userId: targetUserId, updatedAt: Date.now() });
     return { targetProfileId: sourceProfile._id, filled: ["(whole profile moved)"] };

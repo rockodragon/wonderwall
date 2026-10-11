@@ -1,8 +1,9 @@
 import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { auth } from "./auth";
-import { scheduleNotificationEmail } from "./emailHelpers";
+import { currentUserId, requireUserId, getProfileByUserId } from "./helpers";
+import { fail } from "./errors";
+import { insertNotification } from "./notify";
 import { escapeHtml } from "./email/template";
 import { generateInviteCode } from "./inviteCode";
 import { followEachOther } from "./follows";
@@ -29,8 +30,7 @@ function generateCode(): string {
 export const create = mutation({
   args: {},
   handler: async (ctx) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
     const code = generateCode();
 
@@ -47,7 +47,7 @@ export const create = mutation({
 export const getMyInvites = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) return [];
 
     const invites = await ctx.db
@@ -78,16 +78,15 @@ export const validate = query({
 export const redeem = mutation({
   args: { code: v.string() },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
     const invite = await ctx.db
       .query("invites")
       .withIndex("by_code", (q) => q.eq("code", args.code.toUpperCase()))
       .first();
 
-    if (!invite) throw new Error("Invalid invite code");
-    if (invite.usedBy) throw new Error("Invite already used");
+    if (!invite) fail("not_found", "Invalid invite code");
+    if (invite.usedBy) fail("invalid_input", "Invite already used");
 
     await ctx.db.patch(invite._id, {
       usedBy: userId,
@@ -110,10 +109,7 @@ export const getInviteStats = query({
 
     let invitedBy = null;
     if (invite) {
-      const inviterProfile = await ctx.db
-        .query("profiles")
-        .withIndex("by_userId", (q) => q.eq("userId", invite.inviterId))
-        .first();
+      const inviterProfile = await getProfileByUserId(ctx, invite.inviterId);
       if (inviterProfile) {
         invitedBy = {
           userId: invite.inviterId,
@@ -178,13 +174,10 @@ export const getInviteStats = query({
 export const getMyInviteLink = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) return null;
 
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .first();
+    const profile = await getProfileByUserId(ctx, userId);
 
     if (!profile) return null;
 
@@ -207,15 +200,11 @@ export const getMyInviteLink = query({
 export const generateInviteSlug = mutation({
   args: {},
   handler: async (ctx) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .first();
+    const profile = await getProfileByUserId(ctx, userId);
 
-    if (!profile) throw new Error("Profile not found");
+    if (!profile) fail("no_profile", "Finish your profile first.");
     if (profile.inviteSlug) return profile.inviteSlug; // Already has one
 
     // Short, shareable code (6 chars, no look-alikes — see inviteCode.ts).
@@ -267,10 +256,7 @@ export const getInviterInfo = query({
     const recentInvitees = [];
     for (const invite of recentInvites) {
       if (!invite.usedBy) continue;
-      const inviteeProfile = await ctx.db
-        .query("profiles")
-        .withIndex("by_userId", (q) => q.eq("userId", invite.usedBy!))
-        .first();
+      const inviteeProfile = await getProfileByUserId(ctx, invite.usedBy);
       if (inviteeProfile) {
         recentInvitees.push({
           name: inviteeProfile.name,
@@ -299,10 +285,7 @@ export const debugUnlimitedStatus = query({
 
     if (!user) return { error: "User not found", email: args.email };
 
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", user._id))
-      .first();
+    const profile = await getProfileByUserId(ctx, user._id);
 
     if (!profile) return { error: "Profile not found", userId: user._id };
 
@@ -328,10 +311,7 @@ export const setUnlimitedInvites = internalMutation({
 
     if (!user) throw new Error(`User not found with email: ${args.email}`);
 
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", user._id))
-      .first();
+    const profile = await getProfileByUserId(ctx, user._id);
 
     if (!profile) throw new Error("Profile not found");
 
@@ -352,13 +332,12 @@ export const setUnlimitedInvites = internalMutation({
 export const redeemBySlug = mutation({
   args: { slug: v.string() },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
     // Find the inviter profile
     const inviterProfile = await findInviterProfile(ctx, args.slug);
 
-    if (!inviterProfile) throw new Error("Invalid invite link");
+    if (!inviterProfile) fail("not_found", "Invalid invite link");
 
     const usageCount = inviterProfile.inviteUsageCount || 0;
 
@@ -382,10 +361,7 @@ export const redeemBySlug = mutation({
 
     // Get the new user's profile info for the notification
     // Note: Profile may not exist yet at signup time, so we'll get it later or use user info
-    const newUserProfile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .first();
+    const newUserProfile = await getProfileByUserId(ctx, userId);
 
     const newUserName = newUserProfile?.name || "Someone";
     // The community they joined. Every signup joins The Garden today, so
@@ -403,29 +379,31 @@ export const redeemBySlug = mutation({
     // and likesDigest.ts link the same way).
     const profileLinkUrl = newUserProfile ? `/profile/${newUserProfile._id}` : undefined;
 
-    // Create notification for the inviter
-    await ctx.db.insert("notifications", {
-      userId: inviterProfile.userId,
-      type: "invite_accepted",
-      title: "New member joined!",
-      message: `${newUserName} joined ${placeName} using your invite link.`,
-      linkUrl: profileLinkUrl,
-      imageUrl: newUserImageUrl,
-      relatedUserId: userId,
-      createdAt: Date.now(),
-    });
-
+    // Create notification for the inviter (and the email that goes with it)
     const escapedName = escapeHtml(newUserName);
-    await scheduleNotificationEmail(ctx, {
-      userId: inviterProfile.userId,
-      category: "activity",
-      communityId: joinedCommunity?._id,
-      subject: `${newUserName} joined ${placeName} using your invite`,
-      previewText: `${newUserName} joined ${placeName} using your invite link.`,
-      heading: `${newUserName} joined`,
-      body: `<strong>${escapedName}</strong> joined ${escapeHtml(placeName)} using your invite link.`,
-      ...(profileLinkUrl ? { ctaText: "See their profile", ctaUrl: profileLinkUrl } : {}),
-    });
+    await insertNotification(
+      ctx,
+      {
+        userId: inviterProfile.userId,
+        type: "invite_accepted",
+        title: "New member joined!",
+        message: `${newUserName} joined ${placeName} using your invite link.`,
+        linkUrl: profileLinkUrl,
+        imageUrl: newUserImageUrl,
+        relatedUserId: userId,
+      },
+      {
+        email: {
+          category: "activity",
+          communityId: joinedCommunity?._id,
+          subject: `${newUserName} joined ${placeName} using your invite`,
+          previewText: `${newUserName} joined ${placeName} using your invite link.`,
+          heading: `${newUserName} joined`,
+          body: `<strong>${escapedName}</strong> joined ${escapeHtml(placeName)} using your invite link.`,
+          ...(profileLinkUrl ? { ctaText: "See their profile", ctaUrl: profileLinkUrl } : {}),
+        },
+      },
+    );
 
     return true;
   },
@@ -440,7 +418,7 @@ export const redeemBySlug = mutation({
 export const getMyNetwork = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) return null;
 
     const usedInvites = (await ctx.db.query("invites").collect()).filter(
@@ -482,10 +460,7 @@ export const getMyNetwork = query({
     }
 
     async function person(id: Id<"users">) {
-      const profile = await ctx.db
-        .query("profiles")
-        .withIndex("by_userId", (q) => q.eq("userId", id))
-        .first();
+      const profile = await getProfileByUserId(ctx, id);
       if (!profile) return null;
       const imageUrl = await profileImageUrl(ctx, profile);
       return {

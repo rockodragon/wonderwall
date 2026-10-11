@@ -3,7 +3,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { requireAdminCtx, ensureAdminCode } from "./helpers";
+import { requireAdminCtx, ensureAdminCode, getProfileByUserId } from "./helpers";
 import { resolveEntryCommunity } from "./garden/communityDomains";
 import { resolveSenderCommunity } from "./email/senderCommunity";
 import { escapeHtml } from "./email/template";
@@ -169,10 +169,7 @@ export const listForAdmin = query({
     ];
     const approverNames = new Map<Id<"users">, string>();
     for (const id of approverIds) {
-      const profile = await ctx.db
-        .query("profiles")
-        .withIndex("by_userId", (q) => q.eq("userId", id))
-        .first();
+      const profile = await getProfileByUserId(ctx, id);
       if (profile) approverNames.set(id, profile.name);
     }
 
@@ -226,10 +223,7 @@ export const approveEntry = mutation({
       return { alreadyApproved: true, code: undefined };
     }
 
-    const adminProfile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", adminUserId))
-      .first();
+    const adminProfile = await getProfileByUserId(ctx, adminUserId);
     if (!adminProfile) throw new Error("Admin profile not found");
 
     const code = await ensureAdminCode(ctx, adminProfile);

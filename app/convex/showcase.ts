@@ -27,7 +27,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { requireAdminCtx } from "./helpers";
+import { requireAdminCtx, getProfileByUserId } from "./helpers";
 
 /** Applications close at 23:59 Pacific on Thursday 2026-10-22 (=
     2026-10-23T06:59Z; still PDT, UTC-7 — DST ends 2026-11-01). The date is
@@ -274,10 +274,7 @@ export const adminList = query({
     // One profile read per DISTINCT voter, not per vote.
     const voterNames = new Map<string, string>();
     for (const userId of new Set(votes.map((vote) => vote.userId))) {
-      const profile = await ctx.db
-        .query("profiles")
-        .withIndex("by_userId", (q) => q.eq("userId", userId))
-        .first();
+      const profile = await getProfileByUserId(ctx, userId);
       voterNames.set(userId, profile?.name ?? "An admin");
     }
 

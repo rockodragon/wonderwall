@@ -2,8 +2,7 @@ import { v } from "convex/values";
 import { action, mutation, query, internalAction } from "./_generated/server";
 import { internal, api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { auth } from "./auth";
-import { requireAdminCtx } from "./helpers";
+import { requireAdminCtx, requireUserId } from "./helpers";
 
 // ============================================
 // Career Page Detection
@@ -257,8 +256,7 @@ export const scrapeJobsForOrganization = action({
     botProtectionDetected?: boolean;
     error?: string;
   }> => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
     await ctx.runQuery(internal.helpers.requireAdminForAction, { userId });
 
     // Get organization
@@ -380,8 +378,7 @@ export const scrapeJobsBatch = action({
       error?: string;
     }>;
   }> => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
     await ctx.runQuery(internal.helpers.requireAdminForAction, { userId });
 
     const limit = args.limit ?? 10;
