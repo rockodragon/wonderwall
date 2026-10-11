@@ -26,6 +26,16 @@ describe("PersonAvatar looks", () => {
     expect(html).not.toContain("var(--app-text-");
   });
 
+  it("rowXs + gray is the event attendee face: 36px, a readable gray initial, extra classes kept", () => {
+    const html = renderToString(
+      <PersonAvatar name="ada" size="rowXs" tone="gray" className="ring-2 ring-white dark:ring-gray-900" />,
+    );
+    expect(html).toContain("h-9 w-9 text-xs");
+    expect(html).toContain("text-gray-700 dark:text-gray-200");
+    expect(html).toContain("ring-2 ring-white dark:ring-gray-900");
+    expect(html).toContain(">A<");
+  });
+
   it("keeps the 40px md size at a 14px initial", () => {
     expect(renderToString(<PersonAvatar name="Mara" />)).toContain("h-10 w-10 text-sm");
   });

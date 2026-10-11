@@ -98,7 +98,7 @@ export type EventCta =
   | EventEntry;
 
 // ——— Prices ———
-// Shown with formatDollars (convex/eventGuests.ts): "$25", "$12.50", "$1,500".
+// Shown with formatCents (convex/money.ts): "$25", "$12.50", "$1,500".
 
 /** The price on a paid event, in cents, or null for a free one. */
 function paidPriceCents(e: Pick<EventCtaEvent, "accessType" | "priceCents">): number | null {

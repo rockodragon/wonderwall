@@ -110,7 +110,7 @@ export function resolveMoneyLine(project: {
     if (project.budgetType === "volunteer") return "Unpaid";
     if (project.budgetType === "range" && hasLow && hasHigh) {
       // En dash, no second "$" — one span of money, not two numbers.
-      return `Budget ${formatDollars(project.budget!)}–${project.budgetMax!.toLocaleString("en-US")}`;
+      return `Budget ${formatDollars(project.budget!)}–${formatDollars(project.budgetMax!).slice(1)}`;
     }
     if (project.budgetType === "proposals" || !hasLow) return "Open to proposals";
     return `Budget ${formatDollars(project.budget!)}`;

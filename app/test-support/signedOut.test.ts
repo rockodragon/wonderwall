@@ -17,6 +17,6 @@ describe("expectSignedOutRefusal", () => {
   });
 
   it("fails for a plain Error", async () => {
-    await expect(expectSignedOutRefusal(plain)).rejects.toThrow();
+    await expect(expectSignedOutRefusal(plain)).rejects.toThrow(/expected the call to be refused/);
   });
 });

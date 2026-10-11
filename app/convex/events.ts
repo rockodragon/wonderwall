@@ -931,7 +931,7 @@ export const addCoHost = mutation({
     // Co-hosts change the co-host list too; only cancelling stays the
     // organizer's. The organizer is never on the list, so no co-host can
     // take them off it.
-    const { event } = await requireEventHost(ctx, args.eventId);
+    const { event, userId: actorId } = await requireEventHost(ctx, args.eventId);
     const plan = planAddCoHost(event, String(args.userId));
     if (!plan.ok) {
       fail(
@@ -946,8 +946,7 @@ export const addCoHost = mutation({
     const target = await ctx.db.get(args.userId);
     if (!target) fail("not_found", "We couldn't find that person.");
     await saveCoHosts(ctx, args.eventId, plan.coHostIds);
-    const actorId = await currentUserId(ctx);
-    if (actorId) await notifyHostAdded(ctx, event, actorId, args.userId, "cohost");
+    await notifyHostAdded(ctx, event, actorId, args.userId, "cohost");
   },
 });
 

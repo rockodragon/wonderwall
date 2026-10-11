@@ -619,7 +619,7 @@ export const deliverAnnouncementBatch = internalMutation({
       const now = Date.now();
       let notificationId: Id<"notifications"> | undefined;
 
-      // In-app: direct ctx.db.insert (likesDigest.ts shape), not the public
+      // In-app: insertNotification (convex/notify.ts), not the public
       // createNotification mutation, which isn't callable from server code.
       if (recipient.userId) {
         notificationId = await insertNotification(ctx, {

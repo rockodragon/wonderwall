@@ -97,7 +97,7 @@ export function budgetAmountLabel(declaration: BudgetDeclaration): string | null
     case "range":
       // En dash, and no second "$" — "$300–600" reads as one span of money,
       // "$300–$600" reads as two separate numbers.
-      return `${formatDollars(budget!)}–${budgetMax!.toLocaleString("en-US")}`;
+      return `${formatDollars(budget!)}–${formatDollars(budgetMax!).slice(1)}`;
     case "proposals":
       return "Open to proposals";
     case "confidential":
