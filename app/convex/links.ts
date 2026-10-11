@@ -1,18 +1,15 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { auth } from "./auth";
-import { requireOwnProfileRow } from "./helpers";
+import { fail } from "./errors";
+import { currentUserId, getProfileByUserId, requireOwnProfileRow, requireUserId } from "./helpers";
 
 export const getMyLinks = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) return [];
 
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .first();
+    const profile = await getProfileByUserId(ctx, userId);
 
     if (!profile) return [];
 
@@ -31,15 +28,11 @@ export const add = mutation({
     url: v.string(),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .first();
+    const profile = await getProfileByUserId(ctx, userId);
 
-    if (!profile) throw new Error("Profile not found");
+    if (!profile) fail("no_profile", "Finish your profile first.");
 
     // Get current max order
     const links = await ctx.db
@@ -89,12 +82,17 @@ export const reorder = mutation({
     linkIds: v.array(v.id("links")),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
+    const profile = await getProfileByUserId(ctx, userId);
+
+    if (!profile) fail("no_profile", "Finish your profile first.");
+
+    // Only the person's own links, as artifacts.reorder does (this used to
+    // reorder whatever ids it was handed, anyone's).
     for (let i = 0; i < args.linkIds.length; i++) {
       const link = await ctx.db.get(args.linkIds[i]);
-      if (link) {
+      if (link && link.profileId === profile._id) {
         await ctx.db.patch(args.linkIds[i], { order: i });
       }
     }

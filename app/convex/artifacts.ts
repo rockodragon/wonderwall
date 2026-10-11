@@ -2,26 +2,23 @@ import { v } from "convex/values";
 import { action, internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { auth } from "./auth";
+import { fail } from "./errors";
 import { canonicalMediaUrl, schedulePreviewFetch, wantsPreviewFetch } from "./linkPreview";
 import { toEmbedUrl } from "./videoEmbed";
 import { deriveProjectTitle } from "./garden/artifactsMigration";
 import { slugifyTitle, resolveAvailableSlug } from "./garden/stories";
 import { normalizeUrl, isSafeHttpUrl } from "./garden/richText";
 import { parseOgMeta } from "./ogParse";
-import { requireOwnProfileRow } from "./helpers";
+import { currentUserId, getProfileByUserId, requireOwnProfileRow, requireUserId } from "./helpers";
 import { pieceMediaUrl, profileImageUrl } from "./images";
 
 export const getMyArtifacts = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) return [];
 
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .first();
+    const profile = await getProfileByUserId(ctx, userId);
 
     if (!profile) return [];
 
@@ -62,7 +59,7 @@ export const get = query({
       .collect();
 
     // Check if current user liked and if they own this artifact
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     const userLiked = userId ? likes.some((l) => l.userId === userId) : false;
     const isOwner = userId && profile ? profile.userId === userId : false;
 
@@ -88,8 +85,7 @@ export const get = query({
 export const toggleLike = mutation({
   args: { artifactId: v.id("artifacts") },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
     const existing = await ctx.db
       .query("artifactLikes")
@@ -179,20 +175,16 @@ export const create = mutation({
     interests: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .first();
+    const profile = await getProfileByUserId(ctx, userId);
 
-    if (!profile) throw new Error("Profile not found");
+    if (!profile) fail("no_profile", "Finish your profile first.");
 
     // Validate type
     const validTypes = ["text", "image", "video", "audio", "link"];
     if (!validTypes.includes(args.type)) {
-      throw new Error("Invalid artifact type");
+      fail("invalid_input", "That isn't a type of work we can show.");
     }
 
     // Get current max order
@@ -340,15 +332,11 @@ export const reorder = mutation({
     artifactIds: v.array(v.id("artifacts")),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .first();
+    const profile = await getProfileByUserId(ctx, userId);
 
-    if (!profile) throw new Error("Profile not found");
+    if (!profile) fail("no_profile", "Finish your profile first.");
 
     // Update order for each artifact
     for (let i = 0; i < args.artifactIds.length; i++) {
@@ -364,7 +352,7 @@ export const reorder = mutation({
 export const getAllArtifacts = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) return [];
 
     const artifacts = await ctx.db.query("artifacts").collect();
@@ -554,7 +542,7 @@ export const refetchOgImage = mutation({
     const { userId, row: artifact, profile } = await requireOwnProfileRow(ctx, "artifacts", args.artifactId);
 
     if (!artifact.mediaUrl) {
-      throw new Error("Artifact has no URL to fetch og:image from");
+      fail("invalid_input", "This piece has no link to fetch a preview from.");
     }
 
     await schedulePreview(ctx, args.artifactId, artifact.mediaUrl, artifact.type);
