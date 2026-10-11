@@ -2,6 +2,7 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { useRef, useState } from "react";
 import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
+import { PersonAvatar } from "./PersonAvatar";
 
 // Get anonymous ID for analytics
 function getAnonymousId(): string {
@@ -146,17 +147,12 @@ export function CreateWonderingComposer() {
           onClick={() => setIsExpanded(true)}
           className="w-full p-4 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-left"
         >
-          {profile.imageUrl ? (
-            <img
-              src={profile.imageUrl}
-              alt={profile.name}
-              className="w-10 h-10 rounded-full object-cover shrink-0"
-            />
-          ) : (
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-white font-bold shrink-0">
-              {profile.name.charAt(0).toUpperCase()}
-            </div>
-          )}
+          <PersonAvatar
+            name={profile.name}
+            imageUrl={profile.imageUrl}
+            size="mdBase"
+            tone="gray"
+          />
           <span className="text-gray-500 dark:text-gray-400">
             Post to share what you're wondering about
           </span>

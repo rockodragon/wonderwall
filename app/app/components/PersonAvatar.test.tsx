@@ -36,6 +36,15 @@ describe("PersonAvatar looks", () => {
     expect(html).toContain(">A<");
   });
 
+  it("lg + gray is the 56px face of a page set in Tailwind grays (a creator card, the sign-up inviter): 20px initial, readable gray on gray", () => {
+    const html = renderToString(<PersonAvatar name="wen" size="lg" tone="gray" />);
+    expect(html).toContain("h-14 w-14 text-xl");
+    expect(html).toContain("bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200");
+    expect(html).not.toContain("text-white");
+    expect(html).not.toContain("bg-gradient");
+    expect(html).toContain(">W<");
+  });
+
   it("keeps the 40px md size at a 14px initial", () => {
     expect(renderToString(<PersonAvatar name="Mara" />)).toContain("h-10 w-10 text-sm");
   });

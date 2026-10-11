@@ -7,6 +7,7 @@ import { FF_DESK } from "../lib/featureFlags";
 import { FULL_HEIGHT } from "../lib/phoneBar";
 import { exactTime, startsStretch, stretchLabel } from "../lib/messageTime";
 import { errorMessage } from "../lib/convexError";
+import { PersonAvatar } from "../components/PersonAvatar";
 
 // The thread reads as one column, not edge to edge (Rick, 2026-10-01): full
 // width on a phone, then 768px, then 896px on a big screen. Bubbles stop at
@@ -223,17 +224,12 @@ export default function ConversationView() {
             to={`/profile/${conversation.participant.profileId}`}
             className="flex items-center gap-3 flex-1 min-w-0 hover:opacity-80 transition-opacity"
           >
-            {conversation.participant.imageUrl ? (
-              <img
-                src={conversation.participant.imageUrl}
-                alt={conversation.participant.name}
-                className="w-10 h-10 rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-white font-bold">
-                {conversation.participant.name.charAt(0).toUpperCase()}
-              </div>
-            )}
+            <PersonAvatar
+              name={conversation.participant.name}
+              imageUrl={conversation.participant.imageUrl}
+              size="mdBase"
+              tone="strong"
+            />
             <div className="flex-1 min-w-0">
               <h1
                 className="font-semibold truncate"

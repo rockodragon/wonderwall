@@ -133,7 +133,7 @@ const RULES: Rule[] = [
   {
     name: "avatar initial drawn by hand",
     pattern: /charAt\(0\)\.toUpperCase\(\)/g,
-    limit: 17,
+    limit: 9,
     home: "app/components/PersonAvatar.tsx",
     use: "PersonAvatar (people) or OrgLogo (organizations) in app/components",
   },

@@ -18,6 +18,7 @@ import { isCheckoutSessionId } from "../../convex/garden/ticketLink";
 import { useBrand } from "../brand/brands";
 import { GardenLockupThemed } from "../brand/GardenMark";
 import { PersonNameHint } from "../components/PersonNameHint";
+import { PersonAvatar } from "../components/PersonAvatar";
 
 export function meta() {
   return [
@@ -449,17 +450,12 @@ export default function Signup() {
         {inviterInfo && (
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-4 mb-4">
-              {inviterInfo.imageUrl ? (
-                <img
-                  src={inviterInfo.imageUrl}
-                  alt={inviterInfo.name}
-                  className="w-16 h-16 rounded-full object-cover"
-                />
-              ) : (
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-white text-xl font-bold">
-                  {inviterInfo.name.charAt(0).toUpperCase()}
-                </div>
-              )}
+              <PersonAvatar
+                name={inviterInfo.name}
+                imageUrl={inviterInfo.imageUrl}
+                size="lg"
+                tone="gray"
+              />
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-0.5">
                   You're invited by

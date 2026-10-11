@@ -5,6 +5,7 @@ import { api } from "../../convex/_generated/api";
 import confetti from "canvas-confetti";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import { mediaLinkHint } from "../lib/mediaLink";
+import { PersonAvatar } from "./PersonAvatar";
 
 // Same caps as the project-page editor (RichTextEditor.tsx): Convex takes
 // files up to 1GB, but a raw upload streams to every visitor, so video past
@@ -212,17 +213,13 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
           onClick={handleExpand}
           className="w-full p-4 flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors text-left"
         >
-          {profile.imageUrl ? (
-            <img
-              src={profile.imageUrl}
-              alt={profile.name}
-              className="w-11 h-11 rounded-full object-cover ring-2 ring-gray-100 dark:ring-gray-700"
-            />
-          ) : (
-            <div className="w-11 h-11 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-white font-semibold text-lg ring-2 ring-gray-100 dark:ring-gray-700">
-              {profile.name.charAt(0).toUpperCase()}
-            </div>
-          )}
+          <PersonAvatar
+            name={profile.name}
+            imageUrl={profile.imageUrl}
+            size="mdBase"
+            tone="gray"
+            className="ring-2 ring-gray-100 dark:ring-gray-700"
+          />
           <div className="flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-700 rounded-full text-gray-500 dark:text-gray-400 text-sm">
             Share something you've made...
           </div>
@@ -233,17 +230,12 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              {profile.imageUrl ? (
-                <img
-                  src={profile.imageUrl}
-                  alt={profile.name}
-                  className="w-10 h-10 rounded-full object-cover"
-                />
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-white font-semibold">
-                  {profile.name.charAt(0).toUpperCase()}
-                </div>
-              )}
+              <PersonAvatar
+                name={profile.name}
+                imageUrl={profile.imageUrl}
+                size="mdBase"
+                tone="gray"
+              />
               <div>
                 <p className="font-medium text-gray-900 dark:text-white text-sm">
                   {profile.name}
