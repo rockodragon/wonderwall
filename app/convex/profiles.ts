@@ -1,7 +1,7 @@
 import { v, ConvexError } from "convex/values";
 import { internalAction, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { api, internal } from "./_generated/api";
-import { currentUserId, getProfileByUserId, requireUserId } from "./helpers";
+import { currentUserId, getProfileByUserId, requireProfile, requireUserId } from "./helpers";
 import type { Doc } from "./_generated/dataModel";
 import { normalizeHandle, PAYOUT_KINDS, type PayoutHandles } from "./garden/gigRules";
 import { fillOrgWebsite, linkOrgByName, profileOrganizations, unlinkPrimaryOrg } from "./organizations";
@@ -576,8 +576,7 @@ export const setOrgName = mutation({
   args: { orgName: v.optional(v.string()), orgUrl: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
-    const profile = await getProfileByUserId(ctx, userId);
-    if (!profile) throw new ConvexError({ code: "no_profile", reason: "Finish your profile first." });
+    const profile = await requireProfile(ctx, userId);
     const orgName = (args.orgName ?? "").trim();
     if (orgName.length > 80) {
       throw new ConvexError({ code: "too_long", reason: "Keep the organization under 80 characters." });
@@ -627,8 +626,7 @@ export const setPayoutHandles = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
-    const profile = await getProfileByUserId(ctx, userId);
-    if (!profile) throw new ConvexError({ code: "no_profile", reason: "Finish your profile first." });
+    const profile = await requireProfile(ctx, userId);
 
     const handles: PayoutHandles = {};
     for (const kind of PAYOUT_KINDS) {

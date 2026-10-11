@@ -198,8 +198,11 @@ describe("notification writes keep their rows", () => {
     );
     const runAfter = vi.spyOn(ctx.scheduler, "runAfter");
     vi.spyOn(Date, "now").mockReturnValue(10_000);
-    await run(sendLikesDigest, ctx);
-    vi.restoreAllMocks();
+    try {
+      await run(sendLikesDigest, ctx);
+    } finally {
+      vi.restoreAllMocks();
+    }
 
     expect(ctx.store.notifications).toEqual([
       expect.objectContaining({

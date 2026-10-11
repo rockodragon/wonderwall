@@ -20,7 +20,7 @@ import {
   slugifyOrgName,
   sortPositions,
 } from "./organizationRules";
-import { currentUserId, getProfileByUserId, isAdminProfile, requireUserId } from "./helpers";
+import { currentUserId, getProfileByUserId, isAdminProfile, requireProfile, requireUserId } from "./helpers";
 import { insertNotification } from "./notify";
 import { fail } from "./errors";
 
@@ -28,8 +28,7 @@ type Ctx = QueryCtx | MutationCtx;
 
 async function requireMe(ctx: MutationCtx) {
   const userId = await requireUserId(ctx);
-  const profile = await getProfileByUserId(ctx, userId);
-  if (!profile) fail("no_profile", "Finish your profile first.");
+  const profile = await requireProfile(ctx, userId);
   return { userId, profile };
 }
 

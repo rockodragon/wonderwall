@@ -72,6 +72,13 @@ const RULES: Rule[] = [
     use: "insertNotification in convex/notify.ts (its `email` option sends the email too)",
   },
   {
+    name: "own profile required by hand (one place)",
+    pattern: /"no_profile"/g,
+    limit: 0,
+    home: "convex/helpers.ts",
+    use: "requireProfile(ctx, userId) in convex/helpers.ts",
+  },
+  {
     name: "storage.getUrl outside images.ts",
     pattern: /storage\.getUrl\(/g,
     limit: 15,

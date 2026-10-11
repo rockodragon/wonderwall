@@ -14,7 +14,7 @@ import { internalMutation, mutation, query } from "../_generated/server";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { displayNameOf, getProfileByUserId, isOwnerOrAdmin } from "../helpers";
+import { displayNameOf, getProfileByUserId, isOwnerOrAdmin, requireProfile } from "../helpers";
 import { assertNotBlocked } from "../blocks";
 import { notifyFollowers } from "../follows";
 import { insertNotification } from "../notify";
@@ -1029,8 +1029,7 @@ export const respondAvailable = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
-    const profile = await getProfileByUserId(ctx, userId);
-    if (!profile) throw new ConvexError({ code: "no_profile", reason: "Finish your profile first." });
+    const profile = await requireProfile(ctx, userId);
     const series = await requireSeries(ctx, args.seriesId);
     if (series.hostUserId === userId) {
       throw new ConvexError({ code: "forbidden", reason: "You posted this gig." });

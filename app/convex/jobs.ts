@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { escapeHtml } from "./email/template";
 import { mutation, query } from "./_generated/server";
 import { fail } from "./errors";
-import { currentUserId, getProfileByUserId, requireUserId } from "./helpers";
+import { currentUserId, getProfileByUserId, requireProfile, requireUserId } from "./helpers";
 import { pieceMediaUrl, profileImageUrl } from "./images";
 import { insertNotification } from "./notify";
 
@@ -364,9 +364,7 @@ export const createJob = mutation({
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
 
-    const profile = await getProfileByUserId(ctx, userId);
-
-    if (!profile) fail("no_profile", "Finish your profile first.");
+    const profile = await requireProfile(ctx, userId);
 
     assertJobFields(args);
 
@@ -530,9 +528,7 @@ export const expressInterest = mutation({
     const userId = await requireUserId(ctx);
 
     // Get user's profile
-    const profile = await getProfileByUserId(ctx, userId);
-
-    if (!profile) fail("no_profile", "Finish your profile first.");
+    const profile = await requireProfile(ctx, userId);
 
     // Get the job and validate it's available
     const job = await ctx.db.get(args.jobId);

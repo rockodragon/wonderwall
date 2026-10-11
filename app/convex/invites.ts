@@ -1,7 +1,7 @@
 import { v } from "convex/values";
-import { internalMutation, mutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { currentUserId, requireUserId, getProfileByUserId } from "./helpers";
+import { currentUserId, getProfileByUserId, requireProfile, requireUserId } from "./helpers";
 import { fail } from "./errors";
 import { insertNotification } from "./notify";
 import { escapeHtml } from "./email/template";
@@ -202,9 +202,7 @@ export const generateInviteSlug = mutation({
   handler: async (ctx) => {
     const userId = await requireUserId(ctx);
 
-    const profile = await getProfileByUserId(ctx, userId);
-
-    if (!profile) fail("no_profile", "Finish your profile first.");
+    const profile = await requireProfile(ctx, userId);
     if (profile.inviteSlug) return profile.inviteSlug; // Already has one
 
     // Short, shareable code (6 chars, no look-alikes — see inviteCode.ts).
@@ -276,8 +274,9 @@ export const getInviterInfo = query({
   },
 });
 
-// Debug: Check profile's unlimited status
-export const debugUnlimitedStatus = query({
+// Debug: Check profile's unlimited status. Operator-only (internal): it
+// looks people up by email.
+export const debugUnlimitedStatus = internalQuery({
   args: { email: v.string() },
   handler: async (ctx, args) => {
     const allUsers = await ctx.db.query("users").collect();

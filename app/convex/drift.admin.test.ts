@@ -186,7 +186,7 @@ describe("profile lookups through getProfileByUserId keep their answers", () => 
     expect(row.approvedByName).toBe("Ada");
   });
 
-  it("approveEntry: a missing entry is still the plain Error (waitlist.ts isn't in the error migration)", async () => {
+  it("approveEntry: a missing entry is still the plain Error (only the follow-up lookup moved to fail())", async () => {
     const ctx = makeCtx(
       { profiles: [{ _id: "profiles:admin", userId: ADMIN, name: "Ada", isAdmin: true }] },
       ADMIN,
@@ -260,6 +260,9 @@ describe("redeemBySlug: the invite-accepted notification", () => {
       ctaUrl: "/profile/profiles:me",
     });
     expect(email.body).toContain("<strong>Newcomer &lt;b&gt;</strong> joined");
+    expect(email.subject).toBe("Newcomer <b> joined The Garden using your invite");
+    expect(email.previewText).toBe("Newcomer <b> joined The Garden using your invite link.");
+    expect(email.communityId).toBe("hostOrgs:garden");
   });
 });
 
@@ -271,5 +274,15 @@ describe("waitlist follow-up", () => {
       code: "not_found",
       reason: "We couldn't find that email on the waitlist.",
     });
+  });
+});
+
+describe("invites.debugUnlimitedStatus", () => {
+  // A public query anyone could call that looked people up by email and
+  // returned their ids and invite counts. Nothing calls it from a page.
+  it("is operator-only (internal), not public", async () => {
+    const { debugUnlimitedStatus } = await import("./invites");
+    expect((debugUnlimitedStatus as unknown as { isInternal?: boolean }).isInternal).toBe(true);
+    expect((debugUnlimitedStatus as unknown as { isPublic?: boolean }).isPublic).toBeFalsy();
   });
 });

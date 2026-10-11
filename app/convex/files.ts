@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { fail } from "./errors";
 import { requireEventHost } from "./eventHosts";
-import { getProfileByUserId, requireOwnProfileRow, requireOwner, requireUserId } from "./helpers";
+import { requireOwner, requireOwnProfileRow, requireProfile, requireUserId } from "./helpers";
 
 // Generate an upload URL for the client to upload a file directly to Convex
 export const generateUploadUrl = mutation({
@@ -22,9 +22,7 @@ export const saveProfileImage = mutation({
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
 
-    const profile = await getProfileByUserId(ctx, userId);
-
-    if (!profile) fail("no_profile", "Finish your profile first.");
+    const profile = await requireProfile(ctx, userId);
 
     // Delete old image if exists
     if (profile.imageStorageId) {
@@ -58,9 +56,7 @@ export const deleteProfileImage = mutation({
   handler: async (ctx) => {
     const userId = await requireUserId(ctx);
 
-    const profile = await getProfileByUserId(ctx, userId);
-
-    if (!profile) fail("no_profile", "Finish your profile first.");
+    const profile = await requireProfile(ctx, userId);
 
     if (profile.imageStorageId) {
       await ctx.storage.delete(profile.imageStorageId);
@@ -84,9 +80,7 @@ export const saveProfileImageUrl = mutation({
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
 
-    const profile = await getProfileByUserId(ctx, userId);
-
-    if (!profile) fail("no_profile", "Finish your profile first.");
+    const profile = await requireProfile(ctx, userId);
 
     // Delete old storage image if exists
     if (profile.imageStorageId) {

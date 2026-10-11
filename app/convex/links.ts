@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { fail } from "./errors";
-import { currentUserId, getProfileByUserId, requireOwnProfileRow, requireUserId } from "./helpers";
+import { currentUserId, getProfileByUserId, requireOwnProfileRow, requireProfile, requireUserId } from "./helpers";
 
 export const getMyLinks = query({
   args: {},
@@ -30,9 +29,7 @@ export const add = mutation({
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
 
-    const profile = await getProfileByUserId(ctx, userId);
-
-    if (!profile) fail("no_profile", "Finish your profile first.");
+    const profile = await requireProfile(ctx, userId);
 
     // Get current max order
     const links = await ctx.db
@@ -84,9 +81,7 @@ export const reorder = mutation({
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
 
-    const profile = await getProfileByUserId(ctx, userId);
-
-    if (!profile) fail("no_profile", "Finish your profile first.");
+    const profile = await requireProfile(ctx, userId);
 
     // Only the person's own links, as artifacts.reorder does (this used to
     // reorder whatever ids it was handed, anyone's).

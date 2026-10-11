@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
 import { fail } from "./errors";
-import { currentUserId, getProfileByUserId, requireOwnProfileRow, requireUserId } from "./helpers";
+import { currentUserId, getProfileByUserId, requireOwnProfileRow, requireProfile, requireUserId } from "./helpers";
 import { profileImageUrl } from "./images";
 
 const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
@@ -46,9 +46,7 @@ export const create = mutation({
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
 
-    const profile = await getProfileByUserId(ctx, userId);
-
-    if (!profile) fail("no_profile", "Finish your profile first.");
+    const profile = await requireProfile(ctx, userId);
 
     // Check for existing active wondering (free plan limit)
     const existing = await ctx.db

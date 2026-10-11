@@ -9,7 +9,7 @@ import { deriveProjectTitle } from "./garden/artifactsMigration";
 import { slugifyTitle, resolveAvailableSlug } from "./garden/stories";
 import { normalizeUrl, isSafeHttpUrl } from "./garden/richText";
 import { parseOgMeta } from "./ogParse";
-import { currentUserId, getProfileByUserId, requireOwnProfileRow, requireUserId } from "./helpers";
+import { currentUserId, getProfileByUserId, requireOwnProfileRow, requireProfile, requireUserId } from "./helpers";
 import { pieceMediaUrl, profileImageUrl } from "./images";
 
 export const getMyArtifacts = query({
@@ -177,9 +177,7 @@ export const create = mutation({
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
 
-    const profile = await getProfileByUserId(ctx, userId);
-
-    if (!profile) fail("no_profile", "Finish your profile first.");
+    const profile = await requireProfile(ctx, userId);
 
     // Validate type
     const validTypes = ["text", "image", "video", "audio", "link"];
@@ -334,9 +332,7 @@ export const reorder = mutation({
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
 
-    const profile = await getProfileByUserId(ctx, userId);
-
-    if (!profile) fail("no_profile", "Finish your profile first.");
+    const profile = await requireProfile(ctx, userId);
 
     // Update order for each artifact
     for (let i = 0; i < args.artifactIds.length; i++) {

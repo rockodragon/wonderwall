@@ -16,6 +16,7 @@ import {
   requireOperator,
   requireOwnProfileRow,
   requireOwner,
+  requireProfile,
   requireUserId,
 } from "./helpers";
 
@@ -185,5 +186,16 @@ describe("requireOwnProfileRow", () => {
     expect((await thrown(requireOwnProfileRow(makeCtx(rows(), OTHER), "links", "links:l1" as any))).data.code).toBe(
       "forbidden",
     );
+  });
+});
+
+describe("requireProfile", () => {
+  it("hands back the person's profile", async () => {
+    expect((await requireProfile(makeCtx(world(), null), MEMBER as any))._id).toBe("profiles:member");
+  });
+
+  it("refuses someone with no profile yet, readably", async () => {
+    const err = await thrown(requireProfile(makeCtx(world(), null), "users:ghost" as any));
+    expect(err.data).toEqual({ code: "no_profile", reason: "Finish your profile first." });
   });
 });

@@ -45,6 +45,17 @@ export async function getProfileByUserId(
     .first();
 }
 
+/** The signed-in person's own profile, for a change that needs one. No
+ * profile yet is refused with `no_profile` ("Finish your profile first."). */
+export async function requireProfile(
+  ctx: Pick<QueryCtx, "db">,
+  userId: Id<"users">,
+): Promise<Doc<"profiles">> {
+  const profile = await getProfileByUserId(ctx, userId);
+  if (!profile) fail("no_profile", "Finish your profile first.");
+  return profile;
+}
+
 /** A person's name for a line about them ("Ada joined …"), or `fallback`
  * when they have no profile or a blank name. */
 export async function displayNameOf(
