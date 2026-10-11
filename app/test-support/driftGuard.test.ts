@@ -113,9 +113,8 @@ const RULES: Rule[] = [
     pattern:
       /minimumFractionDigits|style:\s*"currency"|\$\$\{[^}`]*toLocaleString|^[^`\n]*\$\{[^}`\n]*toLocaleString|\/ 100\)\.(?:toLocaleString|toFixed)/gm,
     // Left on purpose: fixed whole-dollar caps in error reasons (stripe, stripeHandlers,
-    // grantProposals), the two-decimal email/notice builders (memberships, gigs), the Tables
-    // currency format, form-field and log values, and the demo pages.
-    limit: 20,
+    // grantProposals), form-field and log values, and the demo pages.
+    limit: 10,
     home: "convex/money.ts",
     use: "formatCents / formatDollars in convex/money.ts (formatMoney in app/garden/ui.tsx is the same one)",
   },

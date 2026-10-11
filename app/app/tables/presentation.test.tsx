@@ -62,11 +62,16 @@ describe("Table card public projection", () => {
 describe("independent membership and enrollment price", () => {
   it.each([
     [{}, "Free"],
-    [{ priceCents: 2500 }, "$25.00 one time"],
+    [{ priceCents: 2500 }, "$25 one time"],
+    [{ priceCents: 2550 }, "$25.50 one time"],
     [{ membershipRequired: true }, "Included with membership"],
     [
       { membershipRequired: true, priceCents: 2500 },
-      "Membership + $25.00 one time",
+      "Membership + $25 one time",
+    ],
+    [
+      { membershipRequired: true, priceCents: 2550 },
+      "Membership + $25.50 one time",
     ],
   ])("renders policy %j", (policy, expected) =>
     expect(tablePrice(policy)).toBe(expected),

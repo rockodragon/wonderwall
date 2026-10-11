@@ -18,6 +18,7 @@ import { currentUserId, displayNameOf, getProfileByUserId } from "../helpers";
 import { internal } from "../_generated/api";
 import { insertNotification } from "../notify";
 import { escapeHtml } from "../email/template";
+import { formatCents } from "../money";
 import {
   handleStripeEvent,
   type ClassPaymentDb,
@@ -52,15 +53,12 @@ export function buildClassPurchasedEmail(input: {
 }): { subject: string; previewText: string; heading: string; body: string; ctaText: string; ctaUrl: string } {
   const name = escapeHtml(input.buyerName);
   const title = escapeHtml(input.classTitle);
-  const amount = (input.amountCents / 100).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  const amount = formatCents(input.amountCents);
   return {
     subject: `${input.buyerName} signed up for ${input.classTitle}`,
-    previewText: `${input.buyerName} signed up for ${input.classTitle} — $${amount}.`,
+    previewText: `${input.buyerName} signed up for ${input.classTitle} — ${amount}.`,
     heading: `${input.buyerName} signed up for ${input.classTitle}`,
-    body: `<strong>${name}</strong> signed up for <strong>${title}</strong> and paid $${amount}.`,
+    body: `<strong>${name}</strong> signed up for <strong>${title}</strong> and paid ${amount}.`,
     ctaText: "See the class",
     ctaUrl: input.linkUrl,
   };
@@ -422,10 +420,7 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
       if (args.backerUserId && String(args.backerUserId) === String(project.userId)) return;
 
       const displayName = args.visible ? args.supporterName : "Someone";
-      const amount = (args.amountCents / 100).toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
+      const amount = formatCents(args.amountCents);
       const monthlyWord = args.recurring ? " a month" : "";
       const linkUrl = project.storySlug ? `/story/${project.storySlug}` : `/projects/${project._id}`;
 
@@ -433,7 +428,7 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
         userId: project.userId,
         type: "backing_received",
         title: `${displayName} backed ${project.title}`,
-        message: `$${amount}${monthlyWord}`,
+        message: `${amount}${monthlyWord}`,
         linkUrl,
         // Named only when they chose to be: a hidden backer's account isn't
         // attached either, or the inbox and the canvas would show their face.
@@ -491,10 +486,7 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
             userId: row.payeeUserId as Id<"users">,
             type: "class_purchased",
             title: `${buyerName} signed up for ${classTitle}`,
-            message: `$${(row.grossCents / 100).toLocaleString("en-US", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}`,
+            message: formatCents(row.grossCents),
             linkUrl,
             relatedUserId: row.buyerUserId as Id<"users">,
           },

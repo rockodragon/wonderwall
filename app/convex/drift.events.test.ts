@@ -407,7 +407,11 @@ describe("two profiles no longer break a call (garden/tables.ts)", () => {
 });
 
 describe("two profiles no longer break a call (class payments, garden/memberships.ts)", () => {
-  it("a paid class: the teacher is told under the first profile's name, and the sign-up carries it", async () => {
+  // Whole dollars read bare, cents only when there are some (convex/money.ts).
+  it.each([
+    [5000, "$50"],
+    [5050, "$50.50"],
+  ])("a paid class (%i cents): the teacher is told under the first profile's name, and the sign-up carries it", async (amountCents, shown) => {
     const TEACHER = "users:teacher";
     const { ctx, scheduled } = withExtras(
       makeCtx(
@@ -432,7 +436,7 @@ describe("two profiles no longer break a call (class payments, garden/membership
             mode: "payment",
             payment_status: "paid",
             created: Math.floor(Date.now() / 1000),
-            metadata: { kind: "class", offeringId: "offerings:draw", userId: SAM, amountCents: "5000" },
+            metadata: { kind: "class", offeringId: "offerings:draw", userId: SAM, amountCents: String(amountCents) },
           },
         },
       },
@@ -442,7 +446,7 @@ describe("two profiles no longer break a call (class payments, garden/membership
         userId: TEACHER,
         type: "class_purchased",
         title: "Sam signed up for Life Drawing",
-        message: "$50.00",
+        message: shown,
         linkUrl: "/offerings/offerings:draw",
         relatedUserId: SAM,
         createdAt: expect.any(Number),
@@ -452,6 +456,55 @@ describe("two profiles no longer break a call (class payments, garden/membership
       expect.objectContaining({ to: "teacher@example.com", category: "activity", recipientUserId: TEACHER }),
     ]);
     expect(ctx.store.offeringSignups).toEqual([expect.objectContaining({ userId: SAM, name: "Sam", status: "confirmed" })]);
+  });
+});
+
+describe("money in a backing notice (garden/memberships.ts)", () => {
+  // Whole dollars read bare, cents only when there are some (convex/money.ts).
+  it.each([
+    ["payment", 2500, "$25"],
+    ["payment", 2550, "$25.50"],
+    ["subscription", 2500, "$25 a month"],
+    ["subscription", 2550, "$25.50 a month"],
+  ])("a backing (%s, %i cents): the project's lead is told the amount", async (mode, amountCents, shown) => {
+    const LEAD = "users:lead";
+    const { ctx } = withExtras(
+      makeCtx(
+        {
+          users: [person(LEAD, "Lead"), person(SAM, "Sam")],
+          profiles: [{ _id: "profiles:lead", userId: LEAD, name: "Lead" }, ...twoProfiles(SAM, "Sam")],
+          projects: [{ _id: "projects:song", userId: LEAD, title: "A Song", raisedCents: 0 }],
+          projectSupport: [],
+          backingPayments: [],
+          notifications: [],
+        },
+        null,
+      ),
+    );
+    await run(applyStripeEvent, ctx, {
+      event: {
+        type: "checkout.session.completed",
+        data: {
+          object: {
+            id: `cs_test_backing_${mode}_${amountCents}`,
+            mode,
+            payment_status: "paid",
+            created: Math.floor(Date.now() / 1000),
+            metadata: {
+              kind: "backing",
+              projectId: "projects:song",
+              userId: SAM,
+              supporterName: "Sam",
+              visible: "true",
+              amountCents: String(amountCents),
+            },
+          },
+        },
+      },
+    });
+    expect(ctx.store.notifications).toEqual([
+      expect.objectContaining({ userId: LEAD, type: "backing_received", title: "Sam backed A Song", message: shown }),
+    ]);
   });
 });
 

@@ -225,13 +225,13 @@ describe("Table detail server projection", () => {
 });
 
 describe("participation CTA follows the server action", () => {
-  const actionHtml = (action: string, reason?: string) =>
+  const actionHtml = (action: string, reason?: string, priceCents = 6000) =>
     renderToStaticMarkup(
       <MemoryRouter>
         <ParticipationState
           action={action}
           reason={reason}
-          priceCents={6000}
+          priceCents={priceCents}
           slug="table"
           pending={false}
           onJoin={() => {}}
@@ -242,13 +242,18 @@ describe("participation CTA follows the server action", () => {
   it.each([
     ["join", "Pull Up a Chair"],
     ["request", "Ask for a chair"],
-    ["checkout", "Pull Up a Chair · $60.00"],
+    ["checkout", "Pull Up a Chair · $60</button>"],
     ["joined", "You have a chair"],
     ["full", "This Table is full"],
     ["membership_required", "Membership in this Table"],
   ])("renders %s", (action, expected) =>
     expect(actionHtml(action)).toContain(expected),
   );
+  it("the checkout price shows cents only when there are some", () => {
+    expect(actionHtml("checkout", undefined, 6050)).toContain(
+      "Pull Up a Chair · $60.50</button>",
+    );
+  });
   it("closed/full/unavailable states do not offer invented waitlists", () => {
     for (const action of ["full", "closed", "unavailable"]) {
       expect(actionHtml(action)).not.toContain("<button");

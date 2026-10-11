@@ -14,6 +14,7 @@ import { BackLink } from "../components/BackLink";
 import "../tables/tables.css";
 import { FF_TABLES, useFeatureGate } from "../lib/featureFlags";
 import { errorMessage } from "../lib/convexError";
+import { formatCents } from "../../convex/money";
 
 export function meta() {
   return [{ title: "Table — Creative Exchange" }];
@@ -48,10 +49,7 @@ export function ParticipationState({
   onJoin: () => void;
   onCheckout: () => void;
 }) {
-  const price = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format((priceCents ?? 0) / 100);
+  const price = formatCents(priceCents ?? 0);
   if (action === "sign_in")
     return (
       <Link

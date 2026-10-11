@@ -222,15 +222,12 @@ export function buildPaidEmail(input: {
   const venue = escapeHtml(input.venueName);
   const title = escapeHtml(input.gigTitle);
   const method = escapeHtml(input.method);
-  const amount = (input.amountCents / 100).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  const amount = formatCents(input.amountCents);
   return {
     subject: `${input.venueName} marked ${input.gigTitle} on ${input.dateLabel} as paid`,
-    previewText: `$${amount} via ${input.method}. Confirm it once it lands.`,
+    previewText: `${amount} via ${input.method}. Confirm it once it lands.`,
     heading: "Marked as paid",
-    body: `<strong>${venue}</strong> marked <strong>${title}</strong> on ${input.dateLabel} as paid: $${amount} via ${method}. Confirm it once it lands.`,
+    body: `<strong>${venue}</strong> marked <strong>${title}</strong> on ${input.dateLabel} as paid: ${amount} via ${method}. Confirm it once it lands.`,
     ctaText: "Confirm payment",
     ctaUrl: input.linkUrl,
   };
