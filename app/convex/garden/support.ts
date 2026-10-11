@@ -26,7 +26,7 @@ import { mutation, query, internalMutation } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError } from "convex/values";
-import { requireOperator } from "../helpers";
+import { getProfileByUserId, requireOperator } from "../helpers";
 import { guestBackingThrottled } from "./stripeHandlers";
 import { isHidden } from "../moderationRules";
 import { emailFirstCheer, isFirstCheerReceived } from "../engagement/firstCheer";
@@ -126,10 +126,7 @@ export const supportProject = mutation({
       throw new ConvexError({ code: "missing_message", reason: "Write a word of encouragement." });
     }
 
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
+    const profile = await getProfileByUserId(ctx, userId);
 
     const supportId = await ctx.db.insert("projectSupport", {
       projectId: args.projectId,
@@ -226,10 +223,7 @@ export const startBacking = internalMutation({
     let supporterName: string;
     if (args.userId) {
       const userId = args.userId;
-      const profile = await ctx.db
-        .query("profiles")
-        .withIndex("by_userId", (q) => q.eq("userId", userId))
-        .unique();
+      const profile = await getProfileByUserId(ctx, userId);
       supporterName = profile?.name ?? "Someone";
     } else {
       const hourAgo = Date.now() - 60 * 60 * 1000;

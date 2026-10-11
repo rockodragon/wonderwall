@@ -16,7 +16,7 @@ import { ConvexError } from "convex/values";
 import Stripe from "stripe";
 import { action, internalAction } from "../_generated/server";
 import { api, internal } from "../_generated/api";
-import { auth } from "../auth";
+import { currentUserId } from "../helpers";
 import { routeTicketMoney } from "./ticketRouting";
 import { COMMUNITY_KIND, isActiveCommunityOrg } from "./communityLookup";
 // Pure money logic lives in the dependency-free handler file so the checkout
@@ -64,7 +64,7 @@ export const createMembershipCheckout = action({
     communityId: v.optional(v.id("hostOrgs")),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) {
       throw new ConvexError("Sign in to become a member.");
     }
@@ -201,7 +201,7 @@ export const createTicketCheckout = action({
       throw new ConvexError("This event is sold out.");
     }
 
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     const identity = await ctx.auth.getUserIdentity();
 
     const stripe = getStripeClient();
@@ -306,7 +306,7 @@ export const createCoverageCheckout = action({
     sponsorName: v.string(),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) {
       throw new ConvexError({ reason: "Sign in to cover seats." });
     }
@@ -406,7 +406,7 @@ export const getCoverageBySession = action({
     | { status: "ready"; code: string; seats: number; orgName: string | null }
     | { status: "pending" }
   > => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) throw new ConvexError("Sign in to see your code.");
 
     const stripe = getStripeClient();
@@ -498,7 +498,7 @@ export const createPoolContributionCheckout = action({
       });
     }
 
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     const identity = await ctx.auth.getUserIdentity();
 
     const stripe = getStripeClient();
@@ -595,7 +595,7 @@ export const createBackingCheckout = action({
     memberGiftId: v.optional(v.id("memberGifts")),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
 
     let guestName: string | undefined;
     if (!userId) {
@@ -777,7 +777,7 @@ export const createProductCheckout = action({
       throw new ConvexError("This community isn't set up to sell right now.");
     }
 
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (product.billing === "monthly" && !userId) {
       throw new ConvexError("Sign in to subscribe — we tie a subscription to your account.");
     }
@@ -879,7 +879,7 @@ export const createClassCheckout = action({
     offeringId: v.id("offerings"),
   },
   handler: async (ctx, args): Promise<{ url: string }> => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) {
       throw new ConvexError({
         code: "unauthenticated",
@@ -977,7 +977,7 @@ export const createClassCheckout = action({
 export const createTableCheckout = action({
   args: { tableId: v.id("gardenTables") },
   handler: async (ctx, args): Promise<{ url: string }> => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) throw new ConvexError("Sign in to join this Table.");
     const stripe = getStripeClient();
     const started = await ctx.runMutation(
@@ -1072,7 +1072,7 @@ export const refundTablePayment = action({
     ctx,
     args,
   ): Promise<{ status: "refunded"; refundId?: string }> => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId)
       throw new ConvexError("Sign in as an operator to refund a payment.");
     const terms = await ctx.runQuery(
@@ -1123,7 +1123,7 @@ export const refundTablePayment = action({
 export const createBillingPortalSession = action({
   args: {},
   handler: async (ctx) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) {
       throw new ConvexError("Sign in to manage billing.");
     }
@@ -1229,7 +1229,7 @@ export const createGiftCheckout = action({
     memberGiftId: v.optional(v.id("memberGifts")),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) throw new ConvexError({ reason: "Sign in to back someone." });
 
     const invalid = validateBackingAmount(args.amountCents);

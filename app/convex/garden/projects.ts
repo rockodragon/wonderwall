@@ -29,7 +29,8 @@ import { trackEvent } from "../posthog";
 // project is (docs/features/creator-media-cross-post.md, Round 2) — is
 // checked and stored the way artifacts and events store one.
 import { canonicalMediaUrl, schedulePreviewFetch } from "../linkPreview";
-import { isAdmin, requireOwner } from "../helpers";
+import { displayNameOf, getProfileByUserId, isAdmin, requireOwner } from "../helpers";
+import { insertNotification } from "../notify";
 import { isHidden, isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
 import { communityVisibility, isHiddenCommunityId } from "./communityVisibility";
 import { pieceMediaUrl, profileImageUrl, projectPhotoUrl } from "../images";
@@ -49,11 +50,7 @@ async function notifyFollowersOfProject(
   // Posted into a hidden (test) community: followers would be told about a
   // project they can't open.
   if (await isHiddenCommunityId(ctx, hostOrgId)) return;
-  const profile = await ctx.db
-    .query("profiles")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .first();
-  const name = profile?.name || "Someone";
+  const name = await displayNameOf(ctx, userId);
   await notifyFollowers(ctx, userId, {
     type: "followed_posted_project",
     title: `${name} posted ${title}`,
@@ -402,7 +399,7 @@ export const setStage = mutation({
       const title = `${project.title} is now ${stageLabel(args.stage)}`;
       for (const member of members) {
         if (!member.userId || member.userId === userId) continue;
-        await ctx.db.insert("notifications", {
+        await insertNotification(ctx, {
           userId: member.userId,
           type: "project_stage_changed",
           title,
@@ -477,10 +474,7 @@ export const listProjects = query({
     const withDetails = await Promise.all(
       projects.map(async (project) => {
         const [user, media, support, gig] = await Promise.all([
-          ctx.db
-            .query("profiles")
-            .withIndex("by_userId", (q) => q.eq("userId", project.userId))
-            .unique(),
+          getProfileByUserId(ctx, project.userId),
           ctx.db
             .query("artifacts")
             .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
@@ -564,10 +558,7 @@ export const getProject = query({
     }
 
     const [user, media, support, communityOrg, gig] = await Promise.all([
-      ctx.db
-        .query("profiles")
-        .withIndex("by_userId", (q) => q.eq("userId", project.userId))
-        .unique(),
+      getProfileByUserId(ctx, project.userId),
       ctx.db
         .query("artifacts")
         .withIndex("by_projectId", (q) => q.eq("projectId", project._id))

@@ -18,10 +18,10 @@ import { mutation, query } from "../_generated/server";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { requireOperator } from "../helpers";
+import { getProfileByUserId, requireOperator } from "../helpers";
 import { can } from "./capabilities";
 import { assertCanPure, getGardenUser } from "./entitlements";
-import { scheduleNotificationEmail } from "../emailHelpers";
+import { insertNotification } from "../notify";
 import { escapeHtml } from "../email/template";
 import { isHidden } from "../moderationRules";
 
@@ -175,13 +175,6 @@ async function requireUser(ctx: Ctx): Promise<Id<"users">> {
   const userId = await getAuthUserId(ctx);
   if (!userId) throw new ConvexError({ code: "unauthenticated" });
   return userId;
-}
-
-async function getProfile(ctx: Ctx, userId: Id<"users">): Promise<Doc<"profiles"> | null> {
-  return ctx.db
-    .query("profiles")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .unique();
 }
 
 function fundLink(slug: string): string {
@@ -356,28 +349,32 @@ export const decideProposal = mutation({
 
     const hostOrg = await ctx.db.get(row.hostOrgId);
     const linkUrl = hostOrg ? fundLink(hostOrg.slug) : undefined;
-    await ctx.db.insert("notifications", {
-      userId: row.userId,
-      type: proposalNotificationType(args.approve),
-      title: args.approve ? "Your grant proposal was approved" : "Your grant proposal wasn't approved",
-      message: row.title,
-      linkUrl,
-      relatedUserId: actorId,
-      projectId: row.projectId,
-      createdAt: now,
-    });
-    await scheduleNotificationEmail(ctx, {
-      userId: row.userId,
-      category: "activity",
-      // A fund that isn't a community is ignored when the sender is chosen.
-      communityId: row.hostOrgId,
-      ...buildProposalDecidedEmail({
-        title: row.title,
-        approved: args.approve,
-        operatorNote: args.operatorNote,
-        linkUrl: linkUrl ?? "/",
-      }),
-    });
+    await insertNotification(
+      ctx,
+      {
+        userId: row.userId,
+        type: proposalNotificationType(args.approve),
+        title: args.approve ? "Your grant proposal was approved" : "Your grant proposal wasn't approved",
+        message: row.title,
+        linkUrl,
+        relatedUserId: actorId,
+        projectId: row.projectId,
+        createdAt: now,
+      },
+      {
+        email: {
+          category: "activity",
+          // A fund that isn't a community is ignored when the sender is chosen.
+          communityId: row.hostOrgId,
+          ...buildProposalDecidedEmail({
+            title: row.title,
+            approved: args.approve,
+            operatorNote: args.operatorNote,
+            linkUrl: linkUrl ?? "/",
+          }),
+        },
+      },
+    );
 
     return { ok: true as const, status };
   },
@@ -437,7 +434,7 @@ export const listProposalsForReview = query({
 
     const out: ReviewProposalEntry[] = [];
     for (const row of rows) {
-      const proposerProfile = await getProfile(ctx, row.userId);
+      const proposerProfile = await getProfileByUserId(ctx, row.userId);
       out.push(
         toReviewProposalEntry(row, {
           profileId: proposerProfile?._id ?? null,

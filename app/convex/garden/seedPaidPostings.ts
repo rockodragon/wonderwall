@@ -16,6 +16,7 @@
 // them; run `remove` once there are enough.
 
 import { internalMutation } from "../_generated/server";
+import { getProfileByUserId } from "../helpers";
 import { resolveAvailableSlug, slugifyTitle } from "./stories";
 
 const SEED_EMAIL_DOMAIN = "seed.creatives.exchange";
@@ -245,10 +246,7 @@ export const remove = internalMutation({
         await ctx.db.delete(r._id);
         projects++;
       }
-      const profile = await ctx.db
-        .query("profiles")
-        .withIndex("by_userId", (q) => q.eq("userId", u._id))
-        .unique();
+      const profile = await getProfileByUserId(ctx, u._id);
       if (profile) await ctx.db.delete(profile._id);
       await ctx.db.delete(u._id);
       people++;

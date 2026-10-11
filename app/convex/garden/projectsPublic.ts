@@ -21,6 +21,7 @@ import { isHidden, isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderati
 import { communityVisibility } from "./communityVisibility";
 import { projectPhotoUrl } from "../images";
 import { formatDollars } from "../money";
+import { getProfileByUserId } from "../helpers";
 import { resolveCommunities } from "./communityLookup";
 
 // ——————————————————————————————————————————————————————————————
@@ -214,9 +215,7 @@ export const listProjects = query({
 
     const userIds = [...new Set(newestFirst.map((p) => p.userId))];
     const profiles = await Promise.all(
-      userIds.map((userId) =>
-        ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", userId)).unique(),
-      ),
+      userIds.map((userId) => getProfileByUserId(ctx, userId)),
     );
     const nameByUserId = new Map<string, string>();
     for (const p of profiles) if (p) nameByUserId.set(String(p.userId), p.name);
@@ -265,7 +264,7 @@ export const getProject = query({
     }
 
     const [ownerProfile, allocationRows] = await Promise.all([
-      ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", project.userId)).unique(),
+      getProfileByUserId(ctx, project.userId),
       ctx.db.query("allocations").withIndex("by_projectId", (q) => q.eq("projectId", project._id)).collect(),
     ]);
 

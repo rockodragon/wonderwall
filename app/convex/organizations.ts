@@ -7,7 +7,6 @@ import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { auth } from "./auth";
 import { orgLogoUrl, profileImageUrl } from "./images";
 import {
   checkYears,
@@ -21,22 +20,15 @@ import {
   slugifyOrgName,
   sortPositions,
 } from "./organizationRules";
-import { isAdminProfile } from "./helpers";
+import { currentUserId, getProfileByUserId, isAdminProfile, requireUserId } from "./helpers";
+import { insertNotification } from "./notify";
 import { fail } from "./errors";
 
 type Ctx = QueryCtx | MutationCtx;
 
-async function profileByUserId(ctx: Ctx, userId: Id<"users">) {
-  return await ctx.db
-    .query("profiles")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .first();
-}
-
 async function requireMe(ctx: MutationCtx) {
-  const userId = await auth.getUserId(ctx);
-  if (!userId) fail("unauthenticated", "Sign in first.");
-  const profile = await profileByUserId(ctx, userId);
+  const userId = await requireUserId(ctx);
+  const profile = await getProfileByUserId(ctx, userId);
   if (!profile) fail("no_profile", "Finish your profile first.");
   return { userId, profile };
 }
@@ -127,7 +119,7 @@ export async function orgByline(ctx: Ctx, organizationId: Id<"organizations"> | 
 
 /** A person may post as an organization they're currently part of. */
 export async function assertCanPostAs(ctx: Ctx, userId: Id<"users">, organizationId: Id<"organizations">) {
-  const profile = await profileByUserId(ctx, userId);
+  const profile = await getProfileByUserId(ctx, userId);
   const position = profile ? await positionOf(ctx, organizationId, profile._id) : null;
   if (!position || !isCurrent(position)) {
     fail("not_in_org", "You can post as an organization once it's on your profile.");
@@ -236,20 +228,13 @@ async function addPosition(
   return { position, isNew };
 }
 
-async function notify(
-  ctx: MutationCtx,
-  userId: Id<"users">,
-  n: { type: string; title: string; message: string; linkUrl: string; relatedUserId?: Id<"users"> },
-) {
-  await ctx.db.insert("notifications", { userId, ...n, createdAt: Date.now() });
-}
-
 /** Joining is open (self-organizing), so the check comes after: an
  * organization's admins hear about every new person and can remove them. */
 async function tellAdminsAboutJoin(ctx: MutationCtx, org: Doc<"organizations">, joiner: Doc<"profiles">) {
   for (const p of await positionsOfOrg(ctx, org._id)) {
     if (!p.isAdmin || p.userId === joiner.userId) continue;
-    await notify(ctx, p.userId, {
+    await insertNotification(ctx, {
+      userId: p.userId,
       type: "org_joined",
       title: `${joiner.name} joined ${org.name}`,
       message: "Remove them on the page if they aren't part of it.",
@@ -330,9 +315,9 @@ async function clearJoinNotices(ctx: MutationCtx, position: Doc<"orgPositions">)
 /** The signed-in person may edit this organization: one of its admins, or a
  * platform admin. */
 async function canEdit(ctx: Ctx, org: Doc<"organizations">) {
-  const userId = await auth.getUserId(ctx);
+  const userId = await currentUserId(ctx);
   if (!userId) return false;
-  const profile = await profileByUserId(ctx, userId);
+  const profile = await getProfileByUserId(ctx, userId);
   if (!profile) return false;
   if (isAdminProfile(profile)) return true;
   const position = await positionOf(ctx, org._id, profile._id);
@@ -402,8 +387,8 @@ export const getBySlug = query({
 
     const hostOrg = org.hostOrgId ? await ctx.db.get(org.hostOrgId) : null;
 
-    const userId = await auth.getUserId(ctx);
-    const myProfile = userId ? await profileByUserId(ctx, userId) : null;
+    const userId = await currentUserId(ctx);
+    const myProfile = userId ? await getProfileByUserId(ctx, userId) : null;
     const myPosition = myProfile ? await positionOf(ctx, org._id, myProfile._id) : null;
 
     return {
@@ -513,9 +498,9 @@ export const matchByName = query({
 export const mine = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) return [];
-    const profile = await profileByUserId(ctx, userId);
+    const profile = await getProfileByUserId(ctx, userId);
     if (!profile) return [];
     return await profileOrganizations(ctx, profile._id);
   },
@@ -720,10 +705,11 @@ export const addPerson = mutation({
     const person = await ctx.db.get(args.profileId);
     if (!person) fail("not_found", "That person is gone.");
     const { isNew } = await addPosition(ctx, org, person, { title: checkTitle(args.title) });
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (isNew && userId !== person.userId) {
-      const by = userId ? await profileByUserId(ctx, userId) : null;
-      await notify(ctx, person.userId, {
+      const by = userId ? await getProfileByUserId(ctx, userId) : null;
+      await insertNotification(ctx, {
+        userId: person.userId,
         type: "org_added",
         title: `${by?.name ?? "An admin"} added you to ${org.name}`,
         message: "Change your title or remove it in Settings.",

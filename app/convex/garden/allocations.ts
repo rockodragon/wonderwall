@@ -16,8 +16,8 @@ import { v } from "convex/values";
 import { ConvexError } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
-import { requireOperator } from "../helpers";
-import { scheduleNotificationEmail } from "../emailHelpers";
+import { getProfileByUserId, requireOperator } from "../helpers";
+import { insertNotification } from "../notify";
 import { escapeHtml } from "../email/template";
 import { NAMED_FUNDS } from "../../app/lib/namedFunds";
 import { formatCents } from "../money";
@@ -331,10 +331,7 @@ export const recordAllocation = mutation({
     let ownerProfileName: string | undefined;
     if (args.projectId && !args.recipientName) {
       if (project) {
-        const ownerProfile = await ctx.db
-          .query("profiles")
-          .withIndex("by_userId", (q) => q.eq("userId", project.userId))
-          .unique();
+        const ownerProfile = await getProfileByUserId(ctx, project.userId);
         ownerProfileName = ownerProfile?.name;
       }
     }
@@ -365,30 +362,33 @@ export const recordAllocation = mutation({
     if (project) {
       const linkUrl = `/fund/${hostOrg.slug}`;
       const fundName = fundDisplayName(hostOrg);
-      await ctx.db.insert("notifications", {
-        userId: project.userId,
-        type: "fund_award",
-        ...fundAwardNotice({
-          fundName,
-          amountCents: args.amountCents,
-          projectTitle: project.title,
-        }),
-        linkUrl,
-        projectId: project._id,
-        amountCents: args.amountCents,
-        createdAt: Date.now(),
-      });
-      await scheduleNotificationEmail(ctx, {
-        userId: project.userId,
-        category: "activity",
-        communityId: hostOrg._id,
-        ...buildFundAwardEmail({
-          fundName,
-          amountCents: args.amountCents,
-          projectTitle: project.title,
+      await insertNotification(
+        ctx,
+        {
+          userId: project.userId,
+          type: "fund_award",
+          ...fundAwardNotice({
+            fundName,
+            amountCents: args.amountCents,
+            projectTitle: project.title,
+          }),
           linkUrl,
-        }),
-      });
+          projectId: project._id,
+          amountCents: args.amountCents,
+        },
+        {
+          email: {
+            category: "activity",
+            communityId: hostOrg._id,
+            ...buildFundAwardEmail({
+              fundName,
+              amountCents: args.amountCents,
+              projectTitle: project.title,
+              linkUrl,
+            }),
+          },
+        },
+      );
     }
 
     return { allocationId: id };
