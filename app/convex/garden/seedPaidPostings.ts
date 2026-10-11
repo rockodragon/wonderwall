@@ -246,8 +246,11 @@ export const remove = internalMutation({
         await ctx.db.delete(r._id);
         projects++;
       }
-      const profile = await getProfileByUserId(ctx, u._id);
-      if (profile) await ctx.db.delete(profile._id);
+      // Every profile the seed user has, so none is left pointing at a
+      // deleted user (a delete is seen by the next read in this mutation).
+      for (let p = await getProfileByUserId(ctx, u._id); p; p = await getProfileByUserId(ctx, u._id)) {
+        await ctx.db.delete(p._id);
+      }
       await ctx.db.delete(u._id);
       people++;
     }

@@ -234,12 +234,14 @@ describe("a person with two profiles (browse and story pages)", () => {
   it("garden/projectsPublic listProjects names the owner", async () => {
     const rows = await run(listPublicProjects, makeCtx(world(), null), {});
     expect(rows).toHaveLength(1);
-    expect(JSON.stringify(rows[0])).toContain("Bo");
+    expect(JSON.stringify(rows[0])).toContain('"Bo"');
+    expect(JSON.stringify(rows[0])).not.toContain("again");
   });
 
   it("garden/projectsPublic getProject names the owner", async () => {
     const out = await run(getPublicProject, makeCtx(world(), null), { projectId: "projects:p1" });
-    expect(JSON.stringify(out)).toContain("Bo");
+    expect(JSON.stringify(out)).toContain('"Bo"');
+    expect(JSON.stringify(out)).not.toContain("again");
   });
 
   it("stories listProjectUpdates names the author", async () => {
@@ -254,13 +256,15 @@ describe("a person with two profiles (browse and story pages)", () => {
     );
     const out = await run(listProjectUpdates, ctx, { projectId: "projects:p1" });
     expect(out).toHaveLength(1);
-    expect(JSON.stringify(out[0])).toContain("Bo");
+    expect(JSON.stringify(out[0])).toContain('"Bo"');
+    expect(JSON.stringify(out[0])).not.toContain("again");
   });
 
   it("stories getStoryPage shows the owner", async () => {
     const out = await run(getStoryPage, makeCtx(world(), null), { storySlug: "a-film" });
     expect(out).not.toBeNull();
-    expect(JSON.stringify(out)).toContain("Bo");
+    expect(JSON.stringify(out)).toContain('"Bo"');
+    expect(JSON.stringify(out)).not.toContain("again");
   });
 });
 
@@ -358,6 +362,7 @@ describe("a person with two profiles (funds)", () => {
     const out = await run(removeSeedPostings, ctx, {});
     expect(out).toEqual({ ok: true, projects: 1, people: 1 });
     expect(ctx.store.users).toHaveLength(0);
+    expect(ctx.store.profiles).toHaveLength(0);
   });
 });
 
