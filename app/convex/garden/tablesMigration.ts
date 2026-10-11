@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { mutation } from "../_generated/server";
 import type { MutationCtx } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
-import { requireAdminCtx } from "../helpers";
+import { getProfileByUserId, requireAdminCtx } from "../helpers";
 import { syncCoHosts } from "../eventHosts";
 import { isPayableClassPayment } from "./payouts";
 
@@ -328,10 +328,7 @@ async function migrateRsvp(
   if (previous)
     return { sourceId: rsvp._id, action: "exists", targetId: previous._id };
   const [profile, user, userRsvps] = await Promise.all([
-    ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", rsvp.userId))
-      .unique(),
+    getProfileByUserId(ctx, rsvp.userId),
     ctx.db.get(rsvp.userId),
     ctx.db
       .query("eventRsvps")

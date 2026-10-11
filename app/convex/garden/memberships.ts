@@ -14,9 +14,9 @@ import { v } from "convex/values";
 import { query, internalMutation, internalQuery } from "../_generated/server";
 import type { MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
-import { auth } from "../auth";
+import { currentUserId, displayNameOf, getProfileByUserId } from "../helpers";
 import { internal } from "../_generated/api";
-import { scheduleNotificationEmail } from "../emailHelpers";
+import { insertNotification } from "../notify";
 import { escapeHtml } from "../email/template";
 import {
   handleStripeEvent,
@@ -429,7 +429,7 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
       const monthlyWord = args.recurring ? " a month" : "";
       const linkUrl = project.storySlug ? `/story/${project.storySlug}` : `/projects/${project._id}`;
 
-      await ctx.db.insert("notifications", {
+      await insertNotification(ctx, {
         userId: project.userId,
         type: "backing_received",
         title: `${displayName} backed ${project.title}`,
@@ -440,7 +440,6 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
         relatedUserId: args.visible ? (args.backerUserId as Id<"users"> | undefined) : undefined,
         projectId: project._id,
         amountCents: args.amountCents,
-        createdAt: Date.now(),
       });
       // The email waits for the daily one (supportDigest.ts).
     },
@@ -480,42 +479,38 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
         const table = row.tableId
           ? await ctx.db.get(row.tableId as Id<"gardenTables">)
           : null;
-        const buyerProfile = await ctx.db
-          .query("profiles")
-          .withIndex("by_userId", (q) =>
-            q.eq("userId", row.buyerUserId as Id<"users">),
-          )
-          .unique();
-        const buyerName = buyerProfile?.name || "Someone";
+        const buyerName = await displayNameOf(ctx, row.buyerUserId as Id<"users">);
         const classTitle = table?.name ?? offering?.title ?? "your class";
         const linkUrl = table
           ? `/tables/${table.slug}`
           : `/offerings/${row.offeringId}`;
 
-        await ctx.db.insert("notifications", {
-          userId: row.payeeUserId as Id<"users">,
-          type: "class_purchased",
-          title: `${buyerName} signed up for ${classTitle}`,
-          message: `$${(row.grossCents / 100).toLocaleString("en-US", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}`,
-          linkUrl,
-          relatedUserId: row.buyerUserId as Id<"users">,
-          createdAt: Date.now(),
-        });
-
-        await scheduleNotificationEmail(ctx, {
-          userId: row.payeeUserId as Id<"users">,
-          category: "activity",
-          communityId: offering?.hostOrgId,
-          ...buildClassPurchasedEmail({
-            buyerName,
-            classTitle,
-            amountCents: row.grossCents,
+        await insertNotification(
+          ctx,
+          {
+            userId: row.payeeUserId as Id<"users">,
+            type: "class_purchased",
+            title: `${buyerName} signed up for ${classTitle}`,
+            message: `$${(row.grossCents / 100).toLocaleString("en-US", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}`,
             linkUrl,
-          }),
-        });
+            relatedUserId: row.buyerUserId as Id<"users">,
+          },
+          {
+            email: {
+              category: "activity",
+              communityId: offering?.hostOrgId,
+              ...buildClassPurchasedEmail({
+                buyerName,
+                classTitle,
+                amountCents: row.grossCents,
+                linkUrl,
+              }),
+            },
+          },
+        );
       }
     },
 
@@ -603,10 +598,7 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
       // Row gone (or never written): create it, but not for a class that no
       // longer exists — that sign-up would point at nothing.
       if (!(await ctx.db.get(id))) return;
-      const profile = await ctx.db
-        .query("profiles")
-        .withIndex("by_userId", (q) => q.eq("userId", userId as Id<"users">))
-        .unique();
+      const profile = await getProfileByUserId(ctx, userId as Id<"users">);
       await ctx.db.insert("offeringSignups", {
         offeringId: id,
         userId: userId as Id<"users">,
@@ -778,7 +770,7 @@ export const getProductForCheckout = internalQuery({
 export const getMyMembership = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) return null;
 
     const rows = await ctx.db
@@ -814,7 +806,7 @@ export const getMyMembership = query({
 export const hasBillingCustomer = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) return false;
     const row = await ctx.db
       .query("billingCustomers")

@@ -13,7 +13,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
-import { isAdminProfile } from "../helpers";
+import { getProfileByUserId, isAdminProfile } from "../helpers";
 import { canSeeCommunity, isHiddenCommunity } from "./hiddenCommunity";
 import { activeCommunityMemberships } from "./communityLookup";
 
@@ -35,10 +35,7 @@ export async function loadCommunityViewer(
   const id = userId === undefined ? await getAuthUserId(ctx) : userId;
   if (!id) return ANONYMOUS;
   const [profile, rows] = await Promise.all([
-    ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", id))
-      .first(),
+    getProfileByUserId(ctx, id),
     activeCommunityMemberships(ctx, id),
   ]);
   return {

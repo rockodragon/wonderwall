@@ -119,6 +119,7 @@ import { DEFAULT_COMMUNITY_SLUG } from "./defaultCommunity";
 // From communityLookup.ts, not communities.ts, which imports this file
 // (getGardenUser).
 import { COMMUNITY_KIND } from "./communityLookup";
+import { getProfileByUserId } from "../helpers";
 
 /** The community a tier check is for. `hostOrgId` is the event's,
  * project's or fund's host org when there is one: if that org is a
@@ -149,10 +150,7 @@ export async function getGardenUser(
   hostOrgId?: Id<"hostOrgs"> | null,
 ): Promise<GardenUser> {
   const [profile, memberships, activePassion, community] = await Promise.all([
-    ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique(),
+    getProfileByUserId(ctx, userId),
     ctx.db
       .query("memberships")
       .withIndex("by_userId", (q) => q.eq("userId", userId))

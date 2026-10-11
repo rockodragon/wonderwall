@@ -277,8 +277,12 @@ describe("every writer keeps eventCoHosts in step", () => {
 
   it("a refused add or remove writes nothing", async () => {
     const ctx = makeCtx(world([event("a", [ALEX])], [coHostRow("a", ALEX)]), ORG);
-    await expect(run(addCoHost, ctx, { eventId: "events:a", userId: ALEX })).rejects.toThrow(/Already a co-host/);
-    await expect(run(removeCoHost, ctx, { eventId: "events:a", userId: BO })).rejects.toThrow(/Not a co-host/);
+    await expect(run(addCoHost, ctx, { eventId: "events:a", userId: ALEX })).rejects.toMatchObject({
+      data: { code: "invalid_input", reason: "Already a co-host" },
+    });
+    await expect(run(removeCoHost, ctx, { eventId: "events:a", userId: BO })).rejects.toMatchObject({
+      data: { code: "not_found", reason: "They aren't a co-host." },
+    });
     // Any host changes the list (Rick, 2026-10-10); someone who isn't one can't.
     const asBo = { ...ctx, auth: { getUserIdentity: async () => ({ subject: `${BO}|session` }) } };
     await expect(run(addCoHost, asBo, { eventId: "events:a", userId: BO })).rejects.toThrow(/Only the event's hosts/);

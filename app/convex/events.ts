@@ -2,8 +2,8 @@ import { ConvexError, v } from "convex/values";
 import { escapeHtml } from "./email/template";
 import { internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { auth } from "./auth";
-import { scheduleNotificationEmail } from "./emailHelpers";
+import { fail } from "./errors";
+import { insertNotification } from "./notify";
 import { assertCommunityMember } from "./garden/communities";
 import { resolveCommunities } from "./garden/communityLookup";
 import { formatFollowedEventDate, notifyFollowers } from "./follows";
@@ -25,7 +25,7 @@ import { hostOf, isEventHost, planAddCoHost, planRemoveCoHost, planDisplayHosts,
 import { canSeeEvent, eventVisibilityChecker, isFreeEvent } from "./garden/eventVisibility";
 import { communityVisibility, isHiddenCommunityId } from "./garden/communityVisibility";
 import { hostUserIdsForOrg, primaryOrgByUserId } from "./organizations";
-import { isAdmin } from "./helpers";
+import { currentUserId, displayNameOf, getProfileByUserId, isAdmin, requireUserId } from "./helpers";
 import { isHidden } from "./moderationRules";
 import { getTableParticipation } from "./garden/tablePolicy";
 import { notifyDateCanceled, notifyDateChanged } from "./garden/tableNotify";
@@ -234,10 +234,7 @@ async function loadDisplayHosts(
         exact: true,
       });
     } else {
-      const p = await ctx.db
-        .query("profiles")
-        .withIndex("by_userId", (q) => q.eq("userId", d.userId))
-        .first();
+      const p = await getProfileByUserId(ctx, d.userId);
       if (!p) continue;
       const img = await profileImageUrl(ctx, p);
       out.push({ kind: "user", refId: String(d.userId), name: p.name, profileId: p._id, imageUrl: img, exact: true });
@@ -254,10 +251,7 @@ async function loadHosts(ctx: QueryCtx, event: Doc<"events">): Promise<LoadedHos
   const ids = [event.organizerId, ...(event.coHostIds ?? [])];
   const out: LoadedHost[] = [];
   for (const id of ids) {
-    const p = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", id))
-      .first();
+    const p = await getProfileByUserId(ctx, id);
     if (!p) continue;
     out.push({ name: p.name, profileId: p._id, ...(await hostOrg(ctx, p)) });
   }
@@ -373,7 +367,7 @@ export const listForOrganization = query({
 export const getMyEvents = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) return [];
 
     return await ctx.db
@@ -389,7 +383,7 @@ export const get = query({
     const event = await ctx.db.get(args.eventId);
     if (!event) return null;
 
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     const isOrganizer = userId === event.organizerId;
     const isHost = isEventHost(event, userId);
     const isPublic = await eventVisibilityChecker(ctx)(event);
@@ -405,10 +399,7 @@ export const get = query({
     if (!isHost && !(await communityVisibility(ctx, userId).idVisible(event.hostOrgId))) return null;
 
     // Get organizer profile
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", event.organizerId))
-      .first();
+    const profile = await getProfileByUserId(ctx, event.organizerId);
 
     const organizerImageUrl = await profileImageUrl(ctx, profile);
 
@@ -501,10 +492,7 @@ export const get = query({
       profileId: Id<"profiles"> | null;
     } & HostOrg)[] = [];
     for (const coId of event.coHostIds ?? []) {
-      const p = await ctx.db
-        .query("profiles")
-        .withIndex("by_userId", (q) => q.eq("userId", coId))
-        .first();
+      const p = await getProfileByUserId(ctx, coId);
       const img = await profileImageUrl(ctx, p);
       coHosts.push({
         userId: coId,
@@ -617,8 +605,7 @@ export const create = mutation({
     mediaUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
     // ConvexError, not Error: in production only a ConvexError's data
     // reaches the client, and these messages are written for the person
@@ -688,11 +675,7 @@ export const create = mutation({
     // organizer's users id — notifyFollowers hops to the profile id that
     // follows are actually keyed on, and returns 0 (never throws) when the
     // organizer has no profile.
-    const organizerProfile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .first();
-    const organizerName = organizerProfile?.name || "Someone";
+    const organizerName = await displayNameOf(ctx, userId);
     // Skip the fan-out when the new event is ticketed and not public yet —
     // followers would get a link to a page that 404s for them until the
     // organizer becomes a member (product rule, 2026-09-27).
@@ -870,8 +853,7 @@ export const update = mutation({
 export const cancel = mutation({
   args: { eventId: v.id("events") },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
     const event = await ctx.db.get(args.eventId);
     if (!event) throw new Error("Event not found");
@@ -908,11 +890,7 @@ async function notifyHostAdded(
   how: "cohost" | "listed",
 ) {
   if (targetId === actorId) return;
-  const actor = await ctx.db
-    .query("profiles")
-    .withIndex("by_userId", (q) => q.eq("userId", actorId))
-    .first();
-  const actorName = actor?.name || "Someone";
+  const actorName = await displayNameOf(ctx, actorId);
   const title =
     how === "cohost"
       ? `${actorName} made you a co-host of ${event.title}`
@@ -920,28 +898,31 @@ async function notifyHostAdded(
   const message =
     how === "cohost" ? "You can edit the event and see the guest list." : "Your name shows on the event page.";
   const linkUrl = `/events/${event._id}`;
-  await ctx.db.insert("notifications", {
-    userId: targetId,
-    type: how === "cohost" ? "event_cohost_added" : "event_host_listed",
-    title,
-    message,
-    linkUrl,
-    relatedUserId: actorId,
-    createdAt: Date.now(),
-  });
-  await scheduleNotificationEmail(ctx, {
-    userId: targetId,
-    subject: title,
-    previewText: message,
-    heading: title,
-    body: `<strong>${escapeHtml(actorName)}</strong> ${
-      how === "cohost" ? "made you a co-host of" : "listed you as a host of"
-    } <strong>${escapeHtml(event.title)}</strong>. ${escapeHtml(message)}`,
-    ctaText: "See the event",
-    ctaUrl: linkUrl,
-    category: "activity",
-    communityId: event.hostOrgId,
-  });
+  await insertNotification(
+    ctx,
+    {
+      userId: targetId,
+      type: how === "cohost" ? "event_cohost_added" : "event_host_listed",
+      title,
+      message,
+      linkUrl,
+      relatedUserId: actorId,
+    },
+    {
+      email: {
+        subject: title,
+        previewText: message,
+        heading: title,
+        body: `<strong>${escapeHtml(actorName)}</strong> ${
+          how === "cohost" ? "made you a co-host of" : "listed you as a host of"
+        } <strong>${escapeHtml(event.title)}</strong>. ${escapeHtml(message)}`,
+        ctaText: "See the event",
+        ctaUrl: linkUrl,
+        category: "activity",
+        communityId: event.hostOrgId,
+      },
+    },
+  );
 }
 
 export const addCoHost = mutation({
@@ -953,7 +934,8 @@ export const addCoHost = mutation({
     const { event } = await requireEventHost(ctx, args.eventId);
     const plan = planAddCoHost(event, String(args.userId));
     if (!plan.ok) {
-      throw new Error(
+      fail(
+        "invalid_input",
         plan.reason === "is_organizer"
           ? "The organizer is already a host"
           : plan.reason === "duplicate"
@@ -962,9 +944,9 @@ export const addCoHost = mutation({
       );
     }
     const target = await ctx.db.get(args.userId);
-    if (!target) throw new Error("User not found");
+    if (!target) fail("not_found", "We couldn't find that person.");
     await saveCoHosts(ctx, args.eventId, plan.coHostIds);
-    const actorId = await auth.getUserId(ctx);
+    const actorId = await currentUserId(ctx);
     if (actorId) await notifyHostAdded(ctx, event, actorId, args.userId, "cohost");
   },
 });
@@ -977,7 +959,7 @@ export const removeCoHost = mutation({
     // take them off it.
     const { event } = await requireEventHost(ctx, args.eventId);
     const plan = planRemoveCoHost(event, String(args.userId));
-    if (!plan.ok) throw new Error("Not a co-host");
+    if (!plan.ok) fail("not_found", "They aren't a co-host.");
     await saveCoHosts(ctx, args.eventId, plan.coHostIds);
   },
 });
@@ -1001,8 +983,7 @@ export const apply = mutation({
     message: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
     const event = await ctx.db.get(args.eventId);
     // A hidden ticketed event reads as missing, same as its page does.
@@ -1044,32 +1025,31 @@ export const apply = mutation({
 
     // Notify the event organizer
     if (event.organizerId !== userId) {
-      const applicantProfile = await ctx.db
-        .query("profiles")
-        .withIndex("by_userId", (q) => q.eq("userId", userId))
-        .first();
-      const applicantName = applicantProfile?.name || "Someone";
-      await ctx.db.insert("notifications", {
-        userId: event.organizerId,
-        type: "event_application",
-        title: `${applicantName} applied to your event`,
-        message: event.title,
-        linkUrl: `/events/${args.eventId}`,
-        relatedUserId: userId,
-        createdAt: now,
-      });
-
-      await scheduleNotificationEmail(ctx, {
-        userId: event.organizerId,
-        subject: `${applicantName} applied to "${event.title}"`,
-        previewText: `Someone applied to your event`,
-        heading: "New event application",
-        body: `<strong>${escapeHtml(applicantName)}</strong> applied to your event "<strong>${escapeHtml(event.title)}</strong>".`,
-        ctaText: "View Application",
-        ctaUrl: `/events/${args.eventId}`,
-        category: "activity",
-        communityId: event.hostOrgId,
-      });
+      const applicantName = await displayNameOf(ctx, userId);
+      await insertNotification(
+        ctx,
+        {
+          userId: event.organizerId,
+          type: "event_application",
+          title: `${applicantName} applied to your event`,
+          message: event.title,
+          linkUrl: `/events/${args.eventId}`,
+          relatedUserId: userId,
+          createdAt: now,
+        },
+        {
+          email: {
+            subject: `${applicantName} applied to "${event.title}"`,
+            previewText: `Someone applied to your event`,
+            heading: "New event application",
+            body: `<strong>${escapeHtml(applicantName)}</strong> applied to your event "<strong>${escapeHtml(event.title)}</strong>".`,
+            ctaText: "View Application",
+            ctaUrl: `/events/${args.eventId}`,
+            category: "activity",
+            communityId: event.hostOrgId,
+          },
+        },
+      );
     }
 
     return applicationId;
@@ -1089,10 +1069,7 @@ export const getApplications = query({
     // Get applicant profiles
     const withProfiles = await Promise.all(
       applications.map(async (app) => {
-        const profile = await ctx.db
-          .query("profiles")
-          .withIndex("by_userId", (q) => q.eq("userId", app.applicantId))
-          .first();
+        const profile = await getProfileByUserId(ctx, app.applicantId);
         return {
           ...app,
           applicant: profile
@@ -1124,10 +1101,7 @@ export const getGuestList = query({
       .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
       .collect();
     for (const app of applications) {
-      const profile = await ctx.db
-        .query("profiles")
-        .withIndex("by_userId", (q) => q.eq("userId", app.applicantId))
-        .first();
+      const profile = await getProfileByUserId(ctx, app.applicantId);
       inputs.push({
         userId: String(app.applicantId),
         applicationId: String(app._id),
@@ -1167,10 +1141,7 @@ export const getGuestList = query({
       let name = p.buyerEmail ?? "Ticket buyer";
       let email = p.buyerEmail ?? null;
       if (p.userId) {
-        const profile = await ctx.db
-          .query("profiles")
-          .withIndex("by_userId", (q) => q.eq("userId", p.userId!))
-          .first();
+        const profile = await getProfileByUserId(ctx, p.userId!);
         if (profile?.name) name = profile.name;
         email = email ?? (await getUserEmail(ctx, p.userId));
       }
@@ -1222,7 +1193,7 @@ export const getAttendees = query({
   args: { eventId: v.id("events") },
   handler: async (ctx, args) => {
     const event = await ctx.db.get(args.eventId);
-    const viewerId = await auth.getUserId(ctx);
+    const viewerId = await currentUserId(ctx);
     if (!event || !(await canSeeEvent(ctx, event, viewerId))) return [];
     let canSeeApplicationMessages = true;
     if (event.tableId) {
@@ -1238,10 +1209,7 @@ export const getAttendees = query({
       .collect();
 
     async function member(userId: Id<"users">) {
-      const profile = await ctx.db
-        .query("profiles")
-        .withIndex("by_userId", (q) => q.eq("userId", userId))
-        .first();
+      const profile = await getProfileByUserId(ctx, userId);
       const imageUrl = await profileImageUrl(ctx, profile);
       return { profileId: profile?._id || null, name: profile?.name || "Anonymous", imageUrl };
     }
@@ -1477,7 +1445,7 @@ export const setDisplayHosts = mutation({
     }
     const plan = planDisplayHosts(hosts.map((h) => (h.kind === "name" ? { kind: h.kind, id: h.name } : { kind: h.kind, id: String(h.id) })));
     if (!plan.ok) {
-      throw new Error(plan.reason === "full" ? "Show at most 10 hosts" : "Each host can be listed once");
+      fail("invalid_input", plan.reason === "full" ? "Show at most 10 hosts" : "Each host can be listed once");
     }
     // Who was shown before this save: the saved list, else the default
     // (organizer, then co-hosts). The newly listed hear about it below.

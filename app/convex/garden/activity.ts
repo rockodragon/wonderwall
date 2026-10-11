@@ -13,7 +13,7 @@
 
 import { query } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
-import { requireOperator } from "../helpers";
+import { getProfileByUserId, requireOperator } from "../helpers";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core — no ctx. Unit-tested in activity.test.ts.
@@ -94,14 +94,7 @@ export const getRecentActivity = query({
     for (const t of tables) if (t.hostUserId) userIds.add(String(t.hostUserId));
     for (const e of events) userIds.add(String(e.organizerId));
 
-    const profiles = await Promise.all(
-      [...userIds].map((id) =>
-        ctx.db
-          .query("profiles")
-          .withIndex("by_userId", (q) => q.eq("userId", id as Id<"users">))
-          .unique(),
-      ),
-    );
+    const profiles = await Promise.all([...userIds].map((id) => getProfileByUserId(ctx, id as Id<"users">)));
     const profileByUserId = new Map(
       profiles.filter((p) => p !== null).map((p) => [String(p!.userId), p!]),
     );

@@ -32,8 +32,9 @@ import { getCommunityMember, joinTicketCommunity, resolveCommunityJoin, type Tic
 import { findMyRsvp } from "../eventGuests";
 import { assertEventHasRoom, isGoing } from "../eventSpots";
 import { scheduleNotificationEmail } from "../emailHelpers";
+import { insertNotification } from "../notify";
 import { escapeHtml } from "../email/template";
-import { isAdmin } from "../helpers";
+import { getProfileByUserId, isAdmin } from "../helpers";
 
 // ——— Pure core ———
 
@@ -254,10 +255,7 @@ export async function accountRsvpIdentity(
   typedName: string | undefined,
 ): Promise<{ name: string; email: string }> {
   const [profile, userDoc] = await Promise.all([
-    ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique(),
+    getProfileByUserId(ctx, userId),
     ctx.db.get(userId),
   ]);
   const name = pickRsvpName(typedName, profile?.name, userDoc?.name);
@@ -466,14 +464,13 @@ export const cancelMyRsvp = mutation({
       const who = rsvp?.name || user?.name || "Someone";
       const title = `${who} can't make it to ${event.title}`;
       const message = waitingCount > 0 ? `${waitingCount} on the waitlist.` : "A spot is open.";
-      await ctx.db.insert("notifications", {
+      await insertNotification(ctx, {
         userId: event.organizerId,
         type: "event_cant_make_it",
         title,
         message,
         linkUrl: `/events/${args.eventId}?tab=guests`,
         relatedUserId: userId,
-        createdAt: Date.now(),
       });
       // They went to the organizer's PayPal: if they paid, the refund is
       // the organizer's to make there, so this one is emailed too.

@@ -14,7 +14,7 @@ import { eventHasEnded } from "../eventWindow";
 import { isEventFull, isGoing, waitlistOn } from "../eventSpots";
 import { accountRsvpIdentity, upsertEventRsvp } from "./eventRsvps";
 import { isPayPalPaymentLink } from "./ticketLink";
-import { scheduleNotificationEmail } from "../emailHelpers";
+import { insertNotification } from "../notify";
 import { escapeHtml } from "../email/template";
 
 export type WaitlistJoin = "waiting" | "going";
@@ -82,29 +82,32 @@ export const admitFromWaitlist = mutation({
     const title = `You're in: ${event.title}`;
     const message = payPal ? "A spot opened. Pay on PayPal from the event page." : "A spot opened. See you there.";
     const linkUrl = `/events/${event._id}`;
-    await ctx.db.insert("notifications", {
-      userId: entry.userId,
-      type: "event_waitlist_admitted",
-      title,
-      message,
-      linkUrl,
-      relatedUserId: hostId,
-      createdAt: Date.now(),
-    });
-    await scheduleNotificationEmail(ctx, {
-      userId: entry.userId,
-      subject: title,
-      previewText: message,
-      heading: title,
-      body: `A spot opened for "<strong>${escapeHtml(event.title)}</strong>" and you're on the list.${
-        payPal ? " Pay on PayPal from the event page to finish." : ""
-      }`,
-      ctaText: payPal ? "Pay on PayPal" : "See the event",
-      ctaUrl: linkUrl,
-      // Their own spot, not an update they could have opted out of.
-      category: "transactional",
-      communityId: event.hostOrgId,
-    });
+    await insertNotification(
+      ctx,
+      {
+        userId: entry.userId,
+        type: "event_waitlist_admitted",
+        title,
+        message,
+        linkUrl,
+        relatedUserId: hostId,
+      },
+      {
+        email: {
+          subject: title,
+          previewText: message,
+          heading: title,
+          body: `A spot opened for "<strong>${escapeHtml(event.title)}</strong>" and you're on the list.${
+            payPal ? " Pay on PayPal from the event page to finish." : ""
+          }`,
+          ctaText: payPal ? "Pay on PayPal" : "See the event",
+          ctaUrl: linkUrl,
+          // Their own spot, not an update they could have opted out of.
+          category: "transactional",
+          communityId: event.hostOrgId,
+        },
+      },
+    );
     return { ok: true };
   },
 });
