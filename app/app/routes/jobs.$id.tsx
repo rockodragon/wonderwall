@@ -7,7 +7,6 @@ import { usePostHog } from "@posthog/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { InterestModal } from "../components/InterestModal";
-import { PersonAvatar } from "../components/PersonAvatar";
 import { FF_JOBS, useFeatureGate } from "../lib/featureFlags";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 
@@ -499,14 +498,18 @@ export default function JobDetail() {
                         <Link
                           to={`/profile/${interest.profile?._id}`}
                           className="shrink-0"
-                          aria-label={interest.profile?.name}
                         >
-                          <PersonAvatar
-                            name={interest.profile?.name ?? ""}
-                            imageUrl={interest.profile?.imageUrl}
-                            size="card"
-                            tone="strong"
-                          />
+                          {interest.profile?.imageUrl ? (
+                            <img
+                              src={interest.profile.imageUrl}
+                              alt={interest.profile.name}
+                              className="w-12 h-12 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-white text-lg font-bold">
+                              {interest.profile?.name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
                         </Link>
 
                         <div className="flex-1 min-w-0">
@@ -615,12 +618,17 @@ export default function JobDetail() {
                 className="block group"
               >
                 <div className="flex items-center gap-3 mb-3">
-                  <PersonAvatar
-                    name={job.poster.name}
-                    imageUrl={job.poster.imageUrl}
-                    size="card"
-                    tone="strong"
-                  />
+                  {job.poster.imageUrl ? (
+                    <img
+                      src={job.poster.imageUrl}
+                      alt={job.poster.name}
+                      className="w-12 h-12 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-white text-lg font-bold">
+                      {job.poster.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0">
                     <h3
                       className="font-semibold group-hover:text-[var(--app-accent-ink)] transition-colors"

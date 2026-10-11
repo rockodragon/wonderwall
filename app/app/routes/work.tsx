@@ -5,7 +5,6 @@ import Markdown from "react-markdown";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { EmbedPlayer } from "../components/EmbedPlayer";
-import { PersonAvatar } from "../components/PersonAvatar";
 import { ShareButton } from "../components/ShareButton";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import { useBack } from "../lib/useBack";
@@ -460,12 +459,17 @@ export default function WorkDetail() {
           className="mt-6 block bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-lg hover:shadow-xl transition-shadow group"
         >
           <div className="flex items-center gap-4">
-            <PersonAvatar
-              name={artifact.profile.name}
-              imageUrl={artifact.profile.imageUrl}
-              size="lg"
-              tone="gray"
-            />
+            {artifact.profile.imageUrl ? (
+              <img
+                src={artifact.profile.imageUrl}
+                alt={artifact.profile.name}
+                className="w-14 h-14 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-white text-xl font-bold">
+                {artifact.profile.name.charAt(0).toUpperCase()}
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-0.5">
                 Created by

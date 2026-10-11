@@ -13,8 +13,7 @@ const SIZES = {
   // 36px: the org people list, and (smaller initial) event guests and hosts.
   row: "h-9 w-9 text-sm",
   rowXs: "h-9 w-9 text-xs",
-  // 40px with a 16px initial (blocked list, conversation header, composer
-  // header), and 48px (search results, a job's poster and applicants).
+  // 40px with a 16px initial (the blocked list), and 48px (search results).
   mdBase: "h-10 w-10 text-base",
   card: "h-12 w-12 text-base",
 } as const;

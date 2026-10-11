@@ -5,14 +5,14 @@ import { PersonAvatar } from "./PersonAvatar";
 // The looks the app's person lists already had. If one of these changes, every
 // page that picked it changes with it.
 describe("PersonAvatar looks", () => {
-  it("mdBase is 40px with a 16px initial (blocked list, conversation header, composer)", () => {
+  it("mdBase is 40px with a 16px initial (the blocked list)", () => {
     const html = renderToString(<PersonAvatar name="Mara" size="mdBase" tone="strong" />);
     expect(html).toContain("h-10 w-10 text-base");
     expect(html).not.toContain("text-sm");
     expect(html).toContain("rounded-full");
   });
 
-  it("card is 48px with a 16px initial (search results, job poster and applicants)", () => {
+  it("card is 48px with a 16px initial (search results)", () => {
     const html = renderToString(<PersonAvatar name="Mara" size="card" tone="strong" />);
     expect(html).toContain("h-12 w-12 text-base");
     expect(html).toContain("rounded-full");
