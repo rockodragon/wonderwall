@@ -17,6 +17,7 @@ import { joinDefaultCommunity } from "./garden/defaultCommunity";
 import { trackEvent } from "./posthog";
 import { scheduleSignupNudges } from "./engagement/schedule";
 import { allowedAuthRedirect, gardenNameForUrl, siteNameForUrl } from "./garden/brandHosts";
+import { getProfileByUserId } from "./helpers";
 
 const CODE_MAX_AGE_SECONDS = 10 * 60; // 10 minutes
 
@@ -117,10 +118,7 @@ async function afterUserCreatedOrUpdated(
   // onto the profile here.
 
   // Check if profile already exists
-  const existingProfile = await (ctx.db as any)
-    .query("profiles")
-    .withIndex("by_userId", (q: any) => q.eq("userId", userId))
-    .first();
+  const existingProfile = await getProfileByUserId(ctx, userId);
 
   if (!existingProfile) {
     const now = Date.now();

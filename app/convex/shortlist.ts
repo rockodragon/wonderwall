@@ -50,6 +50,7 @@ import { projectKind } from "./garden/projectsPublic";
 import { isGivenSupport, supportCadence, supportKind } from "./garden/support";
 import { isHidden, isPostedProject } from "./moderationRules";
 import { feedLocation } from "./eventAddress";
+import { getProfileByUserId } from "./helpers";
 import { eventCoverUrl, pieceMediaUrl, profileImageUrl, projectPhotoUrl } from "./images";
 
 // ——————————————————————————————————————————————————————————————
@@ -250,10 +251,7 @@ function readers(ctx: QueryCtx) {
     project,
     role: once((id: Id<"projectRoles">) => ctx.db.get(id)),
     person: once(async (userId: Id<"users">) => {
-      const profile = await ctx.db
-        .query("profiles")
-        .withIndex("by_userId", (q) => q.eq("userId", userId))
-        .first();
+      const profile = await getProfileByUserId(ctx, userId);
       return profile && toPerson(ctx, profile);
     }),
     projectCover: once(async (id: Id<"projects">) => {

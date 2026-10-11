@@ -1,6 +1,7 @@
 import { ConvexError, v, type Infer } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
-import { auth } from "./auth";
+import { currentUserId, getProfileByUserId, requireUserId } from "./helpers";
+import { insertNotification } from "./notify";
 import type { Id } from "./_generated/dataModel";
 import { communityVisibility } from "./garden/communityVisibility";
 import { eventVisibilityChecker } from "./garden/eventVisibility";
@@ -74,8 +75,7 @@ export const toggle = mutation({
     targetId: v.string(),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
     const existing = await findFavorite(ctx, userId, args);
 
@@ -106,12 +106,9 @@ export const toggle = mutation({
           args.targetId as Id<"profiles">,
         );
         if (followedProfile && followedProfile.userId !== userId) {
-          const actorProfile = await ctx.db
-            .query("profiles")
-            .withIndex("by_userId", (q) => q.eq("userId", userId))
-            .first();
+          const actorProfile = await getProfileByUserId(ctx, userId);
           const followerName = actorProfile?.name || "Someone";
-          await ctx.db.insert("notifications", {
+          await insertNotification(ctx, {
             userId: followedProfile.userId,
             type: "new_follower",
             title: `${followerName} is following your work`,
@@ -153,8 +150,7 @@ const targetArgs = {
 export const remove = mutation({
   args: targetArgs,
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
     await unsave(ctx, userId, args);
     return { favorited: false };
@@ -172,8 +168,7 @@ export const REMOVE_MANY_LIMIT = 100;
 export const removeMany = mutation({
   args: { targets: v.array(v.object(targetArgs)) },
   handler: async (ctx, { targets }) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
     if (targets.length > REMOVE_MANY_LIMIT) {
       throw new ConvexError({ code: "too_many", reason: `That's more than ${REMOVE_MANY_LIMIT} at once.` });
     }
@@ -192,7 +187,7 @@ export const isFavorited = query({
     targetId: v.string(),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) return false;
 
     return !!(await findFavorite(ctx, userId, args));
@@ -204,7 +199,7 @@ export const getMyFavorites = query({
     targetType: v.optional(favoriteTargetTypeValidator),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) return { profiles: [], events: [] };
 
     const favorites = await ctx.db

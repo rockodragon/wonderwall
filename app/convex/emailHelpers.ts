@@ -3,6 +3,7 @@ import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { getOrCreatePreferences, type EmailCategory } from "./emailPreferences";
 import type { EmailSender } from "./email/sender";
+import { getProfileByUserId } from "./helpers";
 
 /**
  * Look up a user's email — first from the users table (OAuth),
@@ -17,10 +18,7 @@ export async function getUserEmail(
   if (user?.email) return user.email;
 
   // Fallback: email from profile attributes
-  const profile = await ctx.db
-    .query("profiles")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .first();
+  const profile = await getProfileByUserId(ctx, userId);
 
   if (!profile) return null;
 

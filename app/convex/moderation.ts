@@ -15,7 +15,7 @@ import { v, ConvexError } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { syncCoHosts } from "./eventHosts";
-import { requireAdminCtx } from "./helpers";
+import { getProfileByUserId, requireAdminCtx } from "./helpers";
 import { HIDDEN_STATUS, deleteBlocker, isHidden, restoredStatus } from "./moderationRules";
 import { orphanedStorageIds } from "./garden/richText";
 
@@ -222,10 +222,7 @@ export const deleteEvent = mutation({
 // ——— /admin's Hidden list ———
 
 async function ownerName(ctx: QueryCtx, userId: Id<"users">) {
-  const profile = await ctx.db
-    .query("profiles")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .first();
+  const profile = await getProfileByUserId(ctx, userId);
   return profile?.name ?? "Someone";
 }
 

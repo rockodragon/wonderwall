@@ -7,7 +7,7 @@
 import { ConvexError, v } from "convex/values";
 import { internalAction, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { auth } from "./auth";
+import { currentUserId, requireUserId } from "./helpers";
 import { normalizePhone } from "./phone";
 import { sendSms } from "./smsSender";
 import {
@@ -29,7 +29,7 @@ function maskPhone(phone: string): string {
 export const getMyPhone = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) return null;
     const user = await ctx.db.get(userId);
     const phone = (user as { phone?: string } | null)?.phone;
@@ -42,8 +42,7 @@ export const startAddPhone = mutation({
   // says The Garden (convex/garden/brandHosts.ts).
   args: { phone: v.string(), host: v.optional(v.string()) },
   handler: async (ctx, { phone, host }) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new ConvexError("Sign in first.");
+    const userId = await requireUserId(ctx);
 
     const normalizedResult = normalizePhone(phone);
     if (!normalizedResult.ok) throw new ConvexError(normalizedResult.reason);
@@ -123,8 +122,7 @@ export const sendLinkCode = internalAction({
 export const confirmAddPhone = mutation({
   args: { code: v.string() },
   handler: async (ctx, { code }) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new ConvexError("Sign in first.");
+    const userId = await requireUserId(ctx);
 
     const pending = await ctx.db
       .query("phoneLinkCodes")
@@ -202,8 +200,7 @@ export const confirmAddPhone = mutation({
 export const removePhone = mutation({
   args: {},
   handler: async (ctx) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new ConvexError("Sign in first.");
+    const userId = await requireUserId(ctx);
 
     const phoneAccount = await ctx.db
       .query("authAccounts")

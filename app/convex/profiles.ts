@@ -1,7 +1,7 @@
 import { v, ConvexError } from "convex/values";
 import { internalAction, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { api, internal } from "./_generated/api";
-import { auth } from "./auth";
+import { currentUserId, getProfileByUserId, requireUserId } from "./helpers";
 import type { Doc } from "./_generated/dataModel";
 import { normalizeHandle, PAYOUT_KINDS, type PayoutHandles } from "./garden/gigRules";
 import { fillOrgWebsite, linkOrgByName, profileOrganizations, unlinkPrimaryOrg } from "./organizations";
@@ -50,13 +50,10 @@ export function toPublicProfile(profile: Doc<"profiles">) {
 export const getMyProfile = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) return null;
 
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .first();
+    const profile = await getProfileByUserId(ctx, userId);
 
     if (!profile) return null;
 
@@ -178,11 +175,11 @@ export const getProfile = query({
 export const fillMissingBasics = mutation({
   args: { name: v.optional(v.string()), email: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    // A ConvexError, not a plain Error: production hides plain error
-    // messages, and the RSVP form retries on exactly this code while a
-    // fresh sign-in settles (event.tsx useGuestRsvp).
-    if (!userId) throw new ConvexError({ code: "not_signed_in" });
+    // Signed out is requireUserId's ConvexError (code "unauthenticated"),
+    // not a plain Error: production hides plain error messages, and the
+    // RSVP and signup forms retry on it while a fresh sign-in settles
+    // (isNotSignedIn in app/lib/convexError.ts).
+    const userId = await requireUserId(ctx);
 
     const email = args.email?.trim().toLowerCase();
     if (email) {
@@ -197,10 +194,7 @@ export const fillMissingBasics = mutation({
 
     const name = args.name?.trim();
     if (name) {
-      const profile = await ctx.db
-        .query("profiles")
-        .withIndex("by_userId", (q) => q.eq("userId", userId))
-        .first();
+      const profile = await getProfileByUserId(ctx, userId);
       if (profile && (!profile.name?.trim() || profile.name === "New User")) {
         await ctx.db.patch(profile._id, { name, updatedAt: Date.now() });
       }
@@ -244,8 +238,7 @@ export const upsertProfile = mutation({
     email: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
     if (args.email !== undefined) {
       const trimmedEmail = args.email.trim();
@@ -262,10 +255,7 @@ export const upsertProfile = mutation({
       }
     }
 
-    const existing = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .first();
+    const existing = await getProfileByUserId(ctx, userId);
 
     const now = Date.now();
     // Roles stay additive (PRD §2, "money is never the only door" territory
@@ -341,13 +331,9 @@ export const updateAttribute = mutation({
     value: v.string(),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .first();
+    const profile = await getProfileByUserId(ctx, userId);
 
     if (!profile) throw new Error("Profile not found");
 
@@ -589,12 +575,8 @@ export const patchCoordinates = internalMutation({
 export const setOrgName = mutation({
   args: { orgName: v.optional(v.string()), orgUrl: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new ConvexError({ code: "unauthenticated", reason: "Sign in first." });
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .first();
+    const userId = await requireUserId(ctx);
+    const profile = await getProfileByUserId(ctx, userId);
     if (!profile) throw new ConvexError({ code: "no_profile", reason: "Finish your profile first." });
     const orgName = (args.orgName ?? "").trim();
     if (orgName.length > 80) {
@@ -644,12 +626,8 @@ export const setPayoutHandles = mutation({
     zelle: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new ConvexError({ code: "unauthenticated", reason: "Sign in first." });
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .first();
+    const userId = await requireUserId(ctx);
+    const profile = await getProfileByUserId(ctx, userId);
     if (!profile) throw new ConvexError({ code: "no_profile", reason: "Finish your profile first." });
 
     const handles: PayoutHandles = {};

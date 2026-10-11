@@ -2,9 +2,10 @@ import { v, ConvexError } from "convex/values";
 import { escapeHtml } from "./email/template";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
-import { auth } from "./auth";
 import { blockBetween, blockedUserIds, findBlock } from "./blocks";
 import { scheduleNotificationEmail } from "./emailHelpers";
+import { currentUserId, getProfileByUserId, requireUserId } from "./helpers";
+import { insertNotification } from "./notify";
 import type { Doc, Id } from "./_generated/dataModel";
 import { isEventHost } from "./eventHosts";
 import { profileImageUrl } from "./images";
@@ -77,8 +78,7 @@ export const getOrCreateConversation = mutation({
     otherUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
     // Cannot create conversation with self
     if (userId === args.otherUserId) {
@@ -124,8 +124,7 @@ export const sendMessage = mutation({
     content: v.string(),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
     // Cannot send message to self
     if (userId === args.recipientId) {
@@ -153,10 +152,7 @@ export const sendMessage = mutation({
       throw new ConvexError("You can't message this person.");
     }
 
-    const senderProfile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .first();
+    const senderProfile = await getProfileByUserId(ctx, userId);
 
     // Get or create conversation
     let conversation = await findConversation(ctx, userId, args.recipientId);
@@ -252,7 +248,7 @@ export const sendMessage = mutation({
 
     // Notify the recipient (reuse senderProfile from rate limit check)
     const senderName = senderProfile?.name || "Someone";
-    await ctx.db.insert("notifications", {
+    await insertNotification(ctx, {
       userId: args.recipientId,
       type: "new_message",
       title: `${senderName} sent you a message`,
@@ -295,8 +291,7 @@ export const markConversationRead = mutation({
     conversationId: v.id("conversations"),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
     // Verify user is a participant in the conversation
     const conversation = await ctx.db.get(args.conversationId);
@@ -343,7 +338,7 @@ export const markConversationRead = mutation({
 export const getConversations = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) return [];
 
     // Get blocked user IDs
@@ -371,10 +366,7 @@ export const getConversations = query({
         if (blocked.has(otherUserId)) return null;
 
         // Get other participant's profile
-        const otherProfile = await ctx.db
-          .query("profiles")
-          .withIndex("by_userId", (q) => q.eq("userId", otherUserId))
-          .first();
+        const otherProfile = await getProfileByUserId(ctx, otherUserId);
 
         if (!otherProfile) return null;
 
@@ -445,7 +437,7 @@ export const getMessages = query({
     cursor: v.optional(v.id("messages")),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) return { messages: [], nextCursor: null };
 
     // Get the conversation and verify user is a participant
@@ -492,10 +484,7 @@ export const getMessages = query({
     // Get sender profiles for each message
     const messagesWithSenderInfo = await Promise.all(
       messagesOldestFirst.map(async (message) => {
-        const senderProfile = await ctx.db
-          .query("profiles")
-          .withIndex("by_userId", (q) => q.eq("userId", message.senderId))
-          .first();
+        const senderProfile = await getProfileByUserId(ctx, message.senderId);
 
         let senderImageUrl: string | null = null;
         if (senderProfile) {
@@ -533,7 +522,7 @@ export const getConversation = query({
     conversationId: v.id("conversations"),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) return null;
 
     const conversation = await ctx.db.get(args.conversationId);
@@ -549,10 +538,7 @@ export const getConversation = query({
     if (!otherUserId) return null;
 
     // Get other participant's profile
-    const otherProfile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", otherUserId))
-      .first();
+    const otherProfile = await getProfileByUserId(ctx, otherUserId);
 
     if (!otherProfile) return null;
 
@@ -582,7 +568,7 @@ export const getConversation = query({
 export const getUnreadCount = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) return 0;
 
     // Get blocked user IDs
@@ -641,8 +627,7 @@ export const blockUser = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const me = await auth.getUserId(ctx);
-    if (!me) throw new ConvexError({ code: "unauthenticated" });
+    const me = await requireUserId(ctx);
 
     if (me === args.userId) {
       throw new ConvexError({
@@ -670,8 +655,7 @@ export const unblockUser = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const me = await auth.getUserId(ctx);
-    if (!me) throw new ConvexError({ code: "unauthenticated" });
+    const me = await requireUserId(ctx);
 
     const existing = await findBlock(ctx, me, args.userId);
     if (existing) {
@@ -691,7 +675,7 @@ export const isBlocked = query({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const me = await auth.getUserId(ctx);
+    const me = await currentUserId(ctx);
     if (!me) return { blockedByMe: false };
 
     return { blockedByMe: (await findBlock(ctx, me, args.userId)) !== null };
@@ -707,7 +691,7 @@ export const isBlocked = query({
 export const listBlocked = query({
   args: {},
   handler: async (ctx) => {
-    const me = await auth.getUserId(ctx);
+    const me = await currentUserId(ctx);
     if (!me) return [];
 
     const blocks = await ctx.db
@@ -717,10 +701,7 @@ export const listBlocked = query({
 
     const rows = await Promise.all(
       blocks.map(async (block) => {
-        const profile = await ctx.db
-          .query("profiles")
-          .withIndex("by_userId", (q) => q.eq("userId", block.blockedId))
-          .first();
+        const profile = await getProfileByUserId(ctx, block.blockedId);
 
         return {
           userId: block.blockedId,
@@ -862,7 +843,7 @@ export const searchPeopleToMessage = query({
     query: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const me = await auth.getUserId(ctx);
+    const me = await currentUserId(ctx);
     if (!me) return [];
 
     const text = args.query ?? "";

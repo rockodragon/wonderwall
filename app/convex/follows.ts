@@ -11,7 +11,8 @@ import { v } from "convex/values";
 import { query } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { auth } from "./auth";
+import { currentUserId, getProfileByUserId } from "./helpers";
+import { insertNotification } from "./notify";
 
 /** Short date for "is hosting <title>, <date>" copy (spec §1 #6). Pure so
  * it can be unit-tested; Convex's runtime formats in UTC. */
@@ -26,11 +27,11 @@ export function formatFollowedEventDate(ms: number): string {
  * Fan a notification out to everyone following `ownerUserId`. Plain helper
  * (not a Convex function) — called from inside createPaidProject,
  * createPassionProject and events.create in the same transaction as the
- * row they just inserted. Writes are direct `ctx.db.insert("notifications")`
- * in the likesDigest.ts shape; `relatedUserId` is the owner so
- * getNotifications can enrich with their profile. In-app only — no email
- * (spec §2). Returns the number of notifications written; 0 when the owner
- * has no profile or no followers, never throws for either.
+ * row they just inserted. Each notification goes through insertNotification
+ * (notify.ts); `relatedUserId` is the owner so getNotifications can enrich
+ * with their profile. In-app only — no email (spec §2). Returns the number
+ * of notifications written; 0 when the owner has no profile or no followers,
+ * never throws for either.
  */
 export async function notifyFollowers(
   ctx: MutationCtx,
@@ -38,10 +39,7 @@ export async function notifyFollowers(
   n: { type: string; title: string; message: string; linkUrl: string },
 ): Promise<number> {
   // users id → profile id: favorites point at the profile, not the user.
-  const ownerProfile = await ctx.db
-    .query("profiles")
-    .withIndex("by_userId", (q) => q.eq("userId", ownerUserId))
-    .first();
+  const ownerProfile = await getProfileByUserId(ctx, ownerUserId);
   if (!ownerProfile) return 0;
 
   const follows = await ctx.db
@@ -56,7 +54,7 @@ export async function notifyFollowers(
   for (const follow of follows) {
     // favorites.userId is the follower's users id — no hop needed here.
     if (follow.userId === ownerUserId) continue;
-    await ctx.db.insert("notifications", {
+    await insertNotification(ctx, {
       userId: follow.userId,
       type: n.type,
       title: n.title,
@@ -83,17 +81,14 @@ export async function notifyFollowers(
 export const followsMe = query({
   args: { profileId: v.id("profiles") },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) return false;
 
     const viewedProfile = await ctx.db.get(args.profileId);
     if (!viewedProfile) return false;
     if (viewedProfile.userId === userId) return false;
 
-    const myProfile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .first();
+    const myProfile = await getProfileByUserId(ctx, userId);
     if (!myProfile) return false;
 
     const follow = await ctx.db
@@ -134,12 +129,7 @@ export async function followEachOther(
   if (aUserId === bUserId) return 0;
 
   const [aProfile, bProfile] = await Promise.all(
-    [aUserId, bUserId].map((userId) =>
-      ctx.db
-        .query("profiles")
-        .withIndex("by_userId", (q) => q.eq("userId", userId))
-        .first(),
-    ),
+    [aUserId, bUserId].map((userId) => getProfileByUserId(ctx, userId)),
   );
   if (!aProfile || !bProfile) return 0;
 
