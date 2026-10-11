@@ -52,7 +52,8 @@ import { InviteToThis } from "../components/InviteToThis";
 import { ShowcaseContent, SHOWCASE_EVENT_ID } from "../components/ShowcaseContent";
 import { hostLabels } from "../lib/eventHosts";
 import { HostedBy } from "../components/HostedBy";
-import { errorMessage, isNotSignedIn } from "../lib/convexError";
+import { errorMessage } from "../lib/convexError";
+import { untilSignedIn } from "../lib/untilSignedIn";
 import { CreateEventModal } from "../components/CreateEventModal";
 import type { TicketTier } from "../components/TicketTierEditor";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
@@ -742,30 +743,29 @@ export default function EventDetail() {
                   {/* Same reason as the organizer above: no /profile links
                       for a guest, who can't reach that route. */}
                   {attendee.profileId && !isGuest ? (
+                    // The face is decoration (PersonAvatar's alt is empty), so
+                    // the link carries the name.
                     <Link
                       to={`/profile/${attendee.profileId}`}
+                      aria-label={attendee.name}
                       className="flex-shrink-0"
                     >
-                      <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden ring-2 ring-white dark:ring-gray-900">
-                        {attendee.imageUrl ? (
-                          <img
-                            src={attendee.imageUrl}
-                            alt={attendee.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <span className="text-xs font-medium text-gray-500">
-                            {attendee.name.charAt(0)}
-                          </span>
-                        )}
-                      </div>
+                      <PersonAvatar
+                        name={attendee.name}
+                        imageUrl={attendee.imageUrl}
+                        size="rowXs"
+                        tone="gray"
+                        className="ring-2 ring-white dark:ring-gray-900"
+                      />
                     </Link>
                   ) : (
-                    <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0 ring-2 ring-white dark:ring-gray-900">
-                      <span className="text-xs font-medium text-gray-500">
-                        {attendee.name.charAt(0)}
-                      </span>
-                    </div>
+                    <PersonAvatar
+                      name={attendee.name}
+                      imageUrl={attendee.imageUrl}
+                      size="rowXs"
+                      tone="gray"
+                      className="ring-2 ring-white dark:ring-gray-900"
+                    />
                   )}
                   <div className="flex-1 min-w-0">
                     {attendee.profileId && !isGuest ? (
@@ -965,8 +965,8 @@ function useGuestRsvp(
     // Wait (up to ~8s) for the client to be sending the new sign-in.
     for (let i = 0; i < 80 && !isAuthenticatedRef.current; i++) await sleep(100);
     // Then retry briefly on "not signed in" in case the server lags a beat.
-    for (let attempt = 0; ; attempt++) {
-      try {
+    await untilSignedIn(
+      async () => {
         // Only fills a blank name / missing email; never overwrites a
         // returning member's profile (unlike upsertProfile).
         await fillMissingBasics({ name: trimmedName, email: cleanEmail });
@@ -987,15 +987,9 @@ function useGuestRsvp(
         const res = await rsvpToEvent({ eventId, name: trimmedName });
         setDone({ alreadyRsvpd: res.alreadyRsvpd });
         setStep("done");
-        return;
-      } catch (err) {
-        if (isNotSignedIn(err) && attempt < 6) {
-          await sleep(500);
-          continue;
-        }
-        throw err;
-      }
-    }
+      },
+      { tries: 7, delayMs: 500 },
+    );
   }
 
   async function confirm(e?: FormEvent) {
@@ -2837,7 +2831,7 @@ function HostsPanel({
     try {
       await fn();
     } catch (err) {
-      setError(err instanceof Error ? err.message.replace(/^.*Uncaught Error: /s, "").split("\n")[0] : "That didn't work.");
+      setError(errorMessage(err, "That didn't work."));
     } finally {
       setBusy(false);
     }
@@ -3029,7 +3023,7 @@ function ShownHostsEditor({
       });
       setSaved(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message.replace(/^.*Uncaught Error: /s, "").split("\n")[0] : "That didn't work.");
+      setError(errorMessage(err, "That didn't work."));
     } finally {
       setBusy(false);
     }

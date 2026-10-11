@@ -2,6 +2,7 @@ import { useMutation } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Role } from "../constants/roles";
+import { errorMessage } from "./convexError";
 
 // Shared logic behind the "move up the list" waitlist follow-up — used by
 // both the homepage and /join, which render it with different styling.
@@ -40,9 +41,7 @@ export function useWaitlistFollowUp(email: string) {
       setPosition(result.position ?? null);
       return true;
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "That didn't go through — try again.",
-      );
+      setError(errorMessage(err, "That didn't go through — try again."));
       return false;
     } finally {
       setSubmitting(false);

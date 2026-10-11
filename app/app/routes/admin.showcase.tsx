@@ -35,6 +35,7 @@ import {
   AdminLoading,
   AdminNotice,
 } from "../components/admin/AdminUi";
+import { errorMessage } from "../lib/convexError";
 import { useIsAdmin } from "../lib/useIsAdmin";
 
 export const meta: MetaFunction = () => [
@@ -314,7 +315,7 @@ export default function AdminShowcasePage() {
     try {
       await fn();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      setError(errorMessage(err, "Something went wrong"));
     } finally {
       setBusyId(null);
     }

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { INTERESTS } from "../constants/interests";
+import { errorMessage } from "../lib/convexError";
 import { FF_JOBS, useFeatureGate } from "../lib/featureFlags";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 
@@ -152,9 +153,7 @@ export default function JobsNew() {
       navigate(`/jobs/${jobId}`);
     } catch (err) {
       console.error("Failed to create job:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to create project posting",
-      );
+      setError(errorMessage(err, "Failed to create project posting"));
     } finally {
       setSaving(false);
     }

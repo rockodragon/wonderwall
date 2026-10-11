@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "convex/react";
 import { useState, useEffect } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { errorMessage } from "../lib/convexError";
 
 interface InterestModalProps {
   jobId: Id<"jobs">;
@@ -102,9 +103,7 @@ export function InterestModal({
         onClose();
       }, 1500);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to express interest",
-      );
+      setError(errorMessage(err, "Failed to express interest"));
     } finally {
       setSaving(false);
     }
@@ -135,9 +134,7 @@ export function InterestModal({
         onClose();
       }, 1500);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to withdraw interest",
-      );
+      setError(errorMessage(err, "Failed to withdraw interest"));
     } finally {
       setSaving(false);
     }

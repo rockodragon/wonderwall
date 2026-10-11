@@ -9,7 +9,9 @@ import { normalizeInviteCode } from "../../convex/inviteCode";
 import { codeRequestParams, ensureOAuthHost, oauthReturnTo } from "../lib/oauthHost";
 import { AgreementsConsent } from "../components/AgreementsConsent";
 import { InviteGate } from "../components/InviteGate";
+import { errorMessage } from "../lib/convexError";
 import { joinWithInvite } from "../lib/joinWithInvite";
+import { untilSignedIn } from "../lib/untilSignedIn";
 import { rememberedInvite } from "../lib/carriedInvite";
 import { setPendingIntent } from "../lib/pendingIntent";
 import { isCheckoutSessionId } from "../../convex/garden/ticketLink";
@@ -220,9 +222,7 @@ export default function Signup() {
       setPhoneStep("code");
       posthog?.capture("phone_signup_code_sent", { invite_slug: inviteSlug });
     } catch (err) {
-      setPhoneError(
-        err instanceof Error ? err.message : "Couldn't send a code. Try again.",
-      );
+      setPhoneError(errorMessage(err, "Couldn't send a code. Try again."));
       posthog?.capture("phone_signup_code_send_error", {
         error: err instanceof Error ? err.message : "Unknown error",
         invite_slug: inviteSlug,
@@ -242,26 +242,22 @@ export default function Signup() {
 
       // A phone sign-in carries no email or name; save the ones they typed.
       // signIn resolves before the Convex client is sending the new token,
-      // so the first tries can fail as "not signed in". Retry a few times.
+      // so the first tries can fail as "not signed in"; untilSignedIn waits
+      // that out and stops at once on anything else.
       // fillMissingBasics only fills a blank or placeholder name and a
       // missing email, so it is safe to call every time.
-      let saved = false;
-      let lastError: unknown = null;
-      for (let attempt = 0; attempt < 8 && !saved; attempt++) {
-        try {
-          await fillMissingBasics({
-            name: name.trim() || undefined,
-            email: email.trim() || undefined,
-          });
-          saved = true;
-        } catch (err) {
-          lastError = err;
-          await new Promise((resolve) => setTimeout(resolve, 400));
-        }
-      }
-      if (!saved) {
+      try {
+        await untilSignedIn(
+          () =>
+            fillMissingBasics({
+              name: name.trim() || undefined,
+              email: email.trim() || undefined,
+            }),
+          { tries: 8, delayMs: 400 },
+        );
+      } catch (err) {
         posthog?.capture("phone_signup_profile_error", {
-          error: lastError instanceof Error ? lastError.message : "Unknown error",
+          error: err instanceof Error ? err.message : "Unknown error",
         });
       }
 
@@ -352,7 +348,7 @@ export default function Signup() {
       navigate("/onboarding", { replace: true });
     } catch (err) {
       console.error("Signup error:", err);
-      setError(err instanceof Error ? err.message : "Signup failed");
+      setError(errorMessage(err, "Signup failed"));
       posthog?.capture("signup_error", {
         error: err instanceof Error ? err.message : "Unknown error",
       });

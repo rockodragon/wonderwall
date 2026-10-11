@@ -10,6 +10,7 @@ import {
   AdminLoading,
   AdminNotice,
 } from "../components/admin/AdminUi";
+import { errorMessage } from "../lib/convexError";
 import { useIsAdmin } from "../lib/useIsAdmin";
 import {
   DestinationCards,
@@ -103,9 +104,7 @@ export default function AdminPage() {
         `${result.pairs} inviter/invitee pairs · ${result.followsCreated} follows created`,
       );
     } catch (err) {
-      setBackfillStatus(
-        err instanceof Error ? err.message : "Failed to backfill follows",
-      );
+      setBackfillStatus(errorMessage(err, "Failed to backfill follows"));
     } finally {
       setBackfilling(false);
     }
@@ -127,9 +126,7 @@ export default function AdminPage() {
       }
       setSyncStatus(parts.join(" · "));
     } catch (err) {
-      setSyncStatus(
-        err instanceof Error ? err.message : "Failed to sync admin group",
-      );
+      setSyncStatus(errorMessage(err, "Failed to sync admin group"));
     } finally {
       setSyncingAdmins(false);
     }
@@ -151,9 +148,7 @@ export default function AdminPage() {
       setSelectedInviter("");
       setTimeout(() => setLinkStatus(""), 3000);
     } catch (err) {
-      setLinkStatus(
-        err instanceof Error ? err.message : "Failed to link invite",
-      );
+      setLinkStatus(errorMessage(err, "Failed to link invite"));
     }
   };
 
@@ -175,9 +170,7 @@ export default function AdminPage() {
         setDeleteStatus(`Successfully deleted ${userName}`);
         setTimeout(() => setDeleteStatus(""), 3000);
       } catch (err) {
-        setDeleteStatus(
-          err instanceof Error ? err.message : "Failed to delete user",
-        );
+        setDeleteStatus(errorMessage(err, "Failed to delete user"));
       } finally {
         setDeletingUser(null);
       }
@@ -429,7 +422,7 @@ function HiddenContent() {
     try {
       await row.unhide();
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : "Couldn't unhide that.");
+      window.alert(errorMessage(err, "Couldn't unhide that."));
     } finally {
       setBusyId(null);
     }
