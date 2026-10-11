@@ -13,6 +13,7 @@ import { useMutation, useQuery } from "convex/react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { PersonAvatar } from "./PersonAvatar";
 import { RichContent } from "./RichContent";
 import { RichTextEditor } from "./RichTextEditor";
 import { isRichDocEmpty, toStoredDoc, type ResolvedRichBlock } from "../lib/richText";
@@ -216,25 +217,12 @@ function UpdateCard({ update, canManage }: { update: UpdateRow; canManage: boole
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
-          {update.author?.imageUrl ? (
-            <img
-              src={update.author.imageUrl}
-              alt=""
-              className="w-6 h-6 rounded-full object-cover shrink-0"
-            />
-          ) : (
-            <div
-              className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
-              style={{
-                backgroundColor: "var(--garden-hairline-raised)",
-                color: "var(--garden-paper)",
-                fontSize: 12,
-                fontWeight: 700,
-              }}
-            >
-              {(update.author?.name ?? "?").charAt(0).toUpperCase()}
-            </div>
-          )}
+          <PersonAvatar
+            name={update.author?.name ?? "?"}
+            imageUrl={update.author?.imageUrl}
+            size="xs"
+            tone="garden"
+          />
           <span style={{ fontSize: 14, color: "var(--garden-muted)" }} className="truncate">
             {update.author?.profileId ? (
               <Link to={`/profile/${update.author.profileId}`} className="hover:opacity-80">

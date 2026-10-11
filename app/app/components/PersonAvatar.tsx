@@ -13,6 +13,10 @@ const SIZES = {
   // 36px: the org people list, and (smaller initial) event guests and hosts.
   row: "h-9 w-9 text-sm",
   rowXs: "h-9 w-9 text-xs",
+  // 40px with a 16px initial (blocked list, conversation header, composer
+  // header), and 48px (search results, a job's poster and applicants).
+  mdBase: "h-10 w-10 text-base",
+  card: "h-12 w-12 text-base",
 } as const;
 
 const TONES = {
@@ -30,6 +34,11 @@ const TONES = {
   dim: {
     className: "font-medium",
     style: { backgroundColor: "var(--app-hairline-raised)", color: "var(--app-text-dim)" },
+  },
+  // A bold initial in the page's own text color, for people on the app pages.
+  strong: {
+    className: "font-bold",
+    style: { backgroundColor: "var(--app-hairline-raised)", color: "var(--app-text)" },
   },
   // The fixed dark palette the project and gig pages are set in.
   garden: {

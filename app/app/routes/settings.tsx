@@ -15,6 +15,7 @@ import { LEVEL_LABEL } from "../garden/capabilities";
 import { normalizeHandle, type PayoutKind } from "../../convex/garden/gigRules";
 import { errorMessage } from "../lib/convexError";
 import { NetworkTab } from "../components/NetworkTab";
+import { PersonAvatar } from "../components/PersonAvatar";
 import { OrganizationsEditor } from "../components/OrganizationsEditor";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { isGardenHost } from "../../convex/garden/brandHosts";
@@ -1241,20 +1242,7 @@ function BlockedSection() {
               className="flex items-center gap-3 p-3 rounded-xl"
               style={{ backgroundColor: "var(--app-surface-raised)" }}
             >
-              {person.imageUrl ? (
-                <img
-                  src={person.imageUrl}
-                  alt={person.name}
-                  className="w-10 h-10 rounded-full object-cover shrink-0"
-                />
-              ) : (
-                <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-base font-bold shrink-0"
-                  style={{ backgroundColor: "var(--app-hairline-raised)", color: "var(--app-text)" }}
-                >
-                  {person.name.charAt(0).toUpperCase() || "?"}
-                </div>
-              )}
+              <PersonAvatar name={person.name} imageUrl={person.imageUrl} size="mdBase" tone="strong" />
               <div className="flex-1 min-w-0">
                 {person.profileId ? (
                   <Link

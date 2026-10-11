@@ -20,6 +20,7 @@ import { useBack } from "../lib/useBack";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
+import { PersonAvatar } from "../components/PersonAvatar";
 import {
   FORMAT_LABELS,
   PostOfferingForm,
@@ -221,20 +222,12 @@ export default function OfferingDetail() {
 
       {offering.creator && (
         <Link to={`/profile/${offering.creator._id}`} className="flex items-center gap-2 mb-4 w-fit hover:opacity-80">
-          {offering.creator.imageUrl ? (
-            <img
-              src={offering.creator.imageUrl}
-              alt={offering.creator.name}
-              className="w-6 h-6 rounded-full object-cover shrink-0"
-            />
-          ) : (
-            <div
-              className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-              style={{ backgroundColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
-            >
-              {offering.creator.name.charAt(0).toUpperCase()}
-            </div>
-          )}
+          <PersonAvatar
+            name={offering.creator.name}
+            imageUrl={offering.creator.imageUrl}
+            size="xs"
+            tone="garden"
+          />
           <span className="text-sm" style={{ color: "var(--garden-muted)" }}>
             {offering.creator.name}
             {offering.community && (

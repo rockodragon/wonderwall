@@ -9,6 +9,7 @@ import { INTERESTS } from "../constants/interests";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
 import { CommunityPicker } from "../components/CommunityPicker";
+import { PersonAvatar } from "../components/PersonAvatar";
 import {
   CommunityContextLine,
   communityNameFor,
@@ -504,20 +505,12 @@ function OfferingCard({ offering, isOwner }: { offering: any; isOwner: boolean }
           </div>
           {offering.creator && (
             <div className="mt-auto flex items-center gap-2 pt-2 min-w-0">
-              {offering.creator.imageUrl ? (
-                <img
-                  src={offering.creator.imageUrl}
-                  alt={offering.creator.name}
-                  className="w-5 h-5 rounded-full object-cover shrink-0"
-                />
-              ) : (
-                <div
-                  className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                  style={{ backgroundColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
-                >
-                  {offering.creator.name.charAt(0).toUpperCase()}
-                </div>
-              )}
+              <PersonAvatar
+                name={offering.creator.name}
+                imageUrl={offering.creator.imageUrl}
+                size="2xs"
+                tone="garden"
+              />
               <span className="text-xs break-words" style={{ color: "var(--garden-muted)" }}>
                 {offering.creator.name}
                 {offering.community && (

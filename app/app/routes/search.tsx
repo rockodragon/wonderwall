@@ -14,6 +14,7 @@ import { distanceLabel } from "../lib/browse/nearMe";
 import { LocationIcon } from "../components/icons";
 import { InviteButton } from "../components/InviteCTA";
 import { OrgDirectory } from "../components/OrgDirectory";
+import { PersonAvatar } from "../components/PersonAvatar";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 
 type ProfileResult = {
@@ -316,7 +317,6 @@ export default function Search() {
 }
 
 function ProfileCard({ profile }: { profile: ProfileResult & { _distance?: number } }) {
-  const hasImage = !!profile.imageUrl;
   const distLabel = distanceLabel(profile._distance);
 
   return (
@@ -325,20 +325,7 @@ function ProfileCard({ profile }: { profile: ProfileResult & { _distance?: numbe
       className="group flex items-center gap-3 p-4 rounded-xl border transition-colors hover:border-[var(--app-accent)]"
       style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)" }}
     >
-      {hasImage ? (
-        <img
-          src={profile.imageUrl}
-          alt={profile.name}
-          className="w-12 h-12 rounded-full object-cover shrink-0"
-        />
-      ) : (
-        <div
-          className="w-12 h-12 rounded-full flex items-center justify-center font-bold shrink-0"
-          style={{ backgroundColor: "var(--app-hairline-raised)", color: "var(--app-text)" }}
-        >
-          {profile.name.charAt(0).toUpperCase()}
-        </div>
-      )}
+      <PersonAvatar name={profile.name} imageUrl={profile.imageUrl} size="card" tone="strong" />
       {/* Name never truncates — Follow moved to the profile page itself
           (profile.tsx), which freed the width this used to fight for. */}
       <div className="min-w-0 flex-1">
