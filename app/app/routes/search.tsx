@@ -125,7 +125,7 @@ export default function Search() {
   const loading = profiles === undefined;
 
   return (
-    <div className={`${PAGE_WIDTH.list} mx-auto p-6`}>
+    <div className={`${PAGE_WIDTH.list} mx-auto p-4 sm:p-6`}>
       {/* The two tabs are the title. */}
       <div
         className="flex items-end justify-between gap-3 mb-5 border-b"
@@ -296,7 +296,7 @@ export default function Search() {
               {/* People */}
               {filteredProfiles && filteredProfiles.length > 0 && (
                 <section>
-                  <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
+                  <h2 className={`text-lg font-semibold mb-4 ${query ? "" : "hidden md:block"}`} style={{ color: "var(--app-text)" }}>
                     {query ? "People" : "Creatives"}
                   </h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">

@@ -2,14 +2,16 @@
 // levels"), the page /favorites shows. The same three levels as the desk, one
 // column:
 //
-//   /favorites                    the overview: Needs you, three tiles, and
-//                                 every item as a row when there are few
-//   /favorites?area=projects      one area: chips, then rows grouped by the
+//   /favorites                    the overview: Needs you, the three areas as
+//                                 a row of figures, and every item as a row
+//                                 when there are few
+//   /favorites?area=projects      one area: tabs, then rows grouped by the
 //   &kind=paid                    member's relationship
 //
 // It reads the one useShortlist() the route holds, so its counts and Needs
 // you are the desk's and the nav dot's. A row is a link to the item's page
-// (href.ts); nothing opens over the list.
+// (href.ts); nothing opens over the list. Drawn the way a phone draws a list
+// screen (docs/features/phone-screens.md): a bar on top, tabs under it.
 
 import { useId, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
@@ -18,6 +20,8 @@ import { areaCount, type AreaSummary, type ShortlistSummary } from "../../lib/sh
 import type { ProjectKind } from "../../lib/shortlist/types";
 import { SHORTLIST_AREAS, favoritesHref, type ShortlistArea } from "../../lib/shortlist/url";
 import type { ShortlistState } from "../../lib/shortlist/useShortlist";
+import { PageTop } from "../phone/PageTop";
+import { TabStrip } from "../phone/TabStrip";
 import { BROWSE_LABEL, EMPTY_AREA, FOLD_NOUN, WELCOME, emptyKind, needYouText } from "./copy";
 import { AREA_LABEL, LIST_ALL_UNDER, areaGroups, cardIdOf, everything, type ListGroup, type ShortlistItem } from "./items";
 import { Kicker, MORE_CLASS, MORE_STYLE, PhoneNeedsYou, PhoneRows } from "./PhoneParts";
@@ -48,41 +52,17 @@ export function PhoneShortlist({
     <>
       {area ? (
         <>
-          <Header
-            crumb={
-              <Link to={favoritesHref()} className={`mb-1 inline-block py-1 text-sm hover:underline ${RING}`} style={{ color: "var(--app-text-muted)" }}>
-                ← Shortlist
-              </Link>
-            }
-            title={AREA_LABEL[area]}
-            count={String(areaCount(summary, area, kind))}
-          />
+          <PageTop title={AREA_LABEL[area]} count={String(areaCount(summary, area, kind))} back={{ to: favoritesHref(), label: "Shortlist" }} />
           <Chips summary={summary} area={area} kind={kind} />
           <AreaRows key={`${area}:${kind ?? ""}`} state={state} area={area} kind={kind} money={money} />
         </>
       ) : (
         <>
-          <Header title="Shortlist" count={summary.total > 0 ? countLabel("shortlist", summary.total) : null} />
+          <PageTop title="Shortlist" count={summary.total > 0 ? countLabel("shortlist", summary.total) : null} />
           <Overview state={state} money={money} />
         </>
       )}
     </>
-  );
-}
-
-function Header({ crumb, title, count }: { crumb?: ReactNode; title: string; count: string | null }) {
-  return (
-    <header className="mb-6">
-      {crumb}
-      <h1 className="flex items-baseline gap-3 text-2xl font-semibold sm:text-3xl" style={{ color: "var(--app-text)", fontFamily: "var(--garden-font-display)" }}>
-        {title}
-        {count && (
-          <span className="text-base font-normal" style={{ color: "var(--app-text-dim)" }}>
-            {count}
-          </span>
-        )}
-      </h1>
-    </header>
   );
 }
 
@@ -94,13 +74,9 @@ function Overview({ state, money }: { state: Ready; money: (cents: number) => st
   const listed = everything(data, now);
   const hot = new Set(needs.map(cardIdOf));
   return (
-    <div className="space-y-8">
+    <div className="mt-2 space-y-8">
+      <Stats summary={summary} />
       <PhoneNeedsYou needs={needs} money={money} more="expand" />
-      <div className="space-y-3">
-        {SHORTLIST_AREAS.map((area) => (
-          <Tile key={area} area={area} summary={summary} />
-        ))}
-      </div>
       {listed.length > 0 && listed.length <= LIST_ALL_UNDER && (
         <section>
           <Kicker>Everything on your shortlist · {listed.length}</Kicker>
@@ -111,62 +87,46 @@ function Overview({ state, money }: { state: Ready; money: (cents: number) => st
   );
 }
 
-const TILE = "block rounded-xl border p-4 no-underline";
+/** The three areas as one row of figures, the way a profile counts its
+ *  posts and followers: the count, the area, and under it what needs you.
+ *  Each is the way into its area; an empty one goes browsing instead. The
+ *  three keep their places whatever is in them. */
+function Stats({ summary }: { summary: ShortlistSummary }) {
+  return (
+    <nav aria-label="Shortlist areas" className="grid grid-cols-3 gap-2">
+      {SHORTLIST_AREAS.map((area) => (
+        <Stat key={area} area={area} s={summary[area]} />
+      ))}
+    </nav>
+  );
+}
 
-/** One area: its count, what it's made of, and the next thing to do in it. */
-function Tile({ area, summary }: { area: ShortlistArea; summary: ShortlistSummary }) {
-  const s: AreaSummary = summary[area];
+function Stat({ area, s }: { area: ShortlistArea; s: AreaSummary }) {
   const name = AREA_LABEL[area];
-  if (s.count === 0) {
-    // Dashed, never hidden: the three areas keep their places.
-    return (
-      <div className="rounded-xl border border-dashed p-4" style={{ borderColor: "var(--app-hairline-raised)" }}>
-        <span className={SMALL_CAPS} style={{ ...MONO, color: "var(--app-text-dim)" }}>
-          {name}
-        </span>
-        <p className="mt-3 text-[15px]" style={{ color: "var(--app-text-muted)" }}>
-          Nothing saved yet
-        </p>
-        <Link to={BROWSE[area]} className={`${MORE_CLASS} ${RING}`} style={MORE_STYLE}>
-          {BROWSE_LABEL[area]}
-        </Link>
-      </div>
-    );
-  }
-  const kinds =
-    area === "projects"
-      ? (["paid", "passion"] as const).flatMap((k) => (summary.projects.kinds[k] ? [`${summary.projects.kinds[k]} ${KIND_LABEL[k].toLowerCase()}`] : []))
-      : [];
+  const empty = s.count === 0;
   return (
     <Link
-      to={favoritesHref(area)}
-      aria-label={`${name}, ${s.count}${s.needsYou ? `, ${needYouText(s.needsYou)}` : ""}`}
-      className={`${TILE} transition-colors active:bg-[var(--app-hairline)] ${RING}`}
-      style={{ backgroundColor: "var(--app-surface-raised)", borderColor: "var(--app-hairline)", color: "var(--app-text)" }}
+      to={empty ? BROWSE[area] : favoritesHref(area)}
+      aria-label={empty ? `${name}, none yet, ${BROWSE_LABEL[area].replace(" →", "")}` : `${name}, ${s.count}${s.needsYou ? `, ${needYouText(s.needsYou)}` : ""}`}
+      className={`flex min-h-[88px] flex-col items-center justify-center rounded-xl px-2 py-3 text-center no-underline transition-colors active:bg-[var(--app-hairline)] ${RING}`}
+      style={{ backgroundColor: "var(--app-surface-raised)", color: "var(--app-text)" }}
     >
-      <span className="flex min-h-[18px] items-center justify-between gap-2">
-        <span className={SMALL_CAPS} style={{ ...MONO, color: "var(--app-text-dim)" }}>
-          {name}
-        </span>
-        {s.needsYou > 0 && (
-          <span className={`${SMALL_CAPS} inline-flex items-center gap-1.5 whitespace-nowrap`} style={{ ...MONO, color: "var(--app-accent-ink)" }}>
-            <span aria-hidden className="h-[7px] w-[7px] rounded-full" style={{ background: "var(--app-accent-ink)" }} />
+      <span className="text-[28px] font-semibold leading-none tracking-[-0.02em] tabular-nums" style={empty ? { color: "var(--app-text-dim)" } : undefined}>
+        {s.count}
+      </span>
+      <span className="mt-1.5 text-[13px] font-medium" style={{ color: empty ? "var(--app-text-dim)" : "var(--app-text)" }}>
+        {name}
+      </span>
+      <span className="mt-1 flex min-h-[16px] items-center gap-1 text-xs" style={{ color: s.needsYou > 0 ? "var(--app-accent-ink)" : "var(--app-text-dim)" }}>
+        {s.needsYou > 0 ? (
+          <>
+            <span aria-hidden className="h-[6px] w-[6px] shrink-0 rounded-full" style={{ background: "var(--app-accent-ink)" }} />
             {needYouText(s.needsYou)}
-          </span>
-        )}
+          </>
+        ) : empty ? (
+          "Browse →"
+        ) : null}
       </span>
-      <span className="mt-3 flex items-start gap-4">
-        <span className="text-[44px] font-medium leading-none tracking-[-0.03em] tabular-nums">{s.count}</span>
-        <span className="min-w-0 flex-1 pt-0.5 text-[13px] leading-[1.45]" style={{ color: "var(--app-text-muted)" }}>
-          {s.parts.join(" · ")}
-          {kinds.length > 0 && <span className="block">{kinds.join(" · ")}</span>}
-        </span>
-      </span>
-      {s.next && (
-        <span className="mt-3 block truncate border-t pt-3 text-[13px]" style={{ borderColor: "var(--app-hairline)" }}>
-          {s.next}
-        </span>
-      )}
     </Link>
   );
 }
@@ -174,7 +134,7 @@ function Tile({ area, summary }: { area: ShortlistArea; summary: ShortlistSummar
 /** A brand-new member: one note and three ways in. */
 function Welcome() {
   return (
-    <div className="rounded-xl border p-5" style={{ backgroundColor: "var(--app-surface-raised)", borderColor: "var(--app-hairline)" }}>
+    <div className="mt-2 rounded-xl border p-5" style={{ backgroundColor: "var(--app-surface-raised)", borderColor: "var(--app-hairline)" }}>
       <h2 className="mb-2 text-xl font-medium" style={{ color: "var(--app-text)", fontFamily: "var(--garden-font-display)" }}>
         {WELCOME.title}
       </h2>
@@ -196,11 +156,7 @@ function Welcome() {
 
 // ——— Level 2: one area ———
 
-const RING_CHIP = `transition-colors no-underline ${RING}`;
-// Four across: a phone has no room for "All", "Projects", "Events" and
-// "People" with their counts on one line of pills, and wrapped they take three.
-const AREA_CHIP = `flex min-h-[52px] min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border px-1 py-1.5 text-[13px] font-medium leading-tight ${RING_CHIP}`;
-const KIND_CHIP = `inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-sm font-medium ${RING_CHIP}`;
+const KIND_CHIP = `inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-colors no-underline ${RING}`;
 
 function chipStyle(on: boolean) {
   return on
@@ -216,39 +172,31 @@ function Count({ n }: { n: number }) {
   );
 }
 
-/** All · Projects · Events · People, then Paid · Passion on Projects. An
- *  area chip is a link (the open one goes back to the overview); a kind chip
+/** All · Projects · Events · People as tabs across the screen, then Paid ·
+ *  Passion on Projects. A tab is a link (All is the overview); a kind chip
  *  filters in place and clears on a second press. */
 function Chips({ summary, area, kind }: { summary: ShortlistSummary; area: ShortlistArea; kind: ProjectKind | null }) {
   const navigate = useNavigate();
   return (
-    <div className="mb-6 space-y-2">
-      <nav aria-label="Shortlist areas" className="grid grid-cols-4 gap-2">
-        <Link to={favoritesHref()} className={AREA_CHIP} style={chipStyle(false)}>
-          All
-          <Count n={summary.total} />
-        </Link>
-        {SHORTLIST_AREAS.map((a) => {
-          const on = a === area;
-          const needs = summary[a].needsYou;
-          return (
-            <Link
-              key={a}
-              to={on ? favoritesHref() : favoritesHref(a)}
-              aria-current={on ? "page" : undefined}
-              aria-label={`${AREA_LABEL[a]}, ${summary[a].count}${needs > 0 ? `, ${needYouText(needs)}` : ""}`}
-              className={AREA_CHIP}
-              style={chipStyle(on)}
-            >
-              <span className="inline-flex max-w-full items-center gap-1.5">
-                {needs > 0 && <span aria-hidden className="h-[7px] w-[7px] shrink-0 rounded-full" style={{ background: "var(--app-accent-ink)" }} />}
-                <span className="truncate">{AREA_LABEL[a]}</span>
-              </span>
-              <Count n={summary[a].count} />
-            </Link>
-          );
-        })}
-      </nav>
+    <div className="mb-5 space-y-3">
+      <TabStrip
+        label="Shortlist areas"
+        active={area}
+        items={[
+          { key: "all", label: "All", count: summary.total, to: favoritesHref() },
+          ...SHORTLIST_AREAS.map((a) => {
+            const needs = summary[a].needsYou;
+            return {
+              key: a,
+              label: AREA_LABEL[a],
+              count: summary[a].count,
+              dot: needs > 0,
+              ariaLabel: `${AREA_LABEL[a]}, ${summary[a].count}${needs > 0 ? `, ${needYouText(needs)}` : ""}`,
+              to: favoritesHref(a),
+            };
+          }),
+        ]}
+      />
       {area === "projects" && (
         <div role="group" aria-label="Kind of work" className="flex flex-wrap gap-2">
           {(["paid", "passion"] as const).map((k) => (

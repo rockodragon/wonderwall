@@ -19,6 +19,9 @@ import { NEAR_ME_RADIUS_OPTIONS, useNearMe } from "../lib/useNearMe";
 import { filterEvents, onlyFavorites, parseEventsTab, type EventsTab } from "../lib/browse/eventsFilter";
 import { LocationIcon } from "../components/icons";
 import { PAGE_WIDTH } from "../lib/pageWidth";
+import { PageTop, TopButton } from "../components/phone/PageTop";
+import { TabStrip } from "../components/phone/TabStrip";
+import { Plus } from "@phosphor-icons/react";
 
 // The card itself lives in components/EventCard.tsx, so the treatment can only
 // be changed in one place.
@@ -163,15 +166,39 @@ export default function Events() {
       <link rel="stylesheet" href="/tokens.css" />
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
       <div className={`p-4 sm:p-6 ${PAGE_WIDTH.list} mx-auto`}>
-        <h1
-          className="text-2xl sm:text-3xl font-semibold text-[var(--garden-paper)] mb-1"
-          style={{ fontFamily: "var(--garden-font-display)" }}
-        >
-          Events
-        </h1>
-        <p className="text-[var(--garden-body)] mb-6">
-          Discover and join community gatherings.
-        </p>
+        {/* A phone gets a bar (docs/features/phone-screens.md): the name,
+            and Host in the corner where a thumb finds it. The three lists
+            are tabs under it. Desktop keeps the heading and its line. */}
+        <PageTop
+          className="md:hidden"
+          title="Events"
+          action={
+            <TopButton onClick={hostEvent} icon={<Plus size={16} weight="bold" aria-hidden />}>
+              Host
+            </TopButton>
+          }
+        />
+        <TabStrip
+          className="md:hidden mb-4"
+          label="Which events"
+          active={activeTab}
+          items={[
+            { key: "all", label: "Upcoming", onClick: () => setActiveTab("all") },
+            { key: "favorites", label: "Saved", count: favoriteEventIds.size || undefined, onClick: () => setActiveTab("favorites") },
+            { key: "past", label: "Past", onClick: () => setActiveTab("past") },
+          ]}
+        />
+        <div className="hidden md:block">
+          <h1
+            className="text-2xl sm:text-3xl font-semibold text-[var(--garden-paper)] mb-1"
+            style={{ fontFamily: "var(--garden-font-display)" }}
+          >
+            Events
+          </h1>
+          <p className="text-[var(--garden-body)] mb-6">
+            Discover and join community gatherings.
+          </p>
+        </div>
 
         {/* SearchInput and TagFilterPills below are shared with /search
             (People) and now use the --app-* tokens (see tokens.css) so both
@@ -198,7 +225,27 @@ export default function Events() {
             <LocationIcon className="w-4 h-4" />
             <span className="font-medium hidden sm:inline">{geoLoading ? "Locating..." : "Near me"}</span>
           </button>
+          {/* Tags sit on the search row, the way People's do, instead of a
+              row of their own under the tabs. */}
+          {tagOptions.length > 0 && (
+            <FilterButton
+              open={tagsExpanded}
+              onClick={() => setTagsExpanded((v) => !v)}
+              label={filterButtonLabel(tagOptions, tagFilters)}
+              active={tagFilters.length > 0}
+            />
+          )}
         </div>
+        {tagsExpanded && (
+          <FilterPanel className="mb-4">
+            <TagFilterPills
+              options={tagOptions}
+              active={tagFilters}
+              onToggle={toggleTag}
+              onClear={clearTags}
+            />
+          </FilterPanel>
+        )}
 
         {nearMe && (
           <div className="mb-4 flex items-center gap-3 flex-wrap">
@@ -229,7 +276,7 @@ export default function Events() {
           rows={allEvents}
         />
 
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4 mt-3">
+        <div className="hidden md:flex flex-wrap items-center justify-between gap-3 mb-4 mt-3">
           <div className="flex gap-2">
             <button
               onClick={() => setActiveTab("all")}
@@ -290,27 +337,6 @@ export default function Events() {
           </button>
         </div>
 
-        {tagOptions.length > 0 && (
-          <div className="mb-6">
-            <FilterButton
-              open={tagsExpanded}
-              onClick={() => setTagsExpanded((v) => !v)}
-              label={filterButtonLabel(tagOptions, tagFilters)}
-              active={tagFilters.length > 0}
-            />
-            {tagsExpanded && (
-              <FilterPanel className="mt-3">
-                <TagFilterPills
-                  options={tagOptions}
-                  active={tagFilters}
-                  onToggle={toggleTag}
-                  onClear={clearTags}
-                />
-              </FilterPanel>
-            )}
-          </div>
-        )}
-
         {filteredEvents === undefined ? (
           <div className="flex items-center justify-center py-24">
             <div
@@ -352,13 +378,33 @@ export default function Events() {
                 </button>
               </div>
             )}
+            {activeTab === "all" && filteredEvents.length === 0 && communitySlug === "all" && (
+              // A phone has no make-one tile in the feed (Host is in the bar),
+              // so an empty upcoming list says so here. From sm up the tile is
+              // the empty state.
+              <p className="py-10 text-center text-[15px] sm:hidden" style={{ color: "var(--garden-muted)" }}>
+                Nothing coming up yet.{" "}
+                <button type="button" onClick={hostEvent} className="underline underline-offset-2" style={{ color: "var(--garden-citron)" }}>
+                  Host an event
+                </button>
+              </p>
+            )}
+            {/* A phone reads this as a feed: one column, each event edge to
+                edge (EventCard's feed look), and no make-one tile, since
+                Host is in the bar. From sm up it is the grid with the tile
+                first. */}
             {(activeTab === "all" || filteredEvents.length > 0) && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {activeTab === "all" && <CreateCard label="Host an event" onClick={hostEvent} />}
+              <div className="-mx-4 grid grid-cols-1 gap-7 sm:mx-0 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+                {activeTab === "all" && (
+                  <div className="hidden sm:block">
+                    <CreateCard label="Host an event" onClick={hostEvent} />
+                  </div>
+                )}
                 {filteredEvents.map((event) => (
                   <EventCard
                     key={event._id}
                     event={event}
+                    feed
                     // Past events read as a quieter archive than the live list,
                     // and the Video chip is only worth showing there — on an
                     // upcoming event it says nothing you can act on yet.

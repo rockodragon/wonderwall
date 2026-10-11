@@ -95,18 +95,18 @@ function TodayPage() {
   const loading = projects === undefined;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 md:px-10 pt-8 md:pt-14 pb-24" style={{ color: "var(--app-text)" }}>
+    <div className="mx-auto max-w-5xl px-4 sm:px-6 md:px-10 pt-5 md:pt-14 pb-24" style={{ color: "var(--app-text)" }}>
       {/* The Garden's lockup leads, never in capitals, on any address
           (docs/features/garden-brand-domains.md); the heading stays for
           screen readers. */}
       {garden ? (
-        <div className="flex items-center justify-between gap-4 mb-14">
+        <div className="flex items-center justify-between gap-4 mb-8 md:mb-14">
           <GardenLockup fontSize={16} />
           <h1 className="sr-only">Today</h1>
           <MonoLabel>{formatToday()}</MonoLabel>
         </div>
       ) : (
-        <div className="flex items-baseline justify-between gap-4 mb-14">
+        <div className="flex items-baseline justify-between gap-4 mb-8 md:mb-14">
           <MonoLabel as="h1">Today in The Garden</MonoLabel>
           <MonoLabel>{formatToday()}</MonoLabel>
         </div>
@@ -116,7 +116,7 @@ function TodayPage() {
           you owe a reply or an appearance to, the Shortlist's own rows, up to
           three and a way to the rest. Nothing at all when nothing needs you. */}
       {shortlist.status === "ready" && shortlist.needs.length > 0 && (
-        <div className="mb-10">
+        <div className="mb-8 md:mb-10">
           <PhoneNeedsYou needs={shortlist.needs} money={formatMoney} more="link" />
         </div>
       )}
@@ -126,7 +126,7 @@ function TodayPage() {
       <CelebrationStack />
       <UpdatesStack />
       {/* The third day back: their invite link, once (components/InviteNudge.tsx). */}
-      <InviteNudge tone="page" className="mb-10" />
+      <InviteNudge tone="page" className="mb-8 md:mb-10" />
 
       {openGift && <YourHalfCard amountCents={openGift.amountCents} />}
 
@@ -156,7 +156,7 @@ function TodayPage() {
         {loading ? (
           <Skeleton height={140} />
         ) : shownOpen.length > 0 ? (
-          <div className="space-y-16 md:space-y-20">
+          <div className="space-y-10 md:space-y-20">
             {shownOpen.map((p, i) => (
               <ProjectRow key={p._id} project={p} flip={i % 2 === 1} />
             ))}
@@ -194,7 +194,7 @@ function TodayPage() {
         )}
       </Section>
 
-      <div className={`mt-32 grid gap-8 ${profileEmpty ? "md:grid-cols-2" : ""}`}>
+      <div className={`mt-12 md:mt-32 grid gap-5 md:gap-8 ${profileEmpty ? "md:grid-cols-2" : ""}`}>
         {profileEmpty && <EmptyProfileCard />}
         <BackersCard />
       </div>
@@ -208,7 +208,7 @@ function TodayPage() {
 function YourHalfCard({ amountCents }: { amountCents: number }) {
   return (
     <section
-      className="rounded-xl border px-5 py-6 md:px-7 md:py-7 mb-14"
+      className="rounded-xl border px-5 py-5 md:px-7 md:py-7 mb-8 md:mb-14"
       style={CARD}
       aria-label="Monthly grant"
     >
@@ -216,7 +216,7 @@ function YourHalfCard({ amountCents }: { amountCents: number }) {
         You have {formatMoney(amountCents)} to give.
       </h2>
       <div className="mt-4">
-        <PrimaryLink to="/give">Pick who gets it</PrimaryLink>
+        <PrimaryLink to="/give" className="w-full justify-center md:w-auto">Pick who gets it</PrimaryLink>
       </div>
     </section>
   );
@@ -229,15 +229,17 @@ function YourHalfCard({ amountCents }: { amountCents: number }) {
 function StartProject() {
   return (
     <section aria-label="Start a project">
-      <h2 className="text-[44px] md:text-[60px] leading-[1] font-semibold tracking-[-0.02em]" style={DISPLAY}>
+      <h2 className="text-[30px] md:text-[60px] leading-[1.05] md:leading-[1] font-semibold tracking-[-0.02em]" style={DISPLAY}>
         Start a project
       </h2>
-      <p className="mt-5 text-[17px] leading-relaxed max-w-xl">
-        Post what you're making and find people to make it with.
+      <p className="mt-2 md:mt-5 text-[15px] md:text-[17px] leading-relaxed max-w-xl" style={{ color: "var(--app-text-muted)" }}>
+        Post what you're making. Find people to make it with.
       </p>
-      <div className="mt-7">
+      <div className="mt-4 md:mt-7">
         {/* The same start form the palette's "Start a project" opens. */}
-        <PrimaryLink to="/projects?new=project">Start a project</PrimaryLink>
+        <PrimaryLink to="/projects?new=project" className="w-full justify-center md:w-auto">
+          Start a project
+        </PrimaryLink>
       </div>
     </section>
   );
@@ -499,23 +501,23 @@ function FeaturedProject({ project }: { project: Project }) {
           <ProjectCover cover={cover} seed={project._id} className="md:aspect-auto md:h-full" />
         </Dissolve>
       </Link>
-      <div className="flex flex-col p-7 md:p-10">
+      <div className="flex flex-col p-4 md:p-10">
         {/* Badges get their own line. Sharing the title's line squeezed
             "Small Acts: Neighbors" onto two lines for the sake of two pills;
             the title is the thing, the badges are incidental to it. */}
         <Badges project={project} />
-        <h3 className="mt-4 text-[32px] leading-tight font-semibold tracking-[-0.01em]" style={DISPLAY}>
+        <h3 className="mt-3 md:mt-4 text-[24px] md:text-[32px] leading-tight font-semibold tracking-[-0.01em]" style={DISPLAY}>
           <Link to={`/projects/${project._id}`} className="hover:underline">
             {project.title}
           </Link>
         </h3>
         {project.blurb && (
-          <p className="mt-4 text-[15px] leading-relaxed" style={{ color: "var(--app-text-muted)" }}>
+          <p className="mt-2 md:mt-4 text-[15px] leading-relaxed line-clamp-3 md:line-clamp-none" style={{ color: "var(--app-text-muted)" }}>
             {project.blurb}
           </p>
         )}
         {funded && (
-          <div className="mt-7">
+          <div className="mt-4 md:mt-7">
             <div className="flex justify-between text-xs mb-2" style={{ ...MONO, color: "var(--app-text-dim)" }}>
               <span>
                 {funded.raised} of {funded.goal} raised
@@ -527,7 +529,11 @@ function FeaturedProject({ project }: { project: Project }) {
             </div>
           </div>
         )}
-        <dl className="mt-7 grid grid-cols-2 sm:grid-cols-3 gap-x-8 gap-y-5">
+        {/* A phone gets the facts as one line; desktop keeps the grid. */}
+        <p className="mt-3 text-xs uppercase tracking-[0.08em] md:hidden" style={{ ...MONO, color: "var(--app-text-dim)" }}>
+          {facts.map(factPhrase).join(" · ")}
+        </p>
+        <dl className="mt-7 hidden md:grid grid-cols-2 sm:grid-cols-3 gap-x-8 gap-y-5">
           {facts.map((f) => (
             <div key={f.label} className="min-w-0">
               <dt className="text-xs uppercase tracking-[0.1em]" style={{ ...MONO, color: "var(--app-text-dim)" }}>
@@ -537,8 +543,10 @@ function FeaturedProject({ project }: { project: Project }) {
             </div>
           ))}
         </dl>
-        <div className="mt-auto pt-8">
-          <PrimaryLink to={`/projects/${project._id}`}>See the project</PrimaryLink>
+        <div className="mt-auto pt-4 md:pt-8">
+          <PrimaryLink to={`/projects/${project._id}`} className="w-full justify-center md:w-auto">
+            See the project
+          </PrimaryLink>
         </div>
       </div>
     </article>
@@ -562,7 +570,7 @@ function ProjectRow({ project, flip }: { project: Project; flip: boolean }) {
   return (
     <Link
       to={`/projects/${project._id}`}
-      className={`group grid items-center gap-8 md:gap-14 ${flip ? "md:grid-cols-[1fr_320px]" : "md:grid-cols-[320px_1fr]"}`}
+      className={`group grid items-center gap-4 md:gap-14 ${flip ? "md:grid-cols-[1fr_320px]" : "md:grid-cols-[320px_1fr]"}`}
     >
       {/* 4:5, full width on a phone; beside the words it is a fixed 320px
           wide, so a portrait picture doesn't run taller than the text. */}
@@ -574,18 +582,18 @@ function ProjectRow({ project, flip }: { project: Project; flip: boolean }) {
       </Dissolve>
       <div className={`min-w-0 ${flip ? "md:order-1" : ""}`}>
         <Badges project={project} />
-        <h3 className="mt-4 text-[26px] md:text-[30px] leading-tight font-semibold tracking-[-0.01em] group-hover:underline" style={DISPLAY}>
+        <h3 className="mt-3 md:mt-4 text-[22px] md:text-[30px] leading-tight font-semibold tracking-[-0.01em] group-hover:underline" style={DISPLAY}>
           {project.title}
         </h3>
         {project.blurb && (
-          <p className="mt-3 text-[15px] leading-relaxed line-clamp-3" style={{ color: "var(--app-text-muted)" }}>
+          <p className="mt-2 md:mt-3 text-[15px] leading-relaxed line-clamp-2 md:line-clamp-3" style={{ color: "var(--app-text-muted)" }}>
             {project.blurb}
           </p>
         )}
-        <p className="mt-5 text-xs uppercase tracking-[0.08em]" style={{ ...MONO, color: "var(--app-text-dim)" }}>
+        <p className="mt-3 md:mt-5 text-xs uppercase tracking-[0.08em]" style={{ ...MONO, color: "var(--app-text-dim)" }}>
           {meta.join(" · ")}
         </p>
-        <span className="mt-6 inline-block text-xs uppercase tracking-[0.1em]" style={{ ...MONO, color: "var(--app-accent-ink)" }}>
+        <span className="mt-3 md:mt-6 inline-block text-xs uppercase tracking-[0.1em]" style={{ ...MONO, color: "var(--app-accent-ink)" }}>
           See →
         </span>
       </div>
@@ -600,23 +608,25 @@ function GigRow({ project }: { project: Project }) {
   return (
     <Link
       to={`/projects/${project._id}`}
-      className="group grid items-center gap-4 px-5 py-5 transition-colors hover:bg-[var(--app-hairline)] sm:grid-cols-[1fr_auto_auto_auto]"
+      className="group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-4 transition-colors hover:bg-[var(--app-hairline)] sm:gap-4 sm:px-5 sm:py-5 sm:grid-cols-[1fr_auto_auto_auto]"
       style={{ borderColor: "var(--app-hairline)" }}
     >
-      <div className="min-w-0">
+      <div className="row-start-1 min-w-0 sm:row-auto">
         <span className="block truncate text-[15px] font-medium group-hover:underline">{project.title}</span>
         <p className="truncate text-[13px]" style={{ color: "var(--app-text-dim)" }}>
           {[bylineOf(project)?.name, when].filter(Boolean).join(" · ")}
         </p>
       </div>
-      <div className="flex flex-wrap gap-1.5">
+      {/* On a phone the pay sits beside the title and the tags go under
+          both; from sm up the four columns read left to right. */}
+      <div className="col-span-2 row-start-2 flex flex-wrap gap-1.5 sm:col-span-1 sm:row-auto">
         {topic && <Tag>{topic}</Tag>}
         <Tag>{project.remote === false ? "In person" : "Remote OK"}</Tag>
       </div>
-      <span className="text-lg font-semibold whitespace-nowrap sm:text-right" style={{ ...DISPLAY, color: "var(--app-accent-ink)" }}>
+      <span className="col-start-2 row-start-1 text-lg font-semibold whitespace-nowrap sm:col-auto sm:row-auto sm:text-right" style={{ ...DISPLAY, color: "var(--app-accent-ink)" }}>
         {money ?? ""}
       </span>
-      <span className="text-xs uppercase tracking-[0.08em] whitespace-nowrap" style={{ ...MONO, color: "var(--app-accent-ink)" }}>
+      <span className="hidden text-xs uppercase tracking-[0.08em] whitespace-nowrap sm:inline" style={{ ...MONO, color: "var(--app-accent-ink)" }}>
         See →
       </span>
     </Link>
@@ -640,7 +650,7 @@ function Badges({ project }: { project: Project }) {
 
 function EmptyProfileCard() {
   return (
-    <section className="flex flex-col rounded-xl border border-dashed p-6 md:p-7" style={{ borderColor: "var(--app-hairline-raised)" }}>
+    <section className="flex flex-col rounded-xl border border-dashed p-5 md:p-7" style={{ borderColor: "var(--app-hairline-raised)" }}>
       <div className="flex items-start gap-4">
         <div className="shrink-0 text-center">
           <svg viewBox="0 0 72 72" width="68" height="68" fill="none" aria-hidden style={{ color: "var(--app-text-dim)" }}>
@@ -661,8 +671,8 @@ function EmptyProfileCard() {
           </p>
         </div>
       </div>
-      <p className="mt-5 text-sm leading-relaxed">{CLAIMS.theGarden}</p>
-      <div className="mt-auto pt-6 flex flex-wrap gap-2">
+      <p className="mt-5 text-sm leading-relaxed hidden md:block">{CLAIMS.theGarden}</p>
+      <div className="mt-auto pt-5 md:pt-6 flex flex-wrap gap-2">
         <PrimaryLink to="/settings">Start your profile</PrimaryLink>
         <SecondaryLink to="/projects">Post a project</SecondaryLink>
       </div>
@@ -672,15 +682,16 @@ function EmptyProfileCard() {
 
 function BackersCard() {
   return (
-    <section className="flex flex-col rounded-xl border p-6 md:p-7" style={CARD}>
+    <section className="flex flex-col rounded-xl border p-5 md:p-7" style={CARD}>
       <MonoLabel>For patrons & backers</MonoLabel>
-      <h2 className="mt-3 text-2xl font-semibold" style={DISPLAY}>
+      <h2 className="mt-2 md:mt-3 text-[22px] md:text-2xl font-semibold" style={DISPLAY}>
         Back the work, not the algorithm.
       </h2>
-      <p className="mt-2 text-sm leading-relaxed max-w-md" style={{ color: "var(--app-text-muted)" }}>
+      {/* The two claims are desktop's; a phone gets the line and the buttons. */}
+      <p className="mt-2 text-sm leading-relaxed max-w-md hidden md:block" style={{ color: "var(--app-text-muted)" }}>
         {CLAIMS.patron} {CLAIMS.coverage}
       </p>
-      <div className="mt-auto pt-6 flex flex-wrap gap-2">
+      <div className="mt-auto pt-5 md:pt-6 flex flex-wrap gap-2">
         <PrimaryLink to="/projects">Back a project</PrimaryLink>
         <SecondaryLink to="/coverage">Cover a membership</SecondaryLink>
       </div>
@@ -694,12 +705,12 @@ function BackersCard() {
 
 function Section({ title, mono, action, children }: { title: string; mono?: boolean; action?: ReactNode; children: ReactNode }) {
   return (
-    <section className="mt-32">
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
+    <section className="mt-12 md:mt-32">
+      <div className="mb-4 md:mb-8 flex flex-wrap items-end justify-between gap-3">
         {mono ? (
           <MonoLabel as="h2">{title}</MonoLabel>
         ) : (
-          <h2 className="text-[28px] font-semibold tracking-[-0.01em]" style={DISPLAY}>
+          <h2 className="text-[22px] md:text-[28px] font-semibold tracking-[-0.01em]" style={DISPLAY}>
             {title}
           </h2>
         )}
@@ -745,8 +756,8 @@ function Tag({ children, accent }: { children: ReactNode; accent?: boolean }) {
 
 const BUTTON = "inline-flex items-center gap-2 rounded-lg font-semibold transition-opacity hover:opacity-90";
 
-function PrimaryLink({ to, href, external, children }: { to?: string; href?: string; external?: boolean; children: ReactNode }) {
-  const className = `${BUTTON} px-4 py-2.5 text-[13.5px]`;
+function PrimaryLink({ to, href, external, className: extra = "", children }: { to?: string; href?: string; external?: boolean; className?: string; children: ReactNode }) {
+  const className = `${BUTTON} px-4 py-2.5 text-[13.5px] ${extra}`;
   const style = { backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" };
   if (href) {
     return (
@@ -825,6 +836,22 @@ function topicsOf(p: Project): string[] {
 /** "All 12 projects" / "All gigs" while loading or empty. */
 function countLabel(noun: string, n: number): string {
   return n > 0 ? `All ${n} ${noun}${n === 1 ? "" : "s"}` : `All ${noun}s`;
+}
+
+/** "Team of 3", "2 open roles", "Due Oct 20", "$400"; a stage or a name stands alone. */
+function factPhrase(f: { label: string; value: string }): string {
+  switch (f.label) {
+    case "Team":
+      return `Team of ${f.value}`;
+    case "Open roles":
+      return `${f.value} open ${f.value === "1" ? "role" : "roles"}`;
+    case "Backers":
+      return `${f.value} ${f.value === "1" ? "backer" : "backers"}`;
+    case "Deadline":
+      return `Due ${f.value}`;
+    default:
+      return f.value;
+  }
 }
 
 function formatToday(): string {

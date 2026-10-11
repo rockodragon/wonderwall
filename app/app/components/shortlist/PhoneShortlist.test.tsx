@@ -59,14 +59,16 @@ describe("the overview", () => {
     expect(page(SAMPLE)).toMatch(/aria-expanded="false"[^>]*>2 more →/);
   });
 
-  it("sets three tiles: counts, breakdowns, the paid · passion split and a next step", () => {
+  it("sets three figures: the count, the area, and what needs you, nothing more", () => {
     const html = text(page(SAMPLE));
-    expect(html).toContain("Projects 3 need you 15 1 invite · 2 leading · 2 on the team · 3 waiting · 2 backing · 5 saved 8 paid · 7 passion Reply to Mara · Sound Mixer");
-    expect(html).toContain("Events 2 need you 10");
-    expect(html).toContain("People 14 Across 8 interests Latest: Kofi Mensah, Sep 30");
+    expect(html).toContain("15 Projects 3 need you 10 Events 2 need you 14 People");
+    // The breakdown and the next step are the area's; the overview stays a glance.
+    expect(html).not.toContain("1 invite");
+    expect(html).not.toContain("Reply to Mara");
+    expect(html).not.toContain("Across 8 interests");
   });
 
-  it("links each tile to its area on the phone's own page", () => {
+  it("links each figure to its area on the phone's own page", () => {
     const html = page(SAMPLE);
     expect(html).toContain('href="/favorites?area=projects"');
     expect(html).toContain('href="/favorites?area=events"');
@@ -80,17 +82,16 @@ describe("the overview", () => {
     expect(text(page(SAMPLE))).not.toContain("Everything on your shortlist");
   });
 
-  it("lists everything under the tiles at eight or fewer, with dashed empty tiles that browse", () => {
+  it("lists everything under the figures at eight or fewer; an empty area's figure goes browsing", () => {
     const sparse = ready(shortlist({ people: [follow("Mara Lin", ["Audio", "Filmmaking"], on(9, 10)), follow("Theo Okafor", ["Filmmaking"], on(5, 20))] }));
     const html = text(page(sparse));
-    expect(html).toContain("Projects Nothing saved yet Browse projects →");
-    expect(html).toContain("Events Nothing saved yet Browse events →");
+    expect(html).toContain("0 Projects Browse → 0 Events Browse → 2 People");
     expect(html).toContain("Everything on your shortlist · 2");
     expect(html).toContain("Mara Lin People · Audio · Filmmaking");
     expect(html).not.toContain("Needs you");
-    expect(page(sparse)).toContain("border-dashed");
     expect(page(sparse)).toContain('href="/projects"');
     expect(page(sparse)).toContain('href="/events"');
+    expect(page(sparse)).toContain('aria-label="Projects, none yet, Browse projects"');
   });
 
   it("greets a brand-new member with one note and three ways in", () => {
@@ -148,7 +149,7 @@ describe("rows", () => {
 describe("an area", () => {
   it("titles it, with its count and a way back to the overview", () => {
     const html = page(SAMPLE, "projects");
-    expect(html).toMatch(/<a [^>]*href="\/favorites"[^>]*>← Shortlist<\/a>/);
+    expect(html).toMatch(/<a (?=[^>]*href="\/favorites")[^>]*aria-label="Shortlist"/);
     expect(html).toMatch(/<h1[^>]*>Projects<span[^>]*>15<\/span><\/h1>/);
   });
 
@@ -162,9 +163,11 @@ describe("an area", () => {
     expect(html).toMatch(/aria-pressed="false"[^>]*>.*?Paid/);
   });
 
-  it("goes back to the overview from the open area's chip, and across from another's", () => {
+  it("has All for the overview, the open area marked, and the others across", () => {
     const html = page(SAMPLE, "projects");
-    expect(html).toMatch(/aria-current="page"[^>]*aria-label="Projects[^"]*"|href="\/favorites"[^>]*aria-current="page"/);
+    expect(html).toMatch(/<a [^>]*href="\/favorites"[^>]*>(?:(?!<\/a>).)*All/);
+    expect(html).toMatch(/<a (?=[^>]*href="\/favorites\?area=projects")[^>]*aria-current="page"/);
+    expect(html).not.toMatch(/<a (?=[^>]*href="\/favorites\?area=events")[^>]*aria-current/);
     expect(html).toContain('href="/favorites?area=events"');
     expect(html).toContain('href="/favorites?area=people"');
   });
