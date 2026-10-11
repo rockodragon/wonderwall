@@ -4,6 +4,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { eventHasStarted } from "../../convex/eventWindow";
 import { rosterStatusWords } from "./presentation";
+import { errorMessage } from "../lib/convexError";
 
 type HostPerson = {
   userId: Id<"users">;
@@ -29,11 +30,7 @@ function AttendancePanel({
     try {
       await record({ eventId, userId, status });
     } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "Could not record attendance. Please try again.",
-      );
+      setError(errorMessage(cause, "Could not record attendance. Please try again."));
     } finally {
       setPending(null);
     }
@@ -165,11 +162,7 @@ export function HostManagement({
     try {
       await manage({ tableId, userId, decision });
     } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "Could not update this participant. Please try again.",
-      );
+      setError(errorMessage(cause, "Could not update this participant. Please try again."));
     } finally {
       setPending(null);
     }

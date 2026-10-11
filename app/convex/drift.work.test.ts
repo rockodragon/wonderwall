@@ -320,6 +320,14 @@ describe("files refusals", () => {
     });
   });
 
+  it("saveProjectImage stays owner-only: an admin can't change someone else's project", async () => {
+    const tables = world();
+    tables.profiles = tables.profiles.map((p: Row) => (p.userId === OTHER ? { ...p, isAdmin: true } : p));
+    expect(
+      await refusal(files.saveProjectImage, tables, OTHER, { projectId: "projects:mine", storageId: "_storage:a" }),
+    ).toMatchObject({ code: "forbidden" });
+  });
+
   it("saveProjectImage still saves for the person who runs the project", async () => {
     const ctx = makeCtx(world(), ME);
     await run(files.saveProjectImage, ctx, { projectId: "projects:mine", storageId: "_storage:a" });

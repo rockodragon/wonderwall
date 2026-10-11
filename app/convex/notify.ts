@@ -7,11 +7,12 @@ import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { scheduleNotificationEmail } from "./emailHelpers";
 
-/** A new notification's fields. `createdAt` defaults to now; readAt,
- * celebratedAt and digestedAt are set later, by reading it. */
+/** A new notification's fields. `createdAt` defaults to now; readAt and
+ * celebratedAt are set later, by reading it. digestedAt is set up front only
+ * for one that was emailed at once, to keep it out of the daily email. */
 export type NewNotification = Omit<
   Doc<"notifications">,
-  "_id" | "_creationTime" | "createdAt" | "readAt" | "celebratedAt" | "digestedAt"
+  "_id" | "_creationTime" | "createdAt" | "readAt" | "celebratedAt"
 > & { createdAt?: number };
 
 /** The email that goes with it, to the same person. scheduleNotificationEmail

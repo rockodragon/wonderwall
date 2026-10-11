@@ -52,7 +52,7 @@ import { InviteToThis } from "../components/InviteToThis";
 import { ShowcaseContent, SHOWCASE_EVENT_ID } from "../components/ShowcaseContent";
 import { hostLabels } from "../lib/eventHosts";
 import { HostedBy } from "../components/HostedBy";
-import { errorMessage } from "../lib/convexError";
+import { GENERIC_ERROR, errorMessage, isNotSignedIn } from "../lib/convexError";
 import { untilSignedIn } from "../lib/untilSignedIn";
 import { CreateEventModal } from "../components/CreateEventModal";
 import type { TicketTier } from "../components/TicketTierEditor";
@@ -1011,8 +1011,9 @@ function useGuestRsvp(
       await saveRsvp();
     } catch (err) {
       // Signed in but the RSVP didn't save: the code is spent, so the button
-      // retries just the save.
-      setError(errorMessage(err));
+      // retries just the save. Still "not signed in" after every retry is the
+      // session lagging, not the person — "Sign in first." would mislead.
+      setError(isNotSignedIn(err) ? GENERIC_ERROR : errorMessage(err));
     } finally {
       setSubmitting(false);
     }

@@ -18,7 +18,7 @@ import { toggleProfileLike, getProfileLikeStatus, getMyProfileAnalytics, recordP
 import { generateInvites } from "./seed";
 import { startQueueProcessor, seedTestUrls } from "./crawler";
 import { scrapeJobsForOrganization, scrapeJobsBatch } from "./jobScraper";
-import { listForAdmin, approveEntry } from "./waitlist";
+import { listForAdmin, approveEntry, answerWaitlistQuestions } from "./waitlist";
 import { adminList } from "./showcase";
 
 const ME = "users:me";
@@ -260,5 +260,16 @@ describe("redeemBySlug: the invite-accepted notification", () => {
       ctaUrl: "/profile/profiles:me",
     });
     expect(email.body).toContain("<strong>Newcomer &lt;b&gt;</strong> joined");
+  });
+});
+
+describe("waitlist follow-up", () => {
+  // The follow-up page shows the server's reason; a plain Error's message
+  // never reached it in production.
+  it("an email that isn't on the waitlist is a readable not_found", async () => {
+    expect(await refusal(run(answerWaitlistQuestions, makeCtx({ waitlist: [] }, null), { email: "nobody@example.com" }))).toEqual({
+      code: "not_found",
+      reason: "We couldn't find that email on the waitlist.",
+    });
   });
 });

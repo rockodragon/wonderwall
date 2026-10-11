@@ -27,6 +27,7 @@ import type { Id } from "../_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError } from "convex/values";
 import { getProfileByUserId, requireOperator } from "../helpers";
+import { insertNotification } from "../notify";
 import { guestBackingThrottled } from "./stripeHandlers";
 import { isHidden } from "../moderationRules";
 import { emailFirstCheer, isFirstCheerReceived } from "../engagement/firstCheer";
@@ -168,7 +169,7 @@ export const supportProject = mutation({
       // digestedAt keeps it out of the daily email. Later ones wait for it.
       const first = notice.type === "encouragement" && (await isFirstCheerReceived(ctx, project.userId, supportId));
       const now = Date.now();
-      const notificationId = await ctx.db.insert("notifications", {
+      const notificationId = await insertNotification(ctx, {
         userId: project.userId,
         ...notice,
         linkUrl,

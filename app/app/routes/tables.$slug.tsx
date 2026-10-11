@@ -13,6 +13,7 @@ import { hostLabels } from "../lib/eventHosts";
 import { BackLink } from "../components/BackLink";
 import "../tables/tables.css";
 import { FF_TABLES, useFeatureGate } from "../lib/featureFlags";
+import { errorMessage } from "../lib/convexError";
 
 export function meta() {
   return [{ title: "Table — Creative Exchange" }];
@@ -140,11 +141,7 @@ function LegacySession({
       await rsvpSession({ sessionId: session._id, status: next });
       setStatus(next);
     } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "Could not save your RSVP. Try again.",
-      );
+      setError(errorMessage(cause, "Could not save your RSVP. Try again."));
     } finally {
       setPending(false);
     }
@@ -243,11 +240,7 @@ function TableDetailPage() {
       await joinTable({ tableId: table._id });
       setMessage("");
     } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "We couldn't join this Table. Please try again.",
-      );
+      setError(errorMessage(cause, "We couldn't join this Table. Please try again."));
     } finally {
       setPending(false);
     }
@@ -262,11 +255,7 @@ function TableDetailPage() {
         throw new Error("Checkout is unavailable. Please try again.");
       window.location.assign(result.url);
     } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "We couldn't open checkout. Please try again.",
-      );
+      setError(errorMessage(cause, "We couldn't open checkout. Please try again."));
       setPending(false);
     }
   }
@@ -279,11 +268,7 @@ function TableDetailPage() {
       await leaveTable({ tableId: table._id });
       setMessage("You've left this Table.");
     } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "We couldn't leave this Table. Please try again.",
-      );
+      setError(errorMessage(cause, "We couldn't leave this Table. Please try again."));
     } finally {
       setPending(false);
     }
