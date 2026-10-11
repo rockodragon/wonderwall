@@ -743,6 +743,17 @@ describe("gigs: who is told, and under what name", () => {
     expect(emailsTo(runAfter)).toHaveLength(1);
   });
 
+  // The email already said "$12.50"; the notice said "$12.5".
+  it("markSlotPaid writes cents in the notice the way the email does", async () => {
+    const ctx = makeCtx(world(), BO);
+    await run(markSlotPaid, ctx, { slotId: "gigSlots:d1", amountCents: 1250, method: "venmo" });
+    expect(ctx.store.notifications[0].message).toBe("$12.50 via venmo. Confirm it once it lands.");
+
+    const big = makeCtx(world(), BO);
+    await run(markSlotPaid, big, { slotId: "gigSlots:d1", amountCents: 123450, method: "cash" });
+    expect(big.store.notifications[0].message).toBe("$1,234.50 via cash. Confirm it once it lands.");
+  });
+
   it("confirmSlotPaid tells the venue, by the artist's name", async () => {
     const ctx = makeCtx(
       world({ gigSlots: [{ ...world().gigSlots[0], paidAt: 5, paidAmountCents: 8000, paidMethod: "venmo" }] }),

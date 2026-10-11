@@ -27,6 +27,7 @@ import { can } from "./capabilities";
 import { assertCanPure, getGardenUser } from "./entitlements";
 import { escapeHtml } from "../email/template";
 import { pieceMediaUrl, profileImageUrl } from "../images";
+import { formatCents } from "../money";
 import {
   HORIZON_WEEKS,
   MAX_CLIPS,
@@ -948,7 +949,7 @@ export const markSlotPaid = mutation({
         userId: slot.bookedUserId,
         type: "gig_paid",
         title: `${series.venueName ?? project.title} marked ${formatSlotDate(slot.date)} paid`,
-        message: `$${(args.amountCents / 100).toLocaleString("en-US")} via ${args.method}. Confirm it once it lands.`,
+        message: `${formatCents(args.amountCents)} via ${args.method}. Confirm it once it lands.`,
         linkUrl: projectLink(project._id),
         relatedUserId: userId,
       },

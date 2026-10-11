@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { HireFlow } from "../components/HireFlow";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
+import { formatCents, formatDollars } from "../../convex/money";
 import { justPublished } from "../lib/justPublished";
 import { INTERESTS } from "../constants/interests";
 import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
@@ -879,8 +880,7 @@ export function GoalProgress({
         className={compact ? "text-[13px] mb-1" : "text-sm mb-1.5"}
         style={{ color: "var(--garden-body)", fontFamily: "var(--garden-font-mono)" }}
       >
-        <span style={{ color: "var(--garden-paper)" }}>${raised.toLocaleString("en-US")}</span> of $
-        {goal.toLocaleString("en-US")}
+        <span style={{ color: "var(--garden-paper)" }}>{formatCents(raisedCents)}</span> of {formatDollars(goal)}
       </p>
       <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: "var(--garden-hairline-raised)" }}>
         <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: "var(--garden-citron)" }} />
@@ -944,6 +944,14 @@ const SUPPORT_TYPES: Record<SupportMode, { value: string; label: string }[]> = {
     { value: "financial_annual", label: "Yearly" },
   ],
 };
+
+/** What a backing tier costs, as the backer reads it: "$25" once, "$25/mo",
+ *  or "$300/yr" when they pick Yearly (twelve months, charged together). */
+export function tierPriceLabel(tier: { priceCents: number; billing?: string }, type: string): string {
+  if ((tier.billing ?? "monthly") === "one_time") return formatCents(tier.priceCents);
+  if (type === "financial_annual") return `${formatCents(tier.priceCents * 12)}/yr`;
+  return `${formatCents(tier.priceCents)}/mo`;
+}
 
 // Twin of MIN_BACKING_CENTS in convex/garden/stripeHandlers.ts (the server
 // is the authority; this is only so the modal can say it out loud and catch
@@ -1085,13 +1093,13 @@ export function SupportModal({
                   )}
                   {e.type === "financial_one_time" && e.amountCents && (
                     <span style={{ color: "var(--garden-citron)" }}>
-                      {" "}· ${(e.amountCents / 100).toLocaleString()}
+                      {" "}· {formatCents(e.amountCents)}
                       {e.status === "pledged" ? " pledged" : " backed"}
                     </span>
                   )}
                   {(e.type === "financial_recurring" || e.type === "financial_annual") && e.amountCents && (
                     <span style={{ color: "var(--garden-citron)" }}>
-                      {" "}· ${(e.amountCents / 100).toLocaleString()}{e.type === "financial_annual" ? "/yr" : "/mo"}
+                      {" "}· {formatCents(e.amountCents)}{e.type === "financial_annual" ? "/yr" : "/mo"}
                       {e.status === "pledged" ? " pledged" : ""}
                     </span>
                   )}
@@ -1159,11 +1167,7 @@ export function SupportModal({
                         {tier.name}
                       </span>
                       <span className="text-sm font-bold" style={{ color: "var(--garden-citron)", fontFamily: "var(--garden-font-mono)" }}>
-                        ${(tier.billing ?? "monthly") === "one_time"
-                          ? (tier.priceCents / 100).toLocaleString()
-                          : type === "financial_annual"
-                            ? (tier.priceCents * 12 / 100).toLocaleString() + "/yr"
-                            : (tier.priceCents / 100).toLocaleString() + "/mo"}
+                        {tierPriceLabel(tier, type)}
                       </span>
                     </div>
                     {tier.description && (

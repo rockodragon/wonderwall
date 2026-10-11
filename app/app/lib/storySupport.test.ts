@@ -37,6 +37,12 @@ describe("supportFormProblem — amount", () => {
     expect(supportFormProblem(fields({ amountCents: 499 }))).toBe("The smallest amount is $5.");
   });
 
+  // The floor was rounded to a whole number ("$13" for a $12.50 floor).
+  it("names a floor with cents in full", () => {
+    expect(supportFormProblem(fields({ amountCents: 100, minCents: 1250 }))).toBe("The smallest amount is $12.50.");
+    expect(supportFormProblem(fields({ amountCents: 100, minCents: 250 }))).toBe("The smallest amount is $2.50.");
+  });
+
   it("catches a typed amount that isn't a number", () => {
     expect(supportFormProblem(fields({ amountCents: NaN }))).toContain("smallest amount");
   });

@@ -12,6 +12,7 @@ import { useAction, useConvexAuth, useQuery } from "convex/react";
 import { useLocation, useNavigate, useParams, useRouteError, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { formatDollars } from "../../convex/money";
 import {
   GardenErrorState,
   GardenLoading,
@@ -60,6 +61,21 @@ function SponsorCredit({ line }: { line: string }) {
     <div className="g-credit">
       {prefix}
       <b>{line.slice(prefix.length)}</b>
+    </div>
+  );
+}
+
+/** One grant-fund award in the credits block; `amount` is in dollars, as
+    shapeCredits (convex/garden/allocations.ts) hands it over. */
+export function GrantFundCredit({
+  credit,
+}: {
+  credit: { amount: number; period: string; orgName: string };
+}) {
+  return (
+    <div className="g-credit">
+      <b>Grant Fund</b> — {formatDollars(credit.amount)} · {formatPeriod(credit.period)} ·
+      administered by {credit.orgName}
     </div>
   );
 }
@@ -602,10 +618,7 @@ export default function StoryPage() {
           <SectionLabel>Credits</SectionLabel>
           <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
             {credits.allocations.map((c, i) => (
-              <div className="g-credit" key={`${c.orgName}-${i}`}>
-                <b>Grant Fund</b> — ${c.amount.toLocaleString()} · {formatPeriod(c.period)} ·
-                administered by {c.orgName}
-              </div>
+              <GrantFundCredit key={`${c.orgName}-${i}`} credit={c} />
             ))}
             {credits.sponsorLine && <SponsorCredit line={credits.sponsorLine} />}
           </div>

@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import { formatCents, formatDollars } from "../../convex/money";
 import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
 import { stageLabel, type Stage } from "../lib/stage";
 import { CoverFrame } from "./CoverFrame";
@@ -85,7 +86,7 @@ export function ProjectTile({ project: a }: { project: any }) {
         )}
         {a.raising && a.goal ? (
           <p className="text-[13.5px]" style={{ color: "var(--app-text-muted)" }}>
-            ${(a.raisedCents / 100).toLocaleString("en-US")} of ${a.goal.toLocaleString("en-US")} raised
+            {formatCents(a.raisedCents)} of {formatDollars(a.goal)} raised
           </p>
         ) : null}
       </div>
