@@ -7,6 +7,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { INTERESTS } from "../constants/interests";
 import { FF_JOBS, useFeatureGate } from "../lib/featureFlags";
 import { PAGE_WIDTH } from "../lib/pageWidth";
+import { errorMessage } from "../lib/convexError";
 
 type LocationType = "Remote" | "Hybrid" | "On-site";
 type JobType = "Full-time" | "Part-time" | "Contract" | "Freelance";
@@ -169,9 +170,7 @@ export default function JobsEdit() {
       navigate(`/jobs/${jobId}`);
     } catch (err) {
       console.error("Failed to update job:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to update project posting",
-      );
+      setError(errorMessage(err, "Failed to update project posting"));
     } finally {
       setSaving(false);
     }

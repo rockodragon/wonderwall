@@ -42,6 +42,7 @@ import {
   ariaSortFor,
 } from "../components/admin/AdminUi";
 import { useIsAdmin } from "../lib/useIsAdmin";
+import { errorMessage } from "../lib/convexError";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Waitlist Admin | TheCreative.exchange" }];
@@ -89,7 +90,7 @@ export default function AdminWaitlistPage() {
     try {
       await approveEntry({ waitlistId: id });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to approve");
+      setError(errorMessage(err, "Failed to approve"));
     } finally {
       setApproving(null);
     }
@@ -108,7 +109,7 @@ export default function AdminWaitlistPage() {
     try {
       await deleteEntry({ waitlistId: id });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete");
+      setError(errorMessage(err, "Failed to delete"));
     } finally {
       setDeleting(null);
     }

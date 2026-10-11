@@ -22,7 +22,7 @@
 //   • Every organizer control hangs off event.isOrganizer, which the server
 //     derives — a guest can never see one.
 //   • Anything whose mutation requires auth is hidden, never rendered dead:
-//     Apply/Join (events.apply throws "Not authenticated") is replaced by
+//     Apply/Join (events.apply refuses a signed-out visitor) is replaced by
 //     the guest RSVP, and the favorite button is dropped.
 //   • Links into auth-gated routes (/profile/:id, /events) are rendered as
 //     plain text or repointed, so a guest never gets bounced to /login.
@@ -246,7 +246,7 @@ export default function EventDetail() {
   const cancelled = event.status === "cancelled";
   // What the event asks of this viewer (lib/eventCta.ts), decided once and
   // shown by one card, in the desktop rail and on a phone. events.apply
-  // throws "Not authenticated", so a guest gets the guest RSVP instead of a
+  // refuses a signed-out visitor, so a guest gets the guest RSVP instead of a
   // button that would reject on click.
   // Tables: an accepted Table participant joins a Table Event without
   // applying again (server-decided, applyNeedsApproval); an older backend
@@ -561,7 +561,7 @@ export default function EventDetail() {
             ))}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* favorites.toggle throws "Not authenticated" — a guest gets no
+            {/* favorites.toggle refuses a signed-out visitor — a guest gets no
                 button rather than one that rejects on click. Share is pure
                 client-side (navigator.share / clipboard), so it stays. */}
             {!isGuest && (
@@ -1935,8 +1935,8 @@ function CantMakeIt({ eventId, label = "Can't make it" }: { eventId: Id<"events"
 }
 
 // Apply (the host approves) and Join (straight in) are one card: a button
-// that opens a note box. Signed-in viewers only; events.apply throws
-// "Not authenticated".
+// that opens a note box. Signed-in viewers only; events.apply refuses a
+// signed-out visitor.
 const JOIN_OR_APPLY = {
   apply: {
     open: "Apply to Attend",
