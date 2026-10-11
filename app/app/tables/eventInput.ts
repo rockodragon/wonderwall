@@ -1,3 +1,5 @@
+import { TableInputError } from "./errors";
+
 /** Shared form-to-domain boundary. "In person" is a UI label; Events store venue. */
 export function tableEventInput(
   input: {
@@ -18,7 +20,7 @@ export function tableEventInput(
     duration <= 0 ||
     duration > 1440
   ) {
-    throw new Error(
+    throw new TableInputError(
       "Choose a future date and a duration from 1 to 1,440 minutes for every Event.",
     );
   }

@@ -1,8 +1,13 @@
 import { errorMessage } from "../lib/convexError";
 
-/** The words to show for a failed Tables call. A server refusal
- * (ConvexError) carries its reason on `data`; the message of anything else
- * is the next best thing. */
+/** A check in the browser that failed with words for the person (a date in
+ * the past, say). Its message is shown as is. */
+export class TableInputError extends Error {}
+
+/** The words to show for a failed Tables call: a TableInputError's own
+ * message, otherwise the server's reason (errorMessage), otherwise
+ * `fallback`. Never a raw err.message — for a server error that's
+ * "[CONVEX ...] Server Error". */
 export function tableErrorMessage(cause: unknown, fallback: string): string {
-  return errorMessage(cause, cause instanceof Error && cause.message ? cause.message : fallback);
+  return cause instanceof TableInputError ? cause.message : errorMessage(cause, fallback);
 }
