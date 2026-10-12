@@ -51,17 +51,16 @@ export default function Events() {
     });
   }
 
-  // Two lists, one at a time. Favorites filters the upcoming list the way it
-  // always has; Past is its own server query because "everything that already
-  // happened, newest first" is a different sort as well as a different slice.
+  // Two lists. Favorites filters the upcoming list the way it always has;
+  // Past is its own server query because "everything that already happened,
+  // newest first" is a different sort as well as a different slice. The
+  // upcoming list stays subscribed on the Past tab too: the Saved tab's
+  // count is drawn from it (below), and it is small.
   // Neither payload carries a video URL — the event document never had one
   // (docs/gated-event-video-prd.md); events.hasVideo, a public boolean, is
   // all the archive knows about video.
   const isPastTab = activeTab === "past";
-  const upcomingEvents = useQuery(
-    api.events.list,
-    isPastTab ? "skip" : { upcoming: true },
-  );
+  const upcomingEvents = useQuery(api.events.list, { upcoming: true });
   const pastEvents = useQuery(api.events.list, isPastTab ? { past: true } : "skip");
   const allEvents = isPastTab ? pastEvents : upcomingEvents;
   const favorites = useQuery(api.favorites.getMyFavorites, {});
@@ -134,6 +133,10 @@ export default function Events() {
       .filter((e): e is NonNullable<typeof e> => e !== null)
       .map((e) => e.event._id) || [],
   );
+  // What the Saved tab lists: the upcoming events you saved. Every saved
+  // event, past ones included, read "4" over a tab that showed one (Rick,
+  // 2026-10-12); the past ones are in Past.
+  const savedCount = upcomingEvents ? onlyFavorites(upcomingEvents as any[], favoriteEventIds).length : 0;
 
   // Filter events based on active tab
   const filteredEvents =
@@ -184,7 +187,7 @@ export default function Events() {
           active={activeTab}
           items={[
             { key: "all", label: "Upcoming", onClick: () => setActiveTab("all") },
-            { key: "favorites", label: "Saved", count: favoriteEventIds.size || undefined, onClick: () => setActiveTab("favorites") },
+            { key: "favorites", label: "Saved", count: savedCount || undefined, onClick: () => setActiveTab("favorites") },
             { key: "past", label: "Past", onClick: () => setActiveTab("past") },
           ]}
         />
@@ -307,7 +310,7 @@ export default function Events() {
                 <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
               </svg>
               Favorites
-              {favoriteEventIds.size > 0 && <span>({favoriteEventIds.size})</span>}
+              {savedCount > 0 && <span>({savedCount})</span>}
             </button>
             <button
               onClick={() => setActiveTab("past")}

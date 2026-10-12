@@ -246,7 +246,7 @@ export const answers: Record<string, unknown | ((args: unknown) => unknown)> = {
   "garden/giving:getMyGiving": { open: [{ amountCents: 500 }] },
   "events:list": (args: unknown) => ((args as { past?: boolean } | undefined)?.past ? past : upcoming),
   "events:search": [],
-  "favorites:getMyFavorites": { profiles: [], events: [{ event: upcoming[0] }, { event: upcoming[2] }] },
+  "favorites:getMyFavorites": { profiles: [], events: [{ event: upcoming[0] }, { event: upcoming[2] }, { event: past[0] }] },
   "favorites:isFavorited": false,
   "favorites:getFavoriteCount": 0,
   "updates:listMine": updates,

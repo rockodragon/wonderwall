@@ -17,7 +17,7 @@ export function SearchInput({
   className = "",
 }: SearchInputProps) {
   return (
-    <div className={`relative ${className}`}>
+    <div className={`relative min-w-0 ${className}`}>
       <div
         className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"
         style={{ color: "var(--app-text-dim)" }}
