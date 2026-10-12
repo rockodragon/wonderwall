@@ -218,7 +218,7 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
             imageUrl={profile.imageUrl}
             size="mdBase"
             tone="gray"
-            className="ring-2 ring-gray-100 dark:ring-gray-700"
+            className="ring-2 ring-gray-100 dark:ring-gray-600"
           />
           <div className="flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-700 rounded-full text-gray-500 dark:text-gray-400 text-sm">
             Share something you've made...

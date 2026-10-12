@@ -187,6 +187,23 @@ describe("the inviter on the sign-up page", () => {
     expect(tag).toContain("h-14 w-14 text-xl");
     expect(tag).toContain(GRAY);
   });
+
+  it("lists who they invited with small gray faces, not the purple-pink gradient", async () => {
+    answers = {
+      [name(api.invites.getInviterInfo)]: {
+        name: "Sol Reyes",
+        imageUrl: null,
+        interests: [],
+        recentInvitees: [{ name: "Ivo Park", imageUrl: null, interests: [] }],
+      },
+      [name(api.garden.defaultCommunity.getSignupCommunity)]: { id: "c1", name: "The Garden", inviteOnly: false },
+    };
+    const html = await page("/signup/:inviteSlug", "/signup/sol", Signup);
+    expect(html).not.toContain("from-purple-400");
+    const tag = oneFace(html, "I");
+    expect(tag).toContain("h-7 w-7 text-xs");
+    expect(tag).toContain(GRAY);
+  });
 });
 
 describe("the composers", () => {
@@ -197,7 +214,7 @@ describe("the composers", () => {
     notTheOldFace(html, tag);
     expect(tag).toContain("h-10 w-10 text-base");
     expect(tag).toContain(GRAY);
-    expect(tag).toContain("ring-2 ring-gray-100 dark:ring-gray-700");
+    expect(tag).toContain("ring-2 ring-gray-100 dark:ring-gray-600");
     // The button says what it is; the face is decoration.
     expect(html).toContain("Share something you&#x27;ve made...");
   });

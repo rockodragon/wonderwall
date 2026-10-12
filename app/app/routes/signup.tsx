@@ -481,17 +481,7 @@ export default function Signup() {
                 <div className="space-y-2">
                   {inviterInfo.recentInvitees.map((invitee, idx) => (
                     <div key={idx} className="flex items-center gap-2">
-                      {invitee.imageUrl ? (
-                        <img
-                          src={invitee.imageUrl}
-                          alt={invitee.name}
-                          className="w-8 h-8 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white text-xs font-bold">
-                          {invitee.name.charAt(0).toUpperCase()}
-                        </div>
-                      )}
+                      <PersonAvatar name={invitee.name} imageUrl={invitee.imageUrl} size="sm" tone="gray" />
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
                           {invitee.name}

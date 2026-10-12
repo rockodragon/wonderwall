@@ -36,7 +36,7 @@ export type TableSummary = {
 };
 
 export function tablePrice(
-  table: Pick<TableSummary, "priceCents" | "currency" | "membershipRequired">,
+  table: Pick<TableSummary, "priceCents" | "membershipRequired">,
 ) {
   // Tables are always priced in USD (tables.ts sets the currency), so the one
   // money formatter applies: "$25", "$25.50".
