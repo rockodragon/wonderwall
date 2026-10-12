@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
-import { formatCents } from "../../convex/money";
+import { formatCents, formatDollars } from "../../convex/money";
 import { CLAIMS } from "../constants/claims";
 import { INTERESTS } from "../constants/interests";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
@@ -1011,7 +1011,14 @@ export function PostOfferingForm({
         ? selectedTags.join(", ")
         : `${selectedTags.slice(0, TAG_SUMMARY_LIMIT).join(", ")} +${selectedTags.length - TAG_SUMMARY_LIMIT} more`;
   const scheduleSummary = cadence.trim() || (startDateStr ? formatDateOnly(new Date(startDateStr).getTime()) : null) || "Not set yet";
-  const pricingSummary = isFree ? "Free" : price.trim() ? `$${price.trim()}` : "Not set yet";
+  const priceDollars = Number(price);
+  const pricingSummary = isFree
+    ? "Free"
+    : !price.trim()
+      ? "Not set yet"
+      : Number.isFinite(priceDollars)
+        ? formatDollars(priceDollars)
+        : `$${price.trim()}`;
 
   function toggleTag(tag: string) {
     setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
@@ -1326,6 +1333,7 @@ export function PostOfferingForm({
                 <input
                   type="number"
                   min="1"
+                  step="0.01"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
                   placeholder="Price (USD)"
