@@ -2,7 +2,7 @@ import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import { useEffect, useId, useState, type CSSProperties, type ReactNode } from "react";
 import { usePostHog } from "@posthog/react";
-import { BookmarkSimple, UsersThree } from "@phosphor-icons/react";
+import { BookmarkSimple, CalendarBlank, GraduationCap, PaintBrush, SquaresFour, Sun, UserCircle, Users, UsersThree, type Icon } from "@phosphor-icons/react";
 import { api } from "../../convex/_generated/api";
 import { setPendingIntent, takePendingIntent } from "../lib/pendingIntent";
 import { inviteFromSearch, rememberInvite } from "../lib/carriedInvite";
@@ -19,6 +19,7 @@ import { Palette } from "../desk/Palette";
 import { PhoneNavName, PhoneNavNoteCard, usePhoneNavNote } from "../components/PhoneNavNote";
 import { NeedsYouDot } from "../components/shortlist/NeedsYouDot";
 import { useShortlist } from "../lib/shortlist/useShortlist";
+import { CountBadge } from "../components/phone/CountBadge";
 
 // The Garden holds the top of the rail (garden-first-ia mock, screen 2):
 // the community you're in takes the wordmark slot, the platform moves to the
@@ -80,21 +81,30 @@ function isPublicPathname(pathname: string): boolean {
 // drift into showing the same label pointed at two different routes again.
 // "Spaces" is /communities (2026-09-14, product decision) — see NAV_ITEMS'
 // own comment for the full history.
-const NAV_ICONS = {
-  "/people": PersonIcon,
-  "/projects": BrushIcon,
-  "/events": CalendarIcon,
+//
+// Phosphor icons, because each has a filled twin: the phone's bar draws
+// the place you're on filled (Rick, 2026-10-12), the way a native tab bar
+// does, instead of only changing its colour.
+const NAV_ICONS: Record<(typeof NAV_ITEMS)[number]["to"], Icon> = {
+  "/people": Users,
+  "/projects": PaintBrush,
+  "/events": CalendarBlank,
   "/tables": UsersThree,
-  "/communities": GridIcon,
-  "/offerings": ClassesIcon,
-} as const;
+  "/communities": SquaresFour,
+  "/offerings": GraduationCap,
+};
 // The Shortlist (docs/handoff/favorites-redesign/README.md) replaced
 // "Following" here: same /favorites, now the phone's Shortlist page.
 const SHORTLIST_PATH = "/favorites";
-const secondaryNavItems = [
-  { path: SHORTLIST_PATH, label: "Shortlist", icon: BookmarkSimple },
-  { path: "/settings", label: "Profile", icon: UserIcon },
-];
+// The phone's bar, in its own order (Rick, 2026-10-12): Today, Projects,
+// Events, People, then anything a flag turns on, then you. Five, like a
+// native tab bar; the Shortlist and Messages left it for the top corner of
+// Today (components/phone/TodayActions.tsx).
+const BAR_ORDER: readonly string[] = ["/projects", "/events", "/people"];
+const barRank = (to: string) => {
+  const at = BAR_ORDER.indexOf(to);
+  return at === -1 ? BAR_ORDER.length : at;
+};
 
 export default function AppLayout() {
   const { isAuthenticated, isLoading } = useConvexAuth();
@@ -104,9 +114,11 @@ export default function AppLayout() {
   const profile = useQuery(api.profiles.getMyProfile);
   const unreadCount = useQuery(api.messaging.getUnreadCount) ?? 0;
   const notificationCount = useQuery(api.notifications.getUnreadCount) ?? 0;
-  // Only the Shortlist's nav dot reads this (the palette reads its own, the
-  // same subscription): one dot when something needs you, signed in only.
-  const shortlist = useShortlist(isAuthenticated);
+  // Only the sidebar's Shortlist dot reads this (the palette reads its own,
+  // the same subscription): one dot when something needs you, signed in and
+  // with the sidebar up. The phone's bar has no Shortlist; Today's corner
+  // does, and reads the Shortlist it already has.
+  const shortlist = useShortlist(isAuthenticated && !FF_DESK);
   const needsYou = shortlist.status === "ready" ? shortlist.needs.length : 0;
   const dotId = useId();
   // Only the sidebar's community chips read this; with the palette there is
@@ -245,13 +257,15 @@ export default function AppLayout() {
   // same destination (People/Spaces/Learn are already public routes).
   // Today is the signed-in home (routes/today.tsx) and leads the list; a
   // signed-out visitor has no Today to see, so it drops out for them.
+  const places = NAV_ITEMS.map((item) => ({
+    to: item.to,
+    path: isAuthenticated || !("publicTo" in item) ? item.to : item.publicTo,
+    label: item.label,
+    icon: NAV_ICONS[item.to],
+  }));
   const primaryNavItems = [
-    ...(isAuthenticated ? [{ path: "/today", label: "Today", icon: SunIcon }] : []),
-    ...NAV_ITEMS.map((item) => ({
-      path: isAuthenticated || !("publicTo" in item) ? item.to : item.publicTo,
-      label: item.label,
-      icon: NAV_ICONS[item.to],
-    })),
+    ...(isAuthenticated ? [{ path: "/today", label: "Today", icon: Sun }] : []),
+    ...places,
   ];
   // Other places on the platform — every listed community except the one
   // whose name is on the rail, biggest first, a few at most; "All →" is
@@ -268,14 +282,13 @@ export default function AppLayout() {
     .filter((c) => c.slug !== GARDEN_SLUG)
     .sort((a, b) => b.memberCount - a.memberCount)
     .slice(0, VISIT_LIMIT);
-  // Shortlist/Profile/Messages all require an account — nothing behind them
-  // for a signed-out visitor, so the mobile bar drops to primary items only,
-  // matching the desktop sidebar's secondaryNavItems block below.
-  const navItems = isAuthenticated
-    ? [...primaryNavItems, ...secondaryNavItems]
-    : primaryNavItems;
-  // Messages follows them on the bar, signed in.
-  const barCount = navItems.length + (isAuthenticated ? 1 : 0);
+  // The bar: Today and you need an account, so a signed-out visitor on a
+  // public path gets the places alone, at their public addresses.
+  const barItems = [
+    ...(isAuthenticated ? [{ path: "/today", label: "Today", icon: Sun }] : []),
+    ...[...places].sort((a, b) => barRank(a.to) - barRank(b.to)),
+    ...(isAuthenticated ? [{ path: "/settings", label: "Profile", icon: UserCircle }] : []),
+  ];
 
   // Shared active/inactive treatment for every sidebar/bottom-nav link —
   // citron wash + accessible accent-ink when active (readable in both
@@ -336,15 +349,19 @@ export default function AppLayout() {
         </div>
       )}
 
-      {/* Mobile bottom nav - icons only, to fit up to 8 items (5 primary +
-          Shortlist/Profile/Messages once signed in; 5 for a signed-out
-          visitor on a public path). Sits fixed over scrolling content, so
-          it needs a real shadow (not just the fill color) to read as a
-          solid bar instead of blending with whatever scrolls underneath
-          it. z-40, under dialogs (z-50): a full-screen form on a phone
-          covers the bar, so its Next/Save row at the bottom is never hidden
-          behind it (Rick, 2026-10-05). */}
+      {/* The phone's bottom bar: five places, icons only (Rick,
+          2026-10-12: seven was too many). Today, Projects, Events, People
+          and you; a signed-out visitor on a public path gets the three
+          public ones. Messages and the Shortlist moved to the top corner of
+          Today (components/phone/TodayActions.tsx). The place you're on is
+          the filled icon, in the accent. Sits fixed over scrolling
+          content, so it needs a real shadow (not just the fill color) to
+          read as a solid bar instead of blending with whatever scrolls
+          underneath it. z-40, under dialogs (z-50): a full-screen form on
+          a phone covers the bar, so its Next/Save row at the bottom is
+          never hidden behind it (Rick, 2026-10-05). */}
       <nav
+        aria-label="Places"
         className={`fixed bottom-0 left-0 right-0 z-40 border-t md:hidden ${PHONE_BAR_HEIGHT}`}
         style={{
           backgroundColor: "var(--app-surface-raised)",
@@ -352,29 +369,23 @@ export default function AppLayout() {
           boxShadow: "0 -8px 24px -6px rgba(0, 0, 0, 0.35)",
         }}
       >
-        {phoneNote.show && <PhoneNavNoteCard count={barCount} onDismiss={phoneNote.dismiss} />}
+        {phoneNote.show && <PhoneNavNoteCard count={barItems.length} onDismiss={phoneNote.dismiss} />}
         <div className="h-full flex items-center justify-around">
-          {navItems.map((item, i) => {
+          {barItems.map((item, i) => {
             const isActive = location.pathname.startsWith(item.path);
             const isProfileItem = item.path === "/settings";
-            const hasDot = item.path === SHORTLIST_PATH && needsYou > 0;
             return (
               <Link
                 key={item.path}
                 to={item.path}
+                aria-current={isActive ? "page" : undefined}
                 className="relative flex items-center justify-center p-2"
                 style={{ color: isActive ? "var(--app-accent-ink)" : "var(--app-text-dim)" }}
                 aria-label={item.label}
-                aria-describedby={hasDot ? `${dotId}-bar` : undefined}
                 onClick={phoneNote.dismiss}
               >
-                {phoneNote.show && <PhoneNavName label={item.label} index={i} count={barCount} />}
-                {hasDot ? (
-                  <span className="relative">
-                    <item.icon className="w-6 h-6" />
-                    <NeedsYouDot id={`${dotId}-bar`} count={needsYou} />
-                  </span>
-                ) : isProfileItem && profile?.imageUrl ? (
+                {phoneNote.show && <PhoneNavName label={item.label} index={i} count={barItems.length} />}
+                {isProfileItem && profile?.imageUrl ? (
                   <img
                     src={profile.imageUrl}
                     alt={profile.name}
@@ -382,34 +393,11 @@ export default function AppLayout() {
                     style={isActive ? { boxShadow: "0 0 0 2px var(--app-accent)" } : undefined}
                   />
                 ) : (
-                  <item.icon className="w-6 h-6" />
+                  <item.icon size={24} weight={isActive ? "fill" : "regular"} aria-hidden />
                 )}
               </Link>
             );
           })}
-          {isAuthenticated && (
-            <Link
-              to="/messages"
-              className="relative flex items-center justify-center p-2"
-              style={{
-                color: location.pathname.startsWith("/messages")
-                  ? "var(--app-accent-ink)"
-                  : "var(--app-text-dim)",
-              }}
-              aria-label="Messages"
-              onClick={phoneNote.dismiss}
-            >
-              {phoneNote.show && <PhoneNavName label="Messages" index={barCount - 1} count={barCount} />}
-              <div className="relative">
-                <EnvelopeIcon className="w-6 h-6" />
-                {sidebarBadgeCount > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-[18px] min-w-[18px] flex items-center justify-center px-1">
-                    {sidebarBadgeCount > 99 ? "99+" : sidebarBadgeCount}
-                  </span>
-                )}
-              </div>
-            </Link>
-          )}
         </div>
       </nav>
 
@@ -577,11 +565,7 @@ export default function AppLayout() {
                 <RailIconLink to="/messages" label="Messages" active={location.pathname.startsWith("/messages")}>
                   <span className="relative">
                     <EnvelopeIcon className="w-4.5 h-4.5" />
-                    {sidebarBadgeCount > 0 && (
-                      <span className="absolute -top-2 -right-2.5 bg-red-500 text-white text-xs rounded-full h-4.5 min-w-4.5 flex items-center justify-center px-1">
-                        {sidebarBadgeCount > 99 ? "99+" : sidebarBadgeCount}
-                      </span>
-                    )}
+                    <CountBadge count={sidebarBadgeCount} />
                   </span>
                 </RailIconLink>
               </div>
@@ -627,77 +611,9 @@ export default function AppLayout() {
   );
 }
 
-function CalendarIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-      />
-    </svg>
-  );
-}
 
-function ClassesIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M12 6L3 10l9 4 9-4-9-4zM6.5 12.5V17c0 1 2.5 3 5.5 3s5.5-2 5.5-3v-4.5"
-      />
-    </svg>
-  );
-}
 
-function UserIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-      />
-    </svg>
-  );
-}
 
-function GridIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
-      />
-    </svg>
-  );
-}
 
 function EnvelopeIcon({ className }: { className?: string }) {
   return (
@@ -801,32 +717,7 @@ function RailIconLink({
 }
 
 
-function SunIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-    </svg>
-  );
-}
 
 /** People: a stick figure — the page is people, not a search box. */
-function PersonIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="4.5" r="2.5" />
-      <path d="M12 7v7M12 14l-4 7M12 14l4 7M6 10.5h12" />
-    </svg>
-  );
-}
 
 /** Projects: a paintbrush — work being made, not a job board. */
-function BrushIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20.5 3.5 11 13" />
-      <path d="M9.5 11.5 12.5 14.5" />
-      <path d="M10 14c-2 0-3.5 1.5-3.5 3.5S5 21 3 21c2.5 1 7 .5 7.5-3 .2-1.5-.2-2.8-.5-4z" />
-    </svg>
-  );
-}

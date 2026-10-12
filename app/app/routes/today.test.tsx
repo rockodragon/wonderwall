@@ -74,11 +74,23 @@ describe("Today on a phone", () => {
     expect(html).not.toContain("more on your Shortlist");
   });
 
+  it("keeps the Shortlist and Messages in its top corner, the dot saying how many need you", async () => {
+    const html = await today();
+    const corner = html.match(/<a [^>]*aria-label="Shortlist"[^>]*>.*?<\/a>/)![0];
+    expect(corner).toContain('href="/favorites"');
+    const describedBy = corner.match(/aria-describedby="([^"]+)"/)![1];
+    expect(html).toContain(`<span id="${describedBy}" class="sr-only">5 need you</span>`);
+    expect(html).toMatch(/<a [^>]*aria-label="Messages"[^>]*href="\/messages"/);
+  });
+
   it("is hidden when nothing needs you", async () => {
     scene.data = shortlist({ people: [follow("Mara Lin", [], NOW)] });
     const html = await today();
     expect(html).not.toContain('aria-label="Needs you"');
     expect(html).not.toContain("Needs you");
+    // The corner keeps the bookmark, without the dot.
+    const corner = html.match(/<a [^>]*aria-label="Shortlist"[^>]*>/)![0];
+    expect(corner).not.toContain("aria-describedby");
     // The Garden's lockup heads the page; "Today" is the heading for screen readers.
     expect(text(html)).toContain("The Garden");
     expect(html).toContain('<h1 class="sr-only">Today</h1>');

@@ -31,6 +31,7 @@ import { InviteNudge } from "../components/InviteNudge";
 import { UpdatesStack } from "../components/UpdatesStack";
 import { CelebrationStack } from "../components/CelebrationStack";
 import { PhoneNeedsYou } from "../components/shortlist/PhoneParts";
+import { TodayActions } from "../components/phone/TodayActions";
 import { useShortlist } from "../lib/shortlist/useShortlist";
 import { GardenLockup } from "../brand/GardenMark";
 import { useDeskCommunity } from "../desk/deskState";
@@ -90,6 +91,7 @@ function TodayPage() {
   const shownGigs = gigs.slice(0, LIST_LIMIT);
 
   const garden = useDeskCommunity() === "garden";
+  const needsYou = shortlist.status === "ready" ? shortlist.needs.length : 0;
 
   const profileEmpty = profile !== undefined && profile !== null && !profile.bio && !profile.imageUrl;
   const loading = projects === undefined;
@@ -99,16 +101,25 @@ function TodayPage() {
       {/* The Garden's lockup leads, never in capitals, on any address
           (docs/features/garden-brand-domains.md); the heading stays for
           screen readers. */}
+      {/* The date, then the Shortlist and Messages (components/phone/
+          TodayActions.tsx): the two that left the bottom bar when it went
+          to five places. */}
       {garden ? (
-        <div className="flex items-center justify-between gap-4 mb-8 md:mb-14">
+        <div className="flex items-center justify-between gap-3 mb-6 md:mb-14">
           <GardenLockup fontSize={16} />
           <h1 className="sr-only">Today</h1>
-          <MonoLabel>{formatToday()}</MonoLabel>
+          <div className="flex items-center gap-3">
+            <MonoLabel>{formatToday()}</MonoLabel>
+            <TodayActions needsYou={needsYou} />
+          </div>
         </div>
       ) : (
-        <div className="flex items-baseline justify-between gap-4 mb-8 md:mb-14">
+        <div className="flex items-center justify-between gap-3 mb-6 md:mb-14">
           <MonoLabel as="h1">Today in The Garden</MonoLabel>
-          <MonoLabel>{formatToday()}</MonoLabel>
+          <div className="flex items-center gap-3">
+            <MonoLabel>{formatToday()}</MonoLabel>
+            <TodayActions needsYou={needsYou} />
+          </div>
         </div>
       )}
 

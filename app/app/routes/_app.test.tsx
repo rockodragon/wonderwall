@@ -66,67 +66,73 @@ function shortlistLinks(html: string): string[] {
   return html.match(/<a [^>]*href="\/favorites"[^>]*>.*?<\/a>/g) ?? [];
 }
 
+/** The phone's bar, as drawn. */
+function bar(html: string): string {
+  return html.match(/<nav aria-label="Places"[^>]*>.*?<\/nav>/)![0];
+}
+/** The links' names, in order. */
+const labels = (markup: string) => [...markup.matchAll(/<a [^>]*aria-label="([^"]+)"/g)].map((m) => m[1]);
+
 describe("the phone's bottom bar", () => {
-  it("calls the link Shortlist, not Following, and still goes to /favorites", async () => {
-    const html = await shell();
-    const [link] = shortlistLinks(html);
-    expect(link).toContain('aria-label="Shortlist"');
-    expect(html).not.toContain("Following");
+  it("has five places signed in: Today, Projects, Events, People, Profile", async () => {
+    expect(labels(bar(await shell()))).toEqual(["Today", "Projects", "Events", "People", "Profile"]);
   });
 
-  it("draws the bookmark, not the heart", async () => {
-    const [link] = shortlistLinks(await shell());
-    expect(link).toContain('viewBox="0 0 256 256"');
-    expect(link).not.toContain("M4.318 6.318");
+  it("has no Shortlist or Messages: those sit in Today's corner", async () => {
+    const markup = bar(await shell());
+    expect(markup).not.toContain('href="/favorites"');
+    expect(markup).not.toContain('href="/messages"');
+    expect(markup).not.toContain("Following");
   });
 
-  it("puts a dot on it, described as how many need you, while something does", async () => {
-    const html = await shell();
-    const [link] = shortlistLinks(html);
-    const describedBy = link.match(/aria-describedby="([^"]+)"/)![1];
-    expect(html).toMatch(new RegExp(`<span id="${describedBy.replace(/[:]/g, "\\:")}" class="sr-only">5 need you</span>`));
-    expect(link).toContain("h-2.5 w-2.5 rounded-full");
+  it("marks the place you're on, and only it, with the filled icon", async () => {
+    const links = bar(await shell("/events")).match(/<a [^>]*>.*?<\/a>/g)!;
+    const on = links.filter((l) => l.includes('aria-current="page"'));
+    expect(on).toHaveLength(1);
+    expect(on[0]).toContain('aria-label="Events"');
+    // The filled icon is a different drawing from the outline.
+    const off = links.find((l) => l.includes('aria-label="Projects"'))!;
+    expect(on[0].match(/<path d="([^"]+)"/)![1]).not.toBe(off.match(/<path d="([^"]+)"/)![1]);
   });
 
-  it("says 'needs' for one", async () => {
-    scene.data = { ...sampleShortlist(), requests: [], projects: [], events: [sampleShortlist().events[0]] };
-    const html = await shell();
-    expect(html).toContain(">1 needs you</span>");
-  });
-
-  it("has no dot, and nothing to describe, when nothing needs you", async () => {
-    scene.data = shortlist({ people: [follow("Mara Lin", [], NOW)] });
-    const [link] = shortlistLinks(await shell());
-    expect(link).not.toContain("aria-describedby");
-    expect(link).not.toContain("rounded-full");
-  });
-
-  it("has no dot before the Shortlist arrives", async () => {
-    scene.data = undefined;
-    const [link] = shortlistLinks(await shell());
-    expect(link).not.toContain("aria-describedby");
-  });
-
-  it("isn't there for someone signed out, and never asks for their Shortlist", async () => {
+  it("shows the three public places alone, signed out, at their public addresses", async () => {
     scene.signedIn = false;
-    const html = await shell("/people");
-    expect(shortlistLinks(html)).toEqual([]);
+    const markup = bar(await shell("/people"));
+    expect(labels(markup)).toEqual(["Projects", "Events", "People"]);
+    expect(markup).toContain('href="/opportunities"');
+    expect(markup).toContain('href="/garden/events"');
+    expect(markup).not.toContain('href="/today"');
+    expect(markup).not.toContain('href="/settings"');
+  });
+
+  it("never asks for the Shortlist while the palette is on: Today reads its own", async () => {
+    await shell();
     expect(scene.asked).toEqual(["skip"]);
   });
 });
 
 describe("the sidebar, with the palette off", () => {
-  it("has the same Shortlist link in the account row, with the same dot", async () => {
+  it("keeps the Shortlist link in the account row, with the dot saying how many need you", async () => {
     scene.desk = false;
     const html = await shell();
     const links = shortlistLinks(html);
-    expect(links).toHaveLength(2);
-    const rail = links[1];
+    expect(links).toHaveLength(1);
+    const rail = links[0];
     expect(rail).toContain('aria-label="Shortlist"');
     expect(rail).toContain('title="Shortlist"');
     expect(rail).toContain("h-2.5 w-2.5 rounded-full");
     const describedBy = rail.match(/aria-describedby="([^"]+)"/)![1];
-    expect(describedBy).not.toBe(links[0].match(/aria-describedby="([^"]+)"/)![1]);
+    expect(html).toContain(`<span id="${describedBy}" class="sr-only">5 need you</span>`);
+    expect(scene.asked).toEqual([{}]);
     expect(html).not.toContain("Following");
+  });
+
+  it("says 'needs' for one, and has no dot when nothing needs you", async () => {
+    scene.desk = false;
+    scene.data = { ...sampleShortlist(), requests: [], projects: [], events: [sampleShortlist().events[0]] };
+    expect(await shell()).toContain(">1 needs you</span>");
+    scene.data = shortlist({ people: [follow("Mara Lin", [], NOW)] });
+    const [rail] = shortlistLinks(await shell());
+    expect(rail).not.toContain("aria-describedby");
   });
 });

@@ -4,7 +4,8 @@
 **Decision:** Rick, 2026-10-12: the phone screens read as reflowed web pages.
 They should have a native app's hierarchy, closer to Instagram: less text,
 direct statements, the one action where a thumb finds it, controls on one
-row, content as a feed. The bottom bar stays as it is for now.
+row, content as a feed. Later that day: the bar goes to five places, and
+the place you're on is the filled icon.
 
 ## What a phone screen is
 
@@ -57,8 +58,24 @@ screen and their text still lines up with the page.
 - **People.** The phone's gutter; otherwise unchanged (its two tabs were
   already the title).
 
+## The bar
+
+Five places, like a native tab bar: Today, Projects, Events, People, you
+(`routes/_app.tsx`, `BAR_ORDER`). Signed out on a public path: Projects,
+Events, People at their public addresses. The place you're on is the
+filled Phosphor icon in the accent and carries `aria-current`.
+
+The Shortlist and Messages left the bar for the top corner of Today
+(`components/phone/TodayActions.tsx`): the bookmark with the accent dot
+while something needs you, the envelope with the red count of unread
+messages and notifications. The Shortlist is also a button on your own
+profile and on the settings page's Profile tab (`ShortlistLink`), the two
+places the bar's Profile tab leads.
+
 ## Not done, on purpose
 
-- The bottom bar. Rick asked to hear recommendations before it changes.
-- Profile and Settings: the action row on a profile already fits; Settings
-  is forms.
+- Home-indicator padding under the bar: the site has no web manifest, so
+  it can't be installed to a home screen, and Safari's own toolbar keeps
+  the bar clear of the indicator.
+- Profile and Settings beyond the Shortlist button: the action row on a
+  profile already fits; Settings is forms.
