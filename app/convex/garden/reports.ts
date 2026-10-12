@@ -16,7 +16,7 @@ import { ConvexError } from "convex/values";
 import { query } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Id } from "../_generated/dataModel";
-import { requireOperator } from "../helpers";
+import { getProfileByUserId, requireOperator } from "../helpers";
 import {
   computePoolBalance,
   computePoolInflows,
@@ -559,14 +559,7 @@ export const getPlatformReport = query({
     const offeringIds = new Set(classPayments.flatMap((p) => p.offeringId ? [String(p.offeringId)] : []));
     const tableIds = new Set(classPayments.flatMap((p) => p.tableId ? [String(p.tableId)] : []));
     const [payeeProfiles, ledgerProjects, ledgerOfferings, ledgerTables] = await Promise.all([
-      Promise.all(
-        [...payeeIds].map((id) =>
-          ctx.db
-            .query("profiles")
-            .withIndex("by_userId", (q) => q.eq("userId", id as Id<"users">))
-            .unique(),
-        ),
-      ),
+      Promise.all([...payeeIds].map((id) => getProfileByUserId(ctx, id as Id<"users">))),
       Promise.all([...projectIds].map((id) => ctx.db.get(id as Id<"projects">))),
       Promise.all([...offeringIds].map((id) => ctx.db.get(id as Id<"offerings">))),
       Promise.all([...tableIds].map((id) => ctx.db.get(id as Id<"gardenTables">))),

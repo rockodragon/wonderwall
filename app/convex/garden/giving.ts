@@ -30,13 +30,14 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "../_generated/api";
-import { scheduleNotificationEmail } from "../emailHelpers";
 import { escapeHtml } from "../email/template";
-import { requireOperator } from "../helpers";
+import { getProfileByUserId, requireOperator } from "../helpers";
+import { insertNotification } from "../notify";
 import { SPLITS } from "./capabilities";
 import { getCommunityMember } from "./communities";
 import { communityVisibility } from "./communityVisibility";
 import { profileImageUrl, projectPhotoUrl } from "../images";
+import { formatCents } from "../money";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
@@ -131,13 +132,6 @@ export function previousPeriod(period: string): string {
 export function periodFromMs(ms: number): string {
   const d = new Date(ms);
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
-}
-
-export function formatCents(cents: number): string {
-  const dollars = cents / 100;
-  return Number.isInteger(dollars)
-    ? `$${dollars.toLocaleString("en-US")}`
-    : `$${dollars.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 // ——— Row shapes the decision writes (pure, so the amounts are pinned) ———
@@ -565,29 +559,6 @@ export function buildGiftReceivedEmail(input: {
 // Convex wrappers
 // ——————————————————————————————————————————————————————————————
 
-async function profileFor(ctx: QueryCtx | MutationCtx, userId: Id<"users">) {
-  return ctx.db
-    .query("profiles")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .unique();
-}
-
-async function insertNotification(
-  ctx: MutationCtx,
-  args: {
-    userId: Id<"users">;
-    type: string;
-    title: string;
-    message: string;
-    linkUrl: string;
-    relatedUserId?: Id<"users">;
-    projectId?: Id<"projects">;
-    amountCents?: number;
-  },
-) {
-  await ctx.db.insert("notifications", { ...args, createdAt: Date.now() });
-}
-
 /** Opens a member's gift for one paid membership invoice. Called by the
  * Stripe adapter (memberships.ts) right after the dues_share row; idempotent
  * on the invoice id. Sends the "you have $5 to give" notice. */
@@ -623,19 +594,23 @@ export async function openMemberGift(
   });
 
   const amount = formatCents(amountCents);
-  await insertNotification(ctx, {
-    userId: args.userId,
-    type: "gift_opened",
-    title: `You have ${amount} to give`,
-    message: GIVING_SENTENCES.memberDirectedDefault,
-    linkUrl: "/give",
-  });
-  await scheduleNotificationEmail(ctx, {
-    userId: args.userId,
-    category: "activity",
-    communityId: args.communityId,
-    ...buildGiftOpenedEmail({ amountCents, linkUrl: "/give" }),
-  });
+  await insertNotification(
+    ctx,
+    {
+      userId: args.userId,
+      type: "gift_opened",
+      title: `You have ${amount} to give`,
+      message: GIVING_SENTENCES.memberDirectedDefault,
+      linkUrl: "/give",
+    },
+    {
+      email: {
+        category: "activity",
+        communityId: args.communityId,
+        ...buildGiftOpenedEmail({ amountCents, linkUrl: "/give" }),
+      },
+    },
+  );
   return giftId;
 }
 
@@ -660,7 +635,7 @@ export async function notifyGiftReceived(
   },
 ) {
   if (args.giverUserId && String(args.giverUserId) === String(args.payeeUserId)) return;
-  const payeeProfile = await profileFor(ctx, args.payeeUserId);
+  const payeeProfile = await getProfileByUserId(ctx, args.payeeUserId);
   const connected = payeeProfile?.stripeConnectPayoutsEnabled === true;
   const email = buildGiftReceivedEmail({
     giverName: args.giverName,
@@ -690,7 +665,7 @@ export async function notifyGiftReceived(
  * no-op when the payee has no connected account yet — the nightly sweep
  * and the return from Stripe onboarding pick it up later. */
 export async function scheduleTransferFor(ctx: MutationCtx, payeeUserId: Id<"users">) {
-  const profile = await profileFor(ctx, payeeUserId);
+  const profile = await getProfileByUserId(ctx, payeeUserId);
   if (!profile?.stripeConnectPayoutsEnabled) return;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await ctx.scheduler.runAfter(0, (internal as any).garden.connect.transferOwed, {
@@ -732,7 +707,7 @@ export const getMyGiving = query({
         .query("backingPayments")
         .withIndex("by_payeeUserId", (q) => q.eq("payeeUserId", userId))
         .collect(),
-      profileFor(ctx, userId),
+      getProfileByUserId(ctx, userId),
     ]);
 
     const communityIds = [...new Set(gifts.map((g) => String(g.communityId)))];
@@ -740,7 +715,7 @@ export const getMyGiving = query({
     const communityName = new Map(communities.filter(Boolean).map((c) => [String(c!._id), c!.name]));
 
     const recipientIds = [...new Set(gifts.map((g) => g.recipientUserId).filter(Boolean))] as Id<"users">[];
-    const recipientProfiles = await Promise.all(recipientIds.map((id) => profileFor(ctx, id)));
+    const recipientProfiles = await Promise.all(recipientIds.map((id) => getProfileByUserId(ctx, id)));
     const recipientName = new Map(
       recipientProfiles.filter(Boolean).map((p) => [String(p!.userId), { name: p!.name, profileId: p!._id }]),
     );
@@ -855,7 +830,7 @@ export const searchRecipients = query({
 
     const needle = (args.query ?? "").trim().toLowerCase();
     const [profiles, followed] = await Promise.all([
-      Promise.all(memberIds.map((id) => profileFor(ctx, id))),
+      Promise.all(memberIds.map((id) => getProfileByUserId(ctx, id))),
       followedSets(ctx, userId),
     ]);
     const page = profiles
@@ -891,7 +866,7 @@ export const listProjectsForGift = query({
       .filter((p) => String(p.userId) !== mine)
       .filter((p) => !needle || p.title.toLowerCase().includes(needle));
     const [allOwners, followed] = await Promise.all([
-      Promise.all(candidates.map((p) => profileFor(ctx, p.userId))),
+      Promise.all(candidates.map((p) => getProfileByUserId(ctx, p.userId))),
       followedSets(ctx, userId),
     ]);
     const ranked = candidates
@@ -942,7 +917,7 @@ export const decideGift = mutation({
     if (args.target === "creative" && args.recipientUserId) {
       const member = await getCommunityMember(ctx, gift.communityId, args.recipientUserId);
       recipientIsMember = member?.status === "active";
-      recipientProfile = await profileFor(ctx, args.recipientUserId);
+      recipientProfile = await getProfileByUserId(ctx, args.recipientUserId);
       if (!recipientProfile) recipientIsMember = false;
     }
     let project: Doc<"projects"> | null = null;
@@ -964,7 +939,7 @@ export const decideGift = mutation({
     if (problem) throw new ConvexError({ code: "refused", reason: problem });
 
     const now = Date.now();
-    const giver = await profileFor(ctx, userId);
+    const giver = await getProfileByUserId(ctx, userId);
     const giverName = giver?.name ?? "A member";
 
     if (args.target === "fund") {
@@ -1235,7 +1210,7 @@ export const getGivingReport = query({
 
     const plussers = report.members.filter((m) => m.timesPlussedUp > 0);
     const memberProfiles = await Promise.all(
-      plussers.slice(0, 100).map((m) => profileFor(ctx, m.userId as Id<"users">)),
+      plussers.slice(0, 100).map((m) => getProfileByUserId(ctx, m.userId as Id<"users">)),
     );
     return {
       generatedAt: Date.now(),
@@ -1258,8 +1233,8 @@ export const getRecipientForCheckout = internalQuery({
       return { ok: false as const, reason: "You can't back yourself." };
     }
     const [recipient, giver] = await Promise.all([
-      profileFor(ctx, args.recipientUserId),
-      profileFor(ctx, args.giverUserId),
+      getProfileByUserId(ctx, args.recipientUserId),
+      getProfileByUserId(ctx, args.giverUserId),
     ]);
     if (!recipient) return { ok: false as const, reason: "That person isn't here." };
     if (args.memberGiftId) {

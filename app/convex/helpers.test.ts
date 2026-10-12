@@ -6,11 +6,18 @@ import { ConvexError } from "convex/values";
 import { describe, expect, it } from "vitest";
 import { makeCtx } from "../test-support/convexContext";
 import {
+  currentUserId,
+  displayNameOf,
+  getProfileByUserId,
+  isAdmin,
   isOwnerOrAdmin,
   requireAdmin,
   requireAdminCtx,
   requireOperator,
+  requireOwnProfileRow,
   requireOwner,
+  requireProfile,
+  requireUserId,
 } from "./helpers";
 
 const ADMIN = "users:admin";
@@ -103,5 +110,92 @@ describe("isOwnerOrAdmin / requireOwner", () => {
     const ctx = makeCtx(world(), MEMBER);
     expect((await requireOwner(ctx, "projects", "projects:p1" as any)).userId).toBe(MEMBER);
     expect((await requireOwner(ctx, "projects", "projects:p1" as any, { orAdmin: true })).userId).toBe(MEMBER);
+  });
+});
+
+describe("currentUserId / requireUserId", () => {
+  it("hands back the signed-in person's id", async () => {
+    expect(await currentUserId(makeCtx(world(), MEMBER))).toBe(MEMBER);
+    expect(await requireUserId(makeCtx(world(), MEMBER))).toBe(MEMBER);
+  });
+
+  it("is null when signed out, for queries that show nothing", async () => {
+    expect(await currentUserId(makeCtx(world(), null))).toBeNull();
+  });
+
+  it("refuses a signed-out caller with a readable ConvexError", async () => {
+    const err = await thrown(requireUserId(makeCtx(world(), null)));
+    expect(err.data).toEqual({ code: "unauthenticated", reason: "Sign in first." });
+  });
+
+  it("requireOwner's signed-out refusal now says why", async () => {
+    const err = await thrown(requireOwner(makeCtx(world(), null), "projects", "projects:p1" as any));
+    expect(err.data).toEqual({ code: "unauthenticated", reason: "Sign in first." });
+  });
+});
+
+describe("getProfileByUserId / displayNameOf", () => {
+  const twoProfiles = () => ({
+    profiles: [
+      { _id: "profiles:a", userId: MEMBER, name: "Max", isAdmin: true },
+      { _id: "profiles:b", userId: MEMBER, name: "Max again" },
+      { _id: "profiles:blank", userId: OTHER, name: "" },
+    ],
+  });
+
+  it("finds a person's profile, or null", async () => {
+    const ctx = makeCtx(world(), null);
+    expect((await getProfileByUserId(ctx, MEMBER as any))?._id).toBe("profiles:member");
+    expect(await getProfileByUserId(ctx, "users:ghost" as any)).toBeNull();
+  });
+
+  it("still finds one when a person has two profiles (no throw)", async () => {
+    const ctx = makeCtx(twoProfiles(), null);
+    expect((await getProfileByUserId(ctx, MEMBER as any))?._id).toBe("profiles:a");
+    expect(await isAdmin(ctx, MEMBER as any)).toBe(true);
+  });
+
+  it("names a person, falling back for no profile or a blank name", async () => {
+    const ctx = makeCtx(twoProfiles(), null);
+    expect(await displayNameOf(ctx, MEMBER as any)).toBe("Max");
+    expect(await displayNameOf(ctx, OTHER as any)).toBe("Someone");
+    expect(await displayNameOf(ctx, "users:ghost" as any, "A member")).toBe("A member");
+  });
+});
+
+describe("requireOwnProfileRow", () => {
+  const rows = () => ({
+    ...world(),
+    links: [{ _id: "links:l1", profileId: "profiles:member", url: "https://example.com" }],
+  });
+
+  it("hands back the row on the signed-in person's own profile", async () => {
+    const got = await requireOwnProfileRow(makeCtx(rows(), MEMBER), "links", "links:l1" as any);
+    expect(got.userId).toBe(MEMBER);
+    expect(got.profile._id).toBe("profiles:member");
+  });
+
+  it("refuses with readable ConvexErrors, not plain Errors", async () => {
+    expect((await thrown(requireOwnProfileRow(makeCtx(rows(), null), "links", "links:l1" as any))).data.code).toBe(
+      "unauthenticated",
+    );
+    expect((await thrown(requireOwnProfileRow(makeCtx(rows(), MEMBER), "links", "links:none" as any))).data).toEqual({
+      code: "not_found",
+      reason: "Link not found",
+    });
+    expect((await thrown(requireOwnProfileRow(makeCtx(rows(), OTHER), "links", "links:l1" as any))).data.code).toBe(
+      "forbidden",
+    );
+  });
+});
+
+describe("requireProfile", () => {
+  it("hands back the person's profile", async () => {
+    expect((await requireProfile(makeCtx(world(), null), MEMBER as any))._id).toBe("profiles:member");
+  });
+
+  it("refuses someone with no profile yet, readably", async () => {
+    const err = await thrown(requireProfile(makeCtx(world(), null), "users:ghost" as any));
+    expect(err.data).toEqual({ code: "no_profile", reason: "Finish your profile first." });
   });
 });

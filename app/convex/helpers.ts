@@ -1,9 +1,70 @@
 import { ConvexError, v } from "convex/values";
-import { getAuthUserId } from "@convex-dev/auth/server";
+import type { Auth } from "convex/server";
 import { internalQuery } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 import { auth } from "./auth";
+import { fail } from "./errors";
+
+/**
+ * The signed-in person's user id, or null when signed out. For a query that
+ * shows a signed-out visitor nothing (null / []); use requireUserId when
+ * signed out is a refusal.
+ *
+ * The one place that asks. It goes through ./auth (the same answer as
+ * getAuthUserId) because tests stand in for the signed-in person by mocking
+ * that module.
+ */
+export async function currentUserId(ctx: { auth: Auth }): Promise<Id<"users"> | null> {
+  return await auth.getUserId(ctx);
+}
+
+/**
+ * The signed-in person's user id. Signed out is refused with
+ * `ConvexError({ code: "unauthenticated", reason: "Sign in first." })`,
+ * which the page can read (isNotSignedIn), unlike a plain Error.
+ */
+export async function requireUserId(ctx: { auth: Auth }): Promise<Id<"users">> {
+  const userId = await currentUserId(ctx);
+  if (!userId) fail("unauthenticated", "Sign in first.");
+  return userId;
+}
+
+/**
+ * A person's profile, by their user id, or null when they have none. The one
+ * lookup: `.first()`, so a person who somehow has two profiles still gets
+ * one instead of an error (`.unique()` throws).
+ */
+export async function getProfileByUserId(
+  ctx: Pick<QueryCtx, "db">,
+  userId: Id<"users">,
+): Promise<Doc<"profiles"> | null> {
+  return await ctx.db
+    .query("profiles")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .first();
+}
+
+/** The signed-in person's own profile, for a change that needs one. No
+ * profile yet is refused with `no_profile` ("Finish your profile first."). */
+export async function requireProfile(
+  ctx: Pick<QueryCtx, "db">,
+  userId: Id<"users">,
+): Promise<Doc<"profiles">> {
+  const profile = await getProfileByUserId(ctx, userId);
+  if (!profile) fail("no_profile", "Finish your profile first.");
+  return profile;
+}
+
+/** A person's name for a line about them ("Ada joined …"), or `fallback`
+ * when they have no profile or a blank name. */
+export async function displayNameOf(
+  ctx: Pick<QueryCtx, "db">,
+  userId: Id<"users">,
+  fallback = "Someone",
+): Promise<string> {
+  return (await getProfileByUserId(ctx, userId))?.name || fallback;
+}
 
 /**
  * Check if a user is an admin by their user ID
@@ -16,10 +77,7 @@ export async function isAdmin(
   ctx: QueryCtx | MutationCtx,
   userId: Id<"users">,
 ): Promise<boolean> {
-  const profile = await ctx.db
-    .query("profiles")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .first();
+  const profile = await getProfileByUserId(ctx, userId);
 
   return profile?.isAdmin === true;
 }
@@ -53,8 +111,7 @@ export async function requireOwner<T extends keyof typeof OWNED>(
   id: Id<T>,
   { orAdmin = false }: { orAdmin?: boolean } = {},
 ): Promise<{ userId: Id<"users">; row: Doc<T> }> {
-  const userId = await getAuthUserId(ctx);
-  if (!userId) throw new ConvexError({ code: "unauthenticated" });
+  const userId = await requireUserId(ctx);
   const row = (await ctx.db.get(id)) as Doc<T> | null;
   if (!row) throw new ConvexError({ code: "not_found", reason: OWNED[table].notFound });
   const mayChange = orAdmin ? await isOwnerOrAdmin(ctx, row.userId, userId) : row.userId === userId;
@@ -81,12 +138,11 @@ export async function requireOwnProfileRow<T extends keyof typeof ON_PROFILE>(
   table: T,
   id: Id<T>,
 ): Promise<{ userId: Id<"users">; row: Doc<T>; profile: Doc<"profiles"> }> {
-  const userId = await auth.getUserId(ctx);
-  if (!userId) throw new Error("Not authenticated");
+  const userId = await requireUserId(ctx);
   const row = (await ctx.db.get(id)) as Doc<T> | null;
-  if (!row) throw new Error(ON_PROFILE[table]);
+  if (!row) fail("not_found", ON_PROFILE[table]);
   const profile = await ctx.db.get(row.profileId as Id<"profiles">);
-  if (!profile || profile.userId !== userId) throw new Error("Not authorized");
+  if (!profile || profile.userId !== userId) fail("forbidden", "That isn't on your profile.");
   return { userId, row, profile };
 }
 
@@ -112,12 +168,8 @@ const NOT_AN_OPERATOR = "This is an operator tool — this account doesn't have 
 export async function requireOperator(
   ctx: QueryCtx | MutationCtx,
 ): Promise<{ userId: Id<"users">; profile: Doc<"profiles"> }> {
-  const userId = await auth.getUserId(ctx);
-  if (!userId) throw new ConvexError({ code: "unauthenticated", reason: "Sign in first." });
-  const profile = await ctx.db
-    .query("profiles")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .first();
+  const userId = await requireUserId(ctx);
+  const profile = await getProfileByUserId(ctx, userId);
   if (!profile || !isAdminProfile(profile)) {
     throw new ConvexError({ code: "forbidden", reason: NOT_AN_OPERATOR });
   }
@@ -145,7 +197,7 @@ export async function requireAdmin(
  * Actions don't have `ctx.db` (their ctx is not a QueryCtx | MutationCtx), so
  * requireAdmin can't be called directly from an action. Actions do have
  * `ctx.auth`, so the caller should resolve the userId there (e.g. via
- * `auth.getUserId(ctx)`) and then run this through `ctx.runQuery` to perform
+ * `requireUserId(ctx)`) and then run this through `ctx.runQuery` to perform
  * the actual admin check against the database.
  */
 export const requireAdminForAction = internalQuery({

@@ -26,7 +26,7 @@ import {
   useCommunityContext,
 } from "../components/CommunityFilter";
 import { CoverFrame } from "../components/CoverFrame";
-import { formatDollars } from "../../convex/eventGuests";
+import { formatCents } from "../../convex/money";
 import { eventPriceCents } from "../lib/eventCta";
 import "../garden/garden.css";
 
@@ -69,7 +69,7 @@ type EventRow = {
     "$"-style tag; else Free. */
 function costLine(event: EventRow): string {
   const cents = eventPriceCents(event) ?? (event.priceCents && event.priceCents > 0 ? event.priceCents : null);
-  if (cents !== null) return formatDollars(cents);
+  if (cents !== null) return formatCents(cents);
   if (typeof event.priceCents === "number") return "Free";
   const priceTag = event.tags?.find((t) => /^\$\d/.test(t.trim()));
   if (priceTag) return priceTag.trim();

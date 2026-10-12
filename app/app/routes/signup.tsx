@@ -9,13 +9,16 @@ import { normalizeInviteCode } from "../../convex/inviteCode";
 import { codeRequestParams, ensureOAuthHost, oauthReturnTo } from "../lib/oauthHost";
 import { AgreementsConsent } from "../components/AgreementsConsent";
 import { InviteGate } from "../components/InviteGate";
+import { errorMessage } from "../lib/convexError";
 import { joinWithInvite } from "../lib/joinWithInvite";
+import { untilSignedIn } from "../lib/untilSignedIn";
 import { rememberedInvite } from "../lib/carriedInvite";
 import { setPendingIntent } from "../lib/pendingIntent";
 import { isCheckoutSessionId } from "../../convex/garden/ticketLink";
 import { useBrand } from "../brand/brands";
 import { GardenLockupThemed } from "../brand/GardenMark";
 import { PersonNameHint } from "../components/PersonNameHint";
+import { PersonAvatar } from "../components/PersonAvatar";
 
 export function meta() {
   return [
@@ -220,9 +223,7 @@ export default function Signup() {
       setPhoneStep("code");
       posthog?.capture("phone_signup_code_sent", { invite_slug: inviteSlug });
     } catch (err) {
-      setPhoneError(
-        err instanceof Error ? err.message : "Couldn't send a code. Try again.",
-      );
+      setPhoneError(errorMessage(err, "Couldn't send a code. Try again."));
       posthog?.capture("phone_signup_code_send_error", {
         error: err instanceof Error ? err.message : "Unknown error",
         invite_slug: inviteSlug,
@@ -242,26 +243,22 @@ export default function Signup() {
 
       // A phone sign-in carries no email or name; save the ones they typed.
       // signIn resolves before the Convex client is sending the new token,
-      // so the first tries can fail as "not signed in". Retry a few times.
+      // so the first tries can fail as "not signed in"; untilSignedIn waits
+      // that out and stops at once on anything else.
       // fillMissingBasics only fills a blank or placeholder name and a
       // missing email, so it is safe to call every time.
-      let saved = false;
-      let lastError: unknown = null;
-      for (let attempt = 0; attempt < 8 && !saved; attempt++) {
-        try {
-          await fillMissingBasics({
-            name: name.trim() || undefined,
-            email: email.trim() || undefined,
-          });
-          saved = true;
-        } catch (err) {
-          lastError = err;
-          await new Promise((resolve) => setTimeout(resolve, 400));
-        }
-      }
-      if (!saved) {
+      try {
+        await untilSignedIn(
+          () =>
+            fillMissingBasics({
+              name: name.trim() || undefined,
+              email: email.trim() || undefined,
+            }),
+          { tries: 8, delayMs: 400 },
+        );
+      } catch (err) {
         posthog?.capture("phone_signup_profile_error", {
-          error: lastError instanceof Error ? lastError.message : "Unknown error",
+          error: err instanceof Error ? err.message : "Unknown error",
         });
       }
 
@@ -352,7 +349,7 @@ export default function Signup() {
       navigate("/onboarding", { replace: true });
     } catch (err) {
       console.error("Signup error:", err);
-      setError(err instanceof Error ? err.message : "Signup failed");
+      setError(errorMessage(err, "Signup failed"));
       posthog?.capture("signup_error", {
         error: err instanceof Error ? err.message : "Unknown error",
       });
@@ -453,17 +450,12 @@ export default function Signup() {
         {inviterInfo && (
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-4 mb-4">
-              {inviterInfo.imageUrl ? (
-                <img
-                  src={inviterInfo.imageUrl}
-                  alt={inviterInfo.name}
-                  className="w-16 h-16 rounded-full object-cover"
-                />
-              ) : (
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-white text-xl font-bold">
-                  {inviterInfo.name.charAt(0).toUpperCase()}
-                </div>
-              )}
+              <PersonAvatar
+                name={inviterInfo.name}
+                imageUrl={inviterInfo.imageUrl}
+                size="lg"
+                tone="gray"
+              />
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-0.5">
                   You're invited by
@@ -489,17 +481,7 @@ export default function Signup() {
                 <div className="space-y-2">
                   {inviterInfo.recentInvitees.map((invitee, idx) => (
                     <div key={idx} className="flex items-center gap-2">
-                      {invitee.imageUrl ? (
-                        <img
-                          src={invitee.imageUrl}
-                          alt={invitee.name}
-                          className="w-8 h-8 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white text-xs font-bold">
-                          {invitee.name.charAt(0).toUpperCase()}
-                        </div>
-                      )}
+                      <PersonAvatar name={invitee.name} imageUrl={invitee.imageUrl} size="sm" tone="gray" />
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
                           {invitee.name}

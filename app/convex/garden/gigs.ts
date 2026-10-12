@@ -14,10 +14,10 @@ import { internalMutation, mutation, query } from "../_generated/server";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { isOwnerOrAdmin } from "../helpers";
+import { displayNameOf, getProfileByUserId, isOwnerOrAdmin, requireProfile } from "../helpers";
 import { assertNotBlocked } from "../blocks";
 import { notifyFollowers } from "../follows";
-import { scheduleNotificationEmail } from "../emailHelpers";
+import { insertNotification } from "../notify";
 import { slugifyTitle, resolveAvailableSlug } from "./stories";
 import { assertCommunityMember } from "./communities";
 import { isHiddenCommunityId } from "./communityVisibility";
@@ -27,6 +27,7 @@ import { can } from "./capabilities";
 import { assertCanPure, getGardenUser } from "./entitlements";
 import { escapeHtml } from "../email/template";
 import { pieceMediaUrl, profileImageUrl } from "../images";
+import { formatCents } from "../money";
 import {
   HORIZON_WEEKS,
   MAX_CLIPS,
@@ -69,16 +70,9 @@ async function requireUser(ctx: Ctx): Promise<Id<"users">> {
   return userId;
 }
 
-async function getProfile(ctx: Ctx, userId: Id<"users">): Promise<Doc<"profiles"> | null> {
-  return ctx.db
-    .query("profiles")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .first();
-}
-
 async function resolvePerson(ctx: Ctx, userId: Id<"users"> | undefined) {
   if (!userId) return null;
-  const profile = await getProfile(ctx, userId);
+  const profile = await getProfileByUserId(ctx, userId);
   if (!profile) return null;
   return {
     userId,
@@ -116,21 +110,6 @@ async function assertHost(ctx: Ctx, series: Doc<"gigSeries">, userId: Id<"users"
 
 async function isHostOrAdmin(ctx: Ctx, series: Doc<"gigSeries">, userId: Id<"users"> | null): Promise<boolean> {
   return !!userId && (await isOwnerOrAdmin(ctx, series.hostUserId, userId));
-}
-
-async function notify(
-  ctx: MutationCtx,
-  n: { userId: Id<"users">; type: string; title: string; message: string; linkUrl: string; relatedUserId?: Id<"users"> },
-): Promise<void> {
-  await ctx.db.insert("notifications", {
-    userId: n.userId,
-    type: n.type,
-    title: n.title,
-    message: n.message,
-    linkUrl: n.linkUrl,
-    relatedUserId: n.relatedUserId,
-    createdAt: Date.now(),
-  });
 }
 
 function projectLink(projectId: Id<"projects">): string {
@@ -243,15 +222,12 @@ export function buildPaidEmail(input: {
   const venue = escapeHtml(input.venueName);
   const title = escapeHtml(input.gigTitle);
   const method = escapeHtml(input.method);
-  const amount = (input.amountCents / 100).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  const amount = formatCents(input.amountCents);
   return {
     subject: `${input.venueName} marked ${input.gigTitle} on ${input.dateLabel} as paid`,
-    previewText: `$${amount} via ${input.method}. Confirm it once it lands.`,
+    previewText: `${amount} via ${input.method}. Confirm it once it lands.`,
     heading: "Marked as paid",
-    body: `<strong>${venue}</strong> marked <strong>${title}</strong> on ${input.dateLabel} as paid: $${amount} via ${method}. Confirm it once it lands.`,
+    body: `<strong>${venue}</strong> marked <strong>${title}</strong> on ${input.dateLabel} as paid: ${amount} via ${method}. Confirm it once it lands.`,
     ctaText: "Confirm payment",
     ctaUrl: input.linkUrl,
   };
@@ -570,10 +546,9 @@ export const createGigSeries = mutation({
     // Same follower fan-out createPaidProject does (following.md §1 #5) —
     // skipped for a gig posted into a hidden (test) community.
     if (!(await isHiddenCommunityId(ctx, args.hostOrgId))) {
-      const profile = await getProfile(ctx, userId);
       await notifyFollowers(ctx, userId, {
         type: "followed_posted_project",
-        title: `${profile?.name || "Someone"} posted ${title}`,
+        title: `${await displayNameOf(ctx, userId)} posted ${title}`,
         message: "",
         linkUrl: projectLink(projectId),
       });
@@ -640,26 +615,30 @@ export const updateGigSeries = mutation({
         const { startsAt, endsAt } = slotTimes(rule, slot.date);
         await ctx.db.patch(slot._id, { startsAt, endsAt });
         if (slot.status === "booked" && slot.bookedUserId) {
-          await notify(ctx, {
-            userId: slot.bookedUserId,
-            type: "gig_time_changed",
-            title: `New time for ${project.title}`,
-            message: `${formatSlotDate(slot.date)} is now ${formatTimeRange(rule.startTime, rule.endTime)}.`,
-            linkUrl: projectLink(project._id),
-            relatedUserId: userId,
-          });
-          await scheduleNotificationEmail(ctx, {
-            userId: slot.bookedUserId,
-            category: "activity",
-            communityId: project.hostOrgId,
-            ...buildTimeChangedEmail({
-              venueName: series.venueName ?? project.title,
-              gigTitle: project.title,
-              dateLabel: formatSlotDate(slot.date),
-              newTimeRange: formatTimeRange(rule.startTime, rule.endTime),
+          await insertNotification(
+            ctx,
+            {
+              userId: slot.bookedUserId,
+              type: "gig_time_changed",
+              title: `New time for ${project.title}`,
+              message: `${formatSlotDate(slot.date)} is now ${formatTimeRange(rule.startTime, rule.endTime)}.`,
               linkUrl: projectLink(project._id),
-            }),
-          });
+              relatedUserId: userId,
+            },
+            {
+              email: {
+                category: "activity",
+                communityId: project.hostOrgId,
+                ...buildTimeChangedEmail({
+                  venueName: series.venueName ?? project.title,
+                  gigTitle: project.title,
+                  dateLabel: formatSlotDate(slot.date),
+                  newTimeRange: formatTimeRange(rule.startTime, rule.endTime),
+                  linkUrl: projectLink(project._id),
+                }),
+              },
+            },
+          );
         }
       }
     }
@@ -771,25 +750,29 @@ export const cancelSlot = mutation({
     await ctx.db.patch(slot._id, { status: "cancelled", cancelledAt: now });
     if (slot.status === "booked" && slot.bookedUserId) {
       const project = await requireProject(ctx, series.projectId);
-      await notify(ctx, {
-        userId: slot.bookedUserId,
-        type: "gig_cancelled",
-        title: `${formatSlotDate(slot.date)} at ${series.venueName ?? project.title} is off`,
-        message: "The venue cancelled that date. Your other dates aren't affected.",
-        linkUrl: projectLink(project._id),
-        relatedUserId: userId,
-      });
-      await scheduleNotificationEmail(ctx, {
-        userId: slot.bookedUserId,
-        category: "activity",
-        communityId: project.hostOrgId,
-        ...buildCancelledEmail({
-          venueName: series.venueName ?? project.title,
-          gigTitle: project.title,
-          dateLabel: formatSlotDate(slot.date),
+      await insertNotification(
+        ctx,
+        {
+          userId: slot.bookedUserId,
+          type: "gig_cancelled",
+          title: `${formatSlotDate(slot.date)} at ${series.venueName ?? project.title} is off`,
+          message: "The venue cancelled that date. Your other dates aren't affected.",
           linkUrl: projectLink(project._id),
-        }),
-      });
+          relatedUserId: userId,
+        },
+        {
+          email: {
+            category: "activity",
+            communityId: project.hostOrgId,
+            ...buildCancelledEmail({
+              venueName: series.venueName ?? project.title,
+              gigTitle: project.title,
+              dateLabel: formatSlotDate(slot.date),
+              linkUrl: projectLink(project._id),
+            }),
+          },
+        },
+      );
     }
     return { ok: true as const, changed: true as const, deleted: false as const };
   },
@@ -854,29 +837,33 @@ export const bookSlot = mutation({
     await ctx.db.patch(response._id, { status: "booked", updatedAt: now });
 
     const project = await requireProject(ctx, series.projectId);
-    const artist = await getProfile(ctx, response.userId);
+    const artist = await getProfileByUserId(ctx, response.userId);
     const hasPayout = !!artist?.payoutHandles && Object.values(artist.payoutHandles).some(Boolean);
-    await notify(ctx, {
-      userId: response.userId,
-      type: "gig_booked",
-      title: `You're booked: ${series.venueName ?? project.title}`,
-      message: `${slotLabel(series, slot)}.${hasPayout ? "" : " Add how you get paid under Settings so the venue can pay you."}`,
-      linkUrl: projectLink(project._id),
-      relatedUserId: userId,
-    });
-    await scheduleNotificationEmail(ctx, {
-      userId: response.userId,
-      category: "activity",
-      communityId: project.hostOrgId,
-      ...buildBookedEmail({
-        venueName: series.venueName ?? project.title,
-        gigTitle: project.title,
-        dateLabel: formatSlotDate(slot.date),
-        dateTimeLabel: slotLabel(series, slot),
+    await insertNotification(
+      ctx,
+      {
+        userId: response.userId,
+        type: "gig_booked",
+        title: `You're booked: ${series.venueName ?? project.title}`,
+        message: `${slotLabel(series, slot)}.${hasPayout ? "" : " Add how you get paid under Settings so the venue can pay you."}`,
         linkUrl: projectLink(project._id),
-        hasPayout,
-      }),
-    });
+        relatedUserId: userId,
+      },
+      {
+        email: {
+          category: "activity",
+          communityId: project.hostOrgId,
+          ...buildBookedEmail({
+            venueName: series.venueName ?? project.title,
+            gigTitle: project.title,
+            dateLabel: formatSlotDate(slot.date),
+            dateTimeLabel: slotLabel(series, slot),
+            linkUrl: projectLink(project._id),
+            hasPayout,
+          }),
+        },
+      },
+    );
     return { ok: true as const };
   },
 });
@@ -902,25 +889,29 @@ export const unbookSlot = mutation({
       bookedAt: undefined,
     });
     const project = await requireProject(ctx, series.projectId);
-    await notify(ctx, {
-      userId: slot.bookedUserId,
-      type: "gig_unbooked",
-      title: `${formatSlotDate(slot.date)} at ${series.venueName ?? project.title} changed`,
-      message: "The venue reopened that date. You're still listed as available for it.",
-      linkUrl: projectLink(project._id),
-      relatedUserId: userId,
-    });
-    await scheduleNotificationEmail(ctx, {
-      userId: slot.bookedUserId,
-      category: "activity",
-      communityId: project.hostOrgId,
-      ...buildUnbookedEmail({
-        venueName: series.venueName ?? project.title,
-        gigTitle: project.title,
-        dateLabel: formatSlotDate(slot.date),
+    await insertNotification(
+      ctx,
+      {
+        userId: slot.bookedUserId,
+        type: "gig_unbooked",
+        title: `${formatSlotDate(slot.date)} at ${series.venueName ?? project.title} changed`,
+        message: "The venue reopened that date. You're still listed as available for it.",
         linkUrl: projectLink(project._id),
-      }),
-    });
+        relatedUserId: userId,
+      },
+      {
+        email: {
+          category: "activity",
+          communityId: project.hostOrgId,
+          ...buildUnbookedEmail({
+            venueName: series.venueName ?? project.title,
+            gigTitle: project.title,
+            dateLabel: formatSlotDate(slot.date),
+            linkUrl: projectLink(project._id),
+          }),
+        },
+      },
+    );
     return { ok: true as const, changed: true as const };
   },
 });
@@ -949,27 +940,31 @@ export const markSlotPaid = mutation({
       paidConfirmedAt: undefined,
     });
     const project = await requireProject(ctx, series.projectId);
-    await notify(ctx, {
-      userId: slot.bookedUserId,
-      type: "gig_paid",
-      title: `${series.venueName ?? project.title} marked ${formatSlotDate(slot.date)} paid`,
-      message: `$${(args.amountCents / 100).toLocaleString("en-US")} via ${args.method}. Confirm it once it lands.`,
-      linkUrl: projectLink(project._id),
-      relatedUserId: userId,
-    });
-    await scheduleNotificationEmail(ctx, {
-      userId: slot.bookedUserId,
-      category: "activity",
-      communityId: project.hostOrgId,
-      ...buildPaidEmail({
-        venueName: series.venueName ?? project.title,
-        gigTitle: project.title,
-        dateLabel: formatSlotDate(slot.date),
-        amountCents: args.amountCents,
-        method: args.method,
+    await insertNotification(
+      ctx,
+      {
+        userId: slot.bookedUserId,
+        type: "gig_paid",
+        title: `${series.venueName ?? project.title} marked ${formatSlotDate(slot.date)} paid`,
+        message: `${formatCents(args.amountCents)} via ${args.method}. Confirm it once it lands.`,
         linkUrl: projectLink(project._id),
-      }),
-    });
+        relatedUserId: userId,
+      },
+      {
+        email: {
+          category: "activity",
+          communityId: project.hostOrgId,
+          ...buildPaidEmail({
+            venueName: series.venueName ?? project.title,
+            gigTitle: project.title,
+            dateLabel: formatSlotDate(slot.date),
+            amountCents: args.amountCents,
+            method: args.method,
+            linkUrl: projectLink(project._id),
+          }),
+        },
+      },
+    );
     return { ok: true as const };
   },
 });
@@ -988,26 +983,30 @@ export const confirmSlotPaid = mutation({
     await ctx.db.patch(slot._id, { paidConfirmedAt: now });
     const series = await requireSeries(ctx, slot.seriesId);
     const project = await requireProject(ctx, series.projectId);
-    const artist = await getProfile(ctx, userId);
-    await notify(ctx, {
-      userId: series.hostUserId,
-      type: "gig_paid_confirmed",
-      title: `${artist?.name ?? "The artist"} confirmed payment for ${formatSlotDate(slot.date)}`,
-      message: project.title,
-      linkUrl: projectLink(project._id),
-      relatedUserId: userId,
-    });
-    await scheduleNotificationEmail(ctx, {
-      userId: series.hostUserId,
-      category: "activity",
-      communityId: project.hostOrgId,
-      ...buildPaidConfirmedEmail({
-        artistName: artist?.name ?? "The artist",
-        gigTitle: project.title,
-        dateLabel: formatSlotDate(slot.date),
+    const artist = await getProfileByUserId(ctx, userId);
+    await insertNotification(
+      ctx,
+      {
+        userId: series.hostUserId,
+        type: "gig_paid_confirmed",
+        title: `${artist?.name ?? "The artist"} confirmed payment for ${formatSlotDate(slot.date)}`,
+        message: project.title,
         linkUrl: projectLink(project._id),
-      }),
-    });
+        relatedUserId: userId,
+      },
+      {
+        email: {
+          category: "activity",
+          communityId: project.hostOrgId,
+          ...buildPaidConfirmedEmail({
+            artistName: artist?.name ?? "The artist",
+            gigTitle: project.title,
+            dateLabel: formatSlotDate(slot.date),
+            linkUrl: projectLink(project._id),
+          }),
+        },
+      },
+    );
     return { ok: true as const, changed: true as const };
   },
 });
@@ -1028,8 +1027,7 @@ export const respondAvailable = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
-    const profile = await getProfile(ctx, userId);
-    if (!profile) throw new ConvexError({ code: "no_profile", reason: "Finish your profile first." });
+    const profile = await requireProfile(ctx, userId);
     const series = await requireSeries(ctx, args.seriesId);
     if (series.hostUserId === userId) {
       throw new ConvexError({ code: "forbidden", reason: "You posted this gig." });
@@ -1098,26 +1096,30 @@ export const respondAvailable = mutation({
 
     if (added > 0) {
       const project = await requireProject(ctx, series.projectId);
-      await notify(ctx, {
-        userId: series.hostUserId,
-        type: "gig_response",
-        title: `${profile.name} can play ${added === 1 ? formatSlotDate(firstDate!) : `${added} dates`}`,
-        message: `${project.title}${note ? ` — "${note.slice(0, 120)}"` : ""}`,
-        linkUrl: projectLink(project._id),
-        relatedUserId: userId,
-      });
-      await scheduleNotificationEmail(ctx, {
-        userId: series.hostUserId,
-        category: "activity",
-        communityId: project.hostOrgId,
-        ...buildOfferedDatesEmail({
-          artistName: profile.name,
-          gigTitle: project.title,
-          dateLabels: [...addedDates].sort(compareDates).map(formatSlotDate),
-          note,
+      await insertNotification(
+        ctx,
+        {
+          userId: series.hostUserId,
+          type: "gig_response",
+          title: `${profile.name} can play ${added === 1 ? formatSlotDate(firstDate!) : `${added} dates`}`,
+          message: `${project.title}${note ? ` — "${note.slice(0, 120)}"` : ""}`,
           linkUrl: projectLink(project._id),
-        }),
-      });
+          relatedUserId: userId,
+        },
+        {
+          email: {
+            category: "activity",
+            communityId: project.hostOrgId,
+            ...buildOfferedDatesEmail({
+              artistName: profile.name,
+              gigTitle: project.title,
+              dateLabels: [...addedDates].sort(compareDates).map(formatSlotDate),
+              note,
+              linkUrl: projectLink(project._id),
+            }),
+          },
+        },
+      );
     }
     return { ok: true as const, added, updated };
   },
@@ -1144,26 +1146,30 @@ export const withdrawResponse = mutation({
       });
       const series = await requireSeries(ctx, slot.seriesId);
       const project = await requireProject(ctx, series.projectId);
-      const profile = await getProfile(ctx, userId);
-      await notify(ctx, {
-        userId: series.hostUserId,
-        type: "gig_artist_withdrew",
-        title: `${profile?.name ?? "Your artist"} can't make ${formatSlotDate(slot.date)}`,
-        message: `${project.title} — that date is open again.`,
-        linkUrl: projectLink(project._id),
-        relatedUserId: userId,
-      });
-      await scheduleNotificationEmail(ctx, {
-        userId: series.hostUserId,
-        category: "activity",
-        communityId: project.hostOrgId,
-        ...buildArtistWithdrewEmail({
-          artistName: profile?.name ?? "Your artist",
-          gigTitle: project.title,
-          dateLabel: formatSlotDate(slot.date),
+      const profile = await getProfileByUserId(ctx, userId);
+      await insertNotification(
+        ctx,
+        {
+          userId: series.hostUserId,
+          type: "gig_artist_withdrew",
+          title: `${profile?.name ?? "Your artist"} can't make ${formatSlotDate(slot.date)}`,
+          message: `${project.title} — that date is open again.`,
           linkUrl: projectLink(project._id),
-        }),
-      });
+          relatedUserId: userId,
+        },
+        {
+          email: {
+            category: "activity",
+            communityId: project.hostOrgId,
+            ...buildArtistWithdrewEmail({
+              artistName: profile?.name ?? "Your artist",
+              gigTitle: project.title,
+              dateLabel: formatSlotDate(slot.date),
+              linkUrl: projectLink(project._id),
+            }),
+          },
+        },
+      );
     }
     return { ok: true as const, changed: true as const, wasBooked };
   },
@@ -1187,7 +1193,7 @@ export const getSchedule = query({
     if (!series) return null;
     const now = Date.now();
     const isHost = await isHostOrAdmin(ctx, series, userId);
-    const viewerProfile = userId ? await getProfile(ctx, userId) : null;
+    const viewerProfile = userId ? await getProfileByUserId(ctx, userId) : null;
     // Whether this viewer may respond, decided by the same can() the
     // mutation enforces — so the UI never offers a checkbox the server
     // would refuse, and the denial text on the page is the server's own.
@@ -1333,7 +1339,7 @@ export const getSlotPayment = query({
     if (!isHost && !isArtist) return null;
 
     const project = await requireProject(ctx, series.projectId);
-    const artist = await getProfile(ctx, slot.bookedUserId);
+    const artist = await getProfileByUserId(ctx, slot.bookedUserId);
     const amountDollars = project.budgetType === "amount" && project.budget ? project.budget : null;
     const note = `${series.venueName ?? project.title} · ${formatSlotDate(slot.date)}`;
     return {

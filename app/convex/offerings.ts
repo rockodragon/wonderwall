@@ -19,7 +19,7 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { assertCommunityMember, canManageCommunity } from "./garden/communities";
 import { activeCommunityMemberships, resolveCommunities } from "./garden/communityLookup";
 import { classCheckoutRefusal, classPaymentPath, classPriceProblem } from "./garden/stripeHandlers";
-import { isAdmin, isAdminProfile, requireOwner } from "./helpers";
+import { getProfileByUserId, isAdmin, isAdminProfile, requireOwner } from "./helpers";
 import { communityVisibility } from "./garden/communityVisibility";
 import { profileImageUrl, projectPhotoUrl } from "./images";
 
@@ -255,10 +255,7 @@ export function resolveCommunityChange<T extends string>(input: {
 async function loadViewer(ctx: QueryCtx | MutationCtx, userId: Id<"users"> | null): Promise<ModerationActor> {
   if (!userId) return { isAdmin: false, memberships: [] };
   const [profile, members] = await Promise.all([
-    ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique(),
+    getProfileByUserId(ctx, userId),
     activeCommunityMemberships(ctx, userId),
   ]);
   return {
@@ -373,10 +370,7 @@ export const listOfferings = query({
     const withDetails = await Promise.all(
       offerings.map(async (offering) => {
         const [user, signups] = await Promise.all([
-          ctx.db
-            .query("profiles")
-            .withIndex("by_userId", (q) => q.eq("userId", offering.userId))
-            .unique(),
+          getProfileByUserId(ctx, offering.userId),
           ctx.db
             .query("offeringSignups")
             .withIndex("by_offeringId", (q) => q.eq("offeringId", offering._id))
@@ -448,10 +442,7 @@ export const getOffering = query({
       : false;
 
     const [user, signups, communityById] = await Promise.all([
-      ctx.db
-        .query("profiles")
-        .withIndex("by_userId", (q) => q.eq("userId", offering.userId))
-        .unique(),
+      getProfileByUserId(ctx, offering.userId),
       ctx.db
         .query("offeringSignups")
         .withIndex("by_offeringId", (q) => q.eq("offeringId", offering._id))
@@ -641,10 +632,7 @@ export const signUpForOffering = mutation({
       });
     }
 
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
+    const profile = await getProfileByUserId(ctx, userId);
 
     const signupId = await ctx.db.insert("offeringSignups", {
       offeringId: args.offeringId,
@@ -727,10 +715,7 @@ export const startClassCheckout = internalMutation({
 
     let signupId = existing?._id;
     if (!signupId) {
-      const profile = await ctx.db
-        .query("profiles")
-        .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-        .unique();
+      const profile = await getProfileByUserId(ctx, args.userId);
       signupId = await ctx.db.insert("offeringSignups", {
         offeringId: args.offeringId,
         userId: args.userId,

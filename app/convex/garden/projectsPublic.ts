@@ -20,6 +20,8 @@ import { summarizeGig } from "./gigSummary";
 import { isHidden, isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
 import { communityVisibility } from "./communityVisibility";
 import { projectPhotoUrl } from "../images";
+import { formatDollars } from "../money";
+import { getProfileByUserId } from "../helpers";
 import { resolveCommunities } from "./communityLookup";
 
 // ——————————————————————————————————————————————————————————————
@@ -76,18 +78,6 @@ export interface ProjectCard {
   stage?: string;
 }
 
-/** Dollar formatting for this file's own money lines — a display-only
- * analog of ui.tsx's formatMoney (which is cents-in), kept local since
- * Convex functions don't import from app/. Whole dollars print bare;
- * fractional amounts (raisedCents/100 can land on odd cents) keep 2dp. */
-function formatDollars(amount: number): string {
-  const isWhole = Number.isInteger(amount);
-  return `$${amount.toLocaleString("en-US", {
-    minimumFractionDigits: isWhole ? 0 : 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
 /**
  * The money line for a project card/detail: paid → whichever of the four
  * declared money states this posting is in (see garden/projects.ts's
@@ -103,7 +93,8 @@ function formatDollars(amount: number): string {
  *
  * Client-side twin: app/app/lib/budgetLabel.ts, which writes the shorter
  * badge on the same cards. Convex functions don't import from app/, so the
- * two are kept aligned by hand and by their tests.
+ * two are kept aligned by hand and by their tests; both write amounts with
+ * convex/money.ts.
  */
 export function resolveMoneyLine(project: {
   kind: string;
@@ -119,7 +110,7 @@ export function resolveMoneyLine(project: {
     if (project.budgetType === "volunteer") return "Unpaid";
     if (project.budgetType === "range" && hasLow && hasHigh) {
       // En dash, no second "$" — one span of money, not two numbers.
-      return `Budget ${formatDollars(project.budget!)}–${project.budgetMax!.toLocaleString("en-US")}`;
+      return `Budget ${formatDollars(project.budget!)}–${formatDollars(project.budgetMax!).slice(1)}`;
     }
     if (project.budgetType === "proposals" || !hasLow) return "Open to proposals";
     return `Budget ${formatDollars(project.budget!)}`;
@@ -224,9 +215,7 @@ export const listProjects = query({
 
     const userIds = [...new Set(newestFirst.map((p) => p.userId))];
     const profiles = await Promise.all(
-      userIds.map((userId) =>
-        ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", userId)).unique(),
-      ),
+      userIds.map((userId) => getProfileByUserId(ctx, userId)),
     );
     const nameByUserId = new Map<string, string>();
     for (const p of profiles) if (p) nameByUserId.set(String(p.userId), p.name);
@@ -275,7 +264,7 @@ export const getProject = query({
     }
 
     const [ownerProfile, allocationRows] = await Promise.all([
-      ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", project.userId)).unique(),
+      getProfileByUserId(ctx, project.userId),
       ctx.db.query("allocations").withIndex("by_projectId", (q) => q.eq("projectId", project._id)).collect(),
     ]);
 

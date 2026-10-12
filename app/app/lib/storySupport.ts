@@ -9,6 +9,8 @@
 //     refuses a signed-out monthly backing either way (guestBackingRefusal
 //     in convex/garden/stripeHandlers.ts).
 
+import { formatCents } from "../../convex/money";
+
 /** @convex-dev/auth's Password provider rejects anything shorter
     (validateDefaultPasswordRequirements). Checked here so the backer is
     told why instead of getting a generic failure from the server. */
@@ -38,7 +40,7 @@ export function needsAccount(fields: { signedIn: boolean; monthly: boolean }): b
     it's ready. One message at a time — the backer fixes it and moves on. */
 export function supportFormProblem(f: SupportFormFields): string | null {
   if (!Number.isFinite(f.amountCents) || f.amountCents < f.minCents) {
-    return `The smallest amount is $${(f.minCents / 100).toFixed(0)}.`;
+    return `The smallest amount is ${formatCents(f.minCents)}.`;
   }
   if (f.signedIn) return null;
 

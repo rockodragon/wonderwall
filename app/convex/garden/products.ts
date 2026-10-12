@@ -18,7 +18,7 @@ import { mutation, query } from "../_generated/server";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { isAdmin, requireOperator } from "../helpers";
+import { getProfileByUserId, isAdmin, requireOperator } from "../helpers";
 import { assertCanManageCommunity, canManageCommunity, getCommunityMember } from "./communities";
 
 // ——————————————————————————————————————————————————————————————
@@ -337,14 +337,7 @@ export const getCommunityEarnings = query({
     ]);
     const productName = new Map(products.map((p) => [String(p._id), p.name]));
     const buyerIds = [...new Set(purchases.map((p) => p.userId).filter((id): id is Id<"users"> => !!id))];
-    const profiles = await Promise.all(
-      buyerIds.map((id) =>
-        ctx.db
-          .query("profiles")
-          .withIndex("by_userId", (q) => q.eq("userId", id))
-          .unique(),
-      ),
-    );
+    const profiles = await Promise.all(buyerIds.map((id) => getProfileByUserId(ctx, id)));
     const nameById = new Map<string, string>();
     for (const p of profiles) if (p) nameById.set(String(p.userId), p.name);
 

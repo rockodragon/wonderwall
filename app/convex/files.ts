@@ -1,15 +1,14 @@
 import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
-import { auth } from "./auth";
+import { fail } from "./errors";
 import { requireEventHost } from "./eventHosts";
-import { requireOwnProfileRow } from "./helpers";
+import { requireOwner, requireOwnProfileRow, requireProfile, requireUserId } from "./helpers";
 
 // Generate an upload URL for the client to upload a file directly to Convex
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    await requireUserId(ctx);
 
     return await ctx.storage.generateUploadUrl();
   },
@@ -21,15 +20,9 @@ export const saveProfileImage = mutation({
     storageId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .first();
-
-    if (!profile) throw new Error("Profile not found");
+    const profile = await requireProfile(ctx, userId);
 
     // Delete old image if exists
     if (profile.imageStorageId) {
@@ -61,15 +54,9 @@ export const getImageUrl = query({
 export const deleteProfileImage = mutation({
   args: {},
   handler: async (ctx) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .first();
-
-    if (!profile) throw new Error("Profile not found");
+    const profile = await requireProfile(ctx, userId);
 
     if (profile.imageStorageId) {
       await ctx.storage.delete(profile.imageStorageId);
@@ -91,15 +78,9 @@ export const saveProfileImageUrl = mutation({
     imageUrl: v.string(),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .first();
-
-    if (!profile) throw new Error("Profile not found");
+    const profile = await requireProfile(ctx, userId);
 
     // Delete old storage image if exists
     if (profile.imageStorageId) {
@@ -166,12 +147,7 @@ export const saveProjectImage = mutation({
     storageId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) throw new Error("Project not found");
-    if (project.userId !== userId) throw new Error("Not authorized");
+    const { row: project } = await requireOwner(ctx, "projects", args.projectId);
 
     if (project.photoStorageId) {
       await ctx.storage.delete(project.photoStorageId);
@@ -241,7 +217,7 @@ export const addEventGalleryImage = mutation({
 
     const currentImages = event.imageStorageIds || [];
     if (currentImages.length >= 3) {
-      throw new Error("Maximum 3 gallery images allowed");
+      fail("too_many", "Maximum 3 gallery images allowed");
     }
 
     await ctx.db.patch(args.eventId, {

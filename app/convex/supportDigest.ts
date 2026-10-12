@@ -95,7 +95,7 @@ function linkTitle(title: string, links: readonly DigestLink[]): string {
 
 /** One line of the email: what happened (the person and project linked), then
  * their words in quotes for a cheer or an offer, or the rest of the notice
- * ("$25.00 a month", "Connect your bank in Settings to get it.") for money.
+ * ("$25 a month", "Connect your bank in Settings to get it.") for money.
  * What they wrote is never linked. */
 export function digestLine(n: Pick<DigestRow, "type" | "title" | "message">, links: readonly DigestLink[]): string {
   const title = linkTitle(n.title, links);

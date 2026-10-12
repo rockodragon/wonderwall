@@ -18,7 +18,7 @@ import { ConvexError } from "convex/values";
 import Stripe from "stripe";
 import { action, internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
-import { auth } from "../auth";
+import { requireUserId } from "../helpers";
 import { MIN_TRANSFER_CENTS, planTransfers } from "./giving";
 
 const STRIPE_API_VERSION = "2026-08-26.dahlia" as const;
@@ -41,8 +41,7 @@ function siteUrl(): string {
 export const createConnectOnboardingLink = action({
   args: {},
   handler: async (ctx): Promise<{ url: string }> => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new ConvexError({ reason: "Sign in first." });
+    const userId = await requireUserId(ctx);
 
     const me = await ctx.runQuery((internal as any).garden.connectState.getConnectAccountForUser, {
       userId: String(userId),
@@ -84,8 +83,7 @@ export const createConnectOnboardingLink = action({
 export const refreshConnectStatus = action({
   args: {},
   handler: async (ctx): Promise<{ payoutsEnabled: boolean; detailsSubmitted: boolean }> => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new ConvexError({ reason: "Sign in first." });
+    const userId = await requireUserId(ctx);
     const me = await ctx.runQuery((internal as any).garden.connectState.getConnectAccountForUser, {
       userId: String(userId),
     });
@@ -108,8 +106,7 @@ export const refreshConnectStatus = action({
 export const createConnectDashboardLink = action({
   args: {},
   handler: async (ctx): Promise<{ url: string }> => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new ConvexError({ reason: "Sign in first." });
+    const userId = await requireUserId(ctx);
     const me = await ctx.runQuery((internal as any).garden.connectState.getConnectAccountForUser, {
       userId: String(userId),
     });

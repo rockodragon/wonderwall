@@ -115,6 +115,9 @@ async function thrown(p: Promise<unknown>): Promise<any> {
   throw new Error("expected the handler to throw");
 }
 
+/** What a signed-out call is refused with (requireUserId in helpers.ts). */
+const SIGNED_OUT = { code: "unauthenticated", reason: "Sign in first." };
+
 const NOW = Date.now();
 const PROJECT = "projects:mural";
 const ROLE = "projectRoles:painter";
@@ -214,9 +217,7 @@ describe("saving a project or a role", () => {
 
   it("is for signed-in members only", async () => {
     const ctx = makeCtx(world(), null);
-    await expect(run(toggle, ctx, { targetType: "project", targetId: PROJECT })).rejects.toThrow(
-      "Not authenticated",
-    );
+    expect(await thrown(run(toggle, ctx, { targetType: "project", targetId: PROJECT }))).toEqual(SIGNED_OUT);
     expect(await run(isFavorited, ctx, { targetType: "project", targetId: PROJECT })).toBe(false);
   });
 });
@@ -378,8 +379,8 @@ describe("remove — unsave, and only that", () => {
   });
 
   it("is for signed-in members only", async () => {
-    await expect(run(remove, makeCtx(world(), null), { targetType: "project", targetId: PROJECT })).rejects.toThrow(
-      "Not authenticated",
+    expect(await thrown(run(remove, makeCtx(world(), null), { targetType: "project", targetId: PROJECT }))).toEqual(
+      SIGNED_OUT,
     );
   });
 });
@@ -424,7 +425,7 @@ describe("removeMany — remove, for several at once", () => {
   });
 
   it("is for signed-in members only", async () => {
-    await expect(run(removeMany, makeCtx(world(), null), { targets: targets(PAST) })).rejects.toThrow("Not authenticated");
+    expect(await thrown(run(removeMany, makeCtx(world(), null), { targets: targets(PAST) }))).toEqual(SIGNED_OUT);
   });
 });
 

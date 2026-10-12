@@ -15,6 +15,7 @@ import type { ReactNode } from "react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Link, useParams, useRouteError, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
+import { formatCents } from "../../convex/money";
 import { EMBED_PROVIDER_LABEL, toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
 import { VISIBLE_PROJECT_STATUSES } from "../../convex/moderationRules";
@@ -3091,7 +3092,7 @@ function TierForm({
   );
 }
 
-function TierManager({ projectId }: { projectId: Id<"projects"> }) {
+export function TierManager({ projectId }: { projectId: Id<"projects"> }) {
   const tiers = useQuery((api as any).garden.patronTiers.listAllTiers, { projectId });
   const createTier = useMutation((api as any).garden.patronTiers.createTier);
   const updateTier = useMutation((api as any).garden.patronTiers.updateTier);
@@ -3230,7 +3231,7 @@ function TierManager({ projectId }: { projectId: Id<"projects"> }) {
                   className="text-sm"
                   style={{ color: "var(--garden-muted)", fontFamily: "var(--garden-font-mono)" }}
                 >
-                  ${(tier.priceCents / 100).toFixed(0)}{tier.billing === "one_time" ? "" : "/mo"}
+                  {formatCents(tier.priceCents)}{tier.billing === "one_time" ? "" : "/mo"}
                 </span>
                 <span
                   className="px-2 py-0.5 rounded-full text-xs font-medium uppercase tracking-[0.06em]"

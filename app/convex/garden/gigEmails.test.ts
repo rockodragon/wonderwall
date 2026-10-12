@@ -138,9 +138,17 @@ describe("buildPaidEmail", () => {
     expect(email.body).toContain("&lt;Blue&gt;");
     expect(email.body).not.toContain("<@rick>");
     expect(email.body).toContain("&lt;@rick&gt;");
-    expect(email.body).toContain("$150.00");
+    expect(email.body).toContain("$150 via");
+    expect(email.previewText).toBe("$150 via Venmo <@rick>. Confirm it once it lands.");
     expect(email.ctaText).toBe("Confirm payment");
     expect(email.subject).toBe("The <Blue> Room marked Fri & Sat Nights on Fri, Oct 3 as paid");
+  });
+
+  it("writes whole dollars bare and cents only when there are some", () => {
+    expect(buildPaidEmail({ ...input, amountCents: 15000 }).body).not.toContain("150.00");
+    const email = buildPaidEmail({ ...input, amountCents: 15050 });
+    expect(email.body).toContain("$150.50 via");
+    expect(email.previewText).toContain("$150.50 via");
   });
 });
 

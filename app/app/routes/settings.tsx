@@ -15,10 +15,12 @@ import { LEVEL_LABEL } from "../garden/capabilities";
 import { normalizeHandle, type PayoutKind } from "../../convex/garden/gigRules";
 import { errorMessage } from "../lib/convexError";
 import { NetworkTab } from "../components/NetworkTab";
+import { PersonAvatar } from "../components/PersonAvatar";
 import { OrganizationsEditor } from "../components/OrganizationsEditor";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { ShortlistLink } from "../components/shortlist/ShortlistLink";
 import { isGardenHost } from "../../convex/garden/brandHosts";
+import { formatCents } from "../../convex/money";
 
 const SETTINGS_TABS = [
   { id: "profile", label: "Profile" },
@@ -200,15 +202,6 @@ export default function Settings() {
       )}
     </div>
   );
-}
-
-function formatMoneyCents(cents: number): string {
-  const dollars = cents / 100;
-  const isWhole = Number.isInteger(dollars);
-  return `$${dollars.toLocaleString("en-US", {
-    minimumFractionDigits: isWhole ? 0 : 2,
-    maximumFractionDigits: 2,
-  })}`;
 }
 
 function BillingSection() {
@@ -431,7 +424,7 @@ function GetPaidSection() {
       </div>
 
       <p className="text-[15px] mb-2" style={{ color: "var(--app-text)" }}>
-        {owedCents > 0 ? `${formatMoneyCents(owedCents)} owed to you` : "Nothing owed to you yet."}
+        {owedCents > 0 ? `${formatCents(owedCents)} owed to you` : "Nothing owed to you yet."}
       </p>
 
       {checking ? (
@@ -518,7 +511,7 @@ function PurchasesSection() {
               </span>
             </div>
             <div className="text-sm font-semibold whitespace-nowrap" style={{ color: "var(--app-text)" }}>
-              {formatMoneyCents(p.grossCents)}
+              {formatCents(p.grossCents)}
               {p.billing === "monthly" ? "/mo" : ""}
             </div>
           </div>
@@ -609,7 +602,7 @@ function SupportGivenSection() {
           s.anonymous ? "Anonymous" : undefined,
           s.status === "pledged" ? "Pledged" : undefined,
           repeats && s.totalPaidCents > 0
-            ? `${formatMoneyCents(s.totalPaidCents)} paid so far`
+            ? `${formatCents(s.totalPaidCents)} paid so far`
             : undefined,
           repeats ? `Started ${date(s.createdAt)}` : date(s.createdAt),
         ]
@@ -621,7 +614,7 @@ function SupportGivenSection() {
           to: projectLink(s.projectId, s.projectGone),
           detail,
           amount: s.amountCents
-            ? `${formatMoneyCents(s.amountCents)}${CADENCE_SUFFIX[cadence]}`
+            ? `${formatCents(s.amountCents)}${CADENCE_SUFFIX[cadence]}`
             : undefined,
           createdAt: s.createdAt,
         };
@@ -641,11 +634,11 @@ function SupportGivenSection() {
         detail: [
           `From your ${monthName(g.period)} membership`,
           g.decidedBy === "default" ? "Went to the fund by default" : undefined,
-          g.plusUpCents > 0 ? `You added ${formatMoneyCents(g.plusUpCents)}` : undefined,
+          g.plusUpCents > 0 ? `You added ${formatCents(g.plusUpCents)}` : undefined,
         ]
           .filter(Boolean)
           .join(" · "),
-        amount: formatMoneyCents(g.amountCents),
+        amount: formatCents(g.amountCents),
         createdAt: g.decidedAt ?? g.openedAt,
       })),
     ...given.funds.map((f) => ({
@@ -655,7 +648,7 @@ function SupportGivenSection() {
       detail: [f.kind === "ticket" ? (f.note ?? "Ticket") : undefined, date(f.createdAt)]
         .filter(Boolean)
         .join(" · "),
-      amount: formatMoneyCents(f.amountCents),
+      amount: formatCents(f.amountCents),
       createdAt: f.createdAt,
     })),
   ].sort((a, b) => b.createdAt - a.createdAt);
@@ -1257,20 +1250,7 @@ function BlockedSection() {
               className="flex items-center gap-3 p-3 rounded-xl"
               style={{ backgroundColor: "var(--app-surface-raised)" }}
             >
-              {person.imageUrl ? (
-                <img
-                  src={person.imageUrl}
-                  alt={person.name}
-                  className="w-10 h-10 rounded-full object-cover shrink-0"
-                />
-              ) : (
-                <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-base font-bold shrink-0"
-                  style={{ backgroundColor: "var(--app-hairline-raised)", color: "var(--app-text)" }}
-                >
-                  {person.name.charAt(0).toUpperCase() || "?"}
-                </div>
-              )}
+              <PersonAvatar name={person.name} imageUrl={person.imageUrl} size="mdBase" tone="strong" />
               <div className="flex-1 min-w-0">
                 {person.profileId ? (
                   <Link

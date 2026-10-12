@@ -1,12 +1,12 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { auth } from "./auth";
+import { currentUserId, requireUserId, getProfileByUserId } from "./helpers";
 
 // Record a profile view
 export const recordProfileView = mutation({
   args: { profileId: v.id("profiles") },
   handler: async (ctx, args) => {
-    const viewerId = await auth.getUserId(ctx);
+    const viewerId = await currentUserId(ctx);
 
     // Don't record if viewing own profile
     const profile = await ctx.db.get(args.profileId);
@@ -56,8 +56,7 @@ export const getProfileViewCount = query({
 export const toggleProfileLike = mutation({
   args: { profileId: v.id("profiles") },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
     // Don't allow liking own profile
     const profile = await ctx.db.get(args.profileId);
@@ -91,7 +90,7 @@ export const toggleProfileLike = mutation({
 export const getProfileLikeStatus = query({
   args: { profileId: v.id("profiles") },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
 
     const likes = await ctx.db
       .query("profileLikes")
@@ -113,13 +112,10 @@ export const getProfileLikeStatus = query({
 export const getMyProfileAnalytics = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) return null;
 
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .first();
+    const profile = await getProfileByUserId(ctx, userId);
 
     if (!profile) return null;
 

@@ -22,7 +22,7 @@
 //   • Every organizer control hangs off event.isOrganizer, which the server
 //     derives — a guest can never see one.
 //   • Anything whose mutation requires auth is hidden, never rendered dead:
-//     Apply/Join (events.apply throws "Not authenticated") is replaced by
+//     Apply/Join (events.apply refuses a signed-out visitor) is replaced by
 //     the guest RSVP, and the favorite button is dropped.
 //   • Links into auth-gated routes (/profile/:id, /events) are rendered as
 //     plain text or repointed, so a guest never gets bounced to /login.
@@ -52,7 +52,8 @@ import { InviteToThis } from "../components/InviteToThis";
 import { ShowcaseContent, SHOWCASE_EVENT_ID } from "../components/ShowcaseContent";
 import { hostLabels } from "../lib/eventHosts";
 import { HostedBy } from "../components/HostedBy";
-import { errorMessage, isNotSignedIn } from "../lib/convexError";
+import { GENERIC_ERROR, errorMessage, isNotSignedIn } from "../lib/convexError";
+import { untilSignedIn } from "../lib/untilSignedIn";
 import { CreateEventModal } from "../components/CreateEventModal";
 import type { TicketTier } from "../components/TicketTierEditor";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
@@ -64,7 +65,8 @@ import { toEmbedUrl } from "../lib/videoEmbed";
 import { buildTicketLink, isCheckoutSessionId, isPayPalPaymentLink } from "../../convex/garden/ticketLink";
 import { claimPendingTickets, stashTicketSession } from "../lib/pendingTicket";
 import { setPendingIntent } from "../lib/pendingIntent";
-import { guestsToCsv, summarizeGuests, formatDollars, paidLabel } from "../../convex/eventGuests";
+import { guestsToCsv, summarizeGuests, paidLabel } from "../../convex/eventGuests";
+import { formatCents } from "../../convex/money";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { eventCta, type EventCta } from "../lib/eventCta";
 import { useStartConversation } from "../lib/useStartConversation";
@@ -244,7 +246,7 @@ export default function EventDetail() {
   const cancelled = event.status === "cancelled";
   // What the event asks of this viewer (lib/eventCta.ts), decided once and
   // shown by one card, in the desktop rail and on a phone. events.apply
-  // throws "Not authenticated", so a guest gets the guest RSVP instead of a
+  // refuses a signed-out visitor, so a guest gets the guest RSVP instead of a
   // button that would reject on click.
   // Tables: an accepted Table participant joins a Table Event without
   // applying again (server-decided, applyNeedsApproval); an older backend
@@ -559,7 +561,7 @@ export default function EventDetail() {
             ))}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* favorites.toggle throws "Not authenticated" — a guest gets no
+            {/* favorites.toggle refuses a signed-out visitor — a guest gets no
                 button rather than one that rejects on click. Share is pure
                 client-side (navigator.share / clipboard), so it stays. */}
             {!isGuest && (
@@ -741,30 +743,29 @@ export default function EventDetail() {
                   {/* Same reason as the organizer above: no /profile links
                       for a guest, who can't reach that route. */}
                   {attendee.profileId && !isGuest ? (
+                    // The face is decoration (PersonAvatar's alt is empty), so
+                    // the link carries the name.
                     <Link
                       to={`/profile/${attendee.profileId}`}
+                      aria-label={attendee.name}
                       className="flex-shrink-0"
                     >
-                      <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden ring-2 ring-white dark:ring-gray-900">
-                        {attendee.imageUrl ? (
-                          <img
-                            src={attendee.imageUrl}
-                            alt={attendee.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <span className="text-xs font-medium text-gray-500">
-                            {attendee.name.charAt(0)}
-                          </span>
-                        )}
-                      </div>
+                      <PersonAvatar
+                        name={attendee.name}
+                        imageUrl={attendee.imageUrl}
+                        size="rowXs"
+                        tone="gray"
+                        className="ring-2 ring-white dark:ring-gray-900"
+                      />
                     </Link>
                   ) : (
-                    <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0 ring-2 ring-white dark:ring-gray-900">
-                      <span className="text-xs font-medium text-gray-500">
-                        {attendee.name.charAt(0)}
-                      </span>
-                    </div>
+                    <PersonAvatar
+                      name={attendee.name}
+                      imageUrl={attendee.imageUrl}
+                      size="rowXs"
+                      tone="gray"
+                      className="ring-2 ring-white dark:ring-gray-900"
+                    />
                   )}
                   <div className="flex-1 min-w-0">
                     {attendee.profileId && !isGuest ? (
@@ -964,8 +965,8 @@ function useGuestRsvp(
     // Wait (up to ~8s) for the client to be sending the new sign-in.
     for (let i = 0; i < 80 && !isAuthenticatedRef.current; i++) await sleep(100);
     // Then retry briefly on "not signed in" in case the server lags a beat.
-    for (let attempt = 0; ; attempt++) {
-      try {
+    await untilSignedIn(
+      async () => {
         // Only fills a blank name / missing email; never overwrites a
         // returning member's profile (unlike upsertProfile).
         await fillMissingBasics({ name: trimmedName, email: cleanEmail });
@@ -986,15 +987,9 @@ function useGuestRsvp(
         const res = await rsvpToEvent({ eventId, name: trimmedName });
         setDone({ alreadyRsvpd: res.alreadyRsvpd });
         setStep("done");
-        return;
-      } catch (err) {
-        if (isNotSignedIn(err) && attempt < 6) {
-          await sleep(500);
-          continue;
-        }
-        throw err;
-      }
-    }
+      },
+      { tries: 7, delayMs: 500 },
+    );
   }
 
   async function confirm(e?: FormEvent) {
@@ -1016,8 +1011,9 @@ function useGuestRsvp(
       await saveRsvp();
     } catch (err) {
       // Signed in but the RSVP didn't save: the code is spent, so the button
-      // retries just the save.
-      setError(errorMessage(err));
+      // retries just the save. Still "not signed in" after every retry is the
+      // session lagging, not the person — "Sign in first." would mislead.
+      setError(isNotSignedIn(err) ? GENERIC_ERROR : errorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -1682,7 +1678,7 @@ function TicketsCard({
                 <p className="font-medium text-gray-900 dark:text-white">
                   {tier.name}{" "}
                   <span className="text-gray-500 dark:text-gray-400 font-normal">
-                    · {formatDollars(tier.priceCents)}
+                    · {formatCents(tier.priceCents)}
                   </span>
                 </p>
                 {tier.description && (
@@ -1708,7 +1704,7 @@ function TicketsCard({
                 >
                   {buyingTier === tier.name
                     ? "Redirecting..."
-                    : `Buy ${formatDollars(tier.priceCents)}`}
+                    : `Buy ${formatCents(tier.priceCents)}`}
                 </button>
               )}
             </div>
@@ -1940,8 +1936,8 @@ function CantMakeIt({ eventId, label = "Can't make it" }: { eventId: Id<"events"
 }
 
 // Apply (the host approves) and Join (straight in) are one card: a button
-// that opens a note box. Signed-in viewers only; events.apply throws
-// "Not authenticated".
+// that opens a note box. Signed-in viewers only; events.apply refuses a
+// signed-out visitor.
 const JOIN_OR_APPLY = {
   apply: {
     open: "Apply to Attend",
@@ -2134,7 +2130,7 @@ function LinkOutCard({
             margin: "2px 0 16px",
           }}
         >
-          {formatDollars(priceCents)}
+          {formatCents(priceCents)}
         </p>
       ) : (
         <div style={{ height: 12 }} />
@@ -2396,7 +2392,7 @@ function PayPalTicketCard({
       <p style={{ color: "var(--garden-dim)", fontSize: 13, margin: 0 }}>Admission</p>
       {priceCents ? (
         <p style={{ color: "var(--garden-paper)", fontSize: 32, fontWeight: 700, lineHeight: 1.1, margin: "2px 0 16px" }}>
-          {formatDollars(priceCents)}
+          {formatCents(priceCents)}
         </p>
       ) : (
         <div style={{ height: 12 }} />
@@ -2675,7 +2671,7 @@ function GuestsPanel({
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <p className="text-[15px] font-medium text-gray-900 dark:text-white">
-          {summary.paid} paid · {formatDollars(summary.collectedCents)} collected
+          {summary.paid} paid · {formatCents(summary.collectedCents)} collected
         </p>
         <button
           onClick={downloadCsv}
@@ -2836,7 +2832,7 @@ function HostsPanel({
     try {
       await fn();
     } catch (err) {
-      setError(err instanceof Error ? err.message.replace(/^.*Uncaught Error: /s, "").split("\n")[0] : "That didn't work.");
+      setError(errorMessage(err, "That didn't work."));
     } finally {
       setBusy(false);
     }
@@ -3028,7 +3024,7 @@ function ShownHostsEditor({
       });
       setSaved(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message.replace(/^.*Uncaught Error: /s, "").split("\n")[0] : "That didn't work.");
+      setError(errorMessage(err, "That didn't work."));
     } finally {
       setBusy(false);
     }

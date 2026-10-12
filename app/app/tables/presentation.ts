@@ -1,3 +1,5 @@
+import { formatCents } from "../../convex/money";
+
 /** Display-only Table helpers. Authorization always comes from the server. */
 export type TableSummary = {
   _id: string;
@@ -34,15 +36,11 @@ export type TableSummary = {
 };
 
 export function tablePrice(
-  table: Pick<TableSummary, "priceCents" | "currency" | "membershipRequired">,
+  table: Pick<TableSummary, "priceCents" | "membershipRequired">,
 ) {
-  const price = table.priceCents
-    ? new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: table.currency ?? "USD",
-        maximumFractionDigits: 2,
-      }).format(table.priceCents / 100)
-    : "Free";
+  // Tables are always priced in USD (tables.ts sets the currency), so the one
+  // money formatter applies: "$25", "$25.50".
+  const price = table.priceCents ? formatCents(table.priceCents) : "Free";
   return table.membershipRequired
     ? table.priceCents
       ? `Membership + ${price} one time`

@@ -17,6 +17,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { shapeCredits } from "./allocations";
 import { resolveProjectPhotoUrl } from "./projectsPublic";
 import { profileImageUrl } from "../images";
+import { displayNameOf, getProfileByUserId } from "../helpers";
 import { notifyFollowers } from "../follows";
 import { isHidden } from "../moderationRules";
 import { communityVisibility, isHiddenCommunityId } from "./communityVisibility";
@@ -222,11 +223,7 @@ export const postStoryUpdate = mutation({
       // Nobody is told about an update on a project in a hidden (test)
       // community — they couldn't open it.
       if (await isHiddenCommunityId(ctx, project!.hostOrgId)) return { storyUpdateId: id };
-      const profile = await ctx.db
-        .query("profiles")
-        .withIndex("by_userId", (q) => q.eq("userId", userId))
-        .first();
-      const name = profile?.name || "Someone";
+      const name = await displayNameOf(ctx, userId);
       const excerpt = richDocExcerpt(bodyDoc, 140) || body.slice(0, 140);
       await notifyFollowers(ctx, userId, {
         type: "project_update",
@@ -332,12 +329,7 @@ export const listProjectUpdates = query({
 
     const authorIds = [...new Set(rows.map((r) => String(r.authorUserId)))];
     const authorProfiles = await Promise.all(
-      authorIds.map((id) =>
-        ctx.db
-          .query("profiles")
-          .withIndex("by_userId", (q) => q.eq("userId", id as Id<"users">))
-          .unique(),
-      ),
+      authorIds.map((id) => getProfileByUserId(ctx, id as Id<"users">)),
     );
     const authorById = new Map<string, { name: string; imageUrl: string | null; profileId: string }>();
     for (const profile of authorProfiles) {
@@ -446,10 +438,7 @@ export const getStoryPage = query({
     }
 
     const [ownerProfile, updateRows, allocationRows, memberships, supportRows, gigSeries, mediaRows] = await Promise.all([
-      ctx.db
-        .query("profiles")
-        .withIndex("by_userId", (q) => q.eq("userId", project.userId))
-        .unique(),
+      getProfileByUserId(ctx, project.userId),
       ctx.db
         .query("storyUpdates")
         .withIndex("by_projectId", (q) => q.eq("projectId", project._id))

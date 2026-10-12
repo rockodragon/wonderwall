@@ -8,6 +8,7 @@ import { codeRequestParams, ensureOAuthHost, oauthReturnTo } from "../lib/oauthH
 import { AgreementsConsent } from "../components/AgreementsConsent";
 import { useBrand } from "../brand/brands";
 import { GardenLockupThemed } from "../brand/GardenMark";
+import { errorMessage } from "../lib/convexError";
 
 export function meta() {
   return [
@@ -121,9 +122,7 @@ export default function Login() {
       setPhoneStep("code");
       posthog?.capture("phone_code_sent");
     } catch (err) {
-      setPhoneError(
-        err instanceof Error ? err.message : "Couldn't send a code. Try again.",
-      );
+      setPhoneError(errorMessage(err, "Couldn't send a code. Try again."));
       posthog?.capture("phone_code_send_error", {
         error: err instanceof Error ? err.message : "Unknown error",
       });

@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, mutation } from "./_generated/server";
+import { requireUserId } from "./helpers";
 
 /**
  * Seed script to bootstrap the app with an initial admin user and invite codes.
@@ -132,9 +133,7 @@ export const generateInvites = mutation({
     count: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const { auth } = await import("./auth");
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
     const count = args.count ?? 3;
     const codes: string[] = [];

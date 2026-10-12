@@ -20,8 +20,9 @@
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 import type { MutationCtx } from "../_generated/server";
-import type { Doc, Id } from "../_generated/dataModel";
+import type { Doc } from "../_generated/dataModel";
 import { isCurrent } from "../organizationRules";
+import { getProfileByUserId } from "../helpers";
 import { PROFILE_ID_FIELDS, USER_ID_FIELDS } from "./mergeUsers";
 
 /** References this tool moves or removes itself. invites.usedBy stays: the
@@ -63,9 +64,10 @@ export const accountToOrganization = internalMutation({
     if (!user) throw new Error("No such account.");
     if (!org) throw new Error("No such organization.");
 
-    const profileOf = (id: Id<"users">) =>
-      ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", id)).first();
-    const [profile, runByProfile] = await Promise.all([profileOf(userId), profileOf(runBy)]);
+    const [profile, runByProfile] = await Promise.all([
+      getProfileByUserId(ctx, userId),
+      getProfileByUserId(ctx, runBy),
+    ]);
     const runByPosition = runByProfile
       ? await ctx.db
           .query("orgPositions")

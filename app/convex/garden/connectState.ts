@@ -14,14 +14,8 @@ import { internalMutation, internalQuery } from "../_generated/server";
 import type { MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
+import { getProfileByUserId } from "../helpers";
 import type { TransferableRow } from "./giving";
-
-async function profileByUser(ctx: MutationCtx, userId: Id<"users">) {
-  return ctx.db
-    .query("profiles")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .unique();
-}
 
 /** Records what Stripe says about a connected account. Unknown account id
  * is a safe no-op. When payouts just became enabled, kicks the transfer
@@ -53,10 +47,7 @@ export async function applyConnectAccountStatus(
 export const getConnectAccountForUser = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .unique();
+    const profile = await getProfileByUserId(ctx, args.userId);
     if (!profile) return null;
     const user = await ctx.db.get(args.userId);
     return {
@@ -72,7 +63,7 @@ export const getConnectAccountForUser = internalQuery({
 export const saveConnectAccount = internalMutation({
   args: { userId: v.id("users"), accountId: v.string() },
   handler: async (ctx, args) => {
-    const profile = await profileByUser(ctx, args.userId);
+    const profile = await getProfileByUserId(ctx, args.userId);
     if (!profile) throw new Error("No profile to attach a Connect account to");
     if (profile.stripeConnectAccountId && profile.stripeConnectAccountId !== args.accountId) {
       throw new Error("This profile already has a different Connect account");
@@ -128,10 +119,7 @@ export const listTransferable = internalQuery({
     const payeeIds = [...new Set(rows.map((r) => r.payeeUserId))];
     const accounts = new Map<string, string>();
     for (const id of payeeIds) {
-      const profile = await ctx.db
-        .query("profiles")
-        .withIndex("by_userId", (q) => q.eq("userId", id as Id<"users">))
-        .unique();
+      const profile = await getProfileByUserId(ctx, id as Id<"users">);
       if (profile?.stripeConnectAccountId && profile.stripeConnectPayoutsEnabled) {
         accounts.set(id, profile.stripeConnectAccountId);
       }

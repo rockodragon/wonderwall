@@ -1,8 +1,8 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
-import { auth } from "./auth";
-import { requireOwnProfileRow } from "./helpers";
+import { fail } from "./errors";
+import { currentUserId, getProfileByUserId, requireOwnProfileRow, requireProfile, requireUserId } from "./helpers";
 import { profileImageUrl } from "./images";
 
 const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
@@ -10,13 +10,10 @@ const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
 export const getMyWondering = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) return null;
 
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .first();
+    const profile = await getProfileByUserId(ctx, userId);
 
     if (!profile) return null;
 
@@ -47,15 +44,9 @@ export const create = mutation({
     imageStorageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .first();
-
-    if (!profile) throw new Error("Profile not found");
+    const profile = await requireProfile(ctx, userId);
 
     // Check for existing active wondering (free plan limit)
     const existing = await ctx.db
@@ -69,7 +60,8 @@ export const create = mutation({
     const isPaidPlan = profile.plan === "paid";
 
     if (existing && !isPaidPlan) {
-      throw new Error(
+      fail(
+        "too_many",
         "Free plan allows only one active wondering. Archive current one first.",
       );
     }
@@ -133,7 +125,7 @@ export const archive = mutation({
 export const getResponses = query({
   args: { wonderingId: v.id("wonderings") },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) return [];
 
     const wondering = await ctx.db.get(args.wonderingId);
@@ -156,7 +148,7 @@ export const getResponses = query({
 export const getPublicResponses = query({
   args: { wonderingId: v.id("wonderings") },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
 
     const allResponses = await ctx.db
       .query("wonderingResponses")
@@ -171,10 +163,7 @@ export const getPublicResponses = query({
     // Get responder profiles for display
     const responsesWithProfiles = await Promise.all(
       visibleResponses.map(async (response) => {
-        const responderProfile = await ctx.db
-          .query("profiles")
-          .withIndex("by_userId", (q) => q.eq("userId", response.responderId))
-          .first();
+        const responderProfile = await getProfileByUserId(ctx, response.responderId);
 
         return {
           ...response,
@@ -197,19 +186,18 @@ export const submitResponse = mutation({
     mediaUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
     const wondering = await ctx.db.get(args.wonderingId);
-    if (!wondering) throw new Error("Wondering not found");
+    if (!wondering) fail("not_found", "Wondering not found");
 
     // Check if wondering is still accepting responses
     if (!wondering.isActive) {
-      throw new Error("This wondering is no longer accepting responses");
+      fail("unavailable", "This wondering is no longer accepting responses");
     }
 
     if (wondering.expiresAt && Date.now() > wondering.expiresAt) {
-      throw new Error("This wondering has expired");
+      fail("unavailable", "This wondering has expired");
     }
 
     return await ctx.db.insert("wonderingResponses", {
@@ -230,7 +218,7 @@ export const toggleResponsePublic = mutation({
   },
   handler: async (ctx, args) => {
     const response = await ctx.db.get(args.responseId);
-    if (!response) throw new Error("Response not found");
+    if (!response) fail("not_found", "Response not found");
     // Only the person who asked the wondering decides what's shown.
     await requireOwnProfileRow(ctx, "wonderings", response.wonderingId);
 

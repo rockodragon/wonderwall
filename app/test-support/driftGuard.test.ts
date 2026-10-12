@@ -46,29 +46,37 @@ const RULES: Rule[] = [
   {
     name: "profile looked up by userId inline",
     pattern: /query\(\s*"profiles"\s*\)\s*\.withIndex\(\s*"by_userId"/g,
-    limit: 113,
+    limit: 0,
     home: "convex/helpers.ts",
-    use: "a shared profile lookup in convex/helpers.ts (one is coming; until then copy nothing new)",
+    use: "getProfileByUserId / displayNameOf in convex/helpers.ts",
   },
   {
     name: "deprecated auth.getUserId",
     pattern: /\bauth\.getUserId\(/g,
-    limit: 109,
+    limit: 0,
     home: "convex/helpers.ts",
-    use: 'getAuthUserId from "@convex-dev/auth/server", or requireEventHost / requireOwner / requireOperator in convex/helpers.ts and convex/eventHosts.ts',
+    use: "requireUserId (signed out is refused) / currentUserId (signed out sees nothing) in convex/helpers.ts, or requireEventHost / requireOwner / requireOperator",
   },
   {
     name: 'plain Error("Not authenticated") (production hides it from the page)',
     pattern: /throw new Error\(\s*"Not authenticated"\s*\)/g,
-    limit: 43,
+    limit: 0,
     home: "convex/helpers.ts",
-    use: 'ConvexError({ code: "unauthenticated", reason: "Sign in first." }) or a require* helper',
+    use: "requireUserId in convex/helpers.ts, or fail(code, reason) in convex/errors.ts",
   },
   {
     name: "notification inserted directly",
     pattern: /\.insert\(\s*"notifications"/g,
-    limit: 25,
-    use: "an existing notify helper near your code (a shared one is coming); copy nothing new",
+    limit: 0,
+    home: "convex/notify.ts",
+    use: "insertNotification in convex/notify.ts (its `email` option sends the email too)",
+  },
+  {
+    name: "own profile required by hand (one place)",
+    pattern: /"no_profile"/g,
+    limit: 0,
+    home: "convex/helpers.ts",
+    use: "requireProfile(ctx, userId) in convex/helpers.ts",
   },
   {
     name: "storage.getUrl outside images.ts",
@@ -99,9 +107,33 @@ const RULES: Rule[] = [
     use: "useStartConversation in app/lib/useStartConversation.ts",
   },
   {
+    name: "money formatted inline",
+    // Also the hand-written shapes: `$${n.toLocaleString(`, a JSX `${n.toLocaleString(`
+    // on a line with no template string, and `(cents / 100).toLocaleString(` / `.toFixed(`.
+    pattern:
+      /minimumFractionDigits|style:\s*"currency"|\$\$\{[^}`]*toLocaleString|^[^`\n]*\$\{[^}`\n]*toLocaleString|\/ 100\)\.(?:toLocaleString|toFixed)/gm,
+    // Left on purpose: fixed whole-dollar caps in error reasons (stripe, stripeHandlers,
+    // grantProposals), form-field and log values, and the demo pages.
+    limit: 10,
+    home: "convex/money.ts",
+    use: "formatCents / formatDollars in convex/money.ts (formatMoney in app/garden/ui.tsx is the same one)",
+  },
+  {
+    name: "server error shown raw on a page",
+    pattern: /(?:set[A-Z]\w*|alert)\(\s*\w+ instanceof Error\s*\?\s*\w+\.message/g,
+    limit: 0,
+    use: "errorMessage(err, fallback) in app/lib/convexError.ts — err.message is \"[CONVEX M(...)] Server Error\" in production",
+  },
+  {
+    name: "server error text scraped by hand",
+    pattern: /Uncaught Error: /g,
+    limit: 0,
+    use: "errorMessage(err, fallback) in app/lib/convexError.ts, and a ConvexError reason (fail in convex/errors.ts) on the server",
+  },
+  {
     name: "avatar initial drawn by hand",
     pattern: /charAt\(0\)\.toUpperCase\(\)/g,
-    limit: 23,
+    limit: 8,
     home: "app/components/PersonAvatar.tsx",
     use: "PersonAvatar (people) or OrgLogo (organizations) in app/components",
   },

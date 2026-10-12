@@ -9,6 +9,7 @@ import type { ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
+import { formatCents, formatDollars } from "../../convex/money";
 import { errorMessage } from "../lib/convexError";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import { MAX_CLIPS, MAX_NOTE_LENGTH, PAID_METHODS, isClipArtifact, type PaidMethod } from "../../convex/garden/gigRules";
@@ -92,7 +93,7 @@ function TextButton({
 // Payment panel — host or booked artist, per booked slot.
 // ——————————————————————————————————————————————————————————————
 
-function SlotPaymentPanel({ slotId }: { slotId: any }) {
+export function SlotPaymentPanel({ slotId }: { slotId: any }) {
   const payment: any = useQuery(api.garden.gigs.getSlotPayment, { slotId });
   const markSlotPaid = useMutation(api.garden.gigs.markSlotPaid);
   const confirmSlotPaid = useMutation(api.garden.gigs.confirmSlotPaid);
@@ -160,7 +161,7 @@ function SlotPaymentPanel({ slotId }: { slotId: any }) {
         {payment.isHost ? `Pay ${payment.artistName}` : "Getting paid"}
       </p>
       <p className="text-xs mb-2" style={{ color: "var(--garden-dim)" }}>
-        {payment.amountDollars ? `$${payment.amountDollars.toLocaleString("en-US")} per date` : "Amount as agreed"}
+        {payment.amountDollars ? `${formatDollars(payment.amountDollars)} per date` : "Amount as agreed"}
       </p>
 
       {payment.links.length === 0 ? (
@@ -268,7 +269,7 @@ function SlotPaymentPanel({ slotId }: { slotId: any }) {
 
       {payment.paidAt && (
         <p className="text-xs mt-2" style={{ color: "var(--garden-dim)" }}>
-          Marked paid ${(payment.paidAmountCents / 100).toLocaleString("en-US")} via{" "}
+          Marked paid {formatCents(payment.paidAmountCents)} via{" "}
           {PAID_METHOD_LABELS[payment.paidMethod as PaidMethod] ?? payment.paidMethod} on{" "}
           {new Date(payment.paidAt).toLocaleDateString()}
           {payment.paidConfirmedAt ? ` · confirmed by ${payment.artistName}` : ""}

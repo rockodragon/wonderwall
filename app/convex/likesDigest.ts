@@ -1,5 +1,5 @@
 import { internalMutation } from "./_generated/server";
-import { scheduleNotificationEmail } from "./emailHelpers";
+import { insertNotification } from "./notify";
 
 /**
  * Cron job: aggregate recent likes and send batched notifications.
@@ -56,26 +56,29 @@ export const sendLikesDigest = internalMutation({
         );
       }
 
-      await ctx.db.insert("notifications", {
-        userId: profile.userId,
-        type: "likes_digest",
-        title: `${totalLikes} new like${totalLikes > 1 ? "s" : ""} on your profile`,
-        message: parts.join(" and "),
-        linkUrl: `/profile/${profile._id}`,
-        createdAt: now,
-      });
-
-      // Send email digest
-      await scheduleNotificationEmail(ctx, {
-        userId: profile.userId,
-        subject: `${totalLikes} new like${totalLikes > 1 ? "s" : ""} on your profile`,
-        previewText: parts.join(" and "),
-        heading: "People are noticing your work",
-        body: `You received ${parts.join(" and ")} since your last update.`,
-        ctaText: "View Your Profile",
-        ctaUrl: `/profile/${profile._id}`,
-        category: "digest",
-      });
+      // The in-app row and the email digest to the same person.
+      await insertNotification(
+        ctx,
+        {
+          userId: profile.userId,
+          type: "likes_digest",
+          title: `${totalLikes} new like${totalLikes > 1 ? "s" : ""} on your profile`,
+          message: parts.join(" and "),
+          linkUrl: `/profile/${profile._id}`,
+          createdAt: now,
+        },
+        {
+          email: {
+            subject: `${totalLikes} new like${totalLikes > 1 ? "s" : ""} on your profile`,
+            previewText: parts.join(" and "),
+            heading: "People are noticing your work",
+            body: `You received ${parts.join(" and ")} since your last update.`,
+            ctaText: "View Your Profile",
+            ctaUrl: `/profile/${profile._id}`,
+            category: "digest",
+          },
+        },
+      );
 
       // Update last notified timestamp
       await ctx.db.patch(profile._id, { lastLikeNotifiedAt: now });

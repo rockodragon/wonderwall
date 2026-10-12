@@ -229,7 +229,7 @@ test("paid checkout uses the Table action and cannot reveal the roster while che
   );
   await page.evaluate((name) => window.tablesFixture.hold(name), checkout);
   await page
-    .getByRole("button", { name: "Pull Up a Chair · $25.00", exact: true })
+    .getByRole("button", { name: "Pull Up a Chair · $25", exact: true })
     .click();
   await expect(
     page.getByRole("button", { name: "Opening checkout…", exact: true }),

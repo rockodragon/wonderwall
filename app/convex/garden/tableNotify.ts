@@ -17,6 +17,8 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 import { escapeHtml } from "../email/template";
 import { getUserEmail, scheduleNotificationEmail } from "../emailHelpers";
+import { getProfileByUserId } from "../helpers";
+import { insertNotification } from "../notify";
 import { hasTableCommunityMembership, normalizeTable } from "./tablePolicy";
 import { newGuestEmailToken, normalizeEmail } from "./eventRsvps";
 
@@ -557,14 +559,13 @@ async function insertTableNote(
   note: TableNote,
   relatedUserId?: Id<"users">,
 ) {
-  await ctx.db.insert("notifications", {
+  await insertNotification(ctx, {
     userId,
     type: note.type,
     title: note.title,
     message: note.message,
     linkUrl: `/tables/${table.slug}`,
     ...(relatedUserId ? { relatedUserId } : {}),
-    createdAt: Date.now(),
   });
 }
 
@@ -591,10 +592,7 @@ export async function notifyHostsOfJoin(
     (id): id is Id<"users"> => !!id && id !== userId,
   );
   if (hosts.length === 0) return;
-  const profile = await ctx.db
-    .query("profiles")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .first();
+  const profile = await getProfileByUserId(ctx, userId);
   const note = hostNote(profile?.name?.trim() || "Someone", table.name, how);
   for (const host of hosts) await insertTableNote(ctx, table, host, note, userId);
   await emailTableAudience(ctx, { table, userIds: hosts, guests: [], build: () => noteEmail(table, note) });

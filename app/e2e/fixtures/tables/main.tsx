@@ -31,7 +31,7 @@ function DemoCheckout() {
     <p className="fixture-eyebrow">Tables preview · checkout demo</p>
     <h1>Demo checkout</h1>
     <p>This is a simulated checkout destination. No payment details are collected and no charge will be made.</p>
-    <p>The $25.00 price shown on the Table is sample data for this local preview.</p>
+    <p>The $25 price shown on the Table is sample data for this local preview.</p>
     <Link to={returnTo}>Return to the Table</Link>
   </main>;
 }

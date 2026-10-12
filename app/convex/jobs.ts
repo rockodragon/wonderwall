@@ -1,9 +1,48 @@
 import { v } from "convex/values";
 import { escapeHtml } from "./email/template";
 import { mutation, query } from "./_generated/server";
-import { auth } from "./auth";
-import { scheduleNotificationEmail } from "./emailHelpers";
+import { fail } from "./errors";
+import { currentUserId, getProfileByUserId, requireProfile, requireUserId } from "./helpers";
 import { pieceMediaUrl, profileImageUrl } from "./images";
+import { insertNotification } from "./notify";
+
+/** The checks createJob and updateJob share on what a person typed. */
+function assertJobFields(args: {
+  title: string;
+  description: string;
+  location: "Remote" | "Hybrid" | "On-site";
+  city?: string;
+  country?: string;
+  hiringOrg?: string;
+  externalLink?: string;
+}): void {
+  // Validate required fields
+  if (!args.title.trim()) fail("invalid_input", "Title is required");
+  if (args.title.length > 100) fail("invalid_input", "Title must be 100 characters or less");
+
+  if (!args.description.trim()) fail("invalid_input", "Description is required");
+  if (args.description.length > 5000) fail("invalid_input", "Description must be 5000 characters or less");
+
+  // Validate location fields
+  if (args.location !== "Remote") {
+    if (!args.city?.trim()) fail("invalid_input", "City is required for non-remote jobs");
+    if (!args.country?.trim()) fail("invalid_input", "Country is required for non-remote jobs");
+  }
+
+  // Validate hiring org
+  if (args.hiringOrg && args.hiringOrg.length > 100) {
+    fail("invalid_input", "Hiring organization must be 100 characters or less");
+  }
+
+  // Validate external link
+  if (args.externalLink) {
+    try {
+      new URL(args.externalLink);
+    } catch {
+      fail("invalid_input", "External link must be a valid URL");
+    }
+  }
+}
 
 /**
  * Get all jobs with filters
@@ -27,17 +66,14 @@ export const getJobs = query({
     myInterests: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
 
     // Get all jobs
     let jobs = await ctx.db.query("jobs").collect();
 
     // Filter by "For Me" - jobs matching user's interests
     if (args.forMe && userId) {
-      const userProfile = await ctx.db
-        .query("profiles")
-        .withIndex("by_userId", (q) => q.eq("userId", userId))
-        .first();
+      const userProfile = await getProfileByUserId(ctx, userId);
 
       if (userProfile && userProfile.interests.length > 0) {
         const userInterests = new Set(userProfile.interests);
@@ -93,10 +129,7 @@ export const getJobs = query({
     // Get poster profile info and interest counts for each job
     const jobsWithPosterInfo = await Promise.all(
       jobs.map(async (job) => {
-        const posterProfile = await ctx.db
-          .query("profiles")
-          .withIndex("by_userId", (q) => q.eq("userId", job.posterId))
-          .first();
+        const posterProfile = await getProfileByUserId(ctx, job.posterId);
 
         // Resolve poster image URL
         let posterImageUrl: string | null = null;
@@ -139,10 +172,7 @@ export const getJob = query({
     if (!job) return null;
 
     // Get poster profile
-    const posterProfile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", job.posterId))
-      .first();
+    const posterProfile = await getProfileByUserId(ctx, job.posterId);
 
     // Resolve poster image URL
     let posterImageUrl: string | null = null;
@@ -157,7 +187,7 @@ export const getJob = query({
       .collect();
 
     // Check if current user is poster
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     const isPoster = userId === job.posterId;
 
     return {
@@ -184,7 +214,7 @@ export const getJob = query({
 export const getJobInterests = query({
   args: { jobId: v.id("jobs") },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) {
       // Not authenticated - return only count
       const interests = await ctx.db
@@ -260,7 +290,7 @@ export const getJobInterests = query({
 export const getUserJobInterest = query({
   args: { jobId: v.id("jobs") },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) return null;
 
     const interest = await ctx.db
@@ -332,46 +362,11 @@ export const createJob = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .first();
+    const profile = await requireProfile(ctx, userId);
 
-    if (!profile) throw new Error("Profile not found");
-
-    // Validate required fields
-    if (!args.title.trim()) throw new Error("Title is required");
-    if (args.title.length > 100)
-      throw new Error("Title must be 100 characters or less");
-
-    if (!args.description.trim()) throw new Error("Description is required");
-    if (args.description.length > 5000)
-      throw new Error("Description must be 5000 characters or less");
-
-    // Validate location fields
-    if (args.location !== "Remote") {
-      if (!args.city?.trim())
-        throw new Error("City is required for non-remote jobs");
-      if (!args.country?.trim())
-        throw new Error("Country is required for non-remote jobs");
-    }
-
-    // Validate hiring org
-    if (args.hiringOrg && args.hiringOrg.length > 100) {
-      throw new Error("Hiring organization must be 100 characters or less");
-    }
-
-    // Validate external link
-    if (args.externalLink) {
-      try {
-        new URL(args.externalLink);
-      } catch {
-        throw new Error("External link must be a valid URL");
-      }
-    }
+    assertJobFields(args);
 
     const now = Date.now();
 
@@ -441,47 +436,17 @@ export const updateJob = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
     const job = await ctx.db.get(args.jobId);
-    if (!job) throw new Error("Job not found");
+    if (!job) fail("not_found", "Job not found");
 
     // Check if user is the poster
     if (job.posterId !== userId) {
-      throw new Error("Only the job poster can edit this job");
+      fail("forbidden", "Only the job poster can edit this job");
     }
 
-    // Validate required fields
-    if (!args.title.trim()) throw new Error("Title is required");
-    if (args.title.length > 100)
-      throw new Error("Title must be 100 characters or less");
-
-    if (!args.description.trim()) throw new Error("Description is required");
-    if (args.description.length > 5000)
-      throw new Error("Description must be 5000 characters or less");
-
-    // Validate location fields
-    if (args.location !== "Remote") {
-      if (!args.city?.trim())
-        throw new Error("City is required for non-remote jobs");
-      if (!args.country?.trim())
-        throw new Error("Country is required for non-remote jobs");
-    }
-
-    // Validate hiring org
-    if (args.hiringOrg && args.hiringOrg.length > 100) {
-      throw new Error("Hiring organization must be 100 characters or less");
-    }
-
-    // Validate external link
-    if (args.externalLink) {
-      try {
-        new URL(args.externalLink);
-      } catch {
-        throw new Error("External link must be a valid URL");
-      }
-    }
+    assertJobFields(args);
 
     await ctx.db.patch(args.jobId, {
       title: args.title.trim(),
@@ -512,14 +477,13 @@ export const updateJob = mutation({
 export const closeJob = mutation({
   args: { jobId: v.id("jobs") },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
     const job = await ctx.db.get(args.jobId);
-    if (!job) throw new Error("Job not found");
+    if (!job) fail("not_found", "Job not found");
 
     if (job.posterId !== userId) {
-      throw new Error("Only the poster can close this job");
+      fail("forbidden", "Only the poster can close this job");
     }
 
     await ctx.db.patch(args.jobId, {
@@ -535,14 +499,13 @@ export const closeJob = mutation({
 export const reopenJob = mutation({
   args: { jobId: v.id("jobs") },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
     const job = await ctx.db.get(args.jobId);
-    if (!job) throw new Error("Job not found");
+    if (!job) fail("not_found", "Job not found");
 
     if (job.posterId !== userId) {
-      throw new Error("Only the poster can reopen this job");
+      fail("forbidden", "Only the poster can reopen this job");
     }
 
     await ctx.db.patch(args.jobId, {
@@ -562,49 +525,43 @@ export const expressInterest = mutation({
     workLinks: v.array(v.id("artifacts")),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
     // Get user's profile
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .first();
-
-    if (!profile) throw new Error("Profile not found");
+    const profile = await requireProfile(ctx, userId);
 
     // Get the job and validate it's available
     const job = await ctx.db.get(args.jobId);
-    if (!job) throw new Error("Job not found");
+    if (!job) fail("not_found", "Job not found");
 
     // Check job is Open
     if (job.status !== "Open") {
-      throw new Error("This job is no longer accepting interest");
+      fail("unavailable", "This job is no longer accepting interest");
     }
 
     // Check job is visible (Members visibility means visible to all logged-in users)
     if (job.visibility !== "Members") {
-      throw new Error("This job is not accepting interest");
+      fail("unavailable", "This job is not accepting interest");
     }
 
     // Validate note length
     if (args.note && args.note.trim().length > 500) {
-      throw new Error("Note must be 500 characters or less");
+      fail("invalid_input", "Note must be 500 characters or less");
     }
 
     // Validate workLinks max 3
     if (args.workLinks.length > 3) {
-      throw new Error("You can select up to 3 work samples");
+      fail("invalid_input", "You can select up to 3 work samples");
     }
 
     // Verify all workLinks belong to the user
     for (const artifactId of args.workLinks) {
       const artifact = await ctx.db.get(artifactId);
       if (!artifact) {
-        throw new Error("Work sample not found");
+        fail("not_found", "Work sample not found");
       }
       if (artifact.profileId !== profile._id) {
-        throw new Error("Work sample does not belong to you");
+        fail("forbidden", "Work sample does not belong to you");
       }
     }
 
@@ -639,26 +596,29 @@ export const expressInterest = mutation({
 
       // Notify the job poster
       if (job.posterId !== userId) {
-        await ctx.db.insert("notifications", {
-          userId: job.posterId,
-          type: "job_interest",
-          title: `${profile.name} is interested in your job`,
-          message: job.title,
-          linkUrl: `/jobs/${args.jobId}`,
-          relatedUserId: userId,
-          createdAt: now,
-        });
-
-        await scheduleNotificationEmail(ctx, {
-          userId: job.posterId,
-          subject: `${profile.name} is interested in "${job.title}"`,
-          previewText: `Someone expressed interest in your job posting`,
-          heading: "New job interest",
-          body: `<strong>${escapeHtml(profile.name)}</strong> expressed interest in your job posting "<strong>${escapeHtml(job.title)}</strong>".`,
-          ctaText: "View Applicant",
-          ctaUrl: `/jobs/${args.jobId}`,
-          category: "activity",
-        });
+        await insertNotification(
+          ctx,
+          {
+            userId: job.posterId,
+            type: "job_interest",
+            title: `${profile.name} is interested in your job`,
+            message: job.title,
+            linkUrl: `/jobs/${args.jobId}`,
+            relatedUserId: userId,
+            createdAt: now,
+          },
+          {
+            email: {
+              subject: `${profile.name} is interested in "${job.title}"`,
+              previewText: `Someone expressed interest in your job posting`,
+              heading: "New job interest",
+              body: `<strong>${escapeHtml(profile.name)}</strong> expressed interest in your job posting "<strong>${escapeHtml(job.title)}</strong>".`,
+              ctaText: "View Applicant",
+              ctaUrl: `/jobs/${args.jobId}`,
+              category: "activity",
+            },
+          },
+        );
       }
     }
   },
@@ -670,8 +630,7 @@ export const expressInterest = mutation({
 export const withdrawInterest = mutation({
   args: { jobId: v.id("jobs") },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
     // Find the user's interest record
     const interest = await ctx.db
@@ -682,7 +641,7 @@ export const withdrawInterest = mutation({
       .first();
 
     if (!interest) {
-      throw new Error("You have not expressed interest in this job");
+      fail("not_found", "You have not expressed interest in this job");
     }
 
     // Delete the interest record

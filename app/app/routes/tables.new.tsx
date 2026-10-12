@@ -10,6 +10,7 @@ import { useCoverPick } from "../lib/useCoverPick";
 import { tableEventInput } from "../tables/eventInput";
 import "../tables/tables.css";
 import { FF_TABLES, useFeatureGate } from "../lib/featureFlags";
+import { tableErrorMessage } from "../tables/errors";
 
 export function meta() {
   return [{ title: "Set a Table — Creative Exchange" }];
@@ -166,11 +167,7 @@ function NewTablePage() {
       });
       navigate(`/tables/${result.slug}`);
     } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "We couldn't set your Table. Please try again.",
-      );
+      setError(tableErrorMessage(cause, "We couldn't set your Table. Please try again."));
     } finally {
       setPending(false);
     }

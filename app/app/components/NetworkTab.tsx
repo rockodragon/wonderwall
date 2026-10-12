@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { useInviteLink } from "../lib/useInviteLink";
+import { PersonAvatar } from "./PersonAvatar";
 
 // Settings → Network: your invite link (in full, copy/share) and the
 // people behind the "N in network" count — who invited you, who you
@@ -293,20 +294,7 @@ function PersonRow({
         to={`/profile/${person.profileId}`}
         className="flex items-center gap-3 rounded-lg px-2 py-2 -mx-2 transition-colors hover:bg-[var(--app-hairline)]"
       >
-        {person.imageUrl ? (
-          <img
-            src={person.imageUrl}
-            alt=""
-            className="w-10 h-10 rounded-full object-cover shrink-0"
-          />
-        ) : (
-          <div
-            className="w-10 h-10 rounded-full shrink-0 flex items-center justify-center text-sm font-semibold"
-            style={{ backgroundColor: "var(--app-accent-wash)", color: "var(--app-text)" }}
-          >
-            {person.name.trim().charAt(0).toUpperCase() || "·"}
-          </div>
-        )}
+        <PersonAvatar name={person.name} imageUrl={person.imageUrl} />
         <div className="min-w-0 flex-1">
           <div className="font-medium truncate" style={{ color: "var(--app-text)" }}>
             {person.name}

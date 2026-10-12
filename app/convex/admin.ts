@@ -1,6 +1,7 @@
 import { internalMutation, query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { requireAdminCtx, ensureAdminCode } from "./helpers";
+import { requireAdminCtx, ensureAdminCode, getProfileByUserId } from "./helpers";
+import { fail } from "./errors";
 import { followEachOther, inviteFollowPairs } from "./follows";
 import { ADMIN_EMAILS } from "./adminEmails";
 
@@ -34,10 +35,7 @@ export const bootstrapAdmin = internalMutation({
     }
 
     // Get their profile
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", user._id))
-      .first();
+    const profile = await getProfileByUserId(ctx, user._id);
 
     if (!profile) {
       throw new Error(`Profile not found for user ${args.email}`);
@@ -84,10 +82,7 @@ export const getAllUsersWithInvites = query({
 
         if (inviterId) {
           const inviterAuth = await ctx.db.get(inviterId);
-          inviterProfile = await ctx.db
-            .query("profiles")
-            .withIndex("by_userId", (q) => q.eq("userId", inviterId))
-            .first();
+          inviterProfile = await getProfileByUserId(ctx, inviterId);
           inviterEmail =
             inviterAuth && "email" in inviterAuth
               ? inviterAuth.email
@@ -150,13 +145,10 @@ export const manuallyLinkInvite = mutation({
     await requireAdminCtx(ctx);
 
     // Get inviter profile to increment their usage count
-    const inviterProfile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", args.inviterUserId))
-      .first();
+    const inviterProfile = await getProfileByUserId(ctx, args.inviterUserId);
 
     if (!inviterProfile) {
-      throw new Error("Inviter profile not found");
+      fail("not_found", "Inviter profile not found");
     }
 
     // Check if invite record already exists
@@ -223,13 +215,10 @@ export const deleteUser = mutation({
     await requireAdminCtx(ctx);
 
     // Get user's profile
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .first();
+    const profile = await getProfileByUserId(ctx, args.userId);
 
     if (!profile) {
-      throw new Error("Profile not found");
+      fail("not_found", "Profile not found");
     }
 
     // Delete all artifacts (works)
@@ -338,13 +327,10 @@ export const setAdminStatus = mutation({
     await requireAdminCtx(ctx);
 
     // Get user's profile
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .first();
+    const profile = await getProfileByUserId(ctx, args.userId);
 
     if (!profile) {
-      throw new Error("Profile not found");
+      fail("not_found", "Profile not found");
     }
 
     await ctx.db.patch(profile._id, {
@@ -385,10 +371,7 @@ export const syncAdminGroup = mutation({
         continue;
       }
 
-      const profile = await ctx.db
-        .query("profiles")
-        .withIndex("by_userId", (q) => q.eq("userId", user._id))
-        .first();
+      const profile = await getProfileByUserId(ctx, user._id);
       if (!profile) {
         notFound.push(email);
         continue;

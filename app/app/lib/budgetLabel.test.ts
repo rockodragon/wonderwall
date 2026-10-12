@@ -98,3 +98,23 @@ describe("budgetKindLabel / budgetAmountLabel — the two halves on their own", 
     expect(budgetAmountLabel({ budgetType: "proposals" })).toBe("Open to proposals");
   });
 });
+
+describe("budget amounts follow the one money rule", () => {
+  // The badge printed "$12.5" while its server twin (resolveMoneyLine)
+  // printed "$12.50" for the same row.
+  it("shows both cent digits on a fractional budget, like the server line", async () => {
+    const { resolveMoneyLine } = await import("../../convex/garden/projectsPublic");
+    expect(budgetAmountLabel({ budgetType: "amount", budget: 12.5 })).toBe("$12.50");
+    expect(resolveMoneyLine({ kind: "paid", budgetType: "amount", budget: 12.5 })).toBe("Budget $12.50");
+    expect(budgetAmountLabel({ budgetType: "amount", budget: 400 })).toBe("$400");
+  });
+
+  it("writes a range's high end by the same rule, without a second $", async () => {
+    const { resolveMoneyLine } = await import("../../convex/garden/projectsPublic");
+    expect(budgetAmountLabel({ budgetType: "range", budget: 12.5, budgetMax: 15.5 })).toBe("$12.50–15.50");
+    expect(resolveMoneyLine({ kind: "paid", budgetType: "range", budget: 12.5, budgetMax: 15.5 })).toBe(
+      "Budget $12.50–15.50",
+    );
+    expect(budgetAmountLabel({ budgetType: "range", budget: 1200, budgetMax: 3000 })).toBe("$1,200–3,000");
+  });
+});

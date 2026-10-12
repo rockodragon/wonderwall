@@ -4,7 +4,7 @@ import { EmbedStill } from "./EmbedStill";
 import { FavoriteButton } from "./FavoriteButton";
 import { hostNamesLine, type EventHost } from "../lib/eventHosts";
 import { CoverFrame } from "./CoverFrame";
-import { formatDollars } from "../../convex/eventGuests";
+import { formatCents } from "../../convex/money";
 import { eventPriceCents, type EventTierLike } from "../lib/eventCta";
 
 // The one event card. /events (routes/events.tsx), search (routes/search.tsx)
@@ -345,7 +345,7 @@ export function EventCard({
                     color: "var(--garden-citron)",
                   }}
                 >
-                  {formatDollars(priceCents)}
+                  {formatCents(priceCents)}
                 </span>
               )}
             </div>

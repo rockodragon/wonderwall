@@ -14,7 +14,7 @@ import { mutation, query } from "../_generated/server";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { isAdmin, isAdminProfile, requireOperator } from "../helpers";
+import { getProfileByUserId, isAdmin, isAdminProfile, requireOperator } from "../helpers";
 import { findInviterProfile } from "../inviteLookup";
 import { isCheckoutSessionId } from "./ticketLink";
 import { can } from "./capabilities";
@@ -390,14 +390,7 @@ async function assertMayChangeHiddenName(
 
 /** Only `name` off profiles — never email (same rule as tables.ts). */
 async function profileNames(ctx: Ctx, userIds: Id<"users">[]): Promise<Map<string, string>> {
-  const profiles = await Promise.all(
-    userIds.map((id) =>
-      ctx.db
-        .query("profiles")
-        .withIndex("by_userId", (q) => q.eq("userId", id))
-        .unique(),
-    ),
-  );
+  const profiles = await Promise.all(userIds.map((id) => getProfileByUserId(ctx, id)));
   const out = new Map<string, string>();
   for (const p of profiles) if (p) out.set(String(p.userId), p.name);
   return out;
@@ -495,12 +488,7 @@ export const getCommunity = query({
         .query("communityMembers")
         .withIndex("by_hostOrgId", (q) => q.eq("hostOrgId", org._id))
         .collect(),
-      userId
-        ? ctx.db
-            .query("profiles")
-            .withIndex("by_userId", (q) => q.eq("userId", userId))
-            .unique()
-        : Promise.resolve(null),
+      userId ? getProfileByUserId(ctx, userId) : Promise.resolve(null),
     ]);
     const mine = userId ? members.find((m) => String(m.userId) === String(userId)) ?? null : null;
     const viewerIsOperator = isAdminProfile(viewerProfile);
@@ -1009,10 +997,7 @@ export const setMemberRole = mutation({
     if (!org || org.kind !== COMMUNITY_KIND) {
       throw new ConvexError({ code: "not_found", reason: "That community isn't there." });
     }
-    const actorProfile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", actorId))
-      .unique();
+    const actorProfile = await getProfileByUserId(ctx, actorId);
     const target = await getCommunityMember(ctx, args.hostOrgId, args.userId);
 
     const decision = resolveRoleChange({
@@ -1044,10 +1029,7 @@ export const transferOwnership = mutation({
     if (!org || org.kind !== COMMUNITY_KIND) {
       throw new ConvexError({ code: "not_found", reason: "That community isn't there." });
     }
-    const actorProfile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", actorId))
-      .unique();
+    const actorProfile = await getProfileByUserId(ctx, actorId);
     const target = await getCommunityMember(ctx, args.hostOrgId, args.userId);
 
     const decision = resolveOwnershipTransfer({
@@ -1079,10 +1061,7 @@ export const listMembers = query({
     const org = await ctx.db.get(args.hostOrgId);
     if (!org) return null;
     const mine = await getCommunityMember(ctx, args.hostOrgId, userId);
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
+    const profile = await getProfileByUserId(ctx, userId);
     const manages =
       isAdminProfile(profile) || (mine?.status === "active" && canManageCommunity(mine.role));
     if (!manages && mine?.status !== "active") return null;

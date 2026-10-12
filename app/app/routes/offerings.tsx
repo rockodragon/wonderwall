@@ -3,11 +3,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
+import { formatCents, formatDollars } from "../../convex/money";
 import { CLAIMS } from "../constants/claims";
 import { INTERESTS } from "../constants/interests";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
 import { CommunityPicker } from "../components/CommunityPicker";
+import { PersonAvatar } from "../components/PersonAvatar";
 import {
   CommunityContextLine,
   communityNameFor,
@@ -57,12 +59,8 @@ export const FORMAT_LABELS: Record<string, string> = Object.fromEntries(
 
 export function formatPrice(priceCents?: number): string {
   if (!priceCents) return "Free";
-  // Whole dollars stay bare ($25); anything else shows both cent digits
-  // ($12.50, never $12.5) — this string labels the Pay button.
-  return `$${(priceCents / 100).toLocaleString(undefined, {
-    minimumFractionDigits: priceCents % 100 === 0 ? 0 : 2,
-    maximumFractionDigits: 2,
-  })}`;
+  // This string labels the Pay button.
+  return formatCents(priceCents);
 }
 
 // Same display convention as event.tsx's datetime rendering.
@@ -507,20 +505,12 @@ function OfferingCard({ offering, isOwner }: { offering: any; isOwner: boolean }
           </div>
           {offering.creator && (
             <div className="mt-auto flex items-center gap-2 pt-2 min-w-0">
-              {offering.creator.imageUrl ? (
-                <img
-                  src={offering.creator.imageUrl}
-                  alt={offering.creator.name}
-                  className="w-5 h-5 rounded-full object-cover shrink-0"
-                />
-              ) : (
-                <div
-                  className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                  style={{ backgroundColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
-                >
-                  {offering.creator.name.charAt(0).toUpperCase()}
-                </div>
-              )}
+              <PersonAvatar
+                name={offering.creator.name}
+                imageUrl={offering.creator.imageUrl}
+                size="2xs"
+                tone="garden"
+              />
               <span className="text-xs break-words" style={{ color: "var(--garden-muted)" }}>
                 {offering.creator.name}
                 {offering.community && (
@@ -1021,7 +1011,14 @@ export function PostOfferingForm({
         ? selectedTags.join(", ")
         : `${selectedTags.slice(0, TAG_SUMMARY_LIMIT).join(", ")} +${selectedTags.length - TAG_SUMMARY_LIMIT} more`;
   const scheduleSummary = cadence.trim() || (startDateStr ? formatDateOnly(new Date(startDateStr).getTime()) : null) || "Not set yet";
-  const pricingSummary = isFree ? "Free" : price.trim() ? `$${price.trim()}` : "Not set yet";
+  const priceDollars = Number(price);
+  const pricingSummary = isFree
+    ? "Free"
+    : !price.trim()
+      ? "Not set yet"
+      : Number.isFinite(priceDollars)
+        ? formatDollars(priceDollars)
+        : `$${price.trim()}`;
 
   function toggleTag(tag: string) {
     setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
@@ -1336,6 +1333,7 @@ export function PostOfferingForm({
                 <input
                   type="number"
                   min="1"
+                  step="0.01"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
                   placeholder="Price (USD)"

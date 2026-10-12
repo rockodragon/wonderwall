@@ -2,6 +2,8 @@
 // (applications, RSVPs, paid ticket purchases) into one row per person.
 // Pure and server-free — the frontend imports the summary + CSV helpers.
 
+import { formatCents } from "./money";
+
 export type GuestStatus = "going" | "pending" | "declined";
 
 export interface GuestRow {
@@ -112,21 +114,10 @@ export function summarizeGuests(rows: (Pick<GuestRow, "status" | "paidCents"> & 
   return { going, paid, collectedCents };
 }
 
-/** The one way an amount of cents reads in dollars: "$25", "$12.50",
- *  "$1,500". The event page, the event cards, the community list and the
- *  guest CSV all use it. */
-export function formatDollars(cents: number): string {
-  const d = cents / 100;
-  return `$${d.toLocaleString("en-US", {
-    minimumFractionDigits: Number.isInteger(d) ? 0 : 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
 /** What a guest row says about money: "Paid $25", "Sent to PayPal" (left
  *  for the organizer's PayPal; we can't see whether they paid), or "Free". */
 export function paidLabel(r: Pick<GuestRow, "paidCents" | "sentToPayPal">): string {
-  if (r.paidCents != null && r.paidCents > 0) return `Paid ${formatDollars(r.paidCents)}`;
+  if (r.paidCents != null && r.paidCents > 0) return `Paid ${formatCents(r.paidCents)}`;
   return r.sentToPayPal ? "Sent to PayPal" : "Free";
 }
 
@@ -143,7 +134,7 @@ export function guestsToCsv(rows: GuestRow[]): string {
       r.status,
       String(r.tickets),
       r.guestNames ?? "",
-      r.paidCents != null && r.paidCents > 0 ? formatDollars(r.paidCents) : r.sentToPayPal ? "Sent to PayPal" : "Free",
+      r.paidCents != null && r.paidCents > 0 ? formatCents(r.paidCents) : r.sentToPayPal ? "Sent to PayPal" : "Free",
       new Date(r.addedAt).toISOString().slice(0, 10),
     ]
       .map(csvCell)

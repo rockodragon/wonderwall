@@ -15,13 +15,13 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { isAdminProfile, isOwnerOrAdmin } from "../helpers";
+import { displayNameOf, getProfileByUserId, isAdminProfile, isOwnerOrAdmin } from "../helpers";
 import { assertNotBlocked } from "../blocks";
 import { escapeHtml } from "../email/template";
 import { isValidEmail, normalizeEmail } from "./eventRsvps";
 import { can } from "./capabilities";
 import { assertCanPure, getGardenUser } from "./entitlements";
-import { scheduleNotificationEmail } from "../emailHelpers";
+import { insertNotification } from "../notify";
 import { toEmbedUrl } from "../videoEmbed";
 import { isHidden } from "../moderationRules";
 import { communityVisibility } from "./communityVisibility";
@@ -541,19 +541,12 @@ async function requireUser(ctx: Ctx): Promise<Id<"users">> {
   return userId;
 }
 
-async function getProfile(ctx: Ctx, userId: Id<"users">): Promise<Doc<"profiles"> | null> {
-  return ctx.db
-    .query("profiles")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .first();
-}
-
 async function resolvePerson(
   ctx: Ctx,
   userId: Id<"users"> | undefined,
 ): Promise<{ profileId: Id<"profiles"> | null; name?: string; imageUrl: string | null }> {
   if (!userId) return { profileId: null, imageUrl: null };
-  const profile = await getProfile(ctx, userId);
+  const profile = await getProfileByUserId(ctx, userId);
   return {
     profileId: profile?._id ?? null,
     name: profile?.name,
@@ -654,29 +647,6 @@ function findMemberByEmail(
   email: string,
 ): Doc<"projectMembers"> | null {
   return rows.find((r) => r.userId === undefined && r.email === email) ?? null;
-}
-
-async function notify(
-  ctx: MutationCtx,
-  n: {
-    userId: Id<"users">;
-    type: string;
-    title: string;
-    message: string;
-    linkUrl: string;
-    relatedUserId: Id<"users">;
-  },
-): Promise<void> {
-  // Same insert shape as follows.ts notifyFollowers / likesDigest.ts.
-  await ctx.db.insert("notifications", {
-    userId: n.userId,
-    type: n.type,
-    title: n.title,
-    message: n.message,
-    linkUrl: n.linkUrl,
-    relatedUserId: n.relatedUserId,
-    createdAt: Date.now(),
-  });
 }
 
 function projectLink(projectId: Id<"projects">): string {
@@ -793,8 +763,7 @@ export const requestToJoin = mutation({
       });
     }
 
-    const profile = await getProfile(ctx, userId);
-    const name = profile?.name || "Someone";
+    const name = await displayNameOf(ctx, userId);
     const fields = freshRowFields({
       userId,
       name,
@@ -812,26 +781,30 @@ export const requestToJoin = mutation({
       ? (await ctx.db.patch(existing._id, fields), existing._id)
       : await ctx.db.insert("projectMembers", { projectId: args.projectId, ...fields });
 
-    await notify(ctx, {
-      userId: project.userId,
-      type: "project_join_request",
-      title: `${name} wants to join ${project.title}`,
-      message: withNote(role, message),
-      linkUrl: projectLink(project._id),
-      relatedUserId: userId,
-    });
-    await scheduleNotificationEmail(ctx, {
-      userId: project.userId,
-      category: "activity",
-      communityId: project.hostOrgId,
-      ...buildJoinRequestEmail({
-        requesterName: name,
-        projectTitle: project.title,
-        role,
-        message,
+    await insertNotification(
+      ctx,
+      {
+        userId: project.userId,
+        type: "project_join_request",
+        title: `${name} wants to join ${project.title}`,
+        message: withNote(role, message),
         linkUrl: projectLink(project._id),
-      }),
-    });
+        relatedUserId: userId,
+      },
+      {
+        email: {
+          category: "activity",
+          communityId: project.hostOrgId,
+          ...buildJoinRequestEmail({
+            requesterName: name,
+            projectTitle: project.title,
+            role,
+            message,
+            linkUrl: projectLink(project._id),
+          }),
+        },
+      },
+    );
     return { ok: true as const, changed: true as const, memberId, status: "pending" as const };
   },
 });
@@ -907,10 +880,7 @@ export const inviteMember = mutation({
       });
     }
 
-    const actorProfile = await getProfile(ctx, actorId);
-    const leadProfile =
-      project.userId === actorId ? actorProfile : await getProfile(ctx, project.userId);
-    const leadName = leadProfile?.name || "The project lead";
+    const leadName = await displayNameOf(ctx, project.userId, "The project lead");
 
     // ——— On platform ———
     if (args.userId) {
@@ -918,7 +888,7 @@ export const inviteMember = mutation({
       if (targetId === project.userId) {
         throw new ConvexError({ code: "forbidden", reason: "That's the project lead." });
       }
-      const targetProfile = await getProfile(ctx, targetId);
+      const targetProfile = await getProfileByUserId(ctx, targetId);
       if (!targetProfile) {
         throw new ConvexError({ code: "not_found", reason: "That person isn't here." });
       }
@@ -946,26 +916,30 @@ export const inviteMember = mutation({
         ? (await ctx.db.patch(existing._id, fields), existing._id)
         : await ctx.db.insert("projectMembers", { projectId: args.projectId, ...fields });
 
-      await notify(ctx, {
-        userId: targetId,
-        type: "project_invite",
-        title: `${leadName} invited you to ${project.title}`,
-        message: withNote(role, message),
-        linkUrl: projectLink(project._id),
-        relatedUserId: actorId,
-      });
-      await scheduleNotificationEmail(ctx, {
-        userId: targetId,
-        category: "activity",
-        communityId: project.hostOrgId,
-        ...buildInviteEmail({
-          leadName,
-          projectTitle: project.title,
-          role,
-          message,
+      await insertNotification(
+        ctx,
+        {
+          userId: targetId,
+          type: "project_invite",
+          title: `${leadName} invited you to ${project.title}`,
+          message: withNote(role, message),
           linkUrl: projectLink(project._id),
-        }),
-      });
+          relatedUserId: actorId,
+        },
+        {
+          email: {
+            category: "activity",
+            communityId: project.hostOrgId,
+            ...buildInviteEmail({
+              leadName,
+              projectTitle: project.title,
+              role,
+              message,
+              linkUrl: projectLink(project._id),
+            }),
+          },
+        },
+      );
       return { ok: true as const, changed: true as const, memberId, status: "invited" as const, emailed: false };
     }
 
@@ -1046,9 +1020,8 @@ export const respondToInvite = mutation({
     await ctx.db.patch(existing._id, { status, respondedAt: Date.now() });
     if (args.accept) await fillRoleIfLinked(ctx, existing);
 
-    const profile = await getProfile(ctx, userId);
-    const name = profile?.name || existing.name;
-    await notify(ctx, {
+    const name = await displayNameOf(ctx, userId, existing.name);
+    await insertNotification(ctx, {
       userId: project.userId,
       type: args.accept ? "project_member_joined" : "project_member_declined",
       title: args.accept ? `${name} joined ${project.title}` : `${name} declined ${project.title}`,
@@ -1086,26 +1059,30 @@ export const decideRequest = mutation({
     if (args.accept) await fillRoleIfLinked(ctx, row);
 
     if (row.userId) {
-      await notify(ctx, {
-        userId: row.userId,
-        type: "project_request_decided",
-        title: args.accept ? `You're on ${project.title}` : `${project.title} didn't have room`,
-        message: withNote(row.role, note),
-        linkUrl: projectLink(project._id),
-        relatedUserId: actorId,
-      });
-      await scheduleNotificationEmail(ctx, {
-        userId: row.userId,
-        category: "activity",
-        communityId: project.hostOrgId,
-        ...buildRequestDecidedEmail({
-          projectTitle: project.title,
-          role: row.role,
-          accepted: args.accept,
-          note,
+      await insertNotification(
+        ctx,
+        {
+          userId: row.userId,
+          type: "project_request_decided",
+          title: args.accept ? `You're on ${project.title}` : `${project.title} didn't have room`,
+          message: withNote(row.role, note),
           linkUrl: projectLink(project._id),
-        }),
-      });
+          relatedUserId: actorId,
+        },
+        {
+          email: {
+            category: "activity",
+            communityId: project.hostOrgId,
+            ...buildRequestDecidedEmail({
+              projectTitle: project.title,
+              role: row.role,
+              accepted: args.accept,
+              note,
+              linkUrl: projectLink(project._id),
+            }),
+          },
+        },
+      );
     }
     return { ok: true as const, changed: true as const, status };
   },
@@ -1135,7 +1112,7 @@ export const removeMember = mutation({
     });
     if (wasOnTeam) await reopenRoleIfVacated(ctx, row);
     if (wasOnTeam && row.userId) {
-      await notify(ctx, {
+      await insertNotification(ctx, {
         userId: row.userId,
         type: "project_member_removed",
         title: `You were removed from ${project.title}`,
@@ -1161,9 +1138,8 @@ export const leaveProject = mutation({
     await ctx.db.patch(existing._id, { status: "left", respondedAt: Date.now() });
     await reopenRoleIfVacated(ctx, existing);
 
-    const profile = await getProfile(ctx, userId);
-    const name = profile?.name || existing.name;
-    await notify(ctx, {
+    const name = await displayNameOf(ctx, userId, existing.name);
+    await insertNotification(ctx, {
       userId: project.userId,
       type: "project_member_left",
       title: `${name} left ${project.title}`,
@@ -1210,8 +1186,7 @@ export const claimInvite = mutation({
     }
     await assertNotBlocked(ctx, userId, project.userId);
 
-    const profile = await getProfile(ctx, userId);
-    const name = profile?.name || row.name;
+    const name = await displayNameOf(ctx, userId, row.name);
     const existingMine = await findMemberByUser(ctx, row.projectId, userId);
 
     let memberId: Id<"projectMembers">;
@@ -1245,7 +1220,7 @@ export const claimInvite = mutation({
       await fillRoleIfLinked(ctx, row);
     }
 
-    await notify(ctx, {
+    await insertNotification(ctx, {
       userId: project.userId,
       type: "project_member_joined",
       title: `${name} joined ${project.title}`,
@@ -1397,7 +1372,7 @@ export const getClaim = query({
     }
     const project = await ctx.db.get(row.projectId);
     if (!project) return null;
-    const lead = await getProfile(ctx, project.userId);
+    const lead = await getProfileByUserId(ctx, project.userId);
     return {
       projectId: project._id,
       projectTitle: project.title,
@@ -1422,8 +1397,8 @@ export const getTeam = query({
 
     const [rows, leadProfile, viewerProfile] = await Promise.all([
       listProjectRows(ctx, args.projectId),
-      getProfile(ctx, project.userId),
-      project.userId === userId ? Promise.resolve(null) : getProfile(ctx, userId),
+      getProfileByUserId(ctx, project.userId),
+      project.userId === userId ? Promise.resolve(null) : getProfileByUserId(ctx, userId),
     ]);
     // Same rule as isOwnerOrAdmin (helpers.ts), on a profile already loaded.
     const isLead = project.userId === userId || isAdminProfile(viewerProfile);

@@ -2,7 +2,9 @@ import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
-import { auth } from "./auth";
+import { fail } from "./errors";
+import { currentUserId, getProfileByUserId, requireUserId } from "./helpers";
+import { insertNotification } from "./notify";
 import { AWARD_TYPES, isCelebrationType } from "./celebrationTypes";
 import { fundDisplayName } from "./garden/allocations";
 import { profileImageUrl } from "./images";
@@ -13,7 +15,7 @@ export const getNotifications = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) return [];
 
     const limit = args.limit || 20;
@@ -29,10 +31,7 @@ export const getNotifications = query({
       notifications.map(async (n) => {
         let relatedUserProfile = null;
         if (n.relatedUserId) {
-          relatedUserProfile = await ctx.db
-            .query("profiles")
-            .withIndex("by_userId", (q) => q.eq("userId", n.relatedUserId!))
-            .first();
+          relatedUserProfile = await getProfileByUserId(ctx, n.relatedUserId);
         }
         return {
           ...n,
@@ -61,7 +60,7 @@ export const getNotifications = query({
 export const getUnreadCount = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) return 0;
 
     const unread = await ctx.db
@@ -191,12 +190,7 @@ export async function celebrationContext(ctx: QueryCtx, n: Doc<"notifications">)
   const isAward = AWARD_TYPES.has(n.type);
 
   const relatedUserId = isAward ? undefined : n.relatedUserId;
-  const profile = relatedUserId
-    ? await ctx.db
-        .query("profiles")
-        .withIndex("by_userId", (q) => q.eq("userId", relatedUserId))
-        .first()
-    : null;
+  const profile = relatedUserId ? await getProfileByUserId(ctx, relatedUserId) : null;
   const from =
     relatedUserId && profile
       ? {
@@ -243,7 +237,7 @@ export async function celebrationContext(ctx: QueryCtx, n: Doc<"notifications">)
 export const listCelebrations = query({
   args: {},
   handler: async (ctx): Promise<Celebration[]> => {
-    const userId = await auth.getUserId(ctx);
+    const userId = await currentUserId(ctx);
     if (!userId) return [];
 
     const recent = await ctx.db
@@ -263,12 +257,11 @@ export const listCelebrations = query({
 export const finishCelebration = mutation({
   args: { notificationId: v.id("notifications") },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
     const notification = await ctx.db.get(args.notificationId);
     if (!notification) return false;
-    if (notification.userId !== userId) throw new Error("Not authorized");
+    if (notification.userId !== userId) fail("forbidden", "That notification isn't yours.");
 
     if (notification.celebratedAt === undefined) {
       const now = Date.now();
@@ -282,12 +275,11 @@ export const finishCelebration = mutation({
 export const markAsRead = mutation({
   args: { notificationId: v.id("notifications") },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
     const notification = await ctx.db.get(args.notificationId);
-    if (!notification) throw new Error("Notification not found");
-    if (notification.userId !== userId) throw new Error("Not authorized");
+    if (!notification) fail("not_found", "That notification isn't here anymore.");
+    if (notification.userId !== userId) fail("forbidden", "That notification isn't yours.");
 
     if (!notification.readAt) {
       await ctx.db.patch(args.notificationId, {
@@ -303,8 +295,7 @@ export const markAsRead = mutation({
 export const markAllAsRead = mutation({
   args: {},
   handler: async (ctx) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
     const unread = await ctx.db
       .query("notifications")
@@ -330,8 +321,7 @@ export const markAllAsRead = mutation({
 export const markReadByLinkUrl = mutation({
   args: { linkUrl: v.string() },
   handler: async (ctx, args) => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
 
     const unread = await ctx.db
       .query("notifications")
@@ -360,7 +350,7 @@ function stripQueryAndHash(url: string): string {
 
 // Internal only. It was a public mutation with no sign-in check, so anyone
 // could put any notice, link and picture in anyone's inbox (found 2026-10-10;
-// nothing called it). Server code inserts notifications directly.
+// nothing called it). Server code goes through insertNotification (notify.ts).
 export const createNotification = internalMutation({
   args: {
     userId: v.id("users"),
@@ -372,7 +362,7 @@ export const createNotification = internalMutation({
     relatedUserId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("notifications", {
+    return await insertNotification(ctx, {
       userId: args.userId,
       type: args.type,
       title: args.title,
@@ -380,7 +370,6 @@ export const createNotification = internalMutation({
       linkUrl: args.linkUrl,
       imageUrl: args.imageUrl,
       relatedUserId: args.relatedUserId,
-      createdAt: Date.now(),
     });
   },
 });

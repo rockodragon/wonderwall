@@ -23,7 +23,8 @@ import { escapeHtml } from "./email/template";
 import { normalizeEmail } from "./garden/eventRsvps";
 import { resolveSenderCommunityName } from "./email/senderCommunity";
 import { normalizeUpdateBody } from "./garden/stories";
-import { isAdmin } from "./helpers";
+import { displayNameOf, isAdmin } from "./helpers";
+import { insertNotification } from "./notify";
 
 const targetTypeValidator = v.union(
   v.literal("project"),
@@ -331,14 +332,6 @@ function provenanceLine(targetType: TargetType, title: string): string {
   }
 }
 
-async function getSenderName(ctx: QueryCtx | MutationCtx, userId: Id<"users">): Promise<string> {
-  const profile = await ctx.db
-    .query("profiles")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .unique();
-  return profile?.name || "Someone";
-}
-
 /**
  * sendNotificationEmail (convex/emails.ts) interpolates `body` into the
  * email HTML unescaped — deliberate there (events.ts passes <strong>
@@ -583,7 +576,7 @@ export const deliverAnnouncementBatch = internalMutation({
     const target = await loadTarget(ctx, announcement.targetType, announcement.targetId);
     const targetTitle = target?.title ?? "your update";
     const senderName = announcement.senderUserId
-      ? await getSenderName(ctx, announcement.senderUserId)
+      ? await displayNameOf(ctx, announcement.senderUserId)
       : null;
 
     const ctaUrl = targetPath(announcement.targetType, announcement.targetId);
@@ -626,10 +619,10 @@ export const deliverAnnouncementBatch = internalMutation({
       const now = Date.now();
       let notificationId: Id<"notifications"> | undefined;
 
-      // In-app: direct ctx.db.insert (likesDigest.ts shape), not the public
+      // In-app: insertNotification (convex/notify.ts), not the public
       // createNotification mutation, which isn't callable from server code.
       if (recipient.userId) {
-        notificationId = await ctx.db.insert("notifications", {
+        notificationId = await insertNotification(ctx, {
           userId: recipient.userId,
           type: announcement.kind === "reminder" ? "reminder" : "announcement",
           title: notificationTitle,

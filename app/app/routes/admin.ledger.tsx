@@ -485,7 +485,7 @@ function TableRefundRow({row}: {row: NonNullable<PlatformReport["tablePaymentExc
     setPending(true);
     setError("");
     try { await refund({paymentId: row.paymentId as Id<"classPayments">}); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Refund failed. Try again."); }
+    catch (cause) { setError(errorMessage(cause, "Refund failed. Try again.")); }
     finally { setPending(false); }
   }
   return <div className="g-cell" style={{marginTop: 12, padding: 16}}>
@@ -515,7 +515,7 @@ function TicketRefundRow({row}: {row: NonNullable<PlatformReport["externalTicket
     setPending(true);
     setError("");
     try { await markRefunded({exceptionId: row.exceptionId as Id<"externalTicketExceptions">}); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Could not save. Try again."); }
+    catch (cause) { setError(errorMessage(cause, "Could not save. Try again.")); }
     finally { setPending(false); }
   }
   return <div className="g-cell" style={{marginTop: 12, padding: 16}}>

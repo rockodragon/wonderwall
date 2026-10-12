@@ -5,6 +5,7 @@ import { v } from "convex/values";
 import { ConvexError } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { getProfileByUserId } from "../helpers";
 import type { Doc, Id } from "../_generated/dataModel";
 import { can } from "./capabilities";
 import type { GardenUser } from "./capabilities";
@@ -110,12 +111,7 @@ async function tableSummary(
       .withIndex("by_tableId_startsAt", (q) => q.eq("tableId", table._id))
       .collect(),
     resolveCommunities(ctx, [table.hostOrgId]),
-    table.hostUserId
-      ? ctx.db
-          .query("profiles")
-          .withIndex("by_userId", (q) => q.eq("userId", table.hostUserId!))
-          .unique()
-      : null,
+    table.hostUserId ? getProfileByUserId(ctx, table.hostUserId) : null,
   ]);
   const occurrences = events
     .filter((e) => e.status === "published")
@@ -264,12 +260,7 @@ export const getTable = query({
       const profiles = await Promise.all(
         activeRows
           .filter((_, i) => eligible[i])
-          .map((m) =>
-            ctx.db
-              .query("profiles")
-              .withIndex("by_userId", (q) => q.eq("userId", m.userId))
-              .unique(),
-          ),
+          .map((m) => getProfileByUserId(ctx, m.userId)),
       );
       rosterProfiles = profiles
         .filter((p): p is NonNullable<typeof p> => !!p)
@@ -954,10 +945,7 @@ export const getHostRoster = query({
       .collect();
     return await Promise.all(
       memberships.map(async (m) => {
-        const profile = await ctx.db
-          .query("profiles")
-          .withIndex("by_userId", (q) => q.eq("userId", m.userId))
-          .unique();
+        const profile = await getProfileByUserId(ctx, m.userId);
         return {
           userId: m.userId,
           name: profile?.name ?? "Participant",

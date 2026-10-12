@@ -26,6 +26,14 @@ describe("buildClassPurchasedEmail", () => {
     expect(email.body).toContain("&lt;Reed&gt;");
     expect(email.body).not.toContain("<Jazz>");
     expect(email.body).toContain("&lt;Jazz&gt;");
-    expect(email.body).toContain("$45.00");
+    expect(email.body).toContain("and paid $45.");
+    expect(email.body).not.toContain("$45.00");
+    expect(email.previewText).toBe("Sam \"Sax\" <Reed> signed up for Intro to <Jazz> — $45.");
+  });
+
+  it("writes whole dollars bare and cents only when there are some", () => {
+    const email = buildClassPurchasedEmail({ ...input, amountCents: 4550 });
+    expect(email.body).toContain("and paid $45.50.");
+    expect(email.previewText).toContain("— $45.50.");
   });
 });

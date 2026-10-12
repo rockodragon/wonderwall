@@ -11,8 +11,7 @@ import {
 import { internal, api } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
-import { auth } from "./auth";
-import { requireAdminCtx } from "./helpers";
+import { requireAdminCtx, requireUserId } from "./helpers";
 
 // ============================================
 // Types
@@ -905,8 +904,7 @@ export const startQueueProcessor = action({
     ctx,
     args,
   ): Promise<{ processed: number; succeeded: number; failed: number }> => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
     await ctx.runQuery(internal.helpers.requireAdminForAction, { userId });
 
     const batchSize = args.batchSize ?? 5;
@@ -934,8 +932,7 @@ export const seedTestUrls = action({
   handler: async (
     ctx,
   ): Promise<{ message: string; added: number; skipped: number }> => {
-    const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const userId = await requireUserId(ctx);
     await ctx.runQuery(internal.helpers.requireAdminForAction, { userId });
 
     const testUrls = [

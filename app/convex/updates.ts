@@ -11,7 +11,7 @@
 // Conventions follow announcements.ts: getAuthUserId from
 // @convex-dev/auth/server, ConvexError with a plain {code, reason} payload.
 
-import { v, ConvexError } from "convex/values";
+import { v } from "convex/values";
 import {
   query,
   mutation,
@@ -23,8 +23,9 @@ import { internal } from "./_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireAdmin } from "./helpers";
+import { fail } from "./errors";
 import { getCommunityMember } from "./garden/communityLookup";
-import { scheduleNotificationEmail } from "./emailHelpers";
+import { insertNotification } from "./notify";
 import { escapeHtml } from "./email/template";
 
 // ——————————————————————————————————————————————————————————————
@@ -49,14 +50,6 @@ type UpdateStatus = "draft" | "published" | "archived";
 
 const audienceValidator = v.union(v.literal("everyone"), v.literal("community"), v.literal("new"));
 const statusValidator = v.union(v.literal("draft"), v.literal("published"), v.literal("archived"));
-
-/** What a handler throws: ConvexError needs a plain object, so a `type`. */
-type UpdateErrorPayload = { code: string; reason: string };
-
-function fail(code: string, reason: string): never {
-  const payload: UpdateErrorPayload = { code, reason };
-  throw new ConvexError(payload);
-}
 
 /** An in-app path ("/events/…", not "//host") or an https:// link. */
 export function isValidActionUrl(url: string): boolean {
@@ -737,27 +730,24 @@ export const deliverBatch = internalMutation({
     const emailBody = escapeHtml(update.body).replace(/\n/g, "<br>");
 
     for (const userId of userIds) {
-      await ctx.db.insert("notifications", {
-        userId,
-        type: "update",
-        title: update.title,
-        message,
-        linkUrl,
-        createdAt: Date.now(),
-      });
-      await scheduleNotificationEmail(ctx, {
-        userId,
-        subject: update.title,
-        previewText: message,
-        heading: update.title,
-        body: emailBody,
-        ctaText,
-        ctaUrl,
-        category: "announcements",
-        // Only a community-audience Update is about one community; "everyone"
-        // and "new" go out under each reader's own community.
-        communityId: update.audience === "community" ? update.hostOrgId : undefined,
-      });
+      await insertNotification(
+        ctx,
+        { userId, type: "update", title: update.title, message, linkUrl },
+        {
+          email: {
+            subject: update.title,
+            previewText: message,
+            heading: update.title,
+            body: emailBody,
+            ctaText,
+            ctaUrl,
+            category: "announcements",
+            // Only a community-audience Update is about one community; "everyone"
+            // and "new" go out under each reader's own community.
+            communityId: update.audience === "community" ? update.hostOrgId : undefined,
+          },
+        },
+      );
     }
 
     if (!isDone) {

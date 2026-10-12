@@ -265,15 +265,9 @@ export function DenialPanel({
 // ————— Formatters —————
 
 /** cents -> "$500" (whole dollars) or "$5.50" when there's a fractional
-    part — the ledger and price surfaces never show raw cents. */
-export function formatMoney(cents: number): string {
-  const dollars = cents / 100;
-  const isWhole = Number.isInteger(dollars);
-  return `$${dollars.toLocaleString("en-US", {
-    minimumFractionDigits: isWhole ? 0 : 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
+    part — the ledger and price surfaces never show raw cents. The shared
+    formatCents, under the name these routes already use. */
+export { formatCents as formatMoney } from "../../convex/money";
 
 const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
