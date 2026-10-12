@@ -11,6 +11,7 @@ import {
   Heart,
   Megaphone,
   PaintBrush,
+  PencilSimpleLine,
   UserPlus,
   type Icon,
 } from "@phosphor-icons/react";
@@ -18,6 +19,7 @@ import { api } from "../../convex/_generated/api";
 import { NewMessage } from "../components/NewMessage";
 import { PastUpdates } from "../components/PastUpdates";
 import { PAGE_WIDTH } from "../lib/pageWidth";
+import { PageTop, TopButton } from "../components/phone/PageTop";
 import { buildInbox, type InboxIcon, type InboxRow } from "../lib/inbox";
 import { initialsOf } from "../lib/initials";
 
@@ -94,22 +96,23 @@ export default function MessagesIndex() {
   );
 
   return (
-    <div className={`p-6 ${PAGE_WIDTH.reading} mx-auto`}>
-      <div className="flex items-center justify-between gap-3 mb-6">
-        <h1 className="text-3xl font-bold" style={{ color: "var(--app-text)" }}>
-          Messages
-        </h1>
-        <button
-          ref={newMessageButton}
-          type="button"
-          aria-expanded={composing}
-          onClick={() => setComposing((v) => !v)}
-          className="px-4 py-2 rounded-lg text-[13.5px] font-semibold flex-shrink-0 transition-opacity hover:opacity-90"
-          style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
-        >
-          New message
-        </button>
-      </div>
+    <div className={`p-4 sm:p-6 ${PAGE_WIDTH.reading} mx-auto`}>
+      {/* The page's bar (docs/features/phone-screens.md): sticky on a phone,
+          the heading row on desktop. New opens the composer under it. */}
+      <PageTop
+        className="mb-4 md:mb-6"
+        title="Messages"
+        action={
+          <TopButton
+            ref={newMessageButton}
+            onClick={() => setComposing((v) => !v)}
+            aria-expanded={composing}
+            icon={<PencilSimpleLine size={16} weight="bold" aria-hidden />}
+          >
+            New
+          </TopButton>
+        }
+      />
 
       {composing && <NewMessage onClose={closeComposer} anchorRef={newMessageButton} />}
 

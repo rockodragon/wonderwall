@@ -99,8 +99,17 @@ export function EventCard({
   event,
   dimmed = false,
   videoBadge = false,
+  feed = false,
 }: {
   event: EventCardEvent;
+  /**
+   * The feed look on a phone (docs/features/phone-screens.md): no frame, the
+   * cover edge to edge on the page and the words under it, the way a post
+   * reads in a one-column feed. From sm up the card is the framed grid card
+   * either way. Only /events passes it; a grid inside a padded page
+   * (search, an organization) keeps the frame at every width.
+   */
+  feed?: boolean;
   /**
    * Knock the card back to 60%. Only /events' Past tab passes it: the live
    * list never needs it. The caller owns that rule because it is the caller
@@ -150,11 +159,12 @@ export function EventCard({
       className={`block h-full${dimmed ? " opacity-60" : ""}`}
     >
       <div
-        className="group rounded-2xl overflow-hidden border h-full flex flex-col transition-colors"
-        style={{
-          borderColor: "var(--garden-hairline)",
-          backgroundColor: "var(--garden-ink-raised)",
-        }}
+        className={`group overflow-hidden h-full flex flex-col transition-colors ${
+          feed
+            ? "sm:rounded-2xl sm:border sm:bg-[var(--garden-ink-raised)]"
+            : "rounded-2xl border bg-[var(--garden-ink-raised)]"
+        }`}
+        style={{ borderColor: "var(--garden-hairline)" }}
       >
         {/* The cover is 4:5 whichever of the three it is, so a row of
             cards lines up (docs/features/cover-4x5.md). */}
@@ -196,7 +206,7 @@ export function EventCard({
           </div>
         )}
 
-        <div className="p-4 flex-1 flex flex-col min-w-0">
+        <div className={`flex-1 flex flex-col min-w-0 ${feed ? "px-4 py-3 sm:p-4" : "p-4"}`}>
           <div className="flex items-start justify-between gap-2 mb-1.5">
             <h3
               className="font-semibold line-clamp-2 break-words"

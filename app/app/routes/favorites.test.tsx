@@ -38,16 +38,17 @@ describe("/favorites on a phone", () => {
     const html = text(await phone("/favorites"));
     expect(html).toContain("Shortlist 39 things");
     expect(html).toContain("Needs you · 5");
-    expect(html).toContain("Projects 3 need you 15");
-    expect(html).toContain("Events 2 need you 10");
-    expect(html).toContain("People 14");
+    expect(html).toContain("15 Projects 3 need you");
+    expect(html).toContain("10 Events 2 need you");
+    expect(html).toContain("14 People");
     expect(html).not.toContain("Following");
   });
 
   it("opens the area ?area= names, and Paid or Passion on Projects from ?kind=", async () => {
-    const area = text(await phone("/favorites?area=projects"));
-    expect(area).toContain("← Shortlist Projects 15");
-    expect(area).toContain("Hymns for the Commons");
+    const areaHtml = await phone("/favorites?area=projects");
+    expect(areaHtml).toMatch(/<h1[^>]*>Projects<span[^>]*>15<\/span><\/h1>/);
+    expect(areaHtml).toMatch(/<a (?=[^>]*href="\/favorites")[^>]*aria-label="Shortlist"/);
+    expect(text(areaHtml)).toContain("Hymns for the Commons");
     const paid = text(await phone("/favorites?area=projects&kind=paid"));
     expect(paid).toContain("Projects 8");
     expect(paid).not.toContain("Hymns for the Commons");
@@ -57,7 +58,7 @@ describe("/favorites on a phone", () => {
   it("shows the overview for an area it doesn't know, and ignores ?kind= outside Projects", async () => {
     expect(text(await phone("/favorites?area=nonsense"))).toContain("Shortlist 39 things");
     const events = await phone("/favorites?area=events&kind=paid");
-    expect(text(events)).toContain("← Shortlist Events 10");
+    expect(events).toMatch(/<h1[^>]*>Events<span[^>]*>10<\/span><\/h1>/);
     expect(events).not.toContain("Kind of work");
   });
 

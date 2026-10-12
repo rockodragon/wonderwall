@@ -1,0 +1,5 @@
+/* The app's stylesheet, and where Tailwind should look for class names: with
+   Vite rooted here it would only scan this folder, and the screens live in
+   app/. */
+@import "../../../app/app.css";
+@source "../../../app";

@@ -5,14 +5,13 @@ import { api } from "../../convex/_generated/api";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
 import { EmbedStill, PlayBadge } from "../components/EmbedStill";
-import { BookmarkSimple } from "@phosphor-icons/react";
 import { FavoriteButton } from "../components/FavoriteButton";
+import { ShortlistLink } from "../components/shortlist/ShortlistLink";
 import { ShareButton } from "../components/ShareButton";
 import { OrgLogo } from "../components/OrgLogo";
 import { ProjectTile } from "../components/ProjectTile";
 import { yearsLabel } from "../../convex/organizationRules";
 import { PAGE_WIDTH } from "../lib/pageWidth";
-import { favoritesHref } from "../lib/shortlist/url";
 import { BackLink } from "../components/BackLink";
 import { FF_TABLES } from "../lib/featureFlags";
 import { useStartConversation } from "../lib/useStartConversation";
@@ -321,23 +320,10 @@ export default function Profile() {
                 {conversationError}
               </p>
             )}
-            {/* Your own profile is where a phone finds the Shortlist: the
-                bottom bar's bookmark says so, and so does this, in the place
-                Message sits on anyone else's. */}
-            {isOwnProfile && (
-              <Link
-                to={favoritesHref()}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-colors hover:border-[var(--app-accent)]"
-                style={{
-                  backgroundColor: "var(--app-surface-raised)",
-                  color: "var(--app-text)",
-                  borderColor: "var(--app-hairline)",
-                }}
-              >
-                <BookmarkSimple size={16} aria-hidden />
-                Your shortlist →
-              </Link>
-            )}
+            {/* Your own profile is one place a phone finds the Shortlist
+                (the other is Today's corner), in the place Message sits on
+                anyone else's. */}
+            {isOwnProfile && <ShortlistLink />}
             {/* Owner-only links into settings. Links, nothing more: what a
                 person has paid or given is private and never shown here. */}
             {isOwnProfile && (

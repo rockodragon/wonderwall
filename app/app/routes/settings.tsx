@@ -17,6 +17,7 @@ import { errorMessage } from "../lib/convexError";
 import { NetworkTab } from "../components/NetworkTab";
 import { OrganizationsEditor } from "../components/OrganizationsEditor";
 import { PAGE_WIDTH } from "../lib/pageWidth";
+import { ShortlistLink } from "../components/shortlist/ShortlistLink";
 import { isGardenHost } from "../../convex/garden/brandHosts";
 
 const SETTINGS_TABS = [
@@ -127,6 +128,13 @@ export default function Settings() {
                 onDone={() => setShowProfileEdit(false)}
                 isNewProfile={profileNeedsSetup}
               />
+            )}
+            {/* The phone's Profile tab lands here, so the Shortlist is a
+                tap away (components/shortlist/ShortlistLink.tsx). */}
+            {hasProfile && profile && !isEditingProfile && (
+              <div className="mt-5">
+                <ShortlistLink />
+              </div>
             )}
           </div>
 

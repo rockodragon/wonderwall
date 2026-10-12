@@ -40,6 +40,8 @@ import { errorMessage } from "../lib/convexError";
 import { ProjectModal } from "../components/ProjectModal";
 import { INTEREST_OPTIONS } from "../lib/browse/peopleFilter";
 import { PAGE_WIDTH } from "../lib/pageWidth";
+import { PageTop, TopButton } from "../components/phone/PageTop";
+import { Plus } from "@phosphor-icons/react";
 import { shareProjectHref } from "../lib/shareProject";
 import { bylineOf } from "../lib/byline";
 import { Byline } from "../components/Byline";
@@ -199,15 +201,26 @@ export default function Projects() {
       <link rel="stylesheet" href="/tokens.css" />
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
       <div className={`p-4 sm:p-6 ${PAGE_WIDTH.list} mx-auto`}>
-        <h1
-          className="text-2xl sm:text-3xl font-semibold text-[var(--garden-paper)] mb-1"
-          style={{ fontFamily: "var(--garden-font-display)" }}
-        >
-          Projects
-        </h1>
-        <p className="text-[var(--garden-body)] mb-6">
-          {LENS_BLURB[lens]}
-        </p>
+        {/* A phone gets a bar (docs/features/phone-screens.md): the name,
+            and Post in the corner, which opens the same two ways in the
+            split button offers on desktop. Desktop keeps the heading and
+            the lens's line under it. */}
+        <PageTop
+          className="md:hidden"
+          title="Projects"
+          action={<PostMenu look="bar" primary={{ label: create.label, onClick: create.kind === "hire" ? hireSomeone : startProject }} onProject={startProject} onHire={hireSomeone} />}
+        />
+        <div className="hidden md:block">
+          <h1
+            className="text-2xl sm:text-3xl font-semibold text-[var(--garden-paper)] mb-1"
+            style={{ fontFamily: "var(--garden-font-display)" }}
+          >
+            Projects
+          </h1>
+          <p className="text-[var(--garden-body)] mb-6">
+            {LENS_BLURB[lens]}
+          </p>
+        </div>
 
         {hasMatchFilter && (
           <div
@@ -238,9 +251,16 @@ export default function Projects() {
           rows={projects}
         />
 
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 mt-3 mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 mt-1 mb-4 md:mt-3">
           <div className="flex flex-wrap items-center gap-2">
-            <div role="group" aria-label="Show" className="flex flex-wrap items-center gap-2">
+            {/* On a phone the lenses are one row that scrolls sideways, edge
+                to edge, and Stage and the tag filter take the row under it;
+                from md up everything wraps on one line as before. */}
+            <div
+              role="group"
+              aria-label="Show"
+              className="flex w-full items-center gap-2 overflow-x-auto px-4 py-1 -mx-4 sm:-mx-6 sm:px-6 md:mx-0 md:w-auto md:flex-wrap md:overflow-visible md:px-0 md:py-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            >
               {PROJECT_LENSES.map((l) => (
                 <FilterChip
                   key={l.value}
@@ -261,33 +281,34 @@ export default function Projects() {
                 <StageMenu stage={stageFilter} onChange={(stage) => setView({ lens, stage })} />
               </>
             )}
-          </div>
-          <PostMenu
-            primary={{ label: create.label, onClick: create.kind === "hire" ? hireSomeone : startProject }}
-            onProject={startProject}
-            onHire={hireSomeone}
-          />
-        </div>
-
-        {allTags.length > 0 && (
-          <div className="mb-6">
-            <FilterButton
-              open={tagsExpanded}
-              onClick={() => setTagsExpanded((v) => !v)}
-              label={filterButtonLabel(tagOptions, tagFilter)}
-              active={tagFilter.length > 0}
-            />
-            {tagsExpanded && (
-              <FilterPanel className="mt-3">
-                <TagFilterPills
-                  options={tagOptions}
-                  active={tagFilter}
-                  onToggle={toggleTag}
-                  onClear={() => setTagFilter([])}
-                />
-              </FilterPanel>
+            {allTags.length > 0 && (
+              <FilterButton
+                open={tagsExpanded}
+                onClick={() => setTagsExpanded((v) => !v)}
+                label={filterButtonLabel(tagOptions, tagFilter)}
+                active={tagFilter.length > 0}
+                className="py-1.5! rounded-lg!"
+              />
             )}
           </div>
+          <div className="hidden md:block">
+            <PostMenu
+              primary={{ label: create.label, onClick: create.kind === "hire" ? hireSomeone : startProject }}
+              onProject={startProject}
+              onHire={hireSomeone}
+            />
+          </div>
+        </div>
+
+        {tagsExpanded && (
+          <FilterPanel className="mb-4">
+            <TagFilterPills
+              options={tagOptions}
+              active={tagFilter}
+              onToggle={toggleTag}
+              onClear={() => setTagFilter([])}
+            />
+          </FilterPanel>
         )}
 
         {!projects ? (
@@ -314,15 +335,36 @@ export default function Projects() {
                 </button>
               </div>
             )}
-            {/* The make-one card is always first, so an empty list is just
-                the grid with that one card in it. */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <CreateCard label={create.label} onClick={create.kind === "hire" ? hireSomeone : startProject} />
+            {filtered.length === 0 && communitySlug === "all" && (
+              // A phone has no make-one tile in the feed (Post is in the
+              // bar), so an empty list says so here. From sm up the tile is
+              // the empty state.
+              <p className="py-10 text-center text-[15px] sm:hidden" style={{ color: "var(--garden-muted)" }}>
+                Nothing here yet.{" "}
+                <button
+                  type="button"
+                  onClick={create.kind === "hire" ? hireSomeone : startProject}
+                  className="underline underline-offset-2"
+                  style={{ color: "var(--garden-citron)" }}
+                >
+                  {create.label}
+                </button>
+              </p>
+            )}
+            {/* The make-one card is first from sm up, so an empty list is
+                just the grid with that one card in it. A phone reads the
+                list as a feed: one column, each project edge to edge
+                (ProjectCard's feed look), no tile. */}
+            <div className="-mx-4 grid grid-cols-1 gap-7 sm:mx-0 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+              <div className="hidden sm:block">
+                <CreateCard label={create.label} onClick={create.kind === "hire" ? hireSomeone : startProject} />
+              </div>
               {filtered.map((project) => (
                 <ProjectCard
                   key={project._id}
                   project={project}
                   lens={lens}
+                  feed
                   onSupport={(mode) => withAccount(() => setSupporting({ project, mode }))()}
                   matched={hasMatchFilter && isMatch(project)}
                 />
@@ -378,10 +420,13 @@ function PostMenu({
   primary,
   onProject,
   onHire,
+  look = "split",
 }: {
   primary: { label: string; onClick: () => void };
   onProject: () => void;
   onHire: () => void;
+  /** "bar": one Post pill in the phone's top bar that opens the two choices. */
+  look?: "split" | "bar";
 }) {
   const [open, setOpen] = useState(false);
   const items = [
@@ -399,25 +444,33 @@ function PostMenu({
   const fill = { fontFamily: "var(--garden-font-body)", backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" };
   return (
     <div className="relative inline-flex">
-      <button
-        type="button"
-        onClick={primary.onClick}
-        className="pl-4 pr-3 py-2 rounded-l-lg text-[13.5px] font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
-        style={fill}
-      >
-        {primary.label}
-      </button>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-haspopup="true"
-        aria-label="More ways to post"
-        className="px-2 py-2 rounded-r-lg transition-opacity hover:opacity-90"
-        style={{ ...fill, borderLeft: "1px solid rgba(18,18,18,0.25)" }}
-      >
-        <ChevronDownIcon className={`w-4 h-4 transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
+      {look === "bar" ? (
+        <TopButton onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-haspopup="true" icon={<Plus size={16} weight="bold" aria-hidden />}>
+          Post
+        </TopButton>
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={primary.onClick}
+            className="pl-4 pr-3 py-2 rounded-l-lg text-[13.5px] font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
+            style={fill}
+          >
+            {primary.label}
+          </button>
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            aria-haspopup="true"
+            aria-label="More ways to post"
+            className="px-2 py-2 rounded-r-lg transition-opacity hover:opacity-90"
+            style={{ ...fill, borderLeft: "1px solid rgba(18,18,18,0.25)" }}
+          >
+            <ChevronDownIcon className={`w-4 h-4 transition-transform ${open ? "rotate-180" : ""}`} />
+          </button>
+        </>
+      )}
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
@@ -456,11 +509,16 @@ export function ProjectCard({
   lens,
   onSupport,
   matched,
+  feed = false,
 }: {
   project: any;
   lens: ProjectsLens;
   onSupport: (mode: SupportMode) => void;
   matched?: boolean;
+  /** The feed look on a phone (docs/features/phone-screens.md): no frame,
+   * the cover edge to edge and the words under it. From sm up the framed
+   * grid card either way. Only /projects passes it. */
+  feed?: boolean;
 }) {
   // The photo first, then the pasted link's still, then the first attached
   // artifact's file (docs/features/creator-media-cross-post.md, Round 2).
@@ -506,8 +564,10 @@ export function ProjectCard({
 
   const card = (
     <div
-      className="group rounded-2xl overflow-hidden border h-full flex flex-col transition-colors"
-      style={{ borderColor: "var(--garden-hairline)", backgroundColor: "var(--garden-ink-raised)" }}
+      className={`group overflow-hidden h-full flex flex-col transition-colors ${
+        feed ? "sm:rounded-2xl sm:border sm:bg-[var(--garden-ink-raised)]" : "rounded-2xl border bg-[var(--garden-ink-raised)]"
+      }`}
+      style={{ borderColor: "var(--garden-hairline)" }}
     >
       {/* Same fixed overlay spot Classes uses: kind top-left, money top-right
           of the image area, in the SAME place whether or not there's a
@@ -567,7 +627,7 @@ export function ProjectCard({
           )}
         </div>
       </div>
-      <div className="p-4 flex-1 flex flex-col min-w-0">
+      <div className={`flex-1 flex flex-col min-w-0 ${feed ? "px-4 py-3 sm:p-4" : "p-4"}`}>
         <h3
           className="font-semibold line-clamp-2 mb-1"
           style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
