@@ -251,15 +251,20 @@ export default function Projects() {
           rows={projects}
         />
 
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 mt-1 mb-4 md:mt-3">
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="mt-1 mb-4 md:mt-3 md:flex md:flex-wrap md:items-center md:justify-between md:gap-x-4 md:gap-y-3">
+          <div className="min-w-0 md:flex md:flex-wrap md:items-center md:gap-2">
             {/* On a phone the lenses are one row that scrolls sideways, edge
-                to edge, and Stage and the tag filter take the row under it;
-                from md up everything wraps on one line as before. */}
+                to edge, as a block in normal flow: as wide as the page and
+                never wider. (As a flex item it took its content's width,
+                the page grew to 464px on a 390px phone, and iOS panned the
+                whole page sideways, bar included; Rick, 2026-10-12.) Stage
+                and the tag filter take the row under it. From md up it all
+                wraps on one line as before: the row under becomes
+                `contents`, so its two sit beside the lenses. */}
             <div
               role="group"
               aria-label="Show"
-              className="flex w-full items-center gap-2 overflow-x-auto px-4 py-1 -mx-4 sm:-mx-6 sm:px-6 md:mx-0 md:w-auto md:flex-wrap md:overflow-visible md:px-0 md:py-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              className="flex items-center gap-2 overflow-x-auto px-4 py-1 -mx-4 sm:-mx-6 sm:px-6 md:mx-0 md:flex-wrap md:overflow-visible md:px-0 md:py-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
               {PROJECT_LENSES.map((l) => (
                 <FilterChip
@@ -270,25 +275,29 @@ export default function Projects() {
                 />
               ))}
             </div>
-            {lens !== "work" && (
-              <>
-                <span
-                  role="separator"
-                  aria-orientation="vertical"
-                  className="hidden sm:block mx-1 h-5 w-px"
-                  style={{ backgroundColor: "var(--garden-hairline-raised)" }}
-                />
-                <StageMenu stage={stageFilter} onChange={(stage) => setView({ lens, stage })} />
-              </>
-            )}
-            {allTags.length > 0 && (
-              <FilterButton
-                open={tagsExpanded}
-                onClick={() => setTagsExpanded((v) => !v)}
-                label={filterButtonLabel(tagOptions, tagFilter)}
-                active={tagFilter.length > 0}
-                className="py-1.5! rounded-lg!"
-              />
+            {(lens !== "work" || allTags.length > 0) && (
+              <div className="mt-3 flex items-center gap-2 md:contents">
+                {lens !== "work" && (
+                  <>
+                    <span
+                      role="separator"
+                      aria-orientation="vertical"
+                      className="hidden md:block mx-1 h-5 w-px"
+                      style={{ backgroundColor: "var(--garden-hairline-raised)" }}
+                    />
+                    <StageMenu stage={stageFilter} onChange={(stage) => setView({ lens, stage })} />
+                  </>
+                )}
+                {allTags.length > 0 && (
+                  <FilterButton
+                    open={tagsExpanded}
+                    onClick={() => setTagsExpanded((v) => !v)}
+                    label={filterButtonLabel(tagOptions, tagFilter)}
+                    active={tagFilter.length > 0}
+                    className="py-1.5! rounded-lg!"
+                  />
+                )}
+              </div>
             )}
           </div>
           <div className="hidden md:block">
