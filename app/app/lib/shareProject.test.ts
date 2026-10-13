@@ -10,6 +10,9 @@ import {
   keepProfileFields,
   roleForExit,
   shareProjectHref,
+  stashProjectTitle,
+  takeStashedProjectTitle,
+  hasStashedProjectTitle,
 } from "./shareProject";
 
 function fakeStorage() {
@@ -148,5 +151,31 @@ describe("keepProfileFields", () => {
       coordinates: undefined,
       placeId: undefined,
     });
+  });
+});
+
+describe("stashed project title", () => {
+  beforeEach(() => {
+    vi.stubGlobal("localStorage", fakeStorage());
+  });
+
+  it("carries a typed title through the stash, once", () => {
+    expect(stashProjectTitle("  Mural on 5th & Main ")).toBe(true);
+    expect(isShareProjectIntent(localStorage.getItem("pendingIntent"))).toBe(true);
+    expect(takeStashedProjectTitle()).toBe("Mural on 5th & Main");
+    expect(takeStashedProjectTitle()).toBeNull();
+  });
+
+  it("stashes nothing for an empty title", () => {
+    expect(stashProjectTitle("   ")).toBe(false);
+    expect(localStorage.getItem("pendingIntent")).toBeNull();
+  });
+
+  it("puts back a stashed visit that has no title", () => {
+    setPendingIntent("/events/abc");
+    expect(takeStashedProjectTitle()).toBeNull();
+    expect(takePendingIntent()).toBe("/events/abc");
+    expect(hasStashedProjectTitle(SHARE_PROJECT_PATH)).toBe(false);
+    expect(hasStashedProjectTitle(`${SHARE_PROJECT_PATH}&title=x`)).toBe(true);
   });
 });

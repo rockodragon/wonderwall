@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCreativeEarningsRows, computeCreativeEarnings, classPaymentToEarningsPayment, isPayableClassPayment, UNASSIGNED } from "./payouts";
+import { buildCreativeEarningsRows, computeCreativeEarnings, classPaymentToEarningsPayment, isPayableClassPayment, summarizeCreativePayouts, UNASSIGNED } from "./payouts";
 
 describe("computeCreativeEarnings", () => {
   it("totals the split and subtracts what's been paid out", () => {
@@ -104,5 +104,20 @@ describe("Table payments on the shared earnings ledger", () => {
     expect(isPayableClassPayment({ status: "paid" })).toBe(true);
     expect(isPayableClassPayment({ status: "refund_required" })).toBe(false);
     expect(isPayableClassPayment({ status: "refunded" })).toBe(false);
+  });
+});
+
+describe("summarizeCreativePayouts", () => {
+  const pay = (workCents: number) => ({ grossCents: workCents, platformCents: 0, workCents });
+  it("owes earned minus paid and reports the latest payout", () => {
+    const s = summarizeCreativePayouts(
+      [pay(9000), pay(4500)],
+      [{ amountCents: 5000, paidAt: 100 }, { amountCents: 2000, paidAt: 300 }, { amountCents: 1000, paidAt: 200 }],
+    );
+    expect(s).toEqual({ owedCents: 5500, paidCents: 8000, lastPaidAt: 300, lastPaidCents: 2000 });
+  });
+  it("is all zero and null with nothing on the ledger, and never negative", () => {
+    expect(summarizeCreativePayouts([], [])).toEqual({ owedCents: 0, paidCents: 0, lastPaidAt: null, lastPaidCents: null });
+    expect(summarizeCreativePayouts([pay(100)], [{ amountCents: 500, paidAt: 1 }]).owedCents).toBe(0);
   });
 });

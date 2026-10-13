@@ -70,11 +70,11 @@ export function GardenWordmark() {
     its public paths (/people, /communities, /offerings, /tables, an event
     detail) — the nav was walking strangers into a wall. Signed in → the
     real page; signed out → the public guest equivalent of the same
-    content (/opportunities, /garden/events). */
+    content (/opportunities; /events is public itself since 2026-10-13). */
 const ALL_NAV_ITEMS = [
   { to: "/people", label: "People" },
   { to: "/projects", publicTo: "/opportunities", label: "Projects" },
-  { to: "/events", publicTo: "/garden/events", label: "Events" },
+  { to: "/events", label: "Events" },
   { to: "/tables", label: "Tables" },
   // "Spaces" is /communities (2026-09-14, product decision) — the directory
   // of named groups/hosts. Was briefly pointed at /tables on the reasoning

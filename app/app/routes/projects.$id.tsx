@@ -46,6 +46,7 @@ import { isWideCover, useImageAspect } from "../lib/useImageAspect";
 import { uploadToStorage } from "../lib/uploadFile";
 import { INTERESTS } from "../constants/interests";
 import { errorMessage } from "../lib/convexError";
+import { shortDay } from "../lib/dates";
 import {
   STATUS_LABELS,
   SupportModal,
@@ -435,6 +436,8 @@ export default function ProjectDetail() {
           {!isOwner && <SupportButtons raising={raising} onSupport={setSupportMode} />}
         </div>
       )}
+
+      {isOwner && isPassion && <PayoutLine />}
 
       {isOwner && isPassion && !raising && (project.openRoles?.length ?? 0) === 0 && (
         <NextSteps
@@ -1121,6 +1124,31 @@ function InlineEditableMediaLink({ project }: { project: any }) {
 
 // The title and, right after it, the pencil that edits it. Only the title:
 // the stage is its own chip (components/project/StageChip.tsx).
+// Owner-only: what the platform owes this person and what's been sent, from
+// the one ledger (garden/payouts.ts myPayoutSummary). Shows nothing until
+// there is money on it.
+function PayoutLine() {
+  const summary = useQuery(api.garden.payouts.myPayoutSummary);
+  if (!summary) return null;
+  const { owedCents, paidCents, lastPaidAt, lastPaidCents, payoutsEnabled } = summary;
+  if (owedCents === 0 && paidCents === 0) return null;
+  return (
+    <p className="mb-6 -mt-3 text-sm flex flex-wrap gap-x-3 gap-y-1" style={{ color: "var(--garden-body)" }}>
+      <span style={{ fontFamily: "var(--garden-font-mono)" }}>
+        Owed {formatCents(owedCents)}
+        {lastPaidAt && lastPaidCents ? ` · Paid ${formatCents(lastPaidCents)} on ${shortDay(lastPaidAt)}` : ""}
+      </span>
+      {payoutsEnabled ? (
+        <span style={{ color: "var(--garden-dim)" }}>Payouts on</span>
+      ) : (
+        <Link to="/settings?tab=money" className="underline underline-offset-2" style={{ color: "var(--garden-citron)" }}>
+          Set up payouts
+        </Link>
+      )}
+    </p>
+  );
+}
+
 function InlineEditableTitle({ project, isOwner }: { project: any; isOwner: boolean }) {
   const updateProject = useMutation((api as any).garden.projects.updateProject);
   const [editing, setEditing] = useState(false);
@@ -1819,6 +1847,23 @@ function RolesSection({
   const [budgetMax, setBudgetMax] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // "Say who you need" on the just-published card (components/InviteToThis.tsx)
+  // lands here with ?role=new: open the form once and drop the param.
+  const [roleParams, setRoleParams] = useSearchParams();
+  const wantsNewRole = isOwner && roleParams.get("role") === "new";
+  useEffect(() => {
+    if (!wantsNewRole) return;
+    setAdding(true);
+    setRoleParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("role");
+        return next;
+      },
+      { replace: true, preventScrollReset: true },
+    );
+  }, [wantsNewRole, setRoleParams]);
 
   if (roles === undefined) return null;
   if (!isOwner && roles.length === 0) return null;

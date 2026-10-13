@@ -4,6 +4,7 @@ import { useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { CreateCard } from "../components/CreateCard";
 import { CreateEventModal } from "../components/CreateEventModal";
+import { useDefaultEventCommunity } from "../components/CommunityPicker";
 import { EventCard } from "../components/EventCard";
 import { SearchInput } from "../components/SearchInput";
 import { TagFilterPills } from "../components/TagFilterPills";
@@ -22,6 +23,11 @@ import { PAGE_WIDTH } from "../lib/pageWidth";
 import { PageTop, TopButton } from "../components/phone/PageTop";
 import { TabStrip } from "../components/phone/TabStrip";
 import { Plus } from "@phosphor-icons/react";
+
+// "Show everything" on the community line, once chosen, holds for the rest of
+// the browser session (a reload starts over), so the opening default below
+// doesn't pull the list back to a community the person just left.
+let communityDefaultCleared = false;
 
 // The card itself lives in components/EventCard.tsx, so the treatment can only
 // be changed in one place.
@@ -103,10 +109,41 @@ export default function Events() {
     toggleNearMe,
   } = useNearMe();
   const {
-    selected: communitySlug,
-    setSelected: setCommunitySlug,
+    selected: chosenSlug,
+    setSelected: chooseCommunity,
     communities,
   } = useCommunityContext();
+
+  // The list opens already filtered, for a signed-in person. Community: the
+  // one the sidebar is on (else The Garden, as the host form does); a
+  // ?community= link or a remembered choice wins, and "Show everything" turns
+  // the default off. Near me: on when the profile has a location. Neither is
+  // written to the URL or storage, so other pages aren't filtered by it.
+  const [defaultCleared, setDefaultCleared] = useState(communityDefaultCleared);
+  const defaultCommunityId = useDefaultEventCommunity();
+  const defaultSlug = communities.find((c) => c._id === defaultCommunityId)?.slug;
+  const communitySlug =
+    chosenSlug === "all" && isAuthenticated && !defaultCleared && defaultSlug ? defaultSlug : chosenSlug;
+  const setCommunitySlug = (next: string) => {
+    if (next === "all") {
+      communityDefaultCleared = true;
+      setDefaultCleared(true);
+    }
+    chooseCommunity(next);
+  };
+  const myProfile = useQuery(api.profiles.getMyProfile, isAuthenticated ? {} : "skip");
+  const profilePos = myProfile?.coordinates ?? null;
+  const [profileNearOff, setProfileNearOff] = useState(false);
+  const profileNearOn = !!profilePos && !profileNearOff && !nearMe;
+  const nearActive = nearMe || profileNearOn;
+  const nearPos = nearMe ? userPos : profileNearOn ? profilePos : null;
+  const toggleNear = () => {
+    if (profileNearOn) setProfileNearOff(true);
+    else {
+      if (nearMe) setProfileNearOff(true);
+      toggleNearMe();
+    }
+  };
 
   // Fixed canonical list (same one the create form offers), not derived from
   // which events currently happen to be tagged — a dynamic list disappears
@@ -123,9 +160,9 @@ export default function Events() {
       query: debouncedQuery,
       tags: tagFilters,
       inCommunity: communitySlug !== "all" ? (e: any) => e.community?.slug === communitySlug : null,
-      near: nearMe && userPos ? { pos: userPos, radius } : null,
+      near: nearPos ? { pos: nearPos, radius, keepUnlocated: profileNearOn } : null,
     });
-  }, [allEvents, debouncedQuery, tagFilters, communitySlug, nearMe, userPos, radius]);
+  }, [allEvents, debouncedQuery, tagFilters, communitySlug, nearPos, radius]);
 
   // Get favorited event IDs
   const favoriteEventIds = new Set(
@@ -216,11 +253,11 @@ export default function Events() {
             className="flex-1"
           />
           <button
-            onClick={toggleNearMe}
+            onClick={toggleNear}
             disabled={geoLoading}
             className="flex items-center gap-2 px-4 py-3 rounded-xl border transition-colors shrink-0"
             style={
-              nearMe
+              nearActive
                 ? { borderColor: "var(--app-accent)", backgroundColor: "var(--app-accent-wash)", color: "var(--app-accent-ink)" }
                 : { borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)", color: "var(--app-text)" }
             }
@@ -250,7 +287,7 @@ export default function Events() {
           </FilterPanel>
         )}
 
-        {nearMe && (
+        {nearActive && (
           <div className="mb-4 flex items-center gap-3 flex-wrap">
             <span className="text-sm" style={{ color: "var(--app-text-dim)" }}>Within:</span>
             {NEAR_ME_RADIUS_OPTIONS.map((opt) => (
@@ -380,6 +417,15 @@ export default function Events() {
                   Show all communities
                 </button>
               </div>
+            )}
+            {nearActive && filteredEvents.length === 0 && (
+              <p className="py-6 text-center text-[15px]" style={{ color: "var(--garden-muted)" }}>
+                Nothing within {radius} miles. Try a wider radius, or{" "}
+                <button type="button" onClick={toggleNear} className="underline underline-offset-2" style={{ color: "var(--garden-citron)" }}>
+                  turn off Near me
+                </button>
+                .
+              </p>
             )}
             {activeTab === "all" && filteredEvents.length === 0 && communitySlug === "all" && (
               // A phone has no make-one tile in the feed (Host is in the bar),

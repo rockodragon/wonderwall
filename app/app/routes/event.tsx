@@ -589,12 +589,14 @@ export default function EventDetail() {
               </p>
             )}
 
-            {/* Description */}
-            <div className="prose dark:prose-invert max-w-none">
-              <p className="text-gray-800 dark:text-gray-100 whitespace-pre-wrap">
-                {event.description}
-              </p>
-            </div>
+            {/* Description — optional since 2026-10-13; nothing renders without one */}
+            {!!event.description?.trim() && (
+              <div className="prose dark:prose-invert max-w-none">
+                <p className="text-gray-800 dark:text-gray-100 whitespace-pre-wrap">
+                  {event.description}
+                </p>
+              </div>
+            )}
 
             {event._id === SHOWCASE_EVENT_ID && (
               <div

@@ -28,6 +28,35 @@ export function isShareProjectIntent(path: string | null | undefined): boolean {
   }
 }
 
+/** The home page's "What are you working on?" box: the typed title rides in
+ *  the same stashed visit (lib/pendingIntent.ts) as the "start a project"
+ *  visit, as ?title=. Nothing else is stored. */
+export function stashProjectTitle(title: string): boolean {
+  const t = title.trim();
+  if (!t) return false;
+  setPendingIntent(`${SHARE_PROJECT_PATH}&title=${encodeURIComponent(t)}`);
+  return true;
+}
+
+/** The title stashed by stashProjectTitle, read and cleared. A stashed visit
+ *  that carries no title is put back for _app.tsx to replay. */
+export function takeStashedProjectTitle(): string | null {
+  const path = takePendingIntent();
+  if (!path) return null;
+  if (isShareProjectIntent(path)) {
+    const title = new URL(path, "http://local.test").searchParams.get("title")?.trim();
+    if (title) return title;
+  }
+  setPendingIntent(path);
+  return null;
+}
+
+/** True when a visit is stashed with a typed project title in it. */
+export function hasStashedProjectTitle(path: string | null | undefined): boolean {
+  if (!path || !isShareProjectIntent(path)) return false;
+  return !!new URL(path, "http://local.test").searchParams.get("title")?.trim();
+}
+
 /** A new account shares its project on the onboarding screen, so the stashed
  *  "start a project" visit must not open the form a second time on the way
  *  into the app. Any other stashed visit (a ticket, a membership) stays. */

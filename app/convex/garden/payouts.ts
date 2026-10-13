@@ -27,8 +27,8 @@
 
 import { v } from "convex/values";
 import { ConvexError } from "convex/values";
-import { internalMutation, mutation } from "../_generated/server";
-import { requireOperator } from "../helpers";
+import { internalMutation, mutation, query } from "../_generated/server";
+import { getProfileByUserId, requireOperator, requireUserId } from "../helpers";
 import { splitBacking } from "./stripeHandlers";
 
 // ——————————————————————————————————————————————————————————————
@@ -188,6 +188,61 @@ export function buildCreativeEarningsRows(
   }
   return rows.sort((a, b) => b.owedCents - a.owedCents);
 }
+
+export interface PayoutSummary {
+  owedCents: number;
+  paidCents: number;
+  lastPaidAt: number | null;
+  lastPaidCents: number | null;
+}
+
+/** One person's owed/paid line: the same arithmetic as the operator ledger
+ * (computeCreativeEarnings), plus when and how much they were last paid.
+ * Owed never shows negative — an overpayment is the operator's to see. */
+export function summarizeCreativePayouts(
+  payments: BackingPaymentLike[],
+  payouts: { amountCents: number; paidAt: number }[],
+): PayoutSummary {
+  const e = computeCreativeEarnings(payments, payouts);
+  const last = payouts.reduce<{ amountCents: number; paidAt: number } | null>(
+    (best, p) => (best === null || p.paidAt > best.paidAt ? p : best),
+    null,
+  );
+  return {
+    owedCents: Math.max(0, e.owedCents),
+    paidCents: e.paidOutCents,
+    lastPaidAt: last ? last.paidAt : null,
+    lastPaidCents: last ? last.amountCents : null,
+  };
+}
+
+/** The signed-in person's own owed/paid summary and whether Stripe Connect
+ * payouts are on. Backings, payable class payments and member gifts all
+ * count, exactly as on the operator ledger (reports.ts). */
+export const myPayoutSummary = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireUserId(ctx);
+    const [backings, classes, gifts, payouts, profile] = await Promise.all([
+      ctx.db.query("backingPayments").withIndex("by_payeeUserId", (q) => q.eq("payeeUserId", userId)).collect(),
+      ctx.db.query("classPayments").withIndex("by_payeeUserId", (q) => q.eq("payeeUserId", userId)).collect(),
+      ctx.db.query("giftPayments").withIndex("by_payeeUserId", (q) => q.eq("payeeUserId", userId)).collect(),
+      ctx.db.query("creativePayouts").withIndex("by_payeeUserId", (q) => q.eq("payeeUserId", userId)).collect(),
+      getProfileByUserId(ctx, userId),
+    ]);
+    const payments: BackingPaymentLike[] = [
+      ...backings,
+      ...classes
+        .filter(isPayableClassPayment)
+        .map((p) => ({ grossCents: p.grossCents, platformCents: p.platformCents, workCents: p.teacherCents })),
+      ...gifts,
+    ];
+    return {
+      ...summarizeCreativePayouts(payments, payouts),
+      payoutsEnabled: profile?.stripeConnectPayoutsEnabled === true,
+    };
+  },
+});
 
 // ——————————————————————————————————————————————————————————————
 // Convex wrappers

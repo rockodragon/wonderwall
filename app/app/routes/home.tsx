@@ -1,4 +1,5 @@
 import { useConvexAuth, useQuery } from "convex/react";
+import { ShareTitleBox } from "../components/ShareTitleBox";
 import { Link, useNavigate } from "react-router";
 import { useEffect } from "react";
 import type { Route } from "./+types/home";
@@ -114,6 +115,16 @@ export default function Home() {
 
           {/* Right column — sign-up button + one line on joining */}
           <div className="md:col-span-5 min-w-0 flex flex-col gap-7 pb-1.5">
+
+            <ShareTitleBox
+              inputStyle={{
+                backgroundColor: "var(--garden-ink-raised)",
+                borderColor: "var(--garden-hairline-raised)",
+                color: "var(--garden-paper)",
+              }}
+              buttonClassName="px-[22px] py-2.5 rounded-[10px] text-[15px] font-semibold bg-[var(--garden-citron)] text-[var(--garden-ink)] disabled:opacity-50 whitespace-nowrap"
+              noteStyle={{ color: "var(--garden-body)" }}
+            />
 
             {/* Open sign-up: one button. An invite code is optional and
                 lives on /signup. */}
