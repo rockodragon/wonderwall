@@ -87,6 +87,24 @@ describe("SupportModal", () => {
   });
 });
 
+describe("SupportModal presets", () => {
+  it("offers $10, $25, $50 and Other amount, and hides the amount box until asked", () => {
+    answers.current = { "garden/support:listSupportForProject": [], "garden/patronTiers:listTiers": [] };
+    const html = plain(
+      renderToString(
+        <MemoryRouter>
+          <SupportModal project={{ _id: "projects:p1", title: "A film" }} mode="back" onClose={() => {}} />
+        </MemoryRouter>,
+      ),
+    );
+    expect(html).toContain("$10/mo");
+    expect(html).toContain("$25/mo");
+    expect(html).toContain("$50/mo");
+    expect(html).toContain("Other amount");
+    expect(html).not.toContain("Continue to checkout");
+  });
+});
+
 describe("TierManager", () => {
   it("shows a $12.50 tier as $12.50, not rounded to $13", () => {
     answers.current = {

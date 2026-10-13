@@ -51,18 +51,21 @@ export function ProjectModal({
   onClose,
   onCreated,
   edit,
+  initialTitle,
 }: {
   onClose: () => void;
   /** Create only: where to go once the project exists. */
   onCreated?: (projectId: string) => void;
   edit?: ProjectEditTarget;
+  /** Create only: a title typed on the front door before signing in. */
+  initialTitle?: string;
 }) {
   const createPassionProject = useMutation(api.garden.projects.createPassionProject);
   const updateProject = useMutation(api.garden.projects.updateProject);
   const uid = useId();
 
   const [step, setStep] = useState<Step>(1);
-  const [title, setTitle] = useState(edit?.title ?? "");
+  const [title, setTitle] = useState(edit?.title ?? initialTitle ?? "");
   const [blurb, setBlurb] = useState(edit?.blurb ?? "");
   const [mediaUrl, setMediaUrl] = useState(edit?.mediaUrl ?? "");
   const location = useLocationField(edit);

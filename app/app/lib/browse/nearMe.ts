@@ -7,13 +7,21 @@ import { haversineDistance } from "../useNearMe";
 export type LatLng = { lat: number; lng: number };
 
 /** Where the visitor is and how far they'll go, in miles. */
-export type NearMe = { pos: LatLng; radius: number };
+export type NearMe = {
+  pos: LatLng;
+  radius: number;
+  /** Keep items with no coordinates (online, TBD), after the located ones.
+   *  Set when Near me came on by itself from the profile's location, so a
+   *  default nobody chose doesn't hide events anyone can attend. */
+  keepUnlocated?: boolean;
+};
 
 export type WithDistance<T> = T & { _distance: number };
 
 /**
  * Items within `near.radius` miles of `near.pos`, nearest first. An item with
- * no coordinates is infinitely far, so it drops out.
+ * no coordinates is infinitely far, so it drops out — unless `keepUnlocated`,
+ * which keeps it at the end.
  */
 export function withinRadius<T extends { coordinates?: LatLng | null }>(items: readonly T[], near: NearMe): WithDistance<T>[] {
   return items
@@ -23,8 +31,8 @@ export function withinRadius<T extends { coordinates?: LatLng | null }>(items: r
         ? haversineDistance(near.pos.lat, near.pos.lng, item.coordinates.lat, item.coordinates.lng)
         : Infinity,
     }))
-    .filter((item) => item._distance <= near.radius)
-    .sort((a, b) => a._distance - b._distance);
+    .filter((item) => item._distance <= near.radius || (!!near.keepUnlocated && !item.coordinates))
+    .sort((a, b) => (a._distance === b._distance ? 0 : a._distance - b._distance));
 }
 
 /** "< 1 mi" or "12 mi"; null for something with no location (infinitely far). */

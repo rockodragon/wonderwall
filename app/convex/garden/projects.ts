@@ -23,6 +23,8 @@ import {
   richDocValidator,
 } from "./richText";
 import { summarizeGig } from "./gigSummary";
+import { can } from "./capabilities";
+import { getGardenUser } from "./entitlements";
 import { trackEvent } from "../posthog";
 // A pasted Instagram, TikTok, YouTube or Vimeo link that IS the project's
 // media — the Instagram post a poster is hiring from, the reel a passion
@@ -471,6 +473,20 @@ export const listProjects = query({
     const communityById = await resolveCommunities(ctx, projects.map((p) => p.hostOrgId));
 
     const now = Date.now();
+    // The respond/apply gate for a signed-in viewer, so a card can say
+    // "Members respond" before anyone opens it. Membership is per community,
+    // so one lookup per distinct community, not per project.
+    const viewerId = await getAuthUserId(ctx);
+    const gateByCommunity = new Map<string, Promise<ReturnType<typeof can>[]>>();
+    const gatesFor = (hostOrgId: Id<"hostOrgs"> | undefined) => {
+      const key = String(hostOrgId ?? "");
+      let hit = gateByCommunity.get(key);
+      if (!hit) {
+        hit = getGardenUser(ctx, viewerId!, hostOrgId).then((u) => [can(u, "gig.respond"), can(u, "project.applyPaid")]);
+        gateByCommunity.set(key, hit);
+      }
+      return hit;
+    };
     const withDetails = await Promise.all(
       projects.map(async (project) => {
         const [user, media, support, gig] = await Promise.all([
@@ -498,6 +514,19 @@ export const listProjects = query({
 
         const resolvedPhotoUrl = await projectPhotoUrl(ctx, project);
 
+        // Only paid work and gigs take membership to respond to.
+        let viewerGate: { reason: string; upgradePath: string | null } | null = null;
+        if (viewerId && viewerId !== project.userId && (gig || project.kind === "paid")) {
+          const [gigGate, applyGate] = await gatesFor(project.hostOrgId);
+          const gate = gig ? gigGate : applyGate;
+          if (!gate.allowed) {
+            viewerGate = {
+              reason: gate.reason ?? "Responding takes membership.",
+              upgradePath: gate.upgradePath ?? null,
+            };
+          }
+        }
+
         return {
           ...project,
           resolvedPhotoUrl,
@@ -515,6 +544,7 @@ export const listProjects = query({
           supportCount: support.length,
           community: project.hostOrgId ? (communityById.get(String(project.hostOrgId)) ?? null) : null,
           gig,
+          viewerGate,
           ...(await summarizeAsks(ctx, project, !!gig)),
         };
       }),

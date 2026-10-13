@@ -51,6 +51,10 @@ describe("filterEvents", () => {
   it("narrows to a radius, nearest first", () => {
     expect(ids(filterEvents(events, { ...none, near: { pos: here, radius: 25 } }))).toEqual(["1"]);
   });
+
+  it("a Near me that came on by itself keeps events with no location, last", () => {
+    expect(ids(filterEvents(events, { ...none, near: { pos: here, radius: 25, keepUnlocated: true } }))).toEqual(["1", "3"]);
+  });
 });
 
 describe("onlyFavorites", () => {

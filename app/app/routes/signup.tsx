@@ -94,9 +94,9 @@ export default function Signup() {
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [phoneStep, setPhoneStep] = useState<"phone" | "code">("phone");
-  // Phone code or password — both visible, both ask for name and email
-  // first, because every account needs an email (receipts, notifications)
-  // no matter how the person signs in.
+  // Phone code or password. The password path asks for name and email; the
+  // phone path asks only for the number and the code (login.tsx's phone box
+  // makes accounts the same way; onboarding asks for the name if it is blank).
   const [method, setMethod] = useState<"phone" | "password">("phone");
   const [phoneError, setPhoneError] = useState("");
   const [phoneLoading, setPhoneLoading] = useState(false);
@@ -197,15 +197,6 @@ export default function Signup() {
     const gateError = inviteGateError();
     if (gateError) {
       setPhoneError(gateError);
-      return;
-    }
-
-    if (!name.trim()) {
-      setPhoneError("Add your name.");
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setPhoneError("Add an email we can reach you at.");
       return;
     }
 
@@ -524,6 +515,8 @@ export default function Signup() {
 
           {phoneStep === "phone" && (
             <div className="space-y-4 mb-5">
+              {method === "password" && (
+              <>
               <div>
                 <label htmlFor="name" className="block text-[13.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Name
@@ -555,6 +548,8 @@ export default function Signup() {
                   required
                 />
               </div>
+              </>
+              )}
               <div
                 className="grid grid-cols-2 gap-1 rounded-lg p-1 bg-gray-100 dark:bg-gray-900"
                 role="group"

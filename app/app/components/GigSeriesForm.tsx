@@ -158,6 +158,14 @@ export function GigSeriesForm({
   const [budgetMax, setBudgetMax] = useState("");
 
   const location = useLocationField();
+  // Most gigs are near where the poster lives, so start from their profile
+  // location. Filled once, only if they haven't typed anything; still editable.
+  const locationPrefilled = useRef(false);
+  useEffect(() => {
+    if (locationPrefilled.current || !myProfile) return;
+    locationPrefilled.current = true;
+    if (!location.value && myProfile.location) location.hydrate(myProfile);
+  }, [myProfile, location]);
 
   const [interests, setInterests] = useState<string[]>(["Music"]);
   const [showInterests, setShowInterests] = useState(false);

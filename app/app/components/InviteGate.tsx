@@ -15,7 +15,8 @@ import { normalizeInviteCode } from "../../convex/inviteCode";
 import { isCheckoutSessionId } from "../../convex/garden/ticketLink";
 import { joinWithInvite } from "../lib/joinWithInvite";
 import { rememberedInvite } from "../lib/carriedInvite";
-import { takePendingIntent } from "../lib/pendingIntent";
+import { setPendingIntent, takePendingIntent } from "../lib/pendingIntent";
+import { hasStashedProjectTitle } from "../lib/shareProject";
 import { AgreementsConsent } from "./AgreementsConsent";
 
 const inputClass =
@@ -79,7 +80,14 @@ export function InviteGate({
         // Over their credit limit or already credited — they're in either way.
       }
     }
-    navigate(takePendingIntent() ?? "/today", { replace: true });
+    const next = takePendingIntent();
+    // A project title typed before the account is posted by onboarding.
+    if (hasStashedProjectTitle(next) && next) {
+      setPendingIntent(next);
+      navigate("/onboarding", { replace: true });
+      return;
+    }
+    navigate(next ?? "/today", { replace: true });
   }
 
   async function submitWaitlist(e: FormEvent) {

@@ -196,9 +196,8 @@ export default [
   // real, currently-reachable route, and living outside the layout meant
   // the sidebar/wordmark disappeared on every project page.
   route("c/:code", "routes/c.$code.tsx"),
-  // Guest-RSVP events browse/detail — deliberately NOT at /events or
-  // /events/:eventId, which are already the legacy app-shell routes above.
-  // Promoting these to /events is a follow-up decision.
+  // Old guest events addresses: /events and /events/:eventId are public now,
+  // so both of these only redirect there.
   route("garden/events", "routes/events_.garden._index.tsx"),
   route("garden/events/:id", "routes/events_.garden.$id.tsx"),
 

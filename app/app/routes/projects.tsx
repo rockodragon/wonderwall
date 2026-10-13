@@ -398,6 +398,7 @@ export default function Projects() {
         <ProjectModal
           onClose={() => setShowPassionForm(false)}
           onCreated={(projectId) => navigate(justPublished(`/projects/${projectId}`))}
+          initialTitle={searchParams.get("title")?.trim() || undefined}
         />
       )}
       {supporting && (
@@ -710,6 +711,13 @@ export function ProjectCard({
                 {" "}· {project.gig.openCount} {project.gig.openCount === 1 ? "date" : "dates"} open
               </span>
             )}
+          </p>
+        )}
+        {project.viewerGate && (
+          // The card is one big link, so this is words, not a nested link;
+          // the project page carries the membership link.
+          <p className="text-[13px] mb-2" style={{ color: "var(--garden-body)" }}>
+            Members respond.{project.viewerGate.upgradePath ? ` ${project.viewerGate.upgradePath}` : ""}
           </p>
         )}
         {otherRoles.length > 0 &&
@@ -1027,6 +1035,9 @@ export function tierPriceLabel(tier: { priceCents: number; billing?: string }, t
 // an obvious miss before a round trip).
 const MIN_BACKING_DOLLARS = 5;
 
+// One-tap amounts in the Back this modal; each goes straight to Stripe.
+export const BACKING_PRESET_DOLLARS = [10, 25, 50] as const;
+
 // Backing a project is REAL money now: the two financial options open a
 // Stripe Checkout session (convex/garden/stripe.ts's createBackingCheckout)
 // and hand the browser off to it, exactly like fund.$slug.tsx's
@@ -1060,6 +1071,7 @@ export function SupportModal({
   const [done, setDone] = useState(false);
   const [selectedTierId, setSelectedTierId] = useState<string | null>(null);
   const [showCustomAmount, setShowCustomAmount] = useState(false);
+  const [showOtherAmount, setShowOtherAmount] = useState(false);
 
   const isFinancial = type === "financial_one_time" || type === "financial_recurring" || type === "financial_annual";
   const billingFilter = type === "financial_one_time" ? "one_time" : "monthly";
@@ -1067,43 +1079,46 @@ export function SupportModal({
   const hasTiers = filteredTiers && filteredTiers.length > 0;
   const selectedTier = tiers?.find((t: any) => t._id === selectedTierId);
 
+  async function startCheckout(finalAmountCents: number, finalTierId?: string) {
+    setError("");
+    // Mirrors the server's floor (validateBackingAmount) so an obvious
+    // miss costs a round trip to nowhere instead of a round trip to Convex.
+    if (!Number.isFinite(finalAmountCents) || finalAmountCents < MIN_BACKING_DOLLARS * 100) {
+      setError(`Back this with at least $${MIN_BACKING_DOLLARS}.`);
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const { url } = await createBackingCheckout({
+        projectId: project._id,
+        amountCents: finalAmountCents,
+        recurring: type !== "financial_one_time",
+        visible,
+        message: message.trim() || undefined,
+        tierId: finalTierId,
+        ...(type === "financial_annual" ? { interval: "year" } : {}),
+      });
+      // Leaving for Stripe — deliberately no setSubmitting(false), so the
+      // button stays disabled through the handoff.
+      window.location.assign(url);
+    } catch (err) {
+      setError(errorMessage(err));
+      setSubmitting(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
 
     if (isFinancial) {
-      let finalAmountCents: number;
-      let finalTierId: string | undefined;
-
       if (selectedTier && !showCustomAmount) {
-        finalAmountCents = type === "financial_annual" ? selectedTier.priceCents * 12 : selectedTier.priceCents;
-        finalTierId = selectedTier._id;
+        await startCheckout(
+          type === "financial_annual" ? selectedTier.priceCents * 12 : selectedTier.priceCents,
+          selectedTier._id,
+        );
       } else {
-        finalAmountCents = Math.round(Number(amount) * 100);
-        // Mirrors the server's floor (validateBackingAmount) so an obvious
-        // miss costs a round trip to nowhere instead of a round trip to Convex.
-        if (!Number.isFinite(finalAmountCents) || finalAmountCents < MIN_BACKING_DOLLARS * 100) {
-          setError(`Back this with at least $${MIN_BACKING_DOLLARS}.`);
-          return;
-        }
-      }
-      setSubmitting(true);
-      try {
-        const { url } = await createBackingCheckout({
-          projectId: project._id,
-          amountCents: finalAmountCents,
-          recurring: type !== "financial_one_time",
-          visible,
-          message: message.trim() || undefined,
-          tierId: finalTierId,
-          ...(type === "financial_annual" ? { interval: "year" } : {}),
-        });
-        // Leaving for Stripe — deliberately no setSubmitting(false), so the
-        // button stays disabled through the handoff.
-        window.location.assign(url);
-      } catch (err) {
-        setError(errorMessage(err));
-        setSubmitting(false);
+        await startCheckout(Math.round(Number(amount) * 100));
       }
       return;
     }
@@ -1205,7 +1220,7 @@ export function SupportModal({
                 <button
                   key={t.value}
                   type="button"
-                  onClick={() => { setType(t.value); setSelectedTierId(null); setShowCustomAmount(false); }}
+                  onClick={() => { setType(t.value); setSelectedTierId(null); setShowCustomAmount(false); setShowOtherAmount(false); }}
                   className="px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors"
                   style={{
                     fontFamily: "var(--garden-font-body)",
@@ -1270,23 +1285,56 @@ export function SupportModal({
                     Back to tiers
                   </button>
                 )}
-                <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
-                  Amount (USD{type === "financial_recurring" ? "/mo" : type === "financial_annual" ? "/yr" : ""})
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="25"
-                  className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
-                  style={{
-                    fontFamily: "var(--garden-font-mono)",
-                    backgroundColor: "var(--garden-ink)",
-                    borderColor: "var(--garden-hairline-raised)",
-                    color: "var(--garden-paper)",
-                  }}
-                />
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {BACKING_PRESET_DOLLARS.map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      disabled={submitting}
+                      onClick={() => void startCheckout(d * 100)}
+                      className="flex-1 px-3 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+                      style={{
+                        fontFamily: "var(--garden-font-mono)",
+                        backgroundColor: "var(--garden-citron)",
+                        color: "var(--garden-ink)",
+                      }}
+                    >
+                      ${d}
+                      {type === "financial_recurring" ? "/mo" : type === "financial_annual" ? "/yr" : ""}
+                    </button>
+                  ))}
+                  {!showOtherAmount && (
+                    <button
+                      type="button"
+                      onClick={() => setShowOtherAmount(true)}
+                      className="px-3 py-2 rounded-lg border text-sm font-medium"
+                      style={{ borderColor: "var(--garden-hairline-raised)", color: "var(--garden-body)" }}
+                    >
+                      Other amount
+                    </button>
+                  )}
+                </div>
+                {showOtherAmount && (
+                  <>
+                    <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
+                      Amount (USD{type === "financial_recurring" ? "/mo" : type === "financial_annual" ? "/yr" : ""})
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      placeholder="25"
+                      className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+                      style={{
+                        fontFamily: "var(--garden-font-mono)",
+                        backgroundColor: "var(--garden-ink)",
+                        borderColor: "var(--garden-hairline-raised)",
+                        color: "var(--garden-paper)",
+                      }}
+                    />
+                  </>
+                )}
                 <p
                   className="text-xs mt-1.5 px-2.5 py-1.5 rounded-md"
                   style={{ color: "var(--garden-citron)", backgroundColor: "rgba(254,226,104,0.1)" }}
@@ -1373,6 +1421,7 @@ export function SupportModal({
               <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium" style={{ color: "var(--garden-dim)" }}>
                 Cancel
               </button>
+              {!(isFinancial && !(hasTiers && !showCustomAmount) && !showOtherAmount) && (
               <button
                 type="submit"
                 disabled={submitting}
@@ -1387,6 +1436,7 @@ export function SupportModal({
                     ? "Continue to checkout"
                     : "Send"}
               </button>
+              )}
             </div>
           </form>
         )}

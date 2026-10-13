@@ -100,9 +100,16 @@ describe("the phone's bottom bar", () => {
     const markup = bar(await shell("/people"));
     expect(labels(markup)).toEqual(["Projects", "Events", "People"]);
     expect(markup).toContain('href="/opportunities"');
-    expect(markup).toContain('href="/garden/events"');
+    expect(markup).toContain('href="/events"');
     expect(markup).not.toContain('href="/today"');
     expect(markup).not.toContain('href="/settings"');
+  });
+
+  it("keeps a signed-out visitor on /events and /events/:id, but not on a private page", async () => {
+    scene.signedIn = false;
+    expect(await shell("/events")).toContain('aria-label="Places"');
+    expect(await shell("/events/abc123")).toContain('aria-label="Places"');
+    expect(await shell("/today")).toBe("");
   });
 
   it("never asks for the Shortlist while the palette is on: Today reads its own", async () => {

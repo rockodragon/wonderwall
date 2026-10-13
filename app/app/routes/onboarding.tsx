@@ -19,6 +19,7 @@ import {
   hasNameIfNeeded,
   keepProfileFields,
   roleForExit,
+  takeStashedProjectTitle,
   type OnboardingExit,
   type StartStage,
 } from "../lib/shareProject";
@@ -126,7 +127,52 @@ export default function Onboarding() {
 
   const ready =
     isAuthenticated && !!profile && signupCommunity !== undefined && myCommunities !== undefined;
-  const showing = ready && !mustInvite && returning !== null;
+  // A title typed on the front door before the account existed
+  // (components/ShareTitleBox.tsx) posts the project now, with no screen:
+  // taken from the stash first, so it can never post twice. A failure lands
+  // on the screen below with the title filled in.
+  const [autoShare, setAutoShare] = useState<"pending" | "running" | "idle">("pending");
+  const triedAuto = useRef(false);
+  useEffect(() => {
+    if (!ready || mustInvite || !profile || triedAuto.current) return;
+    triedAuto.current = true;
+    const stashed = onboarded ? null : takeStashedProjectTitle();
+    if (!stashed) {
+      setAutoShare("idle");
+      return;
+    }
+    if (needsName) {
+      // A phone account has no name yet. The screen asks for it with the
+      // title filled in, so Share it is one tap, not a post by "New User".
+      setRole("creative");
+      setTitle(stashed);
+      setAutoShare("idle");
+      return;
+    }
+    setAutoShare("running");
+    left.current = true;
+    void (async () => {
+      try {
+        await upsertProfile({
+          name: profile.name,
+          ...keepProfileFields(profile),
+          primaryRole: roleForExit("shared"),
+        });
+        const { projectId } = await createPassionProject({ title: stashed, hostOrgId: gardenId });
+        posthog?.capture("onboarding_project_shared", { stage: "planning", interests: 0, in_garden: !!gardenId, from_front_door: true });
+        navigate(justPublished(`/projects/${projectId}`), { replace: true });
+      } catch (err) {
+        console.error("Onboarding auto-share failed:", err);
+        left.current = false;
+        setRole("creative");
+        setTitle(stashed);
+        setError(errorMessage(err));
+        setAutoShare("idle");
+      }
+    })();
+  }, [ready, mustInvite, onboarded, needsName, profile, gardenId, upsertProfile, createPassionProject, navigate, posthog]);
+
+  const showing = ready && !mustInvite && returning !== null && autoShare === "idle";
 
   const viewed = useRef(false);
   useEffect(() => {

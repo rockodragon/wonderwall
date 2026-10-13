@@ -34,6 +34,7 @@ import { useMediaQuery } from "../hooks/useMediaQuery";
 import { formatMoney } from "../garden/ui";
 import { GARDEN_SLUG } from "../lib/communitySlugs";
 import { SOPHIA_FUND_SLUG } from "../lib/namedFunds";
+import { ShareTitleBox } from "../components/ShareTitleBox";
 import { shareProjectHref } from "../lib/shareProject";
 import { stripInlineMarks } from "../lib/richText";
 import { GARDEN_NAME } from "../../convex/garden/brandHosts";
@@ -175,9 +176,17 @@ export function GardenHome() {
             >
               {/* Signed out, this asks for an account, not a sign-in: The
                   Garden is invite-only for now, so a visitor has none yet. */}
-              <Link to={shareProjectHref(isAuthenticated)} className={CALL_BUTTON}>
-                Share your project
-              </Link>
+              {isAuthenticated ? (
+                <Link to={shareProjectHref(true)} className={CALL_BUTTON}>
+                  Share your project
+                </Link>
+              ) : (
+                <ShareTitleBox
+                  inputStyle={{ backgroundColor: DESK.panel, borderColor: DESK.lineStrong, color: DESK.text }}
+                  buttonClassName={`${CARD_BUTTON_CLASS} bg-[#FFE066] text-[#121212] hover:bg-[#FFEA94] disabled:opacity-50 text-[15px]! whitespace-nowrap`}
+                  noteStyle={{ color: DESK.textSoft }}
+                />
+              )}
             </Call>
             <Call
               id="gh-giving"

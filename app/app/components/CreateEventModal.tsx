@@ -1,6 +1,6 @@
 import { usePostHog } from "@posthog/react";
 import { useMutation, useQuery } from "convex/react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -29,15 +29,11 @@ import { ticketLinkHost } from "../lib/eventCta";
 // One modal for hosting AND editing an event (Rick, 2026-10-01: edit uses the
 // same steps as create). Pass `edit` to open it on an existing event.
 //
-// Hosting an event in three short steps instead of one wall of fields
-// (Rick, 2026-10-01): what and when -> tell people about it -> options.
-// Every field's state lives up here, so Back never loses anything and all
-// three panels stay mounted (hidden when inactive) — the community picker
-// pre-fills itself once on mount and would otherwise overwrite a "No
-// community" choice the next time step 3 mounted.
-
-const STEPS = ["What and when", "Tell people about it", "Options"] as const;
-type Step = 1 | 2 | 3;
+// One short form (Rick, 2026-10-13): title, when, where and a line about it,
+// with a "More" expander for the community, tickets and the rest. Every
+// field's state lives up here and the More section stays mounted (hidden
+// when closed) — the community picker pre-fills itself once on mount and
+// would otherwise overwrite a "No community" choice the next time it mounted.
 
 const inputBase =
   "w-full py-2 border rounded-lg focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent placeholder:text-[var(--app-text-dim)]";
@@ -308,8 +304,6 @@ export function CreateEventModal({
   const limitInputId = `${uid}-limit-input`;
   const ticketPriceId = `${uid}-ticket-price`;
 
-  const [step, setStep] = useState<Step>(1);
-
   const [title, setTitle] = useState(init?.title ?? "");
   const [description, setDescription] = useState(init?.description ?? "");
   const [date, setDate] = useState(
@@ -354,6 +348,69 @@ export function CreateEventModal({
   // Options-step rows start closed; each opens its full editor.
   const [showTickets, setShowTickets] = useState(false);
   const [showMedia, setShowMedia] = useState(false);
+  // "More" holds the cover, tags, community, tickets and the rest. An event
+  // being edited opens it when it already uses any of them, so nothing set is
+  // hidden behind it.
+  const [showMore, setShowMore] = useState(
+    !!edit &&
+      !!init &&
+      ((init.ticketTiers?.length ?? 0) > 0 ||
+        !!init.externalTicketUrl ||
+        !!init.mediaUrl ||
+        init.tags.length > 0 ||
+        init.requiresApproval ||
+        !!init.capacity ||
+        !!init.hideAddress ||
+        !!edit.coverImageUrl),
+  );
+  const moreId = `${uid}-more`;
+  // ...and also when its community is not the one a new event would default to.
+  useEffect(() => {
+    if (edit && init?.hostOrgId && defaultHostOrgId && init.hostOrgId !== defaultHostOrgId) {
+      setShowMore(true);
+    }
+    // Only the default settling is the trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultHostOrgId]);
+
+  // Copy last event (new events only): the host's most recent event that
+  // wasn't cancelled. getMyEvents is the signed-in person's own events.
+  const myEvents = useQuery(api.events.getMyEvents, edit ? "skip" : {});
+  const lastEvent = useMemo(
+    () =>
+      (myEvents ?? [])
+        .filter((e) => e.status !== "cancelled")
+        .sort((a, b) => b._creationTime - a._creationTime)[0],
+    [myEvents],
+  );
+  // The copied event's length in minutes: the end follows whatever start is
+  // picked, until the person sets an end themselves.
+  const [copiedMinutes, setCopiedMinutes] = useState<number | null>(null);
+  function endFromMinutes(start: string, minutes: number): string {
+    const capped = Math.min(minutes, 24 * 60 - 1);
+    // shiftEndTime keeps a length: from 00:00 to `capped` moves to start + capped.
+    return shiftEndTime("00:00", start, `${pad2(Math.floor(capped / 60))}:${pad2(capped % 60)}`);
+  }
+  function copyLastEvent() {
+    const ev = lastEvent;
+    if (!ev) return;
+    setTitle(ev.title);
+    setDescription(ev.description ?? "");
+    location.hydrate(ev);
+    setHostOrgId(ev.hostOrgId ?? "");
+    setTags(ev.tags ?? []);
+    setTicketTiers(tiersToDrafts(ev.ticketTiers));
+    setExternalTicketUrl(ev.externalTicketUrl ?? "");
+    setExternalTicketPrice(
+      ev.externalTicketPriceCents !== undefined ? String(ev.externalTicketPriceCents / 100) : "",
+    );
+    const minutes = ev.endTime ? Math.round((ev.endTime - ev.datetime) / 60000) : 0;
+    setCopiedMinutes(minutes > 0 ? minutes : null);
+    setEndTimeStr(minutes > 0 && time ? endFromMinutes(time, minutes) : "");
+    if (ev.hostOrgId || (ev.ticketTiers?.length ?? 0) > 0 || ev.externalTicketUrl || (ev.tags?.length ?? 0) > 0) {
+      setShowMore(true);
+    }
+  }
 
   // Cover image: framed 4:5 and uploaded as soon as it's picked, so Create
   // only has to attach the storageId. `previewUrl` is a local object URL for
@@ -375,7 +432,6 @@ export function CreateEventModal({
   const shownCoverUrl = cover?.previewUrl ?? existingCoverUrl;
 
   const bodyRef = useRef<HTMLDivElement>(null);
-  const firstRender = useRef(true);
 
   // Let go of the preview's object URL when the modal closes.
   useEffect(() => {
@@ -392,23 +448,6 @@ export function CreateEventModal({
       document.body.style.overflow = previous;
     };
   }, []);
-
-  // New step: back to the top, and into its first field. Not on first open
-  // on a phone — the keyboard would cover half the sheet before anyone asked.
-  useEffect(() => {
-    bodyRef.current?.scrollTo({ top: 0 });
-    if (firstRender.current) {
-      firstRender.current = false;
-      if (!window.matchMedia("(min-width: 640px)").matches) return;
-    }
-    // Step 3 has no first field worth jumping to; park focus on the body so
-    // it isn't lost with the button that was just pressed.
-    (
-      bodyRef.current?.querySelector<HTMLElement>(
-        `[data-step="${step}"] [data-autofocus]`,
-      ) ?? bodyRef.current
-    )?.focus();
-  }, [step]);
 
   function toggleTag(tag: string) {
     setTags((prev) =>
@@ -429,43 +468,13 @@ export function CreateEventModal({
   }
 
   const whenFilled = !!title.trim() && !!date && !!time;
-  const aboutFilled = !!description.trim();
-
-  function goNext() {
-    setError("");
-    if (step === 1) {
-      if (!whenFilled) return;
-      const { error: whenError } = resolveWhen(date, time, endTimeStr, !edit);
-      if (whenError) {
-        setError(whenError);
-        return;
-      }
-      setStep(2);
-    } else if (step === 2) {
-      if (!aboutFilled || coverUploading) return;
-      setStep(3);
-    }
-  }
-
-  function goBack() {
-    setError("");
-    setStep((s) => (s > 1 ? ((s - 1) as Step) : s));
-  }
+  // The description is optional: only the title, date and start are required.
 
   async function submit() {
     setError("");
 
-    // Each step checked its own fields on the way here; this repeats it so
-    // a stale one (the start time passing while step 3 sat open) lands the
-    // person back on the step that needs fixing.
     if (!whenFilled) {
-      setStep(1);
       setError("Add a title, date and start time");
-      return;
-    }
-    if (!aboutFilled) {
-      setStep(2);
-      setError("Add a description");
       return;
     }
 
@@ -476,13 +485,13 @@ export function CreateEventModal({
       !edit,
     );
     if (whenError) {
-      setStep(1);
       setError(whenError);
       return;
     }
 
     const { tiers, error: tiersError } = draftsToTiers(ticketTiers);
     if (tiersError) {
+      setShowMore(true);
       setError(tiersError);
       return;
     }
@@ -491,6 +500,7 @@ export function CreateEventModal({
     // inline; this repeats it where a failed submit is looked for.
     const mediaLink = describeMediaLink(mediaUrl);
     if (mediaLink.state === "invalid") {
+      setShowMore(true);
       setError(mediaLink.message);
       return;
     }
@@ -601,21 +611,16 @@ export function CreateEventModal({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (step < 3) {
-      goNext();
-    } else if (!saving && !coverUploading) {
-      void submit();
-    }
+    if (!saving && !coverUploading) void submit();
   }
 
-  // Enter in a field on steps 1-2 goes Next (via the form's submit). On the
-  // last step it would create the event from inside a ticket-tier box, so
-  // there Enter in a text box does nothing.
+  // Enter in a field under More would create the event from inside a
+  // ticket-tier box, so there Enter in a text box does nothing.
   function handleFormKeyDown(e: React.KeyboardEvent<HTMLFormElement>) {
     if (
-      step === 3 &&
       e.key === "Enter" &&
-      e.target instanceof HTMLInputElement
+      e.target instanceof HTMLInputElement &&
+      e.target.closest("[data-more]")
     ) {
       e.preventDefault();
     }
@@ -647,12 +652,7 @@ export function CreateEventModal({
   }
 
   const busy = saving || coverUploading;
-  const primaryDisabled =
-    step === 1
-      ? !whenFilled
-      : step === 2
-        ? !aboutFilled || coverUploading
-        : busy;
+  const primaryDisabled = busy || !whenFilled;
 
   return (
     <FocusBackdrop>
@@ -697,26 +697,6 @@ export function CreateEventModal({
               </svg>
             </button>
           </div>
-          <div className="flex gap-1.5 mt-3" aria-hidden="true">
-            {[1, 2, 3].map((n) => (
-              <div
-                key={n}
-                className="h-1 flex-1 rounded-full"
-                style={{
-                  backgroundColor:
-                    n <= step
-                      ? "var(--app-accent)"
-                      : "var(--app-hairline-raised)",
-                }}
-              />
-            ))}
-          </div>
-          <p
-            className="mt-2 text-sm"
-            style={{ color: "var(--app-text-muted)" }}
-          >
-            {step} of 3 · {STEPS[step - 1]}
-          </p>
         </div>
 
         <form
@@ -727,15 +707,21 @@ export function CreateEventModal({
           <div
             ref={bodyRef}
             tabIndex={-1}
-            className={`flex-1 min-h-0 px-5 sm:px-6 pb-4 overflow-y-auto outline-none ${
-              step === 1 ? "sm:overflow-visible" : ""
-            }`}
+            className="flex-1 min-h-0 px-5 sm:px-6 pb-4 overflow-y-auto outline-none"
           >
-            {/* Step 1 — what and when */}
-            <div
-              data-step="1"
-              className={step === 1 ? "space-y-4" : "hidden"}
-            >
+            {/* The essentials */}
+            <div className="space-y-4">
+              {!edit && lastEvent && (
+                <button
+                  type="button"
+                  onClick={copyLastEvent}
+                  title={lastEvent.title}
+                  className="py-1 text-[13.5px] font-medium underline underline-offset-2 hover:opacity-80"
+                  style={{ color: "var(--app-accent-ink)" }}
+                >
+                  Copy last event
+                </button>
+              )}
               <div>
                 <FieldLabel htmlFor={titleId}>Title</FieldLabel>
                 <input
@@ -772,7 +758,11 @@ export function CreateEventModal({
                     onChange={(e) => {
                       // The end moves with the start, keeping the length.
                       const next = e.target.value;
-                      setEndTimeStr((end) => shiftEndTime(time, next, end));
+                      setEndTimeStr((end) =>
+                        copiedMinutes !== null && !end && next
+                          ? endFromMinutes(next, copiedMinutes)
+                          : shiftEndTime(time, next, end),
+                      );
                       setTime(next);
                     }}
                     className={inputTightClass}
@@ -787,7 +777,10 @@ export function CreateEventModal({
                     id={endId}
                     type="time"
                     value={endTimeStr}
-                    onChange={(e) => setEndTimeStr(e.target.value)}
+                    onChange={(e) => {
+                      setCopiedMinutes(null);
+                      setEndTimeStr(e.target.value);
+                    }}
                     className={inputTightClass}
                     style={inputStyle}
                   />
@@ -811,27 +804,37 @@ export function CreateEventModal({
                   selected={location.selected}
                 />
               </div>
-            </div>
 
-            {/* Step 2 — tell people about it */}
-            <div
-              data-step="2"
-              className={step === 2 ? "space-y-5" : "hidden"}
-            >
               <div>
-                <FieldLabel htmlFor={descriptionId}>Description</FieldLabel>
+                <FieldLabel htmlFor={descriptionId} optional>
+                  Description
+                </FieldLabel>
                 <textarea
                   id={descriptionId}
-                  data-autofocus
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="What's this event about?"
-                  rows={4}
+                  rows={3}
                   className={`${inputClass} resize-none`}
                   style={inputStyle}
                 />
               </div>
+            </div>
 
+            <button
+              type="button"
+              onClick={() => setShowMore((v) => !v)}
+              aria-expanded={showMore}
+              aria-controls={moreId}
+              className={`${secondaryButtonClass} mt-4`}
+              style={secondaryButtonStyle}
+            >
+              {showMore ? "Less" : "More"}
+            </button>
+
+            {/* More — cover, tags, community, tickets and the rest. Stays
+                mounted when closed so nothing typed in it is lost. */}
+            <div id={moreId} data-more className={showMore ? "mt-5 space-y-5" : "hidden"}>
               <div>
                 <FieldLabel optional>Cover image</FieldLabel>
                 <input
@@ -944,10 +947,9 @@ export function CreateEventModal({
                   })}
                 </div>
               </div>
-            </div>
 
-            {/* Step 3 — options, all optional */}
-            <div data-step="3" className={step === 3 ? "" : "hidden"}>
+            {/* Options, all optional */}
+            <div>
               {/* Renders nothing for a person in no community — empty:hidden drops the padding too. */}
               <div className={`${EMBEDDED} pb-4 empty:hidden`}>
                 <CommunityPicker
@@ -1123,6 +1125,7 @@ export function CreateEventModal({
                 </div>
               </OptionRow>
             </div>
+            </div>
           </div>
 
           {error && (
@@ -1142,19 +1145,7 @@ export function CreateEventModal({
             className="flex gap-3 px-5 sm:px-6 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-5 border-t flex-shrink-0"
             style={{ borderColor: "var(--app-hairline)" }}
           >
-            {step > 1 && (
-              <button
-                type="button"
-                onClick={goBack}
-                disabled={saving}
-                className={secondaryButtonClass}
-                style={secondaryButtonStyle}
-              >
-                Back
-              </button>
-            )}
             <button
-              key={step === 3 ? "save" : "next"}
               type="submit"
               disabled={primaryDisabled}
               className="flex-1 px-4 py-2.5 rounded-lg text-[13.5px] font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
@@ -1163,15 +1154,13 @@ export function CreateEventModal({
                 color: "var(--garden-ink)",
               }}
             >
-              {step < 3
-                ? "Next"
-                : edit
-                  ? saving
-                    ? "Saving…"
-                    : "Save changes"
-                  : saving
-                    ? "Creating…"
-                    : "Create event"}
+              {edit
+                ? saving
+                  ? "Saving…"
+                  : "Save changes"
+                : saving
+                  ? "Creating…"
+                  : "Create event"}
             </button>
           </div>
         </form>

@@ -38,14 +38,38 @@ export function InviteToThis({
       },
       { replace: true },
     );
+  // A project's page has a form for roles on its Team tab (?tab=team&role=new
+  // opens it, routes/projects.$id.tsx).
+  const sayWho = path.startsWith("/projects/")
+    ? () =>
+        setParams(
+          (prev) => {
+            const next = new URLSearchParams(prev);
+            next.set("tab", "team");
+            next.set("role", "new");
+            return next;
+          },
+          { replace: true, preventScrollReset: true },
+        )
+    : undefined;
   return (
     <div className={className}>
-      <InviteCard path={path} title={title} onDone={done} />
+      <InviteCard path={path} title={title} onDone={done} onSayWhoYouNeed={sayWho} />
     </div>
   );
 }
 
-function InviteCard({ path, title, onDone }: { path: string; title: string; onDone: () => void }) {
+function InviteCard({
+  path,
+  title,
+  onDone,
+  onSayWhoYouNeed,
+}: {
+  path: string;
+  title: string;
+  onDone: () => void;
+  onSayWhoYouNeed?: () => void;
+}) {
   const link = useInviteLink("published", { path, title });
   return (
     <section
@@ -83,6 +107,16 @@ function InviteCard({ path, title, onDone }: { path: string; title: string; onDo
             style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text)" }}
           >
             Share…
+          </button>
+        )}
+        {onSayWhoYouNeed && (
+          <button
+            type="button"
+            onClick={onSayWhoYouNeed}
+            className={buttonClass}
+            style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text)" }}
+          >
+            Say who you need
           </button>
         )}
         <button
