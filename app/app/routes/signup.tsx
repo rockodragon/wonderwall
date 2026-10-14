@@ -16,7 +16,6 @@ import { rememberedInvite } from "../lib/carriedInvite";
 import { setPendingIntent } from "../lib/pendingIntent";
 import { isCheckoutSessionId } from "../../convex/garden/ticketLink";
 import { useBrand } from "../brand/brands";
-import { GardenLockupThemed } from "../brand/GardenMark";
 import { PersonNameHint } from "../components/PersonNameHint";
 import { PersonAvatar } from "../components/PersonAvatar";
 
@@ -387,21 +386,28 @@ export default function Signup() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 px-4 py-8">
       <div className="max-w-md w-full space-y-6">
-        {/* Header with logo and sign in link */}
-        <div className="flex items-center justify-between mb-2">
+        {/* One clear choice up top: sign in or sign up (the same toggle as
+            routes/login.tsx). The product's name sits at the foot. */}
+        <div
+          role="tablist"
+          aria-label="Sign in or sign up"
+          className="mx-auto grid grid-cols-2 rounded-lg bg-gray-200 dark:bg-gray-800 p-1 text-[15px] font-semibold"
+        >
           <Link
-            to="/"
-            className="text-xl font-bold text-gray-900 dark:text-white"
-            aria-label={garden ? "The Garden home" : undefined}
-          >
-            {garden ? <GardenLockupThemed fontSize={20} /> : "TheCreative.exchange"}
-          </Link>
-          <Link
+            role="tab"
+            aria-selected="false"
             to="/login"
-            className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+            className="rounded-md py-2 text-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
           >
             Sign in
           </Link>
+          <span
+            role="tab"
+            aria-selected="true"
+            className="rounded-md bg-white dark:bg-gray-950 py-2 text-center text-gray-900 dark:text-white shadow-sm"
+          >
+            Sign up
+          </span>
         </div>
 
         {ticketSession && (
@@ -753,15 +759,10 @@ export default function Signup() {
               authenticate, see routes.ts. */}
           <AgreementsConsent lead="By creating an account" className="mt-6" />
 
-          <p className="mt-4 text-center text-sm text-gray-600 dark:text-gray-400">
-            Already have an account?{" "}
-            <Link
-              to="/login"
-              className="text-blue-600 hover:text-blue-500 font-medium"
-            >
-              Sign in
-            </Link>
+          <p className="mt-4 text-center text-[13.5px] text-gray-500 dark:text-gray-400">
+            {garden ? "The Garden · same account as TheCreative.exchange" : "TheCreative.exchange"}
           </p>
+
         </div>
         )}
       </div>

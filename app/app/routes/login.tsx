@@ -184,17 +184,29 @@ export default function Login() {
               <GardenLockupThemed fontSize={24} />
             </div>
           )}
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Welcome back
-          </h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">
-            {garden ? "Sign in to The Garden" : "Sign in to TheCreative.exchange"}
-          </p>
-          {garden && (
-            <p className="mt-1.5 text-[13.5px] text-gray-600 dark:text-gray-400">
-              Same account as TheCreative.exchange.
-            </p>
-          )}
+          {/* One clear choice up top: sign in (here) or sign up. The
+              product's name sits below, with the consent line. */}
+          <div
+            role="tablist"
+            aria-label="Sign in or sign up"
+            className="mx-auto grid grid-cols-2 rounded-lg bg-gray-200 dark:bg-gray-800 p-1 text-[15px] font-semibold"
+          >
+            <span
+              role="tab"
+              aria-selected="true"
+              className="rounded-md bg-white dark:bg-gray-950 py-2 text-gray-900 dark:text-white shadow-sm"
+            >
+              Sign in
+            </span>
+            <Link
+              role="tab"
+              aria-selected="false"
+              to={signupPath}
+              className="rounded-md py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+            >
+              Sign up
+            </Link>
+          </div>
         </div>
 
         {phoneStep === "phone" ? (
@@ -384,15 +396,6 @@ export default function Login() {
             </button>
           </form>
 
-          <p className="mt-6 text-center text-[13.5px] text-gray-600 dark:text-gray-400">
-            New here?{" "}
-            <Link
-              to={signupPath}
-              className="text-blue-600 hover:text-blue-500 font-medium"
-            >
-              Create an account
-            </Link>
-          </p>
         </div>
 
         <p className="text-center text-sm">
@@ -409,6 +412,9 @@ export default function Login() {
             links: phone and Google here create an account for someone new,
             and that account joins The Garden. */}
         <AgreementsConsent lead="By continuing" />
+        <p className="text-center text-[13.5px] text-gray-500 dark:text-gray-400">
+          {garden ? "The Garden · same account as TheCreative.exchange" : "TheCreative.exchange"}
+        </p>
       </div>
     </div>
   );
