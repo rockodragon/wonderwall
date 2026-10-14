@@ -11,15 +11,7 @@ import Projects from "../../../app/routes/projects";
 import Favorites from "../../../app/routes/favorites";
 import Messages from "../../../app/routes/messages._index";
 import People from "../../../app/routes/search";
-import { PHONE_NOTE_KEY } from "../../../app/components/PhoneNavNote";
 import "./fixture.css";
-
-// The first-visit note over the bar has been seen; the screens are the point.
-try {
-  localStorage.setItem(PHONE_NOTE_KEY, "seen");
-} catch {
-  // Storage off: the note shows once, that's all.
-}
 
 function Elsewhere({ what }: { what: string }) {
   const params = useParams();

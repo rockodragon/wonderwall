@@ -2,8 +2,7 @@
 // button in the corner is the whole menu on desktop, and nothing else on the
 // page says so. One short note points at it, once per browser. It goes away
 // for good on "Got it" or the first time the palette opens, since either way
-// they have found it. Phones get their own note, on the bottom bar
-// (components/PhoneNavNote.tsx).
+// they have found it. Phones get no note; their bottom bar is the menu.
 //
 // It sits beside the palette rather than inside its root, so the palette's
 // own focus and key handling never see the note's button.

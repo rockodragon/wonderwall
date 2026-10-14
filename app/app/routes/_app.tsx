@@ -16,7 +16,6 @@ import { initialsOf } from "../lib/initials";
 import { GARDEN_SLUG } from "../lib/communitySlugs";
 import { PHONE_BAR_HEIGHT } from "../lib/phoneBar";
 import { Palette } from "../desk/Palette";
-import { PhoneNavName, PhoneNavNoteCard, usePhoneNavNote } from "../components/PhoneNavNote";
 import { NeedsYouDot } from "../components/shortlist/NeedsYouDot";
 import { useShortlist } from "../lib/shortlist/useShortlist";
 import { CountBadge } from "../components/phone/CountBadge";
@@ -203,13 +202,12 @@ export default function AppLayout() {
     if (mustInvite && !onEventPage && !onTablePage) navigate("/invite", { replace: true });
   }, [mustInvite, onEventPage, onTablePage, navigate]);
 
-  // The first-visit notes that say where the menu is (desk/PaletteHint.tsx,
-  // components/PhoneNavNote.tsx) wait until nothing above is about to send
-  // this person somewhere else.
+  // The desktop first-visit note that says where the menu is
+  // (desk/PaletteHint.tsx) waits until nothing above is about to send this
+  // person somewhere else.
   const navNoteReady =
     !isLoading &&
     (!isAuthenticated || (profile !== undefined && signupCommunity !== undefined && !mustOnboard && !mustInvite));
-  const phoneNote = usePhoneNavNote(navNoteReady);
 
   useEffect(() => {
     if (isAuthenticated && mustOnboard && !onEventPage && !onTablePage && !mustInvite) {
@@ -369,9 +367,8 @@ export default function AppLayout() {
           boxShadow: "0 -8px 24px -6px rgba(0, 0, 0, 0.35)",
         }}
       >
-        {phoneNote.show && <PhoneNavNoteCard count={barItems.length} onDismiss={phoneNote.dismiss} />}
         <div className="h-full flex items-center justify-around">
-          {barItems.map((item, i) => {
+          {barItems.map((item) => {
             const isActive = location.pathname.startsWith(item.path);
             const isProfileItem = item.path === "/settings";
             return (
@@ -382,9 +379,7 @@ export default function AppLayout() {
                 className="relative flex items-center justify-center p-2"
                 style={{ color: isActive ? "var(--app-accent-ink)" : "var(--app-text-dim)" }}
                 aria-label={item.label}
-                onClick={phoneNote.dismiss}
               >
-                {phoneNote.show && <PhoneNavName label={item.label} index={i} count={barItems.length} />}
                 {isProfileItem && profile?.imageUrl ? (
                   <img
                     src={profile.imageUrl}

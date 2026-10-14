@@ -1,6 +1,5 @@
 // A note shown once per browser: the palette's (desk/PaletteHint.tsx) and the
-// phone bar's names (components/PhoneNavNote.tsx). It waits until the page
-// has settled, shows after a beat, and is gone for good once dismissed.
+// invite nudge. It waits until the page has settled, shows after a beat, and is gone for good once dismissed.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
