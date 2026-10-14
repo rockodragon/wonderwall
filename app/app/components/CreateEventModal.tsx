@@ -814,8 +814,8 @@ export function CreateEventModal({
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="What's this event about?"
-                  rows={3}
-                  className={`${inputClass} resize-none`}
+                  rows={6}
+                  className={`${inputClass} resize-y`}
                   style={inputStyle}
                 />
               </div>

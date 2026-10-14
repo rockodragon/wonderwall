@@ -280,12 +280,16 @@ export default function AppLayout() {
     .filter((c) => c.slug !== GARDEN_SLUG)
     .sort((a, b) => b.memberCount - a.memberCount)
     .slice(0, VISIT_LIMIT);
-  // The bar: Today and you need an account, so a signed-out visitor on a
-  // public path gets the places alone, at their public addresses.
+  // The bar: Today and Profile need an account, so a signed-out visitor on a
+  // public path gets the places at their public addresses plus Sign in.
   const barItems = [
     ...(isAuthenticated ? [{ path: "/today", label: "Today", icon: Sun }] : []),
     ...[...places].sort((a, b) => barRank(a.to) - barRank(b.to)),
-    ...(isAuthenticated ? [{ path: "/settings", label: "Profile", icon: UserCircle }] : []),
+    // Signed in: your profile. Signed out: the same icon opens sign in /
+    // sign up, so a visitor isn't left with three places and no way in.
+    isAuthenticated
+      ? { path: "/settings", label: "Profile", icon: UserCircle }
+      : { path: "/login", label: "Sign in", icon: UserCircle },
   ];
 
   // Shared active/inactive treatment for every sidebar/bottom-nav link —

@@ -589,6 +589,18 @@ export default function EventDetail() {
               </p>
             )}
 
+            {/* Phone: a long description pushes the ticket card far down, so a
+                paid event gets a jump to it up here too. */}
+            {cta.kind === "external" && !!cta.priceCents && (
+              <a
+                href="#event-ticket"
+                className="md:hidden mb-4 flex items-center justify-center rounded-lg px-4 py-3 text-[15px] font-semibold"
+                style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
+              >
+                Buy tickets · {formatCents(cta.priceCents)}
+              </a>
+            )}
+
             {/* Description — optional since 2026-10-13; nothing renders without one */}
             {!!event.description?.trim() && (
               <div className="prose dark:prose-invert max-w-none">
@@ -628,7 +640,11 @@ export default function EventDetail() {
             card is lower down. Back from a Stripe checkout, the ticket is
             claimed for this account. */}
         {cta.kind === "external" && cta.stripe && <TicketSessionClaimer />}
-        {cta.kind === "external" && <div className="md:hidden mb-8">{ctaCard}</div>}
+        {cta.kind === "external" && (
+          <div id="event-ticket" className="md:hidden mb-8 scroll-mt-4">
+            {ctaCard}
+          </div>
+        )}
 
         {/* Video: join link + recording (docs/gated-event-video-prd.md).
             The URLs live in the separate eventVideo table and arrive only

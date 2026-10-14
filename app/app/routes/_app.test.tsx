@@ -95,11 +95,12 @@ describe("the phone's bottom bar", () => {
     expect(on[0].match(/<path d="([^"]+)"/)![1]).not.toBe(off.match(/<path d="([^"]+)"/)![1]);
   });
 
-  it("shows the three public places alone, signed out, at their public addresses", async () => {
+  it("shows the three public places plus Sign in, signed out, at their public addresses", async () => {
     scene.signedIn = false;
     const markup = bar(await shell("/people"));
-    expect(labels(markup)).toEqual(["Projects", "Events", "People"]);
+    expect(labels(markup)).toEqual(["Projects", "Events", "People", "Sign in"]);
     expect(markup).toContain('href="/opportunities"');
+    expect(markup).toContain('href="/login"');
     expect(markup).toContain('href="/events"');
     expect(markup).not.toContain('href="/today"');
     expect(markup).not.toContain('href="/settings"');
