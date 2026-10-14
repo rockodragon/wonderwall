@@ -265,6 +265,9 @@ export default defineSchema({
         ),
       ),
     ),
+    // Short readable address: /e/renaissance-nov6 (convex/eventSlug.ts).
+    // Set at creation, unique; absent on events not yet backfilled.
+    slug: v.optional(v.string()),
     title: v.string(),
     description: v.string(),
     datetime: v.number(),
@@ -395,6 +398,7 @@ export default defineSchema({
     .index("by_organizerId", ["organizerId"])
     .index("by_datetime", ["datetime"])
     .index("by_status", ["status"])
+    .index("by_slug", ["slug"])
     .index("by_hostOrgId", ["hostOrgId"]),
 
   // One row per (event, co-host): events.coHostIds as rows, so "events I

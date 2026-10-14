@@ -47,6 +47,7 @@ import type * as eventAccess from "../eventAccess.js";
 import type * as eventAddress from "../eventAddress.js";
 import type * as eventGuests from "../eventGuests.js";
 import type * as eventHosts from "../eventHosts.js";
+import type * as eventSlug from "../eventSlug.js";
 import type * as eventSpots from "../eventSpots.js";
 import type * as eventVideo from "../eventVideo.js";
 import type * as eventWindow from "../eventWindow.js";
@@ -198,6 +199,7 @@ declare const fullApi: ApiFromModules<{
   eventAddress: typeof eventAddress;
   eventGuests: typeof eventGuests;
   eventHosts: typeof eventHosts;
+  eventSlug: typeof eventSlug;
   eventSpots: typeof eventSpots;
   eventVideo: typeof eventVideo;
   eventWindow: typeof eventWindow;

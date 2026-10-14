@@ -13,7 +13,7 @@ const EVENT_PLACE = "Lightchurch, Encinitas, California";
 
 const TICKET = {
   label: "Admission",
-  price: "$25",
+  price: "$20",
 } as const;
 
 // The November 6 event on the platform. Its page sells the ticket. The event
@@ -266,7 +266,7 @@ export function ShowcaseContent({ embedded = false }: { embedded?: boolean }) {
       <Section label="The details">
         <FactLine k="When" v={EVENT_DATE} />
         <FactLine k="Where" v={EVENT_PLACE} />
-        <FactLine k="Admission" v={TICKET.price} />
+        <FactLine k="Admission" v={`${TICKET.price} · Kids under 12 free`} />
       </Section>
 
       {/* Art is submitted from a profile in the app, not a form here. Its
@@ -301,7 +301,7 @@ export function ShowcaseContent({ embedded = false }: { embedded?: boolean }) {
       <Section label="Questions people ask">
         <div style={{ display: "grid", gap: 10 }}>
           <Faq q="What does it cost?">
-            {TICKET.price} a ticket. Every ticket goes into
+            {TICKET.price} a ticket, and kids under 12 are free. Every ticket goes into
             the Sophia Grant Fund, an artist grant fund that backs projects by
             creatives in the community.{" "}
             <Link to="/fund/sophia" style={{ color: "var(--g-citron)" }}>

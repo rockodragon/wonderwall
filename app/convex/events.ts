@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { escapeHtml } from "./email/template";
+import { newEventSlug } from "./eventSlug";
 import { internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { fail } from "./errors";
@@ -639,6 +640,7 @@ export const create = mutation({
 
     const eventId = await ctx.db.insert("events", {
       organizerId: userId,
+      slug: await newEventSlug(ctx, title, args.datetime),
       title,
       description: args.description.trim(),
       datetime: args.datetime,

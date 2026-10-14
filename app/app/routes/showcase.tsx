@@ -7,7 +7,7 @@
 // ways to take part and a grid of personas. All of that is gone: art is
 // submitted from a member's profile in the app (the FAQ points there), not
 // through a form on this page, and we are not sorting people into
-// creatives and patrons. Everyone gets the same $25 ticket; generosity beyond
+// creatives and patrons. Everyone gets the same $20 ticket; generosity beyond
 // it is something we ask for later, not something the ticket tries to
 // extract. If this page starts growing roles, tiers or an application again,
 // that is a product decision to take back to Rick, not a copy edit.
@@ -43,7 +43,7 @@ export function meta() {
     {
       name: "description",
       content:
-        "A night of creative work at Lightchurch, Encinitas. Tickets $25, and every ticket goes into the Sophia Grant Fund. November 6, 2026.",
+        "A night of creative work at Lightchurch, Encinitas. Tickets $20, and every ticket goes into the Sophia Grant Fund. November 6, 2026.",
     },
     {
       property: "og:title",
@@ -52,7 +52,7 @@ export function meta() {
     {
       property: "og:description",
       content:
-        "A night of creative work at Lightchurch, Encinitas. Tickets $25. Every ticket goes into the Sophia Grant Fund.",
+        "A night of creative work at Lightchurch, Encinitas. Tickets $20. Every ticket goes into the Sophia Grant Fund.",
     },
     { property: "og:type", content: "website" },
     // Absolute — a relative og:image doesn't unfurl on Instagram, iMessage
@@ -68,7 +68,7 @@ export function meta() {
     {
       name: "twitter:description",
       content:
-        "A night of creative work at Lightchurch, Encinitas. Tickets $25. Every ticket goes into the Sophia Grant Fund.",
+        "A night of creative work at Lightchurch, Encinitas. Tickets $20. Every ticket goes into the Sophia Grant Fund.",
     },
     { name: "twitter:image", content: OG_IMAGE },
   ];
