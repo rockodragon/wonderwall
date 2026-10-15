@@ -15,13 +15,17 @@ export function projectTabs(opts: {
   isPassion: boolean;
   /** Join requests waiting on the owner; 0 for anyone else. */
   requests: number;
+  /** Everyone who cheered or backed it, shown to every viewer; 0 or left out for none. */
+  supporters?: number;
 }): { id: ProjectTab; label: string }[] {
   const team = opts.requests > 0 ? `Team · ${opts.requests} ${opts.requests === 1 ? "request" : "requests"}` : "Team";
   return [
     { id: "about", label: "About" },
     opts.isGig ? { id: "dates", label: "Dates" } : { id: "team", label: team },
     { id: "updates", label: "Updates" },
-    ...(opts.isPassion ? [{ id: "support" as const, label: "Support" }] : []),
+    ...(opts.isPassion
+      ? [{ id: "support" as const, label: opts.supporters ? `Support · ${opts.supporters}` : "Support" }]
+      : []),
   ];
 }
 

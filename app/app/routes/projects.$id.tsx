@@ -281,7 +281,7 @@ export default function ProjectDetail() {
 
   // Requests waiting on the owner are the one thing worth a number on a tab.
   const requests = isOwner ? (team?.pending?.length ?? 0) : 0;
-  const tabs = projectTabs({ isGig, isPassion, requests });
+  const tabs = projectTabs({ isGig, isPassion, requests, supporters: project.supportCount });
   const tab = readProjectTab(rawTab, tabs);
   function selectTab(next: ProjectTab) {
     // Replace the history entry, and stay where the page is scrolled.

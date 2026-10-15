@@ -22,6 +22,11 @@ describe("projectTabs", () => {
     expect(labels(projectTabs({ isGig: false, isPassion: true, requests: 1 }))[1]).toBe("Team · 1 request");
     expect(labels(projectTabs({ isGig: false, isPassion: true, requests: 2 }))[1]).toBe("Team · 2 requests");
   });
+
+  it("counts supporters on the Support tab for everyone", () => {
+    expect(labels(projectTabs({ isGig: false, isPassion: true, requests: 0, supporters: 3 }))[3]).toBe("Support · 3");
+    expect(labels(projectTabs({ isGig: false, isPassion: true, requests: 0, supporters: 0 }))[3]).toBe("Support");
+  });
 });
 
 describe("readProjectTab", () => {
