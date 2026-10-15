@@ -515,8 +515,9 @@ export function CreateEventModal({
           eventId: edit.eventId,
           title,
           description,
-          // Emptied = back to the generated link (events.update).
-          slug,
+          // Only when the host changed it, so an ordinary save never depends
+          // on the link at all. Emptied = back to the generated link.
+          ...(slug.trim() !== (init?.slug ?? "") ? { slug } : {}),
           datetime,
           endTime,
           // Left out on a Table's Event (events.update never writes them there).
