@@ -259,6 +259,7 @@ export type EventEditTarget = {
     waitlist?: boolean;
     hideAddress?: boolean;
     slug?: string;
+    faq?: { q: string; a: string }[];
   };
 };
 
@@ -309,6 +310,7 @@ export function CreateEventModal({
   const [description, setDescription] = useState(init?.description ?? "");
   const slugId = `${uid}-slug`;
   const [slug, setSlug] = useState(init?.slug ?? "");
+  const [faq, setFaq] = useState<{ q: string; a: string }[]>(init?.faq ?? []);
   const [date, setDate] = useState(
     initStart
       ? `${initStart.getFullYear()}-${pad2(initStart.getMonth() + 1)}-${pad2(initStart.getDate())}`
@@ -364,6 +366,7 @@ export function CreateEventModal({
         init.requiresApproval ||
         !!init.capacity ||
         !!init.hideAddress ||
+        (init.faq?.length ?? 0) > 0 ||
         !!edit.coverImageUrl),
   );
   const moreId = `${uid}-more`;
@@ -518,6 +521,8 @@ export function CreateEventModal({
           // Only when the host changed it, so an ordinary save never depends
           // on the link at all. Emptied = back to the generated link.
           ...(slug.trim() !== (init?.slug ?? "") ? { slug } : {}),
+          // Only when changed; an emptied list clears it (events.update).
+          ...(JSON.stringify(faq) !== JSON.stringify(init?.faq ?? []) ? { faq } : {}),
           datetime,
           endTime,
           // Left out on a Table's Event (events.update never writes them there).
@@ -574,6 +579,7 @@ export function CreateEventModal({
         hideAddress,
         hostOrgId: hostOrgId ? (hostOrgId as any) : undefined,
         mediaUrl: mediaLink.state === "ok" ? mediaLink.url : undefined,
+        ...(faq.length ? { faq } : {}),
       });
 
       // The event exists now. A cover that fails to attach isn't worth
@@ -1139,6 +1145,54 @@ export function CreateEventModal({
                 </div>
               </OptionRow>
               )}
+
+              <div>
+                <p className="text-[13.5px] font-medium mb-2" style={{ color: "var(--app-text)" }}>
+                  Questions people ask <span style={{ color: "var(--app-text-muted)" }}>(optional)</span>
+                </p>
+                <div className="space-y-3">
+                  {faq.map((row, i) => (
+                    <div key={i} className="space-y-2 rounded-lg border p-3" style={{ borderColor: "var(--app-hairline-raised)" }}>
+                      <input
+                        type="text"
+                        aria-label={`Question ${i + 1}`}
+                        value={row.q}
+                        onChange={(e) => setFaq((rows) => rows.map((r, j) => (j === i ? { ...r, q: e.target.value } : r)))}
+                        placeholder="Question"
+                        className={inputClass}
+                        style={inputStyle}
+                      />
+                      <textarea
+                        aria-label={`Answer ${i + 1}`}
+                        value={row.a}
+                        onChange={(e) => setFaq((rows) => rows.map((r, j) => (j === i ? { ...r, a: e.target.value } : r)))}
+                        placeholder="Answer. Link with [text](https://…) or [text](/page)."
+                        rows={3}
+                        className={`${inputClass} resize-y`}
+                        style={inputStyle}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFaq((rows) => rows.filter((_, j) => j !== i))}
+                        className="text-[13.5px] underline underline-offset-2"
+                        style={{ color: "var(--app-text-muted)" }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                  {faq.length < 12 && (
+                    <button
+                      type="button"
+                      onClick={() => setFaq((rows) => [...rows, { q: "", a: "" }])}
+                      className={secondaryButtonClass}
+                      style={secondaryButtonStyle}
+                    >
+                      Add a question
+                    </button>
+                  )}
+                </div>
+              </div>
 
               <OptionRow
                 label="Video or reel link"

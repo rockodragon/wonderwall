@@ -45,6 +45,7 @@ import type * as engagement_rules from "../engagement/rules.js";
 import type * as engagement_schedule from "../engagement/schedule.js";
 import type * as eventAccess from "../eventAccess.js";
 import type * as eventAddress from "../eventAddress.js";
+import type * as eventFaq from "../eventFaq.js";
 import type * as eventGuests from "../eventGuests.js";
 import type * as eventHosts from "../eventHosts.js";
 import type * as eventSlug from "../eventSlug.js";
@@ -197,6 +198,7 @@ declare const fullApi: ApiFromModules<{
   "engagement/schedule": typeof engagement_schedule;
   eventAccess: typeof eventAccess;
   eventAddress: typeof eventAddress;
+  eventFaq: typeof eventFaq;
   eventGuests: typeof eventGuests;
   eventHosts: typeof eventHosts;
   eventSlug: typeof eventSlug;

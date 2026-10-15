@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { escapeHtml } from "./email/template";
 import { newEventSlug, resolveSlugEdit } from "./eventSlug";
+import { faqValidator, normalizeFaq } from "./eventFaq";
 import { internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { fail } from "./errors";
@@ -604,9 +605,12 @@ export const create = mutation({
     // image (docs/features/creator-media-cross-post.md). Stored the way every
     // table stores one — see canonicalMediaUrl in convex/linkPreview.ts.
     mediaUrl: v.optional(v.string()),
+    faq: v.optional(faqValidator),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
+    const { faq, error: faqError } = normalizeFaq(args.faq);
+    if (faqError) throw new ConvexError(faqError);
 
     // ConvexError, not Error: in production only a ConvexError's data
     // reaches the client, and these messages are written for the person
@@ -641,6 +645,7 @@ export const create = mutation({
     const eventId = await ctx.db.insert("events", {
       organizerId: userId,
       slug: await newEventSlug(ctx, title, args.datetime),
+      ...(faq?.length ? { faq } : {}),
       title,
       description: args.description.trim(),
       datetime: args.datetime,
@@ -749,9 +754,13 @@ export const update = mutation({
     // The short address, /e/<slug> (convex/eventSlug.ts). Left out =
     // untouched; empty = back to the generated one.
     slug: v.optional(v.string()),
+    // Questions people ask. Left out = untouched; [] clears the list.
+    faq: v.optional(faqValidator),
   },
   handler: async (ctx, args) => {
     const { userId, event } = await requireEventHost(ctx, args.eventId);
+    const { faq, error: faqError } = normalizeFaq(args.faq);
+    if (faqError) throw new ConvexError(faqError);
     const slug = args.slug === undefined ? undefined : await resolveSlugEdit(ctx, event, args.slug);
 
     // ConvexError, not Error: in production only a ConvexError's data
@@ -843,6 +852,7 @@ export const update = mutation({
       ...(args.hideAddress !== undefined ? { hideAddress: args.hideAddress || undefined } : {}),
       ...mediaPatch,
       ...(slug !== undefined ? { slug } : {}),
+      ...(faq !== undefined ? { faq: faq.length ? faq : undefined } : {}),
       updatedAt: Date.now(),
     });
 

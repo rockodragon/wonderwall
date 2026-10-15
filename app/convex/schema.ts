@@ -268,6 +268,8 @@ export default defineSchema({
     // Short readable address: /e/renaissance-nov6 (convex/eventSlug.ts).
     // Set at creation, unique; absent on events not yet backfilled.
     slug: v.optional(v.string()),
+    // "Questions people ask" on the event page (convex/eventFaq.ts).
+    faq: v.optional(v.array(v.object({ q: v.string(), a: v.string() }))),
     title: v.string(),
     description: v.string(),
     datetime: v.number(),

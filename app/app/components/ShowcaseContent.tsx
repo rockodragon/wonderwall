@@ -7,6 +7,7 @@ import { Link, useNavigate } from "react-router";
 import { SectionLabel } from "../garden/ui";
 import "../garden/garden.css";
 import { CLAIMS } from "../constants/claims";
+import { FaqAnswer } from "./EventFaq";
 
 const EVENT_DATE = "Friday, November 6, 2026";
 const EVENT_PLACE = "Lightchurch, Encinitas, California";
@@ -20,6 +21,28 @@ const TICKET = {
 // page matches on this id to show this content inside the event.
 export const SHOWCASE_EVENT_ID = "kd7atbz3s1t2rccgt4pn10pvd98cdz62";
 const EVENT_PATH = `/events/${SHOWCASE_EVENT_ID}`;
+
+/** The questions this event started with. The event page shows what the host
+ * saved (events.faq) and falls back to these until they save their own. */
+export const SHOWCASE_FAQ: { q: string; a: string }[] = [
+  {
+    q: "What does it cost?",
+    a: `${TICKET.price} a ticket, and kids under 12 are free. Every ticket goes into the Sophia Grant Fund, an artist grant fund that backs projects by creatives in the community. [About the Sophia Grant Fund →](/fund/sophia)`,
+  },
+  { q: "Do I have to be a creative to come?", a: "No. Anyone can come." },
+  {
+    q: "How do I submit my work?",
+    a: "From your profile in the app. Add your work to [your profile](/settings) and that's where we'll see it. There's no separate form.",
+  },
+  {
+    q: "Do I have to pay for a membership?",
+    a: "No, and a ticket doesn't sign you up for one. [Membership](/join) is separate.",
+  },
+  {
+    q: "Is the work all religious?",
+    a: "No. What we want to platform is redemptive work: work that embodies truth, goodness and beauty.",
+  },
+];
 
 // The opening is a poem, and it is set as one: stanzas, and line breaks
 // where the writer put them. Never let a tidy-up collapse these into
@@ -298,39 +321,19 @@ export function ShowcaseContent({ embedded = false }: { embedded?: boolean }) {
         </div>
       </Section>
 
+      {/* On the event page the host edits these (components/EventFaq.tsx);
+          this page shows the defaults. */}
+      {!embedded && (
       <Section label="Questions people ask">
         <div style={{ display: "grid", gap: 10 }}>
-          <Faq q="What does it cost?">
-            {TICKET.price} a ticket, and kids under 12 are free. Every ticket goes into
-            the Sophia Grant Fund, an artist grant fund that backs projects by
-            creatives in the community.{" "}
-            <Link to="/fund/sophia" style={{ color: "var(--g-citron)" }}>
-              About the Sophia Grant Fund →
-            </Link>
-          </Faq>
-          <Faq q="Do I have to be a creative to come?">
-            No. Anyone can come.
-          </Faq>
-          <Faq q="How do I submit my work?">
-            From your profile in the app. Add your work to{" "}
-            <Link to="/settings" style={{ color: "var(--g-citron)" }}>
-              your profile
-            </Link>{" "}
-            and that's where we'll see it. There's no separate form.
-          </Faq>
-          <Faq q="Do I have to pay for a membership?">
-            No, and a ticket doesn't sign you up for one.{" "}
-            <Link to="/join" style={{ color: "var(--g-citron)" }}>
-              Membership
-            </Link>{" "}
-            is separate.
-          </Faq>
-          <Faq q="Is the work all religious?">
-            No. What we want to platform is redemptive work: work that embodies
-            truth, goodness and beauty.
-          </Faq>
+          {SHOWCASE_FAQ.map((item) => (
+            <Faq key={item.q} q={item.q}>
+              <FaqAnswer text={item.a} linkStyle={{ color: "var(--g-citron)" }} />
+            </Faq>
+          ))}
         </div>
       </Section>
+      )}
 
       {!embedded && (
       <Section label="See you there">

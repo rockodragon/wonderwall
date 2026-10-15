@@ -49,7 +49,8 @@ import { YOUTUBE_LIVE_LABEL, YOUTUBE_LIVE_URL } from "../constants/broadcast";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { ShareButton } from "../components/ShareButton";
 import { InviteToThis } from "../components/InviteToThis";
-import { ShowcaseContent, SHOWCASE_EVENT_ID } from "../components/ShowcaseContent";
+import { ShowcaseContent, SHOWCASE_EVENT_ID, SHOWCASE_FAQ } from "../components/ShowcaseContent";
+import { EventFaq } from "../components/EventFaq";
 import { hostLabels } from "../lib/eventHosts";
 import { HostedBy } from "../components/HostedBy";
 import { GENERIC_ERROR, errorMessage, isNotSignedIn } from "../lib/convexError";
@@ -273,6 +274,7 @@ export default function EventDetail() {
   });
   const ctaCard = <EventCtaCard eventId={event._id} cta={cta} rsvp={rsvp} spot={spot} isGuest={!!isGuest} />;
   const isHost = !!(event.isHost ?? event.isOrganizer);
+  const faqItems = event.faq ?? (event._id === SHOWCASE_EVENT_ID ? SHOWCASE_FAQ : []);
   // Hosts get one list of people, Guests (emails, payments, approvals,
   // messaging), in place of the public Who's going — two lists of the same
   // people read as two different things.
@@ -612,6 +614,10 @@ export default function EventDetail() {
                 <ShowcaseContent embedded />
               </div>
             )}
+
+            {/* Questions people ask: the host's list. The showcase event
+                shows its starting list until its hosts save their own. */}
+            <EventFaq items={faqItems} />
           </div>
 
           {/* Right: the event's one call to action (desktop). The same card
@@ -877,6 +883,7 @@ export default function EventDetail() {
             waitlist: event.waitlist,
             hideAddress: event.hideAddress,
             slug: event.slug,
+            faq: faqItems,
             },
           }}
           onClose={() => setShowEditForm(false)}
