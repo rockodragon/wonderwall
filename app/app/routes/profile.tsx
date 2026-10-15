@@ -8,6 +8,7 @@ import { EmbedStill, PlayBadge } from "../components/EmbedStill";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { ShortlistLink } from "../components/shortlist/ShortlistLink";
 import { ShareButton } from "../components/ShareButton";
+import { shownTitle } from "../lib/placeholderTitle";
 import { OrgLogo } from "../components/OrgLogo";
 import { ProjectTile } from "../components/ProjectTile";
 import { yearsLabel } from "../../convex/organizationRules";
@@ -134,9 +135,19 @@ export default function Profile() {
     );
   }
 
+  const shareAndMore = (
+    <>
+      <ShareButton type="profile" title={profile.name} size="sm" />
+      {!isOwnProfile && blockStatus !== undefined && (
+        <ProfileOverflowMenu blocked={blockStatus.blockedByMe} onToggleBlock={handleToggleBlock} />
+      )}
+    </>
+  );
+
   return (
-    <div className={`p-4 sm:p-6 ${PAGE_WIDTH.list} mx-auto`}>
+    <div className={`relative p-4 sm:p-6 ${PAGE_WIDTH.list} mx-auto`}>
       <BackLink fallback="/people" className="mb-6" />
+      <div className="absolute top-3 right-3 flex items-center gap-1 sm:hidden">{shareAndMore}</div>
       {/* Profile header. Identity (name/role/location/network) sits on the
           left, all the ways to act on this person are grouped on the right
           — Follow/Message/Share stay one click away, Block moves into the
@@ -307,13 +318,9 @@ export default function Profile() {
                   Message
                 </button>
               )}
-              <ShareButton type="profile" title={profile.name} size="sm" />
-              {!isOwnProfile && blockStatus !== undefined && (
-                <ProfileOverflowMenu
-                  blocked={blockStatus.blockedByMe}
-                  onToggleBlock={handleToggleBlock}
-                />
-              )}
+              {/* Share and the kebab: beside Message on a wide screen, in the
+                  page's upper-right corner on a phone (below). */}
+              <div className="hidden sm:flex items-center gap-2">{shareAndMore}</div>
             </div>
             {conversationError && (
               <p role="alert" className="text-[13.5px] text-red-600 dark:text-red-400">
@@ -531,7 +538,7 @@ export default function Profile() {
                 style={{ backgroundColor: "var(--app-hairline-raised)" }}
               >
                 {a.imageUrl ? (
-                  <img src={a.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                  <img src={a.imageUrl} alt="" decoding="async" className="absolute inset-0 w-full h-full object-cover" />
                 ) : (
                   // No picture: the words are the work (a shared text post).
                   a.blurb && a.blurb.trim() !== a.title.trim() && (
@@ -545,7 +552,12 @@ export default function Profile() {
                 )}
                 <div
                   className="absolute inset-x-0 bottom-0 p-3"
-                  style={{ background: "linear-gradient(transparent, rgba(0,0,0,0.78))" }}
+                  style={{
+                    background:
+                      shownTitle(a.title) || (a.role && a.role !== "Lead")
+                        ? "linear-gradient(transparent, rgba(0,0,0,0.78))"
+                        : undefined,
+                  }}
                 >
                   {a.role && a.role !== "Lead" && (
                     <span
@@ -555,9 +567,11 @@ export default function Profile() {
                       {a.role}
                     </span>
                   )}
-                  <p className="text-sm font-medium line-clamp-2" style={{ color: "#f7f7f4" }}>
-                    {a.title}
-                  </p>
+                  {shownTitle(a.title) && (
+                    <p className="text-sm font-medium line-clamp-2" style={{ color: "#f7f7f4" }}>
+                      {shownTitle(a.title)}
+                    </p>
+                  )}
                 </div>
               </Link>
             ))}
@@ -582,6 +596,7 @@ export default function Profile() {
                       <img
                         src={artifact.mediaUrl}
                         alt=""
+                        decoding="async"
                         className="w-full h-full object-cover"
                       />
                       {/* Link indicator for images that have an associated link */}
