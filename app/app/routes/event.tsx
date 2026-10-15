@@ -592,13 +592,7 @@ export default function EventDetail() {
             {/* Phone: a long description pushes the ticket card far down, so a
                 paid event gets a jump to it up here too. */}
             {cta.kind === "external" && !!cta.priceCents && (
-              <a
-                href="#event-ticket"
-                className="md:hidden mb-4 flex items-center justify-center rounded-lg px-4 py-3 text-[15px] font-semibold"
-                style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
-              >
-                Buy tickets · {formatCents(cta.priceCents)}
-              </a>
+              <JumpToTicket eventId={event._id} priceCents={cta.priceCents} />
             )}
 
             {/* Description — optional since 2026-10-13; nothing renders without one */}
@@ -2102,6 +2096,23 @@ function TicketSessionClaimer() {
   }, [isAuthenticated, claim]);
 
   return null;
+}
+
+/** Phone: the jump to the ticket card, up top. Gone once there is nothing to
+ * buy: someone who already paid sees "You're in" in the card, not a Buy. */
+function JumpToTicket({ eventId, priceCents }: { eventId: Id<"events">; priceCents: number }) {
+  const myRsvp = useQuery(api.garden.eventRsvps.getMyRsvpStatus, { eventId });
+  const [searchParams] = useSearchParams();
+  if (myRsvp?.paidCents || searchParams.get("paid") === "1") return null;
+  return (
+    <a
+      href="#event-ticket"
+      className="md:hidden mb-4 flex items-center justify-center rounded-lg px-4 py-3 text-[15px] font-semibold"
+      style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
+    >
+      Buy tickets · {formatCents(priceCents)}
+    </a>
+  );
 }
 
 function TicketCardShell({ children }: { children: ReactNode }) {
