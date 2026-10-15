@@ -882,6 +882,7 @@ export default function EventDetail() {
             capacity: event.capacity ?? undefined,
             waitlist: event.waitlist,
             hideAddress: event.hideAddress,
+            slug: event.slug,
             },
           }}
           onClose={() => setShowEditForm(false)}

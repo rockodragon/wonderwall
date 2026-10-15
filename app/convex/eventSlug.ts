@@ -4,7 +4,8 @@
 // functions/e/[slug].ts and routes/e.$slug.tsx send the address to
 // /events/:id.
 
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
+import type { Doc } from "./_generated/dataModel";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, query, type QueryCtx } from "./_generated/server";
 
@@ -65,6 +66,20 @@ export async function uniqueEventSlug(ctx: QueryCtx, base: string, except?: Id<"
     if (!(await taken(ctx, candidate, except))) return candidate;
   }
   return `${base}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** A host's edit of the address. Empty gives the generated one back; a taken
+ * or too-short one is refused in words the host can act on. */
+export async function resolveSlugEdit(ctx: QueryCtx, event: Doc<"events">, input: string): Promise<string> {
+  const slug = cleanSlug(input);
+  if (!slug) return uniqueEventSlug(ctx, eventSlugBase(event.title, event.datetime), event._id);
+  if (slug.length < 3) {
+    throw new ConvexError({ code: "slug_short", reason: "The link needs at least 3 letters or numbers." });
+  }
+  if (await taken(ctx, slug, event._id)) {
+    throw new ConvexError({ code: "slug_taken", reason: "That link is already used by another event. Try another." });
+  }
+  return slug;
 }
 
 /** The address for a new event. */

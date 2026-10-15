@@ -258,6 +258,7 @@ export type EventEditTarget = {
     capacity?: number;
     waitlist?: boolean;
     hideAddress?: boolean;
+    slug?: string;
   };
 };
 
@@ -306,6 +307,8 @@ export function CreateEventModal({
 
   const [title, setTitle] = useState(init?.title ?? "");
   const [description, setDescription] = useState(init?.description ?? "");
+  const slugId = `${uid}-slug`;
+  const [slug, setSlug] = useState(init?.slug ?? "");
   const [date, setDate] = useState(
     initStart
       ? `${initStart.getFullYear()}-${pad2(initStart.getMonth() + 1)}-${pad2(initStart.getDate())}`
@@ -512,6 +515,8 @@ export function CreateEventModal({
           eventId: edit.eventId,
           title,
           description,
+          // Emptied = back to the generated link (events.update).
+          slug,
           datetime,
           endTime,
           // Left out on a Table's Event (events.update never writes them there).
@@ -819,6 +824,32 @@ export function CreateEventModal({
                   style={inputStyle}
                 />
               </div>
+
+              {/* The short address; only an existing event has one to edit. */}
+              {edit && (
+                <div>
+                  <FieldLabel htmlFor={slugId} optional>
+                    Link
+                  </FieldLabel>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[13.5px] whitespace-nowrap" style={{ color: "var(--app-text-muted)" }}>
+                      /e/
+                    </span>
+                    <input
+                      id={slugId}
+                      type="text"
+                      value={slug}
+                      onChange={(e) => setSlug(e.target.value)}
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      placeholder="renaissance-nov6"
+                      className={inputClass}
+                      style={inputStyle}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             <button

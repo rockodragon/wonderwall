@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { escapeHtml } from "./email/template";
-import { newEventSlug } from "./eventSlug";
+import { newEventSlug, resolveSlugEdit } from "./eventSlug";
 import { internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { fail } from "./errors";
@@ -746,9 +746,13 @@ export const update = mutation({
     // that doesn't know the field can't wipe it; an empty string clears it —
     // the same v.optional-takes-no-null reason clearCommunity exists.
     mediaUrl: v.optional(v.string()),
+    // The short address, /e/<slug> (convex/eventSlug.ts). Left out =
+    // untouched; empty = back to the generated one.
+    slug: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { userId, event } = await requireEventHost(ctx, args.eventId);
+    const slug = args.slug === undefined ? undefined : await resolveSlugEdit(ctx, event, args.slug);
 
     // ConvexError, not Error: in production only a ConvexError's data
     // reaches the client, and these messages are written for the person
@@ -838,6 +842,7 @@ export const update = mutation({
       ...(args.waitlist !== undefined ? { waitlist: args.waitlist ? undefined : false } : {}),
       ...(args.hideAddress !== undefined ? { hideAddress: args.hideAddress || undefined } : {}),
       ...mediaPatch,
+      ...(slug !== undefined ? { slug } : {}),
       updatedAt: Date.now(),
     });
 
