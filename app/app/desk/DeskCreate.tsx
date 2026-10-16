@@ -26,6 +26,7 @@ import { ProjectModal } from "../components/ProjectModal";
 import { parseDeskCreate } from "./deskState";
 import { loginHref } from "./paletteLogic";
 import { justPublished } from "../lib/justPublished";
+import { readStartStage } from "../lib/shareProject";
 
 export function DeskCreate() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -34,6 +35,9 @@ export function DeskCreate() {
   const { isAuthenticated, isLoading } = useConvexAuth();
 
   const kind = parseDeskCreate(searchParams.get("create"));
+  // The Share a project card's "Something I finished" (lib/shareProject.ts
+  // withFinishedStage): the form opens on a completed project.
+  const initialStage = readStartStage(searchParams);
   // A project was just made and we are on our way to its page. ProjectModal
   // calls onClose right after onCreated, and dropping the param then would
   // pull the visitor back to the desk.
@@ -57,6 +61,7 @@ export function DeskCreate() {
       (prev) => {
         const next = new URLSearchParams(prev);
         next.delete("create");
+        next.delete("stage");
         return next;
       },
       { replace: true },
@@ -74,7 +79,7 @@ export function DeskCreate() {
   // would otherwise sit above the card. Page modals cover it, so this does too.
   return createPortal(
     kind === "project" ? (
-      <ProjectModal onClose={close} onCreated={onCreated} />
+      <ProjectModal onClose={close} onCreated={onCreated} initialStage={initialStage} />
     ) : kind === "hire" ? (
       <HireFlow
         onClose={close}

@@ -43,7 +43,7 @@ import { INTEREST_OPTIONS } from "../lib/browse/peopleFilter";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { PageTop, TopButton } from "../components/phone/PageTop";
 import { Plus } from "@phosphor-icons/react";
-import { shareProjectHref } from "../lib/shareProject";
+import { readStartStage, shareProjectHref } from "../lib/shareProject";
 import { bylineOf } from "../lib/byline";
 import { Byline } from "../components/Byline";
 
@@ -399,6 +399,7 @@ export default function Projects() {
           onClose={() => setShowPassionForm(false)}
           onCreated={(projectId) => navigate(justPublished(`/projects/${projectId}`))}
           initialTitle={searchParams.get("title")?.trim() || undefined}
+          initialStage={readStartStage(searchParams)}
         />
       )}
       {supporting && (

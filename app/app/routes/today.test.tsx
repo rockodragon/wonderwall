@@ -6,14 +6,18 @@ import { NOW, follow, sampleShortlist, shortlist } from "../lib/shortlist/fixtur
 import Today from "./today";
 
 // Today on a phone (a server render has no window, so it isn't desktop). The
-// Shortlist query answers with `scene.data`; everything else Today reads is
-// still loading, which it draws as skeletons.
-const scene = vi.hoisted(() => ({ data: undefined as unknown }));
+// Shortlist query answers with `scene.data`, any other query named in
+// `scene.answers` with that; everything else Today reads is still loading,
+// which it draws as skeletons.
+const scene = vi.hoisted(() => ({ data: undefined as unknown, answers: {} as Record<string, unknown> }));
 
 vi.mock("convex/react", async () => {
   const { getFunctionName } = await import("convex/server");
   return {
-    useQuery: (fn: Parameters<typeof getFunctionName>[0]) => (getFunctionName(fn) === "shortlist:getMine" ? scene.data : undefined),
+    useQuery: (fn: Parameters<typeof getFunctionName>[0]) => {
+      const name = getFunctionName(fn);
+      return name === "shortlist:getMine" ? scene.data : scene.answers[name];
+    },
     useMutation: () => async () => {},
   };
 });
@@ -21,6 +25,7 @@ vi.mock("convex/react", async () => {
 let off = () => {};
 beforeEach(() => {
   scene.data = sampleShortlist();
+  scene.answers = {};
   vi.useFakeTimers({ now: NOW, toFake: ["setInterval", "clearInterval", "Date"] });
   off = subscribeNow(() => {});
 });
@@ -99,5 +104,44 @@ describe("Today on a phone", () => {
   it("is hidden while the Shortlist loads", async () => {
     scene.data = undefined;
     expect(await today()).not.toContain("Needs you");
+  });
+});
+
+describe("Share a project on a phone's Today", () => {
+  const me = { _id: "me", userId: "u-me", name: "Me", bio: "", imageUrl: null };
+  const mine = {
+    _id: "p-mine",
+    userId: "u-me",
+    kind: "passion",
+    status: "active",
+    stage: "completed",
+    title: "Hymns for the Commons",
+    media: [],
+    createdAt: NOW,
+  };
+
+  it("asks for a project, two ways in, until the member has one up, and holds the empty-profile card", async () => {
+    scene.answers = { "profiles:getMyProfile": me, "garden/projects:listProjects": [] };
+    const html = await today();
+    expect(html).toContain('aria-label="Share a project"');
+    expect(html).toContain('href="/projects?new=project"');
+    expect(html).toContain('href="/projects?new=project&amp;stage=completed"');
+    expect(html).not.toContain('aria-label="Start a project"');
+    expect(html).not.toContain("Your profile is empty");
+  });
+
+  it("shows the start call and the empty-profile card once a project of theirs is up, finished or not", async () => {
+    scene.answers = { "profiles:getMyProfile": me, "garden/projects:listProjects": [mine] };
+    const html = await today();
+    expect(html).not.toContain('aria-label="Share a project"');
+    expect(html).toContain('aria-label="Start a project"');
+    expect(html).toContain("Your profile is empty");
+  });
+
+  it("shows neither while the list or the profile is still loading", async () => {
+    scene.answers = { "profiles:getMyProfile": me };
+    const html = await today();
+    expect(html).not.toContain('aria-label="Share a project"');
+    expect(html).not.toContain('aria-label="Start a project"');
   });
 });

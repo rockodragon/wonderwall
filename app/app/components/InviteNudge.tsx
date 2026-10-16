@@ -9,34 +9,27 @@ import { X } from "@phosphor-icons/react";
 import { markNoteSeen, useOnceNote } from "../hooks/useOnceNote";
 import { useInviteLink } from "../lib/useInviteLink";
 import { NUDGE_ON_DAY, recordVisitDay } from "../lib/visitDays";
-import { DESK, FOCUS_RING_CLASS } from "../desk/tokens";
+import { FOCUS_RING_CLASS } from "../desk/tokens";
+import { CARD_TONE, type CardTone } from "./cardTone";
 import { InviteIcon } from "./InviteCTA";
 
 export const INVITE_NUDGE_KEY = "today.inviteNudge";
 
-type Tone = "desk" | "page";
-
-const COLORS: Record<Tone, { text: string; soft: string; line: string; bg: string; accent: string }> = {
-  desk: { text: DESK.text, soft: DESK.textSoft, line: DESK.line, bg: DESK.panel, accent: DESK.accent },
-  page: {
-    text: "var(--app-text)",
-    soft: "var(--app-text-muted)",
-    line: "var(--app-hairline-raised)",
-    bg: "var(--app-surface-raised)",
-    accent: "var(--app-accent-ink)",
-  },
-};
+type Tone = CardTone;
 
 /** Counts today's visit; whether the card is up, and how to close it. The
- *  canvas holds this itself, since its layout keeps cards clear of it. */
-export function useInviteNudge() {
+ *  canvas holds this itself, since its layout keeps cards clear of it.
+ *  `hold` keeps it back while the spot is taken or not yet known to be
+ *  free (the Share a project card, up until the member has a project):
+ *  it comes on a later visit instead. */
+export function useInviteNudge(hold = false) {
   const [days, setDays] = useState(0);
   useEffect(() => setDays(recordVisitDay()), []);
-  return useOnceNote(INVITE_NUDGE_KEY, days >= NUDGE_ON_DAY);
+  return useOnceNote(INVITE_NUDGE_KEY, days >= NUDGE_ON_DAY && !hold);
 }
 
-export function InviteNudge({ tone, className }: { tone: Tone; className?: string }) {
-  const note = useInviteNudge();
+export function InviteNudge({ tone, className, hold }: { tone: Tone; className?: string; hold?: boolean }) {
+  const note = useInviteNudge(hold);
   if (!note.show) return null;
   return (
     <div className={className}>
@@ -46,7 +39,7 @@ export function InviteNudge({ tone, className }: { tone: Tone; className?: strin
 }
 
 export function InviteNudgeCard({ tone, onClose }: { tone: Tone; onClose: () => void }) {
-  const c = COLORS[tone];
+  const c = CARD_TONE[tone];
   const link = useInviteLink("nudge");
   async function copy() {
     await link.copy();

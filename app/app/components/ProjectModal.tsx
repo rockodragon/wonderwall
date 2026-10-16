@@ -9,6 +9,7 @@ import { LocationAutocomplete, LocationVerifiedHint } from "./LocationAutocomple
 import { describeMediaLink, MediaLinkField } from "./MediaLinkField";
 import { useLocationField } from "../lib/useLocationField";
 import { errorMessage } from "../lib/convexError";
+import type { Stage } from "../lib/stage";
 import { FocusBackdrop } from "./FocusBackdrop";
 
 // One modal for starting AND editing a project, in three short steps — the
@@ -52,6 +53,8 @@ export function ProjectModal({
   onCreated,
   edit,
   initialTitle,
+  initialStage,
+  initialStep,
 }: {
   onClose: () => void;
   /** Create only: where to go once the project exists. */
@@ -59,12 +62,21 @@ export function ProjectModal({
   edit?: ProjectEditTarget;
   /** Create only: a title typed on the front door before signing in. */
   initialTitle?: string;
+  /** Create only: the stage the project starts in, when the link asked for
+   *  one (lib/shareProject.ts readStartStage). Finished work posts as a
+   *  completed project, which is the profile's Portfolio; the heading says
+   *  so. */
+  initialStage?: Stage;
+  /** The step to open on: the project page's "Add a picture or link" opens
+   *  an edit on Show it. */
+  initialStep?: Step;
 }) {
   const createPassionProject = useMutation(api.garden.projects.createPassionProject);
   const updateProject = useMutation(api.garden.projects.updateProject);
   const uid = useId();
+  const finished = !edit && initialStage === "completed";
 
-  const [step, setStep] = useState<Step>(1);
+  const [step, setStep] = useState<Step>(initialStep ?? 1);
   const [title, setTitle] = useState(edit?.title ?? initialTitle ?? "");
   const [blurb, setBlurb] = useState(edit?.blurb ?? "");
   const [mediaUrl, setMediaUrl] = useState(edit?.mediaUrl ?? "");
@@ -151,6 +163,7 @@ export function ProjectModal({
       }
       const result = await createPassionProject({
         title: title.trim(),
+        stage: initialStage,
         blurb: blurb.trim() || undefined,
         mediaUrl: link.state === "ok" ? link.url : undefined,
         ...(remote ? {} : location.toArgs()),
@@ -198,7 +211,7 @@ export function ProjectModal({
               className="text-xl font-semibold"
               style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
             >
-              {edit ? "Edit project" : "Start a project"}
+              {edit ? "Edit project" : finished ? "Share your work" : "Start a project"}
             </h2>
             <button
               type="button"
@@ -232,8 +245,9 @@ export function ProjectModal({
             <div className={step === 1 ? "flex flex-col gap-4" : "hidden"}>
               {!edit && (
                 <p className="text-sm" style={{ color: "var(--garden-dim)" }}>
-                  Say what you're making. Once it's up, you can add the people you need and ask for support from its
-                  page.
+                  {finished
+                    ? "Say what you made. A link to it comes next."
+                    : "Say what you're making. Once it's up, you can add the people you need and ask for support from its page."}
                 </p>
               )}
               <PostAsPicker value={organizationId} onChange={setOrganizationId} />
@@ -261,7 +275,7 @@ export function ProjectModal({
                   value={blurb}
                   onChange={(e) => setBlurb(e.target.value)}
                   rows={4}
-                  placeholder="What you're making, and why"
+                  placeholder={finished ? "What you made, and why" : "What you're making, and why"}
                   className={`${inputClass} resize-none`}
                   style={inputStyle}
                 />

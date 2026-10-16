@@ -14,10 +14,10 @@ vi.mock("../lib/useInviteLink", () => ({
   }),
 }));
 
-const html = (url: string, owner: boolean) =>
+const html = (url: string, owner: boolean, extra: { needsMedia?: boolean; onAddLink?: () => void } = {}) =>
   renderToStaticMarkup(
     <MemoryRouter initialEntries={[url]}>
-      <InviteToThis path="/events/abc" title="Open studio" owner={owner} className="px-6" />
+      <InviteToThis path="/events/abc" title="Open studio" owner={owner} className="px-6" {...extra} />
     </MemoryRouter>,
   );
 
@@ -31,5 +31,13 @@ describe("InviteToThis", () => {
   it("shows nothing to anyone else, or later", () => {
     expect(html("/events/abc?new=1", false)).toBe("");
     expect(html("/events/abc", true)).toBe("");
+  });
+  it("asks a finished piece with nothing to look at for an image or a link first", () => {
+    const markup = html("/events/abc?new=1", true, { needsMedia: true, onAddLink: () => {} });
+    expect(markup).toContain("Add an image or a link");
+    expect(markup).toContain("Add a link");
+    expect(markup).not.toContain("Invite people");
+    // Without a way to open the edit, the invite card stands.
+    expect(html("/events/abc?new=1", true, { needsMedia: true })).toContain("Invite people");
   });
 });

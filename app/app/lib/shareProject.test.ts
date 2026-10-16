@@ -5,6 +5,9 @@ import {
   SHARE_PROJECT_PATH,
   START_STAGES,
   dropShareProjectIntent,
+  ownsAProject,
+  readStartStage,
+  withFinishedStage,
   hasNameIfNeeded,
   isShareProjectIntent,
   keepProfileFields,
@@ -81,10 +84,11 @@ describe("dropShareProjectIntent", () => {
 });
 
 describe("START_STAGES", () => {
-  it("offers Thinking about it and Working on it, as Planning and Working", () => {
+  it("offers Thinking about it, Working on it and Finished it, as Planning, Working and Completed", () => {
     expect(START_STAGES.map((s) => [s.label, s.value])).toEqual([
       ["Thinking about it", "planning"],
       ["Working on it", "working"],
+      ["Finished it", "completed"],
     ]);
   });
 
@@ -177,5 +181,35 @@ describe("stashed project title", () => {
     expect(takePendingIntent()).toBe("/events/abc");
     expect(hasStashedProjectTitle(SHARE_PROJECT_PATH)).toBe(false);
     expect(hasStashedProjectTitle(`${SHARE_PROJECT_PATH}&title=x`)).toBe(true);
+  });
+});
+
+describe("withFinishedStage / readStartStage", () => {
+  it("puts ?stage=completed on the form's link, whatever it already carries", () => {
+    expect(withFinishedStage(SHARE_PROJECT_PATH)).toBe("/projects?new=project&stage=completed");
+    expect(withFinishedStage("/today?create=project")).toBe("/today?create=project&stage=completed");
+    expect(withFinishedStage("/today")).toBe("/today?stage=completed");
+  });
+
+  it("reads back only a stage a project can be in", () => {
+    expect(readStartStage(new URLSearchParams("new=project&stage=completed"))).toBe("completed");
+    expect(readStartStage(new URLSearchParams("stage=working"))).toBe("working");
+    expect(readStartStage(new URLSearchParams("stage=finished"))).toBeUndefined();
+    expect(readStartStage(new URLSearchParams("new=project"))).toBeUndefined();
+  });
+});
+
+describe("ownsAProject", () => {
+  const me = { userId: "u-me" };
+  it("is unknown while the list or the profile is loading, or signed out", () => {
+    expect(ownsAProject(undefined, me)).toBeNull();
+    expect(ownsAProject([], undefined)).toBeNull();
+    expect(ownsAProject([], null)).toBeNull();
+  });
+
+  it("is true only for a project this member leads, finished or not", () => {
+    expect(ownsAProject([], me)).toBe(false);
+    expect(ownsAProject([{ userId: "u-other" }], me)).toBe(false);
+    expect(ownsAProject([{ userId: "u-other" }, { userId: "u-me" }], me)).toBe(true);
   });
 });

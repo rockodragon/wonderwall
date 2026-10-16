@@ -30,6 +30,7 @@ import { FavoriteButton } from "../components/FavoriteButton";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { ProjectMenu } from "../components/project/ProjectMenu";
 import { StageChip } from "../components/project/StageChip";
+import { resolveStage } from "../lib/stage";
 import { TabPanel, Tabs } from "../components/project/Tabs";
 import { ProjectUpdates } from "../components/ProjectUpdates";
 import { ProjectModal } from "../components/ProjectModal";
@@ -214,8 +215,9 @@ export default function ProjectDetail() {
   const [supportMode, setSupportMode] = useState<SupportMode | null>(null);
   // Lifted so the owner's "Next steps" nudge can open the support editor.
   const [editingSupport, setEditingSupport] = useState(false);
-  // The same three-step modal "Start a project" uses, opened on this project.
-  const [editingProject, setEditingProject] = useState(false);
+  // The same three-step modal "Start a project" uses, opened on this project:
+  // the step it opens on, or false. "Add a link" opens it on Show it.
+  const [editingProject, setEditingProject] = useState<false | 1 | 2>(false);
   // "Next steps" switches tab, then scrolls to the tabs once they've changed.
   const scrollAfterTab = useRef(false);
   const rawTab = searchParams.get("tab");
@@ -275,6 +277,9 @@ export default function ProjectDetail() {
   const hasPieces = (project.media?.length ?? 0) > 0;
   const thumb = heroThumb(project);
   const poster = !!thumb && !isWideCover(heroRatio);
+  // Shared as finished with nothing to look at yet: the just-published card
+  // asks for a picture or a link before it offers invites (InviteToThis).
+  const needsMedia = isPassion && resolveStage(project) === "completed" && !thumb && !mediaEmbed && !hasPieces;
 
   const hiddenByAdmin = project.status === "hidden";
   const showGoal = raising && (project.goal ?? 0) > 0;
@@ -308,7 +313,14 @@ export default function ProjectDetail() {
       </div>
 
       {/* Just published: "Invite people", once (components/InviteToThis.tsx). */}
-      <InviteToThis path={`/projects/${project._id}`} title={project.title} owner={isOwner} className="mt-4" />
+      <InviteToThis
+        path={`/projects/${project._id}`}
+        title={project.title}
+        owner={isOwner}
+        className="mt-4"
+        needsMedia={needsMedia}
+        onAddLink={() => setEditingProject(2)}
+      />
 
       {hiddenByAdmin && (
         <div className="mb-5">
@@ -351,7 +363,7 @@ export default function ProjectDetail() {
             <div className="mb-2">
               <button
                 type="button"
-                onClick={() => setEditingProject(true)}
+                onClick={() => setEditingProject(1)}
                 className="text-[13.5px] font-medium underline underline-offset-2 hover:opacity-80"
                 style={{ color: "var(--garden-citron)" }}
               >
@@ -376,6 +388,7 @@ export default function ProjectDetail() {
                 hostOrgId: project.hostOrgId,
                 organizationId: project.organizationId,
               }}
+              initialStep={editingProject}
               onClose={() => setEditingProject(false)}
             />
           )}
