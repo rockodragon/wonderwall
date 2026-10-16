@@ -138,6 +138,18 @@ function TodayPage() {
         </div>
       )}
 
+      {/* Share a project leads, until they have one up (components/
+          ShareProjectCard.tsx): a post of current or past work is the top
+          goal (Rick, 2026-10-16), so it comes before the house's Updates. */}
+      {needsProject && (
+        <ShareProjectCard
+          tone="page"
+          makingHref={SHARE_PROJECT_PATH}
+          finishedHref={withFinishedStage(SHARE_PROJECT_PATH)}
+          className="mb-8 md:mb-10"
+        />
+      )}
+
       {/* What people did for you comes next, then the Updates
           (lib/celebrations.ts, docs/features/desk-updates.md). */}
       <CelebrationStack />
@@ -148,16 +160,9 @@ function TodayPage() {
 
       {openGift && <YourHalfCard amountCents={openGift.amountCents} />}
 
-      {/* Share a project until they have one up (components/ShareProjectCard.tsx),
-          the start call after that. Nothing while it isn't known yet, so
-          neither one flashes in place of the other. */}
-      {SHOW_CREATOR_NOTES ? (
-        <CreatorNotes episode={episode} />
-      ) : needsProject ? (
-        <ShareProjectCard tone="page" makingHref={SHARE_PROJECT_PATH} finishedHref={withFinishedStage(SHARE_PROJECT_PATH)} />
-      ) : owns === true ? (
-        <StartProject />
-      ) : null}
+      {/* The start call, once a project of theirs is up; the ask above
+          covers them until then. Nothing while it isn't known yet. */}
+      {SHOW_CREATOR_NOTES ? <CreatorNotes episode={episode} /> : owns === true ? <StartProject /> : null}
 
       <Section
         title="Featured project"

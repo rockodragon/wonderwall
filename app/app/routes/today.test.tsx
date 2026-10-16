@@ -124,6 +124,15 @@ describe("Share a project on a phone's Today", () => {
     scene.answers = { "profiles:getMyProfile": me, "garden/projects:listProjects": [] };
     const html = await today();
     expect(html).toContain('aria-label="Share a project"');
+    // Right after Needs you, ahead of everything the house has to say:
+    // nothing else opens between the end of Needs you and the card.
+    const ask = html.indexOf('aria-label="Share a project"');
+    const needsEnd = html.indexOf("</section>", html.indexOf('aria-label="Needs you"')) + "</section>".length;
+    expect(ask).toBeGreaterThan(needsEnd);
+    expect(ask).toBeLessThan(html.indexOf("Featured project"));
+    const between = html.slice(needsEnd, html.lastIndexOf("<section", ask));
+    expect(between).not.toContain("<section");
+    expect(between).not.toContain("<h2");
     expect(html).toContain('href="/projects?new=project"');
     expect(html).toContain('href="/projects?new=project&amp;stage=completed"');
     expect(html).not.toContain('aria-label="Start a project"');
