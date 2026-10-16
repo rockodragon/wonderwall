@@ -28,6 +28,8 @@ import { FF_DESK } from "../lib/featureFlags";
 import { Desk } from "../desk/Desk";
 import { useIsDesktop } from "../hooks/useMediaQuery";
 import { InviteNudge } from "../components/InviteNudge";
+import { ShareProjectCard } from "../components/ShareProjectCard";
+import { SHARE_PROJECT_PATH, ownsAProject, withFinishedStage } from "../lib/shareProject";
 import { UpdatesStack } from "../components/UpdatesStack";
 import { CelebrationStack } from "../components/CelebrationStack";
 import { PhoneNeedsYou } from "../components/shortlist/PhoneParts";
@@ -93,7 +95,11 @@ function TodayPage() {
   const garden = useDeskCommunity() === "garden";
   const needsYou = shortlist.status === "ready" ? shortlist.needs.length : 0;
 
-  const profileEmpty = profile !== undefined && profile !== null && !profile.bio && !profile.imageUrl;
+  // Share a project comes before the profile (Rick, 2026-10-16): the ask
+  // stays until they have one up, and only then is an empty profile raised.
+  const owns = ownsAProject(projects, profile);
+  const needsProject = owns === false;
+  const profileEmpty = owns === true && profile !== undefined && profile !== null && !profile.bio && !profile.imageUrl;
   const loading = projects === undefined;
 
   return (
@@ -136,12 +142,22 @@ function TodayPage() {
           (lib/celebrations.ts, docs/features/desk-updates.md). */}
       <CelebrationStack />
       <UpdatesStack />
-      {/* The third day back: their invite link, once (components/InviteNudge.tsx). */}
-      <InviteNudge tone="page" className="mb-8 md:mb-10" />
+      {/* The third day back: their invite link, once (components/InviteNudge.tsx),
+          held until a project is up so it never sits beside the ask below. */}
+      <InviteNudge tone="page" className="mb-8 md:mb-10" hold={owns !== true} />
 
       {openGift && <YourHalfCard amountCents={openGift.amountCents} />}
 
-      {SHOW_CREATOR_NOTES ? <CreatorNotes episode={episode} /> : <StartProject />}
+      {/* Share a project until they have one up (components/ShareProjectCard.tsx),
+          the start call after that. Nothing while it isn't known yet, so
+          neither one flashes in place of the other. */}
+      {SHOW_CREATOR_NOTES ? (
+        <CreatorNotes episode={episode} />
+      ) : needsProject ? (
+        <ShareProjectCard tone="page" makingHref={SHARE_PROJECT_PATH} finishedHref={withFinishedStage(SHARE_PROJECT_PATH)} />
+      ) : owns === true ? (
+        <StartProject />
+      ) : null}
 
       <Section
         title="Featured project"

@@ -34,6 +34,7 @@ import { CREATE_CELL, CREATE_CELL_ID, DEFAULT_HEADER_H, Z_DIM, cellsOnShow, empt
 import {
   DESK_VIEW_LABEL,
   SHORTLIST_VIEW,
+  deskCreateHref,
   isOpenCard,
   parseDeskView,
   parseShortlistArea,
@@ -47,6 +48,8 @@ import type { Stepper } from "./OpenedCard";
 import { shortlistCard } from "./shortlistCards";
 import { ShortlistBody, TodayNeedsYou, shortlistHeader } from "./ShortlistView";
 import { InviteNudgeCard, useInviteNudge } from "../components/InviteNudge";
+import { ShareProjectCard } from "../components/ShareProjectCard";
+import { withFinishedStage } from "../lib/shareProject";
 import { DESK, DESK_SANS, FOCUS_RING_CLASS, MOTION_MS, motion, deskSurfaceStyle, useDeskTint } from "./tokens";
 import { useDeskData } from "./useDeskData";
 import { useUpdateReads } from "./useUpdateReads";
@@ -73,9 +76,9 @@ const LEAVE_LIMIT = 48;
 const IDLE_BROWSE: BrowseView = "events";
 /** Air between Today's Needs you rows and its card row. */
 const BELOW_NEEDS = 32;
-/** The invite card under the greeting, gap included: the resting cards'
- *  clear zone grows to cover it while it's up. */
-const NUDGE_CLEAR = { w: 600, h: 72 };
+/** The card under the greeting (Share a project, or the invite nudge), gap
+ *  included: the resting cards' clear zone grows to cover it while one is up. */
+const BELOW_GREETING_CLEAR = { w: 600, h: 72 };
 const NO_IDS: readonly string[] = [];
 
 export function Desk() {
@@ -92,7 +95,7 @@ export function Desk() {
   const area = parseShortlistArea(searchParams.get("area"));
   const kind = parseShortlistKind(searchParams.get("kind"), area);
 
-  const { input, loaded, profile } = useDeskData();
+  const { input, loaded, profile, hasProject } = useDeskData();
   // The Shortlist and Today's Needs you. The palette reads the same query, so
   // this is one subscription, not a second.
   const shortlist = useShortlist();
@@ -240,11 +243,20 @@ export function Desk() {
 
   // Today's card row starts under Needs you when Needs you is there.
   const todayNeeds = view === "today" && shortlist.status === "ready" && shortlist.needs.length > 0;
-  // The third day back, their invite link once (components/InviteNudge.tsx):
-  // under the greeting on the canvas, which keeps its cards clear of it, and
-  // under Today's heading.
-  const nudge = useInviteNudge();
-  const nudgeCard = nudge.show ? <InviteNudgeCard tone="desk" onClose={nudge.dismiss} /> : null;
+  // Under the greeting on the canvas, which keeps its cards clear of it, and
+  // under Today's heading: Share a project until the member has one up
+  // (components/ShareProjectCard.tsx); then, the third day back, their
+  // invite link once (components/InviteNudge.tsx). The nudge waits until a
+  // project is known to be up, so the two never show together.
+  const needsProject = hasProject === false;
+  const nudge = useInviteNudge(hasProject !== true);
+  const startHref = deskCreateHref(searchParams, "project");
+  const underGreeting = needsProject ? (
+    <ShareProjectCard tone="desk" makingHref={startHref} finishedHref={withFinishedStage(startHref)} />
+  ) : nudge.show ? (
+    <InviteNudgeCard tone="desk" onClose={nudge.dismiss} />
+  ) : null;
+  const hasUnderGreeting = underGreeting !== null;
   // The Shortlist's rows are in the page, which the layout doesn't measure:
   // what isn't on show waits below the window, wherever it was scrolled to.
   const scrollTop = openId || shortlistOn ? openScroll : 0;
@@ -261,9 +273,9 @@ export function Desk() {
         scrollTop,
         shown: shownIds,
         rowTop: todayNeeds ? header.total + BELOW_NEEDS : undefined,
-        belowGreeting: nudge.show ? NUDGE_CLEAR : undefined,
+        belowGreeting: hasUnderGreeting ? BELOW_GREETING_CLEAR : undefined,
       }),
-    [layoutCards, view, openId, size.w, size.h, header.total, scrollTop, shownIds, todayNeeds, nudge.show],
+    [layoutCards, view, openId, size.w, size.h, header.total, scrollTop, shownIds, todayNeeds, hasUnderGreeting],
   );
   const places = layout.places;
 
@@ -440,13 +452,13 @@ export function Desk() {
       ? {
           below: (
             <>
-              {nudgeCard && <div className="mt-[18px]">{nudgeCard}</div>}
+              {underGreeting && <div className="mt-[18px]">{underGreeting}</div>}
               <TodayNeedsYou state={shortlist} money={money} onOpen={openRow} />
             </>
           ),
         }
-      : view === "all" && nudgeCard
-        ? { below: <div className="mt-2">{nudgeCard}</div> }
+      : view === "all" && underGreeting
+        ? { below: <div className="mt-2">{underGreeting}</div> }
         : undefined;
   // A Shortlist card rises from below the window, wherever the rows were scrolled to.
   const enterFrom = size.h + (shortlistOn ? openScroll : 0);

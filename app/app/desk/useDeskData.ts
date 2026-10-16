@@ -7,6 +7,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { formatMoney } from "../garden/ui";
 import { SOPHIA_FUND_SLUG } from "../lib/namedFunds";
+import { ownsAProject } from "../lib/shareProject";
 import type { DeskInput } from "./deskCards";
 import { toDeskInput } from "./deskInput";
 
@@ -38,5 +39,8 @@ export function useDeskData() {
     giving !== undefined &&
     profile !== undefined;
 
-  return { input, loaded, profile };
+  // Whether they have a project up, off the same list; null until known.
+  const hasProject = ownsAProject(projects, profile);
+
+  return { input, loaded, profile, hasProject };
 }

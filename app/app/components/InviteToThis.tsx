@@ -5,6 +5,11 @@
 // they leave. The link is the page itself carrying their invite
 // (lib/carriedInvite.ts), so a friend who signs up from it gets in and it
 // counts as theirs.
+//
+// A finished piece with nothing to look at yet (a project shared as
+// "Finished it" with no picture, link or attached piece) asks for that
+// first: the owner adds a link, and the invite card takes over once there
+// is something to show. The hero's own "Add image" button adds the image.
 
 import { useSearchParams } from "react-router";
 import { useInviteLink } from "../lib/useInviteLink";
@@ -19,12 +24,18 @@ export function InviteToThis({
   title,
   owner,
   className,
+  needsMedia,
+  onAddLink,
 }: {
   path: string;
   title: string;
   owner: boolean;
   /** Around the card, so a page's spacing goes with it when it's hidden. */
   className?: string;
+  /** A finished project with no picture, link or piece yet. */
+  needsMedia?: boolean;
+  /** Opens the project's edit on its Show it step. */
+  onAddLink?: () => void;
 }) {
   const [params, setParams] = useSearchParams();
   const fresh = params.get(JUST_PUBLISHED_PARAM) === "1";
@@ -54,8 +65,44 @@ export function InviteToThis({
     : undefined;
   return (
     <div className={className}>
-      <InviteCard path={path} title={title} onDone={done} onSayWhoYouNeed={sayWho} />
+      {needsMedia && onAddLink ? (
+        <AddMediaCard onAddLink={onAddLink} onDone={done} />
+      ) : (
+        <InviteCard path={path} title={title} onDone={done} onSayWhoYouNeed={sayWho} />
+      )}
     </div>
+  );
+}
+
+function AddMediaCard({ onAddLink, onDone }: { onAddLink: () => void; onDone: () => void }) {
+  return (
+    <section
+      aria-label="Add an image or a link"
+      className="rounded-xl border px-5 py-4"
+      style={{ borderColor: "var(--app-hairline-raised)", background: "var(--app-surface-raised)" }}
+    >
+      <p className="text-[15px] font-semibold" style={{ color: "var(--app-text)" }}>
+        It's up. Add an image or a link.
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={onAddLink}
+          className={buttonClass}
+          style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text)" }}
+        >
+          Add a link
+        </button>
+        <button
+          type="button"
+          onClick={onDone}
+          className="px-3 py-2 text-[13.5px] font-medium hover:underline"
+          style={{ color: "var(--app-text-muted)" }}
+        >
+          Done
+        </button>
+      </div>
+    </section>
   );
 }
 

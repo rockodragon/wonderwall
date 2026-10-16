@@ -4,7 +4,7 @@
 // (routes/onboarding.tsx), and the stashed visit that screen replaces.
 
 import { takePendingIntent, setPendingIntent } from "./pendingIntent";
-import type { Stage } from "./stage";
+import { isStage, type Stage } from "./stage";
 
 /** Where "Share your project" goes for someone with an account: the form. */
 export const SHARE_PROJECT_PATH = "/projects?new=project";
@@ -65,14 +65,45 @@ export function dropShareProjectIntent(): void {
   if (path && !isShareProjectIntent(path)) setPendingIntent(path);
 }
 
-/** "Thinking about it" and "Working on it": the two stages a first project
- *  can start in. Neither chosen leaves the server's default, Planning. */
+/** "Thinking about it", "Working on it" and "Finished it": the stages a
+ *  first project can start in. None chosen leaves the server's default,
+ *  Planning. Finished it posts a completed project, which is the profile's
+ *  Portfolio (docs/features/project-ia.md, "Projects, not Portfolios"). */
 export const START_STAGES = [
   { value: "planning", label: "Thinking about it" },
   { value: "working", label: "Working on it" },
+  { value: "completed", label: "Finished it" },
 ] as const satisfies readonly { value: Stage; label: string }[];
 
 export type StartStage = (typeof START_STAGES)[number]["value"];
+
+/** The start form opened on finished work: ?stage=completed rides on the
+ *  form's own link (/projects?new=project, or the Canvas's ?create=project)
+ *  and the form posts a completed project. */
+export const FINISHED_STAGE: Stage = "completed";
+export function withFinishedStage(href: string): string {
+  return `${href}${href.includes("?") ? "&" : "?"}stage=${FINISHED_STAGE}`;
+}
+
+/** The stage a start link asked for, if it's one a project can be in. */
+export function readStartStage(params: URLSearchParams): Stage | undefined {
+  const raw = params.get("stage");
+  return isStage(raw) ? raw : undefined;
+}
+
+/** Whether this member has a project up, read off the public list the
+ *  phone's Today and the Canvas already load (garden/projects:listProjects:
+ *  posted, not archived or hidden), so it takes no query of its own. null
+ *  while either side is still loading, or signed out, so nothing flashes.
+ *  The Canvas asks for a project until this is true
+ *  (components/ShareProjectCard.tsx). */
+export function ownsAProject(
+  projects: readonly { userId?: string }[] | undefined,
+  profile: { userId?: string } | null | undefined,
+): boolean | null {
+  if (projects === undefined || !profile) return null;
+  return projects.some((p) => p.userId === profile.userId);
+}
 
 /** The ways off the onboarding screen: a maker shares a project or not
  *  yet; a backer and a partner continue. */
