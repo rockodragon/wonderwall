@@ -9,6 +9,9 @@ import {
   fanAngles,
   fanOffset,
   fanTransition,
+  labelAnchor,
+  labelBox,
+  toolReach,
   loginHref,
   withAlpha,
   type ToolId,
@@ -89,12 +92,64 @@ describe("fan geometry", () => {
     expect(right.y).toBeCloseTo(0);
   });
 
-  it("keeps every tool, circle and all, inside the 280px hover zone", () => {
+  it("keeps every tool, circle and name, inside the zone", () => {
     const centre = PALETTE.inset + PALETTE.button / 2;
-    for (const angle of fanAngles(7)) {
+    for (const count of [5, 6, 7]) {
+      for (const angle of fanAngles(count)) {
+        const reach = toolReach(angle);
+        expect(centre + reach.x, `x at ${angle}`).toBeLessThanOrEqual(PALETTE.zone);
+        expect(centre + reach.y, `y at ${angle}`).toBeLessThanOrEqual(PALETTE.zone);
+      }
+    }
+  });
+
+  it("puts a name on its tool's ray: centred above at the top, to the right at the foot", () => {
+    const gap = PALETTE.tool / 2 + PALETTE.labelGap;
+    const top = labelAnchor(90);
+    expect(top.x).toBeCloseTo(0);
+    expect(top.y).toBeCloseTo(gap);
+    expect(top.ax).toBeCloseTo(0.5);
+    expect(top.ay).toBeCloseTo(0);
+    const foot = labelAnchor(0);
+    expect(foot.x).toBeCloseTo(gap);
+    expect(foot.y).toBeCloseTo(0);
+    expect(foot.ax).toBeCloseTo(0);
+    expect(foot.ay).toBeCloseTo(0.5);
+  });
+
+  it("reaches farthest right at the arc's foot, where the widest name runs out", () => {
+    const foot = toolReach(0);
+    expect(foot.x).toBeCloseTo(PALETTE.radius + PALETTE.tool / 2 + PALETTE.labelGap + PALETTE.labelMax);
+    expect(foot.y).toBeCloseTo(PALETTE.tool / 2);
+    const top = toolReach(90);
+    expect(top.y).toBeCloseTo(PALETTE.radius + PALETTE.tool / 2 + PALETTE.labelGap + PALETTE.labelHeight);
+  });
+
+  it("no name, at its widest, runs into another circle, and no two names meet", () => {
+    const half = PALETTE.tool / 2;
+    // A name's box and a circle, both from the button's centre.
+    const box = (angle: number) => {
       const { x, y } = fanOffset(angle);
-      expect(centre + x + PALETTE.tool / 2).toBeLessThanOrEqual(PALETTE.zone);
-      expect(centre + y + PALETTE.tool / 2).toBeLessThanOrEqual(PALETTE.zone);
+      const b = labelBox(angle);
+      return { x0: x + b.x0, x1: x + b.x1, y0: y + b.y0, y1: y + b.y1 };
+    };
+    const hitsCircle = (b: ReturnType<typeof box>, angle: number) => {
+      const c = fanOffset(angle);
+      const nx = Math.max(b.x0, Math.min(c.x, b.x1));
+      const ny = Math.max(b.y0, Math.min(c.y, b.y1));
+      return Math.hypot(c.x - nx, c.y - ny) < half;
+    };
+    const boxesMeet = (a: ReturnType<typeof box>, b: ReturnType<typeof box>) =>
+      a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+    for (const count of [5, 6, 7]) {
+      const angles = fanAngles(count);
+      for (const a of angles) {
+        for (const b of angles) {
+          if (a === b) continue;
+          expect(hitsCircle(box(a), b), `${count} tools: name at ${a} over circle at ${b}`).toBe(false);
+          expect(boxesMeet(box(a), box(b)), `${count} tools: names at ${a} and ${b} meet`).toBe(false);
+        }
+      }
     }
   });
 });

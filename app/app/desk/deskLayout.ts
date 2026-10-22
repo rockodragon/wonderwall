@@ -97,8 +97,10 @@ export const GRID_MAX_W = 300;
 export const GRID_GAP = 32;
 /** The header's left edge, and the same margin on the right. */
 export const GRID_SIDE = 48;
-/** Clear space under the last row, so it can scroll out from behind the palette. */
-export const GRID_BOTTOM = 140;
+/** Clear space under the last row, so it can scroll out from behind the
+ *  palette's resting arc, whose tools and names reach about 270px up the
+ *  corner (paletteLogic.ts toolReach). */
+export const GRID_BOTTOM = 280;
 /** Air between the header and the first row. */
 export const GRID_BELOW_HEADER = 16;
 /** Height of the title block plus filter row before they have been measured. */
