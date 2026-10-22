@@ -84,3 +84,53 @@ context: []
 
 **Manual checks (if no CLI):**
 - Local dev signed out and as owner at phone width: open a project from `/projects` and from `/`; compare against the two screenshots in the request.
+
+## Implementation Notes
+
+- New `app/convex/garden/projectVisibility.ts` (`projectVisibleTo`, `seesProjectAddress`) beside `eventVisibility.ts` to avoid a module cycle; the same not-found guard also went on `listProjectUpdates`, `listSupportForProject`, `listTiers`, `getSchedule` (all reached by the public page).
+- New `signupHref()` in `lib/pendingIntent.ts` replaced 3 inline copies (shareProject, login, projects); `supportDetour()` holds the Cheer/Back visitor rule for both pages.
+- `sectionsWithContent` (lib/projectTabs.ts) decides visitor tabs; the Team rule follows the human decision above (shown while taking people).
+- `SupportModal`: guests start on one-time and type the name shown (the server requires one for a named backing).
+- Signed-out "Hire someone" now goes to signup, not login. Admins see every tab like the owner.
+- GitNexus impact: Convex queries UNKNOWN (dynamic `api.*` dispatch; callers confirmed by text search); `projectKindLabel`, `bylineOf` HIGH and `FavoriteButton` CRITICAL were left unedited. detect-changes before the first commit: critical, 25 files / 54 symbols / 25 flows, all on the project list, project page and signup intent.
+
+## Spec Change Log
+
+## Review Triage Log
+
+Pass 1 (blind, edge-case, verification-gap), 2026-10-22.
+
+| # | Finding | Verdict | Evidence | Route |
+|---|---|---|---|---|
+| 1 | getTeam gives anonymous callers accepted members' join notes (`message`) | high | `toPersonEntry` returns `row.message`; accepting keeps it; UI shows notes only in lead-only LeadTeamTools | patch |
+| 2 | Street address still public: `location` text is the street for `locationType: "address"` | medium | location.ts display name is the address; getProject sends `location` to all | patch |
+| 3 | listProjects (public /projects) sends address, coordinates, placeId to anyone | medium | spreads `...project`; Near me is off for projects (deskBrowse `canNear`); contradicts the new privacy text | patch |
+| 4 | Privacy text inaccurate (works, creator interests/location, supporter notes, team pictures) | medium | work.tsx redirects to /projects/:id; listProjects/getProject send `creator.interests/location`; SupportersList shows messages | patch |
+| 5 | Guests offered Monthly/Yearly backing the server refuses | medium | `SUPPORT_TYPES.back` unfiltered; GUEST_RECURRING_REASON | patch |
+| 6 | Gig Dates tab: /profile links and no visitor respond/sign-up path | medium | GigSchedule.tsx:370,670; respond gated on `viewer.isSignedIn` | patch |
+| 7 | "Profile link only for members" inline 3×, missed in GigSchedule | medium | CLAUDE.md reuse rule; GigSchedule miss is the drift | patch |
+| 8 | While auth loads a member is treated as a visitor | low | `visitorSignUp`/`supportDetour` read `isAuthenticated` only; event.tsx waits for `!isLoading` | patch |
+| 9 | `seesProjectAddress` duplicates `isOwnerOrAdmin` | low | helpers.ts isOwnerOrAdmin is the same rule | patch |
+| 10 | listRoles returns roles when the project row is gone | low | `if (project && …)` skips the check on null | patch |
+| 11 | `/projects/:id/` (trailing slash) redirects to login | low | regex `[^/]+$`; router matches the slash | patch |
+| 12 | Visitor Ask to join / Apply detour untested | medium | renderToString runs no click; mutation left suite green | patch |
+| 13 | Guest name reaching createBackingCheckout untested | medium | deleting the line left suite green | patch |
+| 14 | Lead/admin and hidden-community branches of the four gated reads untested | medium | no community fixture in projects.test.ts | patch |
+| 15 | Visitor Support tab on a raising project with no supporters untested | low | fixture always `raising: false` | patch |
+| 16 | Admin "every tab" untested | low | page() has no admin viewer | patch |
+| 17 | Org byline stays linked for visitors untested | low | every fixture `organization: null` | patch |
+| 18 | Cheer/Back click wiring on page and card untested | medium | needs a DOM test setup the repo lacks; `supportDetour` tested | defer |
+| 19 | getProject sends nonprofitName, benefitsNonprofit, supportPaymentLinkUrl, statusBeforeHidden to anyone | medium | pre-existing: getProject had no auth check before | defer |
+| 20 | FavoriteButton has no signed-out handling (event hearts fail for visitors) | medium | pre-existing on event pages; FavoriteButton rated CRITICAL | defer |
+| 21 | Shareable project pages keep `noindex` and one title; opportunities cards link nowhere | low | projects.$id.tsx meta; opportunities.tsx:24 stale | defer |
+| 22 | Invite-only signup can dead-end a visitor's detour | medium | pre-existing for every join CTA; signup's Sign in tab replays the intent | defer |
+| 23 | The tapped action isn't replayed after signup | medium | intent ("brings the person back") met; replay is an enhancement | defer |
+| 24 | Tabs grow while loading; owner deep link flashes About | low | `?tab=` kept, corrects on load; fix needs loading branches | reject |
+| 25 | Portfolio-origin projects now public | false | works are projects (project-ia.md); public is the intent; wording fixed in #4 | reject |
+| 26 | Pledged-only support on a non-raising project hides Support | low | rare; fix adds a query input | reject |
+| 27 | Owner sees "No location set" after choosing remote | low | owner keeps the pencil; viewers get nothing, as asked | reject |
+| 28 | Admin sees empty tabs | false | spec: owner and admin keep every section | reject |
+| 29 | Anonymous getTeam omits `apply` | false | no caller reads `apply.allowed === false`; visitor Apply detours per matrix | reject |
+| 30 | Heart has no "already cheered" state | low | Rick chose tap-opens-sheet; needs backend | reject |
+| 31 | `SignUpToFollow` copies FavoriteButton's look | low | fix means editing CRITICAL-rated FavoriteButton; see #20 | reject |
+| 32 | Terms dates not bumped with privacy | maybe-false | "Bump both" may mean the changed document's two fields; would be low | reject |
