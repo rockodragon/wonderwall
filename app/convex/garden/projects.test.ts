@@ -5,9 +5,19 @@
 // states. That's what replaced the old required-number guardrail — an unpaid
 // ask can't masquerade as paid work, and a small or unknown budget no longer
 // blocks the post.
+//
+// At the end, the public project page's reads on the in-memory ctx in
+// test-support: what getProject sends whom (no street address to the
+// world), and that every other query the page makes agrees with it on a
+// project it hides.
 
 import { describe, expect, it } from "vitest";
-import { validateBudgetDeclaration } from "./projects";
+import { makeCtx, run, type Row } from "../../test-support/convexContext";
+import { getProject, validateBudgetDeclaration } from "./projects";
+import { getSchedule } from "./gigs";
+import { listTiers } from "./patronTiers";
+import { listProjectUpdates } from "./stories";
+import { listSupportForProject } from "./support";
 
 describe("validateBudgetDeclaration — the four states, declared correctly", () => {
   it("accepts a set amount", () => {
@@ -131,5 +141,90 @@ describe("validateBudgetDeclaration — the numberless states reject stray numbe
       code: "invalid_budget",
       reason: "Volunteer work has no budget attached. Clear the number, or say what it pays.",
     });
+  });
+});
+
+// ——————————————————————————————————————————————————————————————
+// The public project page
+// ——————————————————————————————————————————————————————————————
+
+describe("getProject on the public project page", () => {
+  const LEAD = "users:lead";
+  const ADMIN = "users:admin";
+  const MEMBER = "users:member";
+  const place = {
+    location: "Harbor Studio, Oakland",
+    locationType: "venue",
+    address: { street: "12 Dock St", city: "Oakland", state: "California", zip: "94607" },
+    coordinates: { lat: 37.8, lng: -122.27 },
+    placeId: "ChIJ-harbor",
+  };
+  function world(extra: Record<string, unknown> = {}): Record<string, Row[]> {
+    return {
+      profiles: [
+        { _id: "profiles:lead", userId: LEAD, name: "Lena", interests: [] },
+        { _id: "profiles:admin", userId: ADMIN, name: "Ada", interests: [], isAdmin: true },
+        { _id: "profiles:member", userId: MEMBER, name: "Mo", interests: [] },
+      ],
+      projects: [
+        {
+          _id: "projects:p1", userId: LEAD, kind: "passion", origin: "posted", title: "Harbor Mural",
+          status: "active", createdAt: 1, updatedAt: 1, ...place, ...extra,
+        },
+      ],
+      storyUpdates: [{ _id: "storyUpdates:u1", projectId: "projects:p1", authorUserId: LEAD, body: "Day one.", createdAt: 2 }],
+      projectSupport: [
+        {
+          _id: "projectSupport:s1", projectId: "projects:p1", type: "encouragement", status: "confirmed",
+          visible: true, supporterName: "Mo", supporterUserId: MEMBER, createdAt: 3,
+        },
+      ],
+      patronTiers: [{ _id: "patronTiers:t1", projectId: "projects:p1", name: "Friend", priceCents: 500, isActive: true, sortOrder: 0 }],
+    };
+  }
+
+  it.each([
+    ["someone signed out", null],
+    ["a member who isn't its lead", MEMBER],
+  ])("opens for %s, with the place's name but not its street address, map position or Places id", async (_label, viewer) => {
+    const project = await run(getProject, makeCtx(world(), viewer), { projectId: "projects:p1" });
+    expect(project).toMatchObject({ title: "Harbor Mural", location: "Harbor Studio, Oakland" });
+    expect(project.address).toBeUndefined();
+    expect(project.coordinates).toBeUndefined();
+    expect(project.placeId).toBeUndefined();
+    expect(JSON.stringify(project)).not.toContain("12 Dock St");
+  });
+
+  it.each([
+    ["its lead", LEAD],
+    ["an admin", ADMIN],
+  ])("gives %s the exact place, to edit it", async (_label, viewer) => {
+    const project = await run(getProject, makeCtx(world(), viewer), { projectId: "projects:p1" });
+    expect(project).toMatchObject({ address: place.address, coordinates: place.coordinates, placeId: place.placeId });
+  });
+
+  it("is not found to a visitor when an admin hid it, and nor is anything the page reads about it", async () => {
+    for (const viewer of [null, MEMBER]) {
+      // A gig's dates too (getSchedule), so this one has a series.
+      const tables = {
+        ...world({ status: "hidden" }),
+        gigSeries: [{ _id: "gigSeries:g1", projectId: "projects:p1", hostUserId: LEAD, status: "open" }],
+      };
+      const ctx = () => makeCtx(tables, viewer);
+      const args = { projectId: "projects:p1" };
+      expect(await run(getProject, ctx(), args)).toBeNull();
+      expect(await run(listProjectUpdates, ctx(), args)).toEqual([]);
+      expect(await run(listSupportForProject, ctx(), args)).toEqual([]);
+      expect(await run(listTiers, ctx(), args)).toEqual([]);
+      expect(await run(getSchedule, ctx(), args)).toBeNull();
+    }
+  });
+
+  it("still lets a visitor read an ordinary project's updates, supporters and tiers", async () => {
+    const ctx = () => makeCtx(world(), null);
+    const args = { projectId: "projects:p1" };
+    expect((await run(listProjectUpdates, ctx(), args)).map((u: any) => u.body)).toEqual(["Day one."]);
+    expect((await run(listSupportForProject, ctx(), args)).map((s: any) => s.supporterName)).toEqual(["Mo"]);
+    expect((await run(listTiers, ctx(), args)).map((t: any) => t.name)).toEqual(["Friend"]);
   });
 });

@@ -38,11 +38,19 @@ const VISIT_LIMIT = 3;
 // /communities/:slug should all be public.
 const PUBLIC_PATH_PREFIXES = ["/about", "/docs", "/communities", "/people", "/search", "/offerings", "/tables", "/orgs"];
 
-// The project list is public; a project's own page and every action on it
-// still need an account (projects.tsx sends Post/Cheer/Back to login).
+// The project list is public, and so is each project's own page (below);
+// acting on one still needs an account: Cheer, Follow and Apply send a
+// visitor to sign up and back (projects.tsx, projects.$id.tsx), and Back
+// this takes a one-time card payment without one.
 // /give is public too: The Garden's home asks visitors to give, and the page
 // shows them the two ways (use our money, bring your own) before any sign-in.
 const PUBLIC_EXACT_PATHS = ["/projects", "/give"];
+
+// /projects/:id is public (Rick, 2026-10-22), the way a shared post opens on
+// Instagram or TikTok: anyone with the link sees the work, and the page
+// shows a visitor only what has something in it. Only the page itself;
+// deeper paths are not, so this is not a prefix match.
+const PUBLIC_PROJECT_DETAIL_PATH = /^\/projects\/[^/]+$/;
 
 // /events/:eventId is public too — a calendar invite goes to a guest with
 // no account by design (eventRsvps.userId is optional), and event.tsx's own
@@ -56,7 +64,8 @@ function isPublicPathname(pathname: string): boolean {
   return (
     PUBLIC_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
     PUBLIC_EXACT_PATHS.includes(pathname) ||
-    PUBLIC_EVENT_DETAIL_PATH.test(pathname)
+    PUBLIC_EVENT_DETAIL_PATH.test(pathname) ||
+    PUBLIC_PROJECT_DETAIL_PATH.test(pathname)
   );
 }
 

@@ -113,6 +113,13 @@ describe("the phone's bottom bar", () => {
     expect(await shell("/today")).toBe("");
   });
 
+  it("keeps a signed-out visitor on a project's page, but not on a deeper path under it", async () => {
+    scene.signedIn = false;
+    expect(await shell("/projects")).toContain('aria-label="Places"');
+    expect(await shell("/projects/abc123")).toContain('aria-label="Places"');
+    expect(await shell("/projects/abc123/edit")).toBe("");
+  });
+
   it("never asks for the Shortlist while the palette is on: Today reads its own", async () => {
     await shell();
     expect(scene.asked).toEqual(["skip"]);

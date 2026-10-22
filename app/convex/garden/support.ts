@@ -30,6 +30,7 @@ import { getProfileByUserId, requireOperator } from "../helpers";
 import { insertNotification } from "../notify";
 import { guestBackingThrottled } from "./stripeHandlers";
 import { isHidden } from "../moderationRules";
+import { projectVisibleTo } from "./projectVisibility";
 import { emailFirstCheer, isFirstCheerReceived } from "../engagement/firstCheer";
 
 const FINANCIAL_TYPES = new Set(["financial_one_time", "financial_recurring", "financial_annual"]);
@@ -319,7 +320,10 @@ export const listSupportForProject = query({
   handler: async (ctx, args) => {
     const viewer = await getAuthUserId(ctx);
     const project = await ctx.db.get(args.projectId);
-    const viewerIsOwner = !!viewer && project?.userId === viewer;
+    // The project page is public: a project not shown to this viewer
+    // (admin-hidden, or in a hidden community) has no supporters to them.
+    if (!project || !(await projectVisibleTo(ctx, project, viewer))) return [];
+    const viewerIsOwner = !!viewer && project.userId === viewer;
     const entries = await ctx.db
       .query("projectSupport")
       .withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))

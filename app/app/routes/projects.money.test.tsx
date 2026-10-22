@@ -7,17 +7,19 @@ import { TierManager } from "./projects.$id";
 
 // What each query on these pages answers, by function name.
 const answers = vi.hoisted(() => ({ current: {} as Record<string, unknown> }));
+const auth = vi.hoisted(() => ({ signedIn: true }));
 
 vi.mock("convex/react", () => ({
   useQuery: (ref: unknown) => answers.current[getFunctionName(ref as never)],
   useMutation: () => async () => {},
   useAction: () => async () => {},
-  useConvexAuth: () => ({ isAuthenticated: true, isLoading: false }),
+  useConvexAuth: () => ({ isAuthenticated: auth.signedIn, isLoading: false }),
 }));
 
 afterEach(() => {
   vi.restoreAllMocks();
   answers.current = {};
+  auth.signedIn = true;
 });
 
 /** A browser set to German: anything that doesn't pin a locale reads "12,5". */
@@ -102,6 +104,35 @@ describe("SupportModal presets", () => {
     expect(html).toContain("$50/mo");
     expect(html).toContain("Other amount");
     expect(html).not.toContain("Continue to checkout");
+  });
+});
+
+describe("SupportModal for a visitor with no account", () => {
+  it("opens on a one-time backing, and asks for the name it will show", () => {
+    auth.signedIn = false;
+    answers.current = { "garden/support:listSupportForProject": [], "garden/patronTiers:listTiers": [] };
+    const html = plain(
+      renderToString(
+        <MemoryRouter>
+          <SupportModal project={{ _id: "projects:p1", title: "A film" }} mode="back" onClose={() => {}} />
+        </MemoryRouter>,
+      ),
+    );
+    expect(html).toContain(">$10<");
+    expect(html).not.toContain("/mo");
+    expect(html).toContain("Your name, as it shows on the project");
+  });
+
+  it("asks a member for no name: their profile's is used", () => {
+    answers.current = { "garden/support:listSupportForProject": [], "garden/patronTiers:listTiers": [] };
+    const html = plain(
+      renderToString(
+        <MemoryRouter>
+          <SupportModal project={{ _id: "projects:p1", title: "A film" }} mode="back" onClose={() => {}} />
+        </MemoryRouter>,
+      ),
+    );
+    expect(html).not.toContain("Your name, as it shows on the project");
   });
 });
 

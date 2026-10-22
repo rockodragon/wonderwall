@@ -31,7 +31,8 @@ import { trackEvent } from "../posthog";
 // project is (docs/features/creator-media-cross-post.md, Round 2) — is
 // checked and stored the way artifacts and events store one.
 import { canonicalMediaUrl, schedulePreviewFetch } from "../linkPreview";
-import { displayNameOf, getProfileByUserId, isAdmin, requireOwner } from "../helpers";
+import { currentUserId, displayNameOf, getProfileByUserId, requireOwner } from "../helpers";
+import { projectVisibleTo, seesProjectAddress } from "./projectVisibility";
 import { insertNotification } from "../notify";
 import { isHidden, isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
 import { communityVisibility, isHiddenCommunityId } from "./communityVisibility";
@@ -572,20 +573,14 @@ export const getProject = query({
     if (!id) return null;
     const project = await ctx.db.get(id);
     if (!project) return null;
-    // An admin-hidden project (moderation.ts) reads as not-found to everyone
-    // but its lead and admins.
-    if (isHidden(project)) {
-      const viewerId = await getAuthUserId(ctx);
-      if (!viewerId || (viewerId !== project.userId && !(await isAdmin(ctx, viewerId)))) return null;
-    }
-    // Posted into a hidden (test) community: not found to everyone but its
-    // lead, admins and that community's members.
-    if (project.hostOrgId) {
-      const viewerId = await getAuthUserId(ctx);
-      if (viewerId !== project.userId && !(await communityVisibility(ctx, viewerId).idVisible(project.hostOrgId))) {
-        return null;
-      }
-    }
+    // The page is public (anyone with the link, signed in or not). An
+    // admin-hidden project, or one in a hidden (test) community, is
+    // not-found to everyone it isn't shown to (projectVisibility.ts).
+    const viewerId = await currentUserId(ctx);
+    if (!(await projectVisibleTo(ctx, project, viewerId))) return null;
+    // The exact place (street address, map position, Places id) is for the
+    // lead and admins; everyone else gets the place's display name.
+    const exactPlace = await seesProjectAddress(ctx, project, viewerId);
 
     const [user, media, support, communityOrg, gig] = await Promise.all([
       getProfileByUserId(ctx, project.userId),
@@ -619,6 +614,9 @@ export const getProject = query({
 
     return {
       ...project,
+      address: exactPlace ? project.address : undefined,
+      coordinates: exactPlace ? project.coordinates : undefined,
+      placeId: exactPlace ? project.placeId : undefined,
       body: resolvedBody,
       resolvedPhotoUrl,
       organization: await orgByline(ctx, project.organizationId),

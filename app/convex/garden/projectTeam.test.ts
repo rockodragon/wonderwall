@@ -2,10 +2,12 @@
 // rules, the §3 limit counter, the §6 stage-change rule, HTML escaping for
 // the claim email, and the client projections that must never leak
 // `email` / `claimToken`. No Convex, no network — same shape as
-// communities.test.ts.
+// communities.test.ts. At the end, the two reads the public project page
+// makes (getTeam, listRoles), run on the in-memory ctx in test-support.
 
 import { describe, expect, it } from "vitest";
 import type { Doc, Id } from "../_generated/dataModel";
+import { makeCtx, run, type Row } from "../../test-support/convexContext";
 import {
   isAcceptingPeople,
   isProjectFinished,
@@ -20,6 +22,8 @@ import {
   buildJoinRequestEmail,
   buildRequestDecidedEmail,
   canLeadReinvite,
+  getTeam,
+  listRoles,
   countInWindow,
   isStage,
   nameMatches,
@@ -406,5 +410,116 @@ describe("a person added without a role", () => {
     expect(email.previewText).toBe("You're listed on Small Acts.");
     expect(email.body).toContain("Rick listed you on <strong>Small Acts</strong>");
     expect(email.body).not.toContain(" as ");
+  });
+});
+
+// ——————————————————————————————————————————————————————————————
+// The public project page's reads: getTeam and listRoles
+// ——————————————————————————————————————————————————————————————
+
+describe("getTeam and listRoles, now that the project page is public", () => {
+  const LEAD = "users:lead";
+  const MEMBER = "users:member"; // accepted on every project
+  const ASKER = "users:asker"; // asked to join the plain one
+  const ADMIN = "users:admin";
+  const INSIDER = "users:insider"; // active member of the hidden community
+  const HID = "hostOrgs:hid";
+
+  function project(_id: string, extra: Record<string, unknown> = {}): Row {
+    return { _id, userId: LEAD, kind: "passion", origin: "posted", title: _id, status: "active", createdAt: 1, updatedAt: 1, ...extra };
+  }
+  function world(): Record<string, Row[]> {
+    const ids = ["projects:plain", "projects:hidden", "projects:test"];
+    return {
+      profiles: [
+        { _id: "profiles:lead", userId: LEAD, name: "Lena", interests: [] },
+        { _id: "profiles:member", userId: MEMBER, name: "Mo", interests: [] },
+        { _id: "profiles:asker", userId: ASKER, name: "Ash", interests: [] },
+        { _id: "profiles:admin", userId: ADMIN, name: "Ada", interests: [], isAdmin: true },
+        { _id: "profiles:insider", userId: INSIDER, name: "Ines", interests: [] },
+      ],
+      hostOrgs: [
+        { _id: HID, name: "_TeamTest", slug: "teamtest", kind: "community", status: "active", visibility: "public", joinPolicy: "open", ownerUserId: LEAD, createdAt: 1 },
+      ],
+      communityMembers: [{ _id: "communityMembers:1", hostOrgId: HID, userId: INSIDER, role: "member", status: "active", joinedAt: 0 }],
+      projects: [project("projects:plain"), project("projects:hidden", { status: "hidden" }), project("projects:test", { hostOrgId: HID })],
+      projectMembers: [
+        ...ids.map((projectId, i) => ({
+          _id: `projectMembers:m${i}`, projectId, userId: MEMBER, name: "Mo", role: "Sound", status: "accepted", createdAt: 1, updatedAt: 1,
+        })),
+        {
+          _id: "projectMembers:credit", projectId: "projects:plain", name: "Cass", role: "Camera", status: "invited",
+          email: "cass@example.com", claimToken: "secret-token", createdAt: 1, updatedAt: 1,
+        },
+        { _id: "projectMembers:ask", projectId: "projects:plain", userId: ASKER, name: "Ash", role: "Lights", status: "pending", createdAt: 1, updatedAt: 1 },
+      ],
+      projectRoles: ids.map((projectId, i) => ({
+        _id: `projectRoles:r${i}`, projectId, title: "Editor", status: "open", createdAt: 1, updatedAt: 1,
+      })),
+    };
+  }
+  const as = (viewer: string | null) => makeCtx(world(), viewer);
+
+  it("shows a signed-out visitor who is on it, and nothing about the visitor", async () => {
+    const team = await run(getTeam, as(null), { projectId: "projects:plain" });
+    expect(Object.keys(team).sort()).toEqual(["accepted", "acceptingPeople", "credits", "lead"]);
+    expect(team.lead).toMatchObject({ name: "Lena", profileId: "profiles:lead" });
+    expect(team.accepted.map((m: any) => m.name)).toEqual(["Mo"]);
+    expect(team.credits).toEqual([{ memberId: "projectMembers:credit", name: "Cass", role: "Camera" }]);
+    expect(team.acceptingPeople).toBe(true);
+    // No request waiting on the lead, and nothing a credit was sent with.
+    const json = JSON.stringify(team);
+    expect(json).not.toContain("Ash");
+    expect(json).not.toContain("cass@example.com");
+    expect(json).not.toContain("secret-token");
+  });
+
+  it("still tells a signed-in member about their own request, and whether they may apply", async () => {
+    const team = await run(getTeam, as(ASKER), { projectId: "projects:plain" });
+    expect(team.mine).toMatchObject({ status: "pending", role: "Lights" });
+    expect(team.apply).toEqual({ allowed: true, reason: null, upgradePath: null });
+    expect(team.pending).toBeUndefined();
+  });
+
+  it("gives the lead the requests waiting on them", async () => {
+    const team = await run(getTeam, as(LEAD), { projectId: "projects:plain" });
+    expect(team.pending.map((m: any) => m.name)).toEqual(["Ash"]);
+  });
+
+  it.each([
+    ["someone signed out", null],
+    ["a member who isn't its lead", MEMBER],
+  ])("is null on an admin-hidden project for %s, as getProject's not-found", async (_label, viewer) => {
+    expect(await run(getTeam, as(viewer), { projectId: "projects:hidden" })).toBeNull();
+    expect(await run(listRoles, as(viewer), { projectId: "projects:hidden" })).toEqual([]);
+  });
+
+  it.each([
+    ["its lead", LEAD],
+    ["an admin", ADMIN],
+  ])("still shows an admin-hidden project to %s", async (_label, viewer) => {
+    expect(await run(getTeam, as(viewer), { projectId: "projects:hidden" })).not.toBeNull();
+  });
+
+  it.each([
+    ["someone signed out", null],
+    ["a member who isn't in the community", MEMBER],
+  ])("is null in a hidden community for %s", async (_label, viewer) => {
+    expect(await run(getTeam, as(viewer), { projectId: "projects:test" })).toBeNull();
+    expect(await run(listRoles, as(viewer), { projectId: "projects:test" })).toEqual([]);
+  });
+
+  it.each([
+    ["its lead", LEAD],
+    ["an admin", ADMIN],
+    ["a member of the community", INSIDER],
+  ])("still shows a hidden community's project to %s", async (_label, viewer) => {
+    expect(await run(getTeam, as(viewer), { projectId: "projects:test" })).not.toBeNull();
+    expect((await run(listRoles, as(viewer), { projectId: "projects:test" })).map((r: any) => r.title)).toEqual(["Editor"]);
+  });
+
+  it("lists an ordinary project's roles to a signed-out visitor", async () => {
+    const roles = await run(listRoles, as(null), { projectId: "projects:plain" });
+    expect(roles.map((r: any) => [r.title, r.status])).toEqual([["Editor", "open"]]);
   });
 });
