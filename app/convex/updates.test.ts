@@ -221,8 +221,8 @@ describe("emailButton", () => {
 });
 
 describe("the starter drafts", () => {
-  it("are four, in order, and each passes the same rules as a saved Update", () => {
-    expect(STARTER_UPDATES.map((s) => s.order)).toEqual([1, 2, 3, 4]);
+  it("are three, in order, and each passes the same rules as a saved Update", () => {
+    expect(STARTER_UPDATES.map((s) => s.order)).toEqual([1, 2, 3]);
     for (const s of STARTER_UPDATES) {
       expect(() => cleanUpdateFields({ ...s, startsAt: NOW }), s.title).not.toThrow();
     }
@@ -240,13 +240,13 @@ describe("the starter drafts", () => {
   });
 
   it("send new members to their profile for 14 days, and link the Oct 6 event by title", () => {
-    expect(STARTER_UPDATES[2]).toMatchObject({
+    expect(STARTER_UPDATES[1]).toMatchObject({
       audience: "new",
       newForDays: 14,
       actionLabel: "Edit my profile",
       actionUrl: "/settings",
     });
-    expect(STARTER_UPDATES[3]).toMatchObject({ linksToEvent: OCT6_EVENT_TITLE, actionUrl: "/events" });
+    expect(STARTER_UPDATES[2]).toMatchObject({ linksToEvent: OCT6_EVENT_TITLE, actionUrl: "/events" });
   });
 });
 
@@ -1151,23 +1151,23 @@ describe("addStarterDrafts", () => {
     expect(ctx.store.updates).toEqual([]);
   });
 
-  it("adds the four drafts, then adds nothing the second time", async () => {
+  it("adds the three drafts, then adds nothing the second time", async () => {
     const ctx = makeCtx(eventWorld([]), ADMIN);
-    expect(await run(addStarterDrafts, ctx)).toEqual({ added: 4 });
-    expect(ctx.store.updates).toHaveLength(4);
+    expect(await run(addStarterDrafts, ctx)).toEqual({ added: 3 });
+    expect(ctx.store.updates).toHaveLength(3);
     for (const row of ctx.store.updates) {
       expect(row.status).toBe("draft");
       expect(row.createdBy).toBe(ADMIN);
       expect(row.sentAt).toBeUndefined();
     }
     expect(await run(addStarterDrafts, ctx)).toEqual({ added: 0 });
-    expect(ctx.store.updates).toHaveLength(4);
+    expect(ctx.store.updates).toHaveLength(3);
   });
 
   it("matches by title, so a renamed or edited draft isn't recreated and a missing one is", async () => {
     const ctx = makeCtx(eventWorld([]), ADMIN);
     await run(addStarterDrafts, ctx);
-    ctx.store.updates.splice(1, 1); // "Your tools are in the corner" is gone
+    ctx.store.updates.splice(1, 1); // "Add a photo and a few lines" is gone
     ctx.store.updates[0].body = "Edited."; // Welcome edited, same title
     expect(await run(addStarterDrafts, ctx)).toEqual({ added: 1 });
     expect(ctx.store.updates.map((u: Row) => u.title).sort()).toEqual(
@@ -1176,7 +1176,7 @@ describe("addStarterDrafts", () => {
     expect(ctx.store.updates.find((u: Row) => u.title === "Welcome").body).toBe("Edited.");
   });
 
-  it("writes the spec's four, each as a record that would pass save", async () => {
+  it("writes the spec's three, each as a record that would pass save", async () => {
     const ctx = makeCtx(eventWorld([]), ADMIN);
     await run(addStarterDrafts, ctx);
     const byTitle = (t: string) => ctx.store.updates.find((u: Row) => u.title === t);
@@ -1187,14 +1187,12 @@ describe("addStarterDrafts", () => {
       audience: "everyone",
       order: 1,
     });
-    expect(byTitle("Your tools are in the corner")).toMatchObject({ audience: "everyone", order: 2 });
-    expect(byTitle("Your tools are in the corner").actionUrl).toBeUndefined();
     expect(byTitle("Add a photo and a few lines")).toMatchObject({
       audience: "new",
       newForDays: 14,
       actionLabel: "Edit my profile",
       actionUrl: "/settings",
-      order: 3,
+      order: 2,
     });
     for (const row of ctx.store.updates) {
       expect(() =>
@@ -1218,7 +1216,7 @@ describe("addStarterDrafts", () => {
     const ctx = makeCtx(eventWorld([]), ADMIN);
     await run(addStarterDrafts, ctx);
     const oct6 = ctx.store.updates.find((u: Row) => u.title === "Oct 6: What is this and why?");
-    expect(oct6).toMatchObject({ actionLabel: "See the event", actionUrl: "/events", audience: "everyone", order: 4 });
+    expect(oct6).toMatchObject({ actionLabel: "See the event", actionUrl: "/events", audience: "everyone", order: 3 });
     expect(oct6.endsAt).toBeUndefined();
   });
 
