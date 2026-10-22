@@ -117,6 +117,7 @@ describe("the phone's bottom bar", () => {
     scene.signedIn = false;
     expect(await shell("/projects")).toContain('aria-label="Places"');
     expect(await shell("/projects/abc123")).toContain('aria-label="Places"');
+    expect(await shell("/projects/abc123/")).toContain('aria-label="Places"');
     expect(await shell("/projects/abc123/edit")).toBe("");
   });
 

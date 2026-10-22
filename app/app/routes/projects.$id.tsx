@@ -65,6 +65,7 @@ import {
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { useStartConversation } from "../lib/useStartConversation";
 import { useIsAdmin } from "../lib/useIsAdmin";
+import { useProfileLinks } from "../lib/useProfileLinks";
 import { signupHref, supportDetour } from "../lib/pendingIntent";
 import { bylineOf } from "../lib/byline";
 import { Byline } from "../components/Byline";
@@ -215,7 +216,9 @@ export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const project = useQuery(api.garden.projects.getProject, id ? { projectId: id } : "skip");
   const myProfile = useQuery(api.profiles.getMyProfile);
-  const { isAuthenticated } = useConvexAuth();
+  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
+  // Names link to profiles only for a member (profiles aren't public).
+  const profileLinks = useProfileLinks();
   // The team is read here, once, so the Team tab can say how many requests are
   // waiting; TeamCard draws from the same answer.
   const team = useQuery(api.garden.projectTeam.getTeam, id ? { projectId: id as Id<"projects"> } : "skip");
@@ -331,8 +334,10 @@ export default function ProjectDetail() {
   }
   // Every action asks a visitor for an account first, and signup brings them
   // back to this page (signup.tsx stashes it; _app.tsx replays it).
-  const visitorSignUp = isAuthenticated ? null : signupHref(location.pathname + location.search);
+  // Still checking the token reads as a member, not a visitor: no detour.
+  const visitorSignUp = !authLoading && !isAuthenticated ? signupHref(location.pathname + location.search) : null;
   function support(mode: SupportMode) {
+    if (authLoading) return;
     const detour = supportDetour(mode, isAuthenticated, location.pathname + location.search);
     if (detour) navigate(detour);
     else setSupportMode(mode);
@@ -458,7 +463,7 @@ export default function ProjectDetail() {
             <div className="flex items-center gap-3 mb-4">
               {/* A profile is for members: a visitor sees a person's name as
                   plain text. An organization's page is public. */}
-              <Byline byline={byline} linked={byline.kind === "org" || isAuthenticated}>
+              <Byline byline={byline} linked={byline.kind === "org" || profileLinks}>
                 {project.community && (
                   <span style={{ color: "var(--garden-dim)" }}> · in {project.community.name}</span>
                 )}
@@ -1739,7 +1744,7 @@ function TeamMemberRow({
 }) {
   const updateMemberRole = useMutation((api as any).garden.projectTeam.updateMemberRole);
   // Profiles are for members: a visitor sees the name, not a link.
-  const { isAuthenticated } = useConvexAuth();
+  const profileLinks = useProfileLinks();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(roleLabel);
   const [saving, setSaving] = useState(false);
@@ -1765,7 +1770,7 @@ function TeamMemberRow({
   return (
     <div className="flex items-center gap-2 text-sm">
       <PersonAvatar name={name} imageUrl={imageUrl} size="xs" tone="garden" />
-      {profileId && isAuthenticated ? (
+      {profileId && profileLinks ? (
         <Link to={`/profile/${profileId}`} className="hover:opacity-80" style={{ color: "var(--garden-paper)" }}>
           {name}
         </Link>
@@ -1820,14 +1825,11 @@ function TeamCard({
    * here). Null for a member, who gets the request form. */
   visitorSignUp: string | null;
 }) {
-  const navigate = useNavigate();
   // null = closed; {} = the free-text flow (generic Apply/Ask-to-join
   // button); {roleId,title} = applying for a specific posted role (from
   // RolesSection's Apply button) — TeamCard owns this so both entry points
   // share the one modal instance instead of each opening their own.
   const [joinModal, setJoinModal] = useState<{ roleId?: string; title?: string } | null>(null);
-  const openJoin = (role: { roleId?: string; title?: string }) =>
-    visitorSignUp ? navigate(visitorSignUp) : setJoinModal(role);
 
   if (!team) return null;
 
@@ -1875,8 +1877,9 @@ function TeamCard({
         isOwner={isOwner}
         canSave={canSave}
         mine={team.mine}
-        onApply={(role) => openJoin(role)}
+        onApply={(role) => setJoinModal(role)}
         apply={team.apply}
+        visitorSignUp={visitorSignUp}
       />
 
       {!isOwner && (
@@ -1884,9 +1887,10 @@ function TeamCard({
           project={project}
           mine={team.mine}
           leadName={team.lead.name}
-          onOpenJoinModal={() => openJoin({})}
+          onOpenJoinModal={() => setJoinModal({})}
           apply={team.apply}
           acceptingPeople={team.acceptingPeople}
+          visitorSignUp={visitorSignUp}
         />
       )}
 
@@ -1939,6 +1943,7 @@ function RolesSection({
   mine,
   onApply,
   apply,
+  visitorSignUp,
 }: {
   project: any;
   isOwner: boolean;
@@ -1950,6 +1955,8 @@ function RolesSection({
   apply?: { allowed: boolean; reason: string | null; upgradePath: string | null };
   mine: { memberId: string; status: string; role: string } | undefined;
   onApply: (role: { roleId: string; title: string }) => void;
+  /** See TeamCard's: Apply is a link to sign up for a visitor. */
+  visitorSignUp: string | null;
 }) {
   const roles = useQuery(api.garden.projectTeam.listRoles, { projectId: project._id });
   const addRole = useMutation(api.garden.projectTeam.addRole);
@@ -2142,6 +2149,14 @@ function RolesSection({
                       style={{ color: "var(--garden-citron)" }}
                     >
                       Join to apply
+                    </Link>
+                  ) : !mine && visitorSignUp ? (
+                    <Link
+                      to={visitorSignUp}
+                      className="inline-block text-xs px-2.5 py-1 rounded-lg font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
+                      style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+                    >
+                      Apply
                     </Link>
                   ) : !mine ? (
                     <button
@@ -2340,6 +2355,7 @@ function ViewerTeamActions({
   onOpenJoinModal,
   apply,
   acceptingPeople,
+  visitorSignUp,
 }: {
   project: any;
   mine: { memberId: string; status: string; role: string } | undefined;
@@ -2352,6 +2368,8 @@ function ViewerTeamActions({
   /** Opens the shared JoinRequestModal TeamCard owns — with no preset,
    * this is the original free-text "propose your own role" flow. */
   onOpenJoinModal: () => void;
+  /** See TeamCard's: Apply / Ask to join is a link to sign up for a visitor. */
+  visitorSignUp: string | null;
 }) {
   const withdrawRequest = useMutation(api.garden.projectTeam.withdrawRequest);
   const respondToInvite = useMutation(api.garden.projectTeam.respondToInvite);
@@ -2389,6 +2407,14 @@ function ViewerTeamActions({
             {apply.upgradePath ?? "Join to apply"}
           </Link>
         </p>
+      ) : !mine && visitorSignUp ? (
+        <Link
+          to={visitorSignUp}
+          className="inline-block px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
+          style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+        >
+          {project.kind === "paid" ? "Apply" : "Ask to join"}
+        </Link>
       ) : !mine ? (
         <button
           onClick={onOpenJoinModal}

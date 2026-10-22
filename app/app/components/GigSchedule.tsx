@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { formatCents, formatDollars } from "../../convex/money";
 import { errorMessage } from "../lib/convexError";
@@ -15,6 +15,8 @@ import { toEmbedUrl } from "../lib/videoEmbed";
 import { MAX_CLIPS, MAX_NOTE_LENGTH, PAID_METHODS, isClipArtifact, type PaidMethod } from "../../convex/garden/gigRules";
 import { shiftEndTime } from "../lib/shiftEndTime";
 import { PersonAvatar } from "./PersonAvatar";
+import { useProfileLinks } from "../lib/useProfileLinks";
+import { signupHref } from "../lib/pendingIntent";
 
 const PAID_METHOD_LABELS: Record<PaidMethod, string> = {
   venmo: "Venmo",
@@ -329,6 +331,7 @@ function ClipPreview({ clip }: { clip: any }) {
 function OpenSlotResponders({ slotId }: { slotId: any }) {
   const responders: any = useQuery(api.garden.gigs.listResponders, { slotId });
   const bookSlot = useMutation(api.garden.gigs.bookSlot);
+  const profileLinks = useProfileLinks();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
@@ -366,13 +369,19 @@ function OpenSlotResponders({ slotId }: { slotId: any }) {
           <PersonAvatar name={r.name} imageUrl={r.imageUrl} size="xs" tone="garden" />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <Link
-                to={`/profile/${r.profileId}`}
-                className="text-sm hover:opacity-80"
-                style={{ color: "var(--garden-paper)" }}
-              >
-                {r.name}
-              </Link>
+              {profileLinks ? (
+                <Link
+                  to={`/profile/${r.profileId}`}
+                  className="text-sm hover:opacity-80"
+                  style={{ color: "var(--garden-paper)" }}
+                >
+                  {r.name}
+                </Link>
+              ) : (
+                <span className="text-sm" style={{ color: "var(--garden-paper)" }}>
+                  {r.name}
+                </span>
+              )}
               {r.location && (
                 <span className="text-xs" style={{ color: "var(--garden-dim)" }}>
                   {r.location}
@@ -634,6 +643,7 @@ function SlotRow({
   const cancelSlot = useMutation(api.garden.gigs.cancelSlot);
   const unbookSlot = useMutation(api.garden.gigs.unbookSlot);
   const withdrawResponse = useMutation(api.garden.gigs.withdrawResponse);
+  const profileLinks = useProfileLinks();
 
   async function run(action: () => Promise<unknown>) {
     setBusy(true);
@@ -666,14 +676,22 @@ function SlotRow({
     right = (
       <div className="flex flex-col items-end gap-1.5">
         <div className="flex items-center gap-2">
-          {slot.booked && (
-            <Link to={`/profile/${slot.booked.profileId}`} className="flex items-center gap-1.5 hover:opacity-80">
-              <PersonAvatar name={slot.booked.name} imageUrl={slot.booked.imageUrl} size="xs" tone="garden" />
-              <span className="text-sm" style={{ color: "var(--garden-paper)" }}>
-                {slot.booked.name}
+          {slot.booked &&
+            (profileLinks ? (
+              <Link to={`/profile/${slot.booked.profileId}`} className="flex items-center gap-1.5 hover:opacity-80">
+                <PersonAvatar name={slot.booked.name} imageUrl={slot.booked.imageUrl} size="xs" tone="garden" />
+                <span className="text-sm" style={{ color: "var(--garden-paper)" }}>
+                  {slot.booked.name}
+                </span>
+              </Link>
+            ) : (
+              <span className="flex items-center gap-1.5">
+                <PersonAvatar name={slot.booked.name} imageUrl={slot.booked.imageUrl} size="xs" tone="garden" />
+                <span className="text-sm" style={{ color: "var(--garden-paper)" }}>
+                  {slot.booked.name}
+                </span>
               </span>
-            </Link>
-          )}
+            ))}
           <StatusPill label={slot.isPast ? "Played" : "Booked"} kind={slot.isPast ? "muted" : "on"} />
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -963,6 +981,7 @@ function SeriesControls({ schedule }: { schedule: any }) {
 export function GigSchedule({ project, isOwner, myProfile }: { project: any; isOwner: boolean; myProfile: any }) {
   void myProfile; // not needed directly — schedule.viewer already carries what this card reads
   const schedule: any = useQuery(api.garden.gigs.getSchedule, { projectId: project._id });
+  const here = useLocation();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showRespond, setShowRespond] = useState(false);
 
@@ -1035,6 +1054,20 @@ export function GigSchedule({ project, isOwner, myProfile }: { project: any; isO
           {viewer.respondDenial?.reason ?? "Responding to a recurring gig takes membership."}{" "}
           <Link to="/join" className="underline underline-offset-2 font-medium" style={{ color: "var(--garden-citron)" }}>
             {viewer.respondDenial?.upgradePath ?? "Join to respond"}
+          </Link>
+        </p>
+      )}
+
+      {/* The dates are public; responding takes an account, and signing up
+          brings a visitor back to this page. */}
+      {!isOwner && !viewer.isSignedIn && schedule.status === "open" && (
+        <p className="text-sm mb-3">
+          <Link
+            to={signupHref(here.pathname + here.search)}
+            className="underline underline-offset-2 font-medium"
+            style={{ color: "var(--garden-citron)" }}
+          >
+            Sign up to respond
           </Link>
         </p>
       )}

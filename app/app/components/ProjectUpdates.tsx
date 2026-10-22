@@ -9,7 +9,7 @@
 // editing and deleting belong to whoever wrote the row.
 
 import { useState } from "react";
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -19,6 +19,7 @@ import { RichTextEditor } from "./RichTextEditor";
 import { isRichDocEmpty, toStoredDoc, type ResolvedRichBlock } from "../lib/richText";
 import { formatDate } from "../garden/ui";
 import { errorMessage } from "../lib/convexError";
+import { useProfileLinks } from "../lib/useProfileLinks";
 
 function PrimaryButton({
   onClick,
@@ -166,8 +167,7 @@ type UpdateRow = {
 function UpdateCard({ update, canManage }: { update: UpdateRow; canManage: boolean }) {
   const editStoryUpdate = useMutation(api.garden.stories.editStoryUpdate);
   const deleteStoryUpdate = useMutation(api.garden.stories.deleteStoryUpdate);
-  // Profiles are for members: a visitor sees the author's name, not a link.
-  const { isAuthenticated } = useConvexAuth();
+  const profileLinks = useProfileLinks();
   const [editing, setEditing] = useState(false);
   const [blocks, setBlocks] = useState<ResolvedRichBlock[]>([]);
   const [busy, setBusy] = useState(false);
@@ -226,7 +226,7 @@ function UpdateCard({ update, canManage }: { update: UpdateRow; canManage: boole
             tone="garden"
           />
           <span style={{ fontSize: 14, color: "var(--garden-muted)" }} className="truncate">
-            {update.author?.profileId && isAuthenticated ? (
+            {update.author?.profileId && profileLinks ? (
               <Link to={`/profile/${update.author.profileId}`} className="hover:opacity-80">
                 {update.author.name}
               </Link>

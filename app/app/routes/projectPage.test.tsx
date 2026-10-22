@@ -50,13 +50,15 @@ function page({
   project = bareProject(),
   team,
   updates = [],
+  roles = [],
   accepting = false,
   url = "/projects/p1",
 }: {
-  viewer: "visitor" | "owner" | "member";
+  viewer: "visitor" | "owner" | "member" | "admin";
   project?: Record<string, unknown>;
   team?: Record<string, unknown>;
   updates?: unknown[];
+  roles?: unknown[];
   /** Still taking people (getTeam's acceptingPeople). Off by default: a
    * finished project, which with only its lead has no Team tab. */
   accepting?: boolean;
@@ -68,14 +70,17 @@ function page({
       ? { _id: "profiles:lead", userId: LEAD, name: "Lena Ortiz" }
       : viewer === "member"
         ? { _id: "profiles:mo", userId: "users:mo", name: "Mo" }
-        : null;
+        : viewer === "admin"
+          ? // What useIsAdmin reads.
+            { _id: "profiles:ada", userId: "users:ada", name: "Ada", isAdmin: true }
+          : null;
   const signedInTeam = viewer === "visitor" ? {} : { mine: undefined, apply: { allowed: true, reason: null, upgradePath: null } };
   const ownerTeam = viewer === "owner" ? { pending: [], invited: [] } : {};
   scene.answers = {
     "garden/projects:getProject": project,
     "profiles:getMyProfile": me,
     "garden/projectTeam:getTeam": team ?? { lead, accepted: [], credits: [], acceptingPeople: accepting, ...signedInTeam, ...ownerTeam },
-    "garden/projectTeam:listRoles": [],
+    "garden/projectTeam:listRoles": roles,
     "garden/stories:listProjectUpdates": updates,
     "garden/support:listSupportForProject": [],
     "favorites:isFavorited": false,
@@ -144,8 +149,35 @@ describe("the project page, for a signed-out visitor", () => {
   it("keeps Team on a project still taking people, with only its lead: Ask to join sends them to sign up", () => {
     const html = page({ viewer: "visitor", accepting: true, url: "/projects/p1?tab=team" });
     expect(tabs(html)).toEqual(["About", "Team"]);
-    expect(html).toContain("Ask to join");
+    expect(html).toMatch(/<a [^>]*href="\/signup\?redirect=%2Fprojects%2Fp1%3Ftab%3Dteam"[^>]*>Ask to join<\/a>/);
     expect(html).toContain("Lena Ortiz");
+  });
+
+  it("sends a role's Apply to sign up, coming back to the Team tab", () => {
+    const role = {
+      roleId: "r1", title: "Editor", description: null, interests: [], neededBy: null,
+      budgetType: null, budget: null, budgetMax: null, status: "open", filledBy: null,
+    };
+    const html = page({ viewer: "visitor", accepting: true, roles: [role], url: "/projects/p1?tab=team" });
+    expect(html).toContain("Editor");
+    expect(html).toMatch(/<a [^>]*href="\/signup\?redirect=%2Fprojects%2Fp1%3Ftab%3Dteam"[^>]*>Apply<\/a>/);
+  });
+
+  it("gives a raising project with no supporters yet a Support tab that asks them to back it", () => {
+    const html = page({ viewer: "visitor", project: bareProject({ raising: true }), url: "/projects/p1?tab=support" });
+    expect(tabs(html)).toEqual(["About", "Support"]);
+    expect(html).toContain("Be the first to back this.");
+    expect(html).toContain('aria-label="Back this"');
+    expect(html).not.toContain("No supporters yet");
+  });
+
+  it("keeps an organization's byline linked to its public page", () => {
+    const html = page({
+      viewer: "visitor",
+      project: bareProject({ organization: { name: "Harbor Arts", slug: "harbor-arts", logoUrl: null } }),
+    });
+    expect(html).toContain('href="/orgs/harbor-arts"');
+    expect(html).not.toContain('href="/profile/');
   });
 
   it("falls back to About for ?tab=team when there's no team", () => {
@@ -176,6 +208,12 @@ describe("the project page, for its owner", () => {
     expect(html).toContain("+ Add a role");
     expect(html).toContain("Post an update");
     expect(html).toContain("No supporters yet");
+  });
+});
+
+describe("the project page, for an admin", () => {
+  it("keeps every section of an empty project, as the owner does", () => {
+    expect(tabs(page({ viewer: "admin" }))).toEqual(["About", "Team", "Updates", "Support"]);
   });
 });
 

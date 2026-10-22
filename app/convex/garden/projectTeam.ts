@@ -1429,8 +1429,12 @@ export const getTeam = query({
     // than offering a button requestToJoin will refuse.
     const acceptingPeople = isAcceptingPeople(project);
 
+    // A member's note (their join request, or the lead's invite) is for the
+    // lead (LeadTeamTools): everyone else gets who is on it, not what they said.
+    const acceptedNoNotes: PersonEntry[] = accepted.map((m) => ({ ...m, message: null }));
+
     // Signed out: who is on it, and nothing about the viewer.
-    if (!userId) return { lead, accepted, credits, acceptingPeople };
+    if (!userId) return { lead, accepted: acceptedNoNotes, credits, acceptingPeople };
 
     const myRow = rows.find((r) => r.userId === userId);
     const mine =
@@ -1446,7 +1450,7 @@ export const getTeam = query({
       ? { allowed: true as const, reason: null, upgradePath: null }
       : { allowed: false as const, reason: applyResult.reason ?? "Applying to paid work takes membership.", upgradePath: applyResult.upgradePath ?? null };
 
-    if (!isLead) return { lead, accepted, credits, mine, apply, acceptingPeople };
+    if (!isLead) return { lead, accepted: acceptedNoNotes, credits, mine, apply, acceptingPeople };
 
     const pending: PersonEntry[] = [];
     for (const row of rows) {
@@ -1480,7 +1484,7 @@ export const listRoles = query({
         .collect(),
       currentUserId(ctx),
     ]);
-    if (project && !(await projectVisibleTo(ctx, project, viewerId))) return [];
+    if (!project || !(await projectVisibleTo(ctx, project, viewerId))) return [];
     rows.sort((a, b) => a.createdAt - b.createdAt);
 
     const out: {

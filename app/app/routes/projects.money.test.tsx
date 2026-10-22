@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderToString } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 import { getFunctionName } from "convex/server";
-import { GoalProgress, SupportModal, tierPriceLabel } from "./projects";
+import type { Id } from "../../convex/_generated/dataModel";
+import { GoalProgress, SupportModal, backingCheckoutArgs, tierPriceLabel } from "./projects";
 import { TierManager } from "./projects.$id";
 
 // What each query on these pages answers, by function name.
@@ -121,6 +122,10 @@ describe("SupportModal for a visitor with no account", () => {
     expect(html).toContain(">$10<");
     expect(html).not.toContain("/mo");
     expect(html).toContain("Your name, as it shows on the project");
+    // Monthly and Yearly need an account: a guest isn't offered them.
+    expect(html).toContain(">Once<");
+    expect(html).not.toContain(">Monthly<");
+    expect(html).not.toContain(">Yearly<");
   });
 
   it("asks a member for no name: their profile's is used", () => {
@@ -133,6 +138,42 @@ describe("SupportModal for a visitor with no account", () => {
       ),
     );
     expect(html).not.toContain("Your name, as it shows on the project");
+    expect(html).toContain(">Monthly<");
+    expect(html).toContain(">Yearly<");
+  });
+});
+
+describe("backingCheckoutArgs", () => {
+  const base = {
+    projectId: "projects:p1" as Id<"projects">,
+    amountCents: 2500,
+    type: "financial_one_time",
+    message: "  Go well  ",
+    guestName: "  Ada Lovelace  ",
+  };
+
+  it("sends a named guest's name, trimmed", () => {
+    expect(backingCheckoutArgs({ ...base, visible: true, signedIn: false })).toEqual({
+      projectId: "projects:p1",
+      amountCents: 2500,
+      recurring: false,
+      visible: true,
+      message: "Go well",
+      tierId: undefined,
+      guestName: "Ada Lovelace",
+    });
+  });
+
+  it("sends no name for a guest backing anonymously", () => {
+    const args = backingCheckoutArgs({ ...base, visible: false, signedIn: false });
+    expect(args).not.toHaveProperty("guestName");
+    expect(args.visible).toBe(false);
+  });
+
+  it("sends no name for a member: their profile names them", () => {
+    const args = backingCheckoutArgs({ ...base, type: "financial_annual", visible: true, signedIn: true });
+    expect(args).not.toHaveProperty("guestName");
+    expect(args).toMatchObject({ recurring: true, interval: "year" });
   });
 });
 

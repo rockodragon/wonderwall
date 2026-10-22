@@ -48,9 +48,9 @@ const PUBLIC_EXACT_PATHS = ["/projects", "/give"];
 
 // /projects/:id is public (Rick, 2026-10-22), the way a shared post opens on
 // Instagram or TikTok: anyone with the link sees the work, and the page
-// shows a visitor only what has something in it. Only the page itself;
-// deeper paths are not, so this is not a prefix match.
-const PUBLIC_PROJECT_DETAIL_PATH = /^\/projects\/[^/]+$/;
+// shows a visitor only what has something in it. Only the page itself (a
+// trailing slash allowed); deeper paths are not, so this is not a prefix match.
+const PUBLIC_PROJECT_DETAIL_PATH = /^\/projects\/[^/]+\/?$/;
 
 // /events/:eventId is public too — a calendar invite goes to a guest with
 // no account by design (eventRsvps.userId is optional), and event.tsx's own

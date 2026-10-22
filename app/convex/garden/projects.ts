@@ -31,8 +31,8 @@ import { trackEvent } from "../posthog";
 // project is (docs/features/creator-media-cross-post.md, Round 2) — is
 // checked and stored the way artifacts and events store one.
 import { canonicalMediaUrl, schedulePreviewFetch } from "../linkPreview";
-import { currentUserId, displayNameOf, getProfileByUserId, requireOwner } from "../helpers";
-import { projectVisibleTo, seesProjectAddress } from "./projectVisibility";
+import { currentUserId, displayNameOf, getProfileByUserId, isAdmin, requireOwner } from "../helpers";
+import { placeForViewer, projectVisibleTo, seesProjectAddress } from "./projectVisibility";
 import { insertNotification } from "../notify";
 import { isHidden, isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
 import { communityVisibility, isHiddenCommunityId } from "./communityVisibility";
@@ -478,6 +478,9 @@ export const listProjects = query({
     // "Members respond" before anyone opens it. Membership is per community,
     // so one lookup per distinct community, not per project.
     const viewerId = await getAuthUserId(ctx);
+    // The list is public: a row's exact place is for its lead and admins
+    // (placeForViewer). The viewer's admin flag is read once, not per row.
+    const viewerIsAdmin = viewerId ? await isAdmin(ctx, viewerId) : false;
     const gateByCommunity = new Map<string, Promise<ReturnType<typeof can>[]>>();
     const gatesFor = (hostOrgId: Id<"hostOrgs"> | undefined) => {
       const key = String(hostOrgId ?? "");
@@ -529,7 +532,7 @@ export const listProjects = query({
         }
 
         return {
-          ...project,
+          ...placeForViewer(project, viewerIsAdmin || viewerId === project.userId),
           resolvedPhotoUrl,
           organization: await orgByline(ctx, project.organizationId),
           creator: user
@@ -579,7 +582,8 @@ export const getProject = query({
     const viewerId = await currentUserId(ctx);
     if (!(await projectVisibleTo(ctx, project, viewerId))) return null;
     // The exact place (street address, map position, Places id) is for the
-    // lead and admins; everyone else gets the place's display name.
+    // lead and admins; everyone else gets it cut back to the city
+    // (placeForViewer).
     const exactPlace = await seesProjectAddress(ctx, project, viewerId);
 
     const [user, media, support, communityOrg, gig] = await Promise.all([
@@ -613,10 +617,7 @@ export const getProject = query({
     const resolvedBody = await resolveRichDocMedia(ctx.storage, project.body);
 
     return {
-      ...project,
-      address: exactPlace ? project.address : undefined,
-      coordinates: exactPlace ? project.coordinates : undefined,
-      placeId: exactPlace ? project.placeId : undefined,
+      ...placeForViewer(project, exactPlace),
       body: resolvedBody,
       resolvedPhotoUrl,
       organization: await orgByline(ctx, project.organizationId),

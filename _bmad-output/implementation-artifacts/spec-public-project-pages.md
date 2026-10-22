@@ -2,7 +2,7 @@
 title: 'Public project pages, lean for viewers'
 type: 'feature'
 created: '2026-10-22'
-status: 'in-review'
+status: 'done'
 baseline_commit: 'c807e0f331b1abe89cc1112e804879695fc75bab'
 route: 'dispatch'
 review_loop_iteration: 0

@@ -445,7 +445,8 @@ describe("getTeam and listRoles, now that the project page is public", () => {
       projects: [project("projects:plain"), project("projects:hidden", { status: "hidden" }), project("projects:test", { hostOrgId: HID })],
       projectMembers: [
         ...ids.map((projectId, i) => ({
-          _id: `projectMembers:m${i}`, projectId, userId: MEMBER, name: "Mo", role: "Sound", status: "accepted", createdAt: 1, updatedAt: 1,
+          _id: `projectMembers:m${i}`, projectId, userId: MEMBER, name: "Mo", role: "Sound", status: "accepted",
+          message: "Happy to mix the opening night", createdAt: 1, updatedAt: 1,
         })),
         {
           _id: "projectMembers:credit", projectId: "projects:plain", name: "Cass", role: "Camera", status: "invited",
@@ -453,8 +454,10 @@ describe("getTeam and listRoles, now that the project page is public", () => {
         },
         { _id: "projectMembers:ask", projectId: "projects:plain", userId: ASKER, name: "Ash", role: "Lights", status: "pending", createdAt: 1, updatedAt: 1 },
       ],
-      projectRoles: ids.map((projectId, i) => ({
-        _id: `projectRoles:r${i}`, projectId, title: "Editor", status: "open", createdAt: 1, updatedAt: 1,
+      // A filled role on a project that's gone would still read as listed.
+      projectRoles: [...ids, "projects:gone"].map((projectId, i) => ({
+        _id: `projectRoles:r${i}`, projectId, title: "Editor", status: projectId === "projects:gone" ? "filled" : "open",
+        createdAt: 1, updatedAt: 1,
       })),
     };
   }
@@ -516,6 +519,25 @@ describe("getTeam and listRoles, now that the project page is public", () => {
   ])("still shows a hidden community's project to %s", async (_label, viewer) => {
     expect(await run(getTeam, as(viewer), { projectId: "projects:test" })).not.toBeNull();
     expect((await run(listRoles, as(viewer), { projectId: "projects:test" })).map((r: any) => r.title)).toEqual(["Editor"]);
+  });
+
+  it.each([
+    ["someone signed out", null],
+    ["a member who isn't its lead", ASKER],
+    ["a member on the team", MEMBER],
+  ])("keeps an accepted member's note (their request, or the lead's invite) from %s", async (_label, viewer) => {
+    const team = await run(getTeam, as(viewer), { projectId: "projects:plain" });
+    expect(team.accepted.map((m: any) => [m.name, m.message])).toEqual([["Mo", null]]);
+    expect(JSON.stringify(team)).not.toContain("opening night");
+  });
+
+  it("gives the lead the note", async () => {
+    const team = await run(getTeam, as(LEAD), { projectId: "projects:plain" });
+    expect(team.accepted.map((m: any) => m.message)).toEqual(["Happy to mix the opening night"]);
+  });
+
+  it("lists no roles for a project that isn't there", async () => {
+    expect(await run(listRoles, as(LEAD), { projectId: "projects:gone" })).toEqual([]);
   });
 
   it("lists an ordinary project's roles to a signed-out visitor", async () => {

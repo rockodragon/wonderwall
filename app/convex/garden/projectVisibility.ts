@@ -10,8 +10,9 @@
 
 import type { QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
-import { isAdmin } from "../helpers";
+import { isAdmin, isOwnerOrAdmin } from "../helpers";
 import { isHidden } from "../moderationRules";
+import { publicPlace } from "../eventAddress";
 import { communityVisibility } from "./communityVisibility";
 
 type ProjectLike = Pick<Doc<"projects">, "userId" | "status" | "hostOrgId">;
@@ -30,15 +31,34 @@ export async function projectVisibleTo(
   return await communityVisibility(ctx, viewerId).idVisible(project.hostOrgId);
 }
 
-/** True when `viewerId` may see the project's exact place (the structured
- * address, coordinates and Places id): its lead and admins. Everyone else
- * gets the place's display name only, so no street address goes to the
- * world. */
+/** True when `viewerId` may see the project's exact place (placeForViewer):
+ * its lead and admins. */
 export async function seesProjectAddress(
   ctx: QueryCtx,
   project: Pick<Doc<"projects">, "userId">,
   viewerId: Id<"users"> | null,
 ): Promise<boolean> {
   if (!viewerId) return false;
-  return viewerId === project.userId || (await isAdmin(ctx, viewerId));
+  return await isOwnerOrAdmin(ctx, project.userId, viewerId);
+}
+
+type PlaceFields = Pick<Doc<"projects">, "location" | "locationType" | "address" | "coordinates" | "placeId">;
+
+/** The project's place as a viewer may see it, so no street address goes to
+ * the world. `exact` (the lead, an admin): as stored. Anyone else: no map
+ * position or Places id, the address cut back to its city, region and
+ * country, and, where the place IS a street address (locationType
+ * "address"), the city in place of it ("Oakland, CA", publicPlace). Pure. */
+export function placeForViewer<T extends PlaceFields>(project: T, exact: boolean): T {
+  if (exact) return project;
+  const { address } = project;
+  return {
+    ...project,
+    location: project.locationType === "address" ? publicPlace(project) : project.location,
+    address: address
+      ? { city: address.city, state: address.state, stateCode: address.stateCode, country: address.country, countryCode: address.countryCode }
+      : undefined,
+    coordinates: undefined,
+    placeId: undefined,
+  };
 }

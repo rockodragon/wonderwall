@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { HireFlow } from "../components/HireFlow";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import { formatCents, formatDollars } from "../../convex/money";
 import { justPublished } from "../lib/justPublished";
 import { INTERESTS } from "../constants/interests";
@@ -101,7 +102,10 @@ export default function Projects() {
   // Cheering needs an account; backing doesn't: the sheet opens for a
   // visitor on a one-time payment (the server takes a guest's one-time
   // backing, not a monthly one).
+  // Until the token check settles a member reads as signed out, so a tap
+  // then does nothing rather than send them to sign up or a guest's sheet.
   const support = (project: any, mode: SupportMode) => {
+    if (authLoading) return;
     const detour = supportDetour(mode, isAuthenticated, `/projects${window.location.search}`);
     if (detour) navigate(detour);
     else setSupporting({ project, mode });
@@ -1071,6 +1075,31 @@ const MIN_BACKING_DOLLARS = 5;
 // One-tap amounts in the Back this modal; each goes straight to Stripe.
 export const BACKING_PRESET_DOLLARS = [10, 25, 50] as const;
 
+/** What SupportModal sends createBackingCheckout. A signed-out backer who
+ *  chose to be named sends that name, trimmed (the server stores a guest's
+ *  backing under it); an anonymous guest and a member send none. Pure. */
+export function backingCheckoutArgs(p: {
+  projectId: Id<"projects">;
+  amountCents: number;
+  type: string;
+  visible: boolean;
+  message: string;
+  tierId?: string;
+  signedIn: boolean;
+  guestName: string;
+}) {
+  return {
+    projectId: p.projectId,
+    amountCents: p.amountCents,
+    recurring: p.type !== "financial_one_time",
+    visible: p.visible,
+    message: p.message.trim() || undefined,
+    tierId: p.tierId,
+    ...(p.type === "financial_annual" ? { interval: "year" as const } : {}),
+    ...(!p.signedIn && p.visible ? { guestName: p.guestName.trim() } : {}),
+  };
+}
+
 // Backing a project is REAL money now: the two financial options open a
 // Stripe Checkout session (convex/garden/stripe.ts's createBackingCheckout)
 // and hand the browser off to it, exactly like fund.$slug.tsx's
@@ -1102,6 +1131,11 @@ export function SupportModal({
     mode === "cheer" ? "encouragement" : isAuthenticated ? "financial_recurring" : "financial_one_time",
   );
   const [guestName, setGuestName] = useState("");
+  // A guest backs once: Monthly and Yearly need an account, so they aren't offered.
+  const typeOptions =
+    mode === "back" && !isAuthenticated
+      ? SUPPORT_TYPES.back.filter((t) => t.value === "financial_one_time")
+      : SUPPORT_TYPES[mode];
   const [amount, setAmount] = useState("");
   const [message, setMessage] = useState("");
   const [resourceDescription, setResourceDescription] = useState("");
@@ -1129,16 +1163,18 @@ export function SupportModal({
     }
     setSubmitting(true);
     try {
-      const { url } = await createBackingCheckout({
-        projectId: project._id,
-        amountCents: finalAmountCents,
-        recurring: type !== "financial_one_time",
-        visible,
-        message: message.trim() || undefined,
-        tierId: finalTierId,
-        ...(type === "financial_annual" ? { interval: "year" } : {}),
-        ...(!isAuthenticated && visible ? { guestName: guestName.trim() } : {}),
-      });
+      const { url } = await createBackingCheckout(
+        backingCheckoutArgs({
+          projectId: project._id,
+          amountCents: finalAmountCents,
+          type,
+          visible,
+          message,
+          tierId: finalTierId,
+          signedIn: isAuthenticated,
+          guestName,
+        }),
+      );
       // Leaving for Stripe — deliberately no setSubmitting(false), so the
       // button stays disabled through the handoff.
       window.location.assign(url);
@@ -1257,7 +1293,7 @@ export function SupportModal({
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-wrap gap-2">
-              {SUPPORT_TYPES[mode].map((t) => (
+              {typeOptions.map((t) => (
                 <button
                   key={t.value}
                   type="button"
