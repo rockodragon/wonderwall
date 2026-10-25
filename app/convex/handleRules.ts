@@ -22,11 +22,13 @@ export const HANDLE_FORWARD_MS = HANDLE_FORWARD_DAYS * 24 * 60 * 60 * 1000;
  * names that would read as the site's own (api, help, support, exchange). A
  * community's /<slug> can't be one (garden/communityDomains.ts
  * RESERVED_SLUGS), and neither can a person's @handle. handleRules.test.ts
- * checks every static route in app/routes.ts is here. */
+ * checks every static route in app/routes.ts is here. The other held names
+ * (staff, cities, brands, short names…) are heldHandles.ts, which a
+ * community's slug isn't checked against. */
 export const RESERVED_HANDLES: ReadonlySet<string> = new Set(
   (
-    "about admin api assets brand c campaign claim communities coverage create demo docs e events exchange faq " +
-    "favorites for fund garden give grant-program help host ia invite j jobs join legal login messages " +
+    "about admin api assets badge brand c campaign claim communities coverage create demo docs e events exchange faq " +
+    "embed favorites for fund garden give grant-program help host ia invite j jobs join legal login media messages " +
     "oauth-callback offerings offers onboarding opportunities orgs patron people pricing profile projects " +
     "search settings showcase signup story support tables today unsubscribe works"
   ).split(" "),

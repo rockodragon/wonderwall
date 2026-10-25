@@ -96,6 +96,19 @@ describe("/@handle at the edge", () => {
     expect(res.headers.get("location")).toBe("https://thecreative.exchange/@ana?x=1");
   });
 
+  it("sends the founder alias on to the founder's page, and serves the shell (the 404) while that's unclaimed", async () => {
+    const rick = { ...ANA, name: "Rick Moy", handle: "rickmoy" };
+    const claimed = scene("/@rick", rick);
+    const res = await onRequestGet(claimed.context);
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("https://thecreative.exchange/@rickmoy");
+    const body = JSON.parse((claimed.convex.mock.calls[0] as unknown as [string, { body: string }])[1].body);
+    expect(body).toMatchObject({ path: "profiles:getProfileByHandle", args: { handle: "rick" } });
+
+    const unclaimed = scene("/@rick", null);
+    expect(await (await onRequestGet(unclaimed.context)).text()).toBe(SHELL);
+  });
+
   it("keeps a picture that isn't https off the card", async () => {
     const { context } = scene("/@ana", { ...ANA, imageUrl: "http://plain.example/ana.jpg" });
     expect(await (await onRequestGet(context)).text()).not.toContain("og:image");

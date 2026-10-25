@@ -22,6 +22,8 @@ import {
   profilePath,
 } from "../../convex/handleRules";
 import { errorMessage } from "../lib/convexError";
+import { LEGAL_ENTITY } from "../legal/entity";
+import { LinkedText } from "../components/LinkedText";
 import { NetworkTab } from "../components/NetworkTab";
 import { PersonAvatar } from "../components/PersonAvatar";
 import { OrganizationsEditor } from "../components/OrganizationsEditor";
@@ -1684,12 +1686,17 @@ function ProfileEditForm({
   );
 }
 
+/** A held name's reason names our address (convex/heldHandles.ts); it's a
+ * link where the reason is shown. */
+const CONTACT_LINK = [{ text: LEGAL_ENTITY.contactEmail, href: `mailto:${LEGAL_ENTITY.contactEmail}` }];
+
 /**
  * Your address: thecreative.exchange/@handle (convex/handleRules.ts has the
- * rules — Instagram's). Checks as you type: the rules here, taken or a
- * community's name on the server (handles.checkHandle). Saves on its own; a
- * change keeps the old address forwarding for HANDLE_FORWARD_DAYS. Under it,
- * "Hide my profile from search engines" (handles.setHideFromSearch).
+ * rules — Instagram's). Checks as you type: the rules here; taken, held
+ * (convex/heldHandles.ts) or a community's name on the server
+ * (handles.checkHandle). Saves on its own; a change keeps the old address
+ * forwarding for HANDLE_FORWARD_DAYS. "How names work" is /legal/names.
+ * Under it, "Hide my profile from search engines" (handles.setHideFromSearch).
  */
 function AddressSection({ profile }: { profile: { handle?: string; hideFromSearch?: boolean } }) {
   const claimHandle = useMutation(api.handles.claimHandle);
@@ -1760,7 +1767,10 @@ function AddressSection({ profile }: { profile: { handle?: string; hideFromSearc
         Your address
       </h2>
       <p className="text-sm mb-4" style={{ color: "var(--app-text-dim)" }}>
-        Your public page. Bring the name you use on Instagram.
+        Your public page. Bring the name you use on Instagram.{" "}
+        <Link to="/legal/names" className="hover:underline" style={{ color: "var(--app-accent-ink)" }}>
+          How names work
+        </Link>
       </p>
       <form onSubmit={save} className="flex flex-col sm:flex-row sm:items-center gap-2">
         <label
@@ -1804,12 +1814,12 @@ function AddressSection({ profile }: { profile: { handle?: string; hideFromSearc
           className={`mt-2 text-sm ${refused ? "text-red-600 dark:text-red-400" : ""}`}
           style={refused ? undefined : { color: "var(--app-text-muted)" }}
         >
-          {status}
+          <LinkedText text={status} links={CONTACT_LINK} className="underline" />
         </p>
       )}
       {error && (
         <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">
-          {error}
+          <LinkedText text={error} links={CONTACT_LINK} className="underline" />
         </p>
       )}
       {current && !unchanged && !problem && (

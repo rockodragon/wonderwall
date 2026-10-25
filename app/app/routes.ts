@@ -36,6 +36,9 @@ export default [
   // visible wherever the work is used, so every page carrying a photo links
   // here — that makes this page a licence obligation, not a nicety.
   route("legal/credits", "routes/legal.credits.tsx"),
+  // How @addresses are claimed, held and released (convex/heldHandles.ts).
+  // Settings links here from the address field.
+  route("legal/names", "routes/legal.names.tsx"),
 
   // Claiming an off-platform project credit (project-teams.md §3, §7).
   // Public: the person may not have an account yet, so this stays outside
