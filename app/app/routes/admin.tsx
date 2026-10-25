@@ -17,6 +17,7 @@ import {
   type Destination,
 } from "../components/admin/DestinationCards";
 import { MembersTable } from "../components/admin/MembersTable";
+import { CountsPanel } from "../components/admin/CountsPanel";
 import { Binoculars, HourglassMedium, Megaphone, PaperPlaneTilt, Plant, Pulse, Receipt, Trophy } from "@phosphor-icons/react";
 
 // Where each admin tool lives. A grid of cards, not a column of rows.
@@ -209,7 +210,11 @@ export default function AdminPage() {
         </AdminNotice>
       )}
 
-      <DestinationCards destinations={DESTINATIONS} />
+      <CountsPanel />
+
+      <div className="mt-8">
+        <DestinationCards destinations={DESTINATIONS} />
+      </div>
 
       <div className="mt-8 space-y-6">
         <HiddenContent />
@@ -267,7 +272,6 @@ export default function AdminPage() {
         <div className={admin.panel}>
           <h2 className={`${admin.h2} mb-4`}>Statistics</h2>
           <dl className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <Stat label="Total Users" value={users.length} />
             <Stat
               label="Users with Invites Used"
               value={users.filter((u) => u.inviteUsageCount > 0).length}
