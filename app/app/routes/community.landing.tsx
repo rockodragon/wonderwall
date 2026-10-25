@@ -7,7 +7,8 @@
 // Open community → its full page (communities.$slug.tsx's CommunityPage).
 // Not open yet → its name and a waitlist that tags signups to it.
 // Not a community → the normal 404. Static routes (/today, /events, …)
-// always win over this one.
+// always win over this one. Mounted by routes/slug.tsx, the one top-level
+// dynamic route, which sends /@handle to a person's page instead.
 
 import { useMutation, useQuery } from "convex/react";
 import { type FormEvent, useState } from "react";
@@ -24,7 +25,7 @@ export function meta() {
 }
 
 export default function CommunityLanding() {
-  const { communitySlug = "" } = useParams();
+  const { slug: communitySlug = "" } = useParams();
   const landing = useQuery(api.garden.communityDomains.getCommunityLanding, {
     slug: communitySlug,
   });

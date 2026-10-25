@@ -5,6 +5,7 @@ import { usePostHog } from "@posthog/react";
 import { BookmarkSimple, CalendarBlank, GraduationCap, PaintBrush, SquaresFour, Sun, UserCircle, Users, UsersThree, type Icon } from "@phosphor-icons/react";
 import { api } from "../../convex/_generated/api";
 import { setPendingIntent, takePendingIntent } from "../lib/pendingIntent";
+import { loginHref } from "../lib/loginHref";
 import { inviteFromSearch, rememberInvite } from "../lib/carriedInvite";
 import { needsOnboarding } from "../lib/onboardingGate";
 import { claimPendingTickets } from "../lib/pendingTicket";
@@ -52,11 +53,18 @@ const PUBLIC_EXACT_PATHS = ["/projects", "/give"];
 // deeper paths are not, so this is not a prefix match.
 const PUBLIC_EVENT_DETAIL_PATH = /^\/events(\/[^/]+)?$/;
 
+// A person's public page, /@handle (routes/slug.tsx), is for a visitor with
+// no account most of all. /profile/:id is public only so it can forward
+// there: profile.tsx sends a signed-out visitor to sign in itself when the
+// person has no address yet, so that page behaves as before for them.
+const PUBLIC_PERSON_PATH = /^\/(?:@[^/]+|profile\/[^/]+)$/;
+
 function isPublicPathname(pathname: string): boolean {
   return (
     PUBLIC_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
     PUBLIC_EXACT_PATHS.includes(pathname) ||
-    PUBLIC_EVENT_DETAIL_PATH.test(pathname)
+    PUBLIC_EVENT_DETAIL_PATH.test(pathname) ||
+    PUBLIC_PERSON_PATH.test(pathname)
   );
 }
 
@@ -105,7 +113,9 @@ const barRank = (to: string) => {
   return at === -1 ? BAR_ORDER.length : at;
 };
 
-export default function AppLayout() {
+// With `children`, the shell wraps them instead of the route below it: for a
+// page mounted by a route outside this layout (routes/slug.tsx's /@handle).
+export default function AppLayout({ children }: { children?: ReactNode }) {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -143,7 +153,7 @@ export default function AppLayout() {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated && !isPublicPath) {
-      navigate(`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`);
+      navigate(loginHref(location.pathname + location.search));
     }
   }, [isAuthenticated, isLoading, isPublicPath, navigate, location.pathname, location.search]);
 
@@ -334,7 +344,7 @@ export default function AppLayout() {
           FF_DESK ? (ownsBottom ? "md:pb-0" : "md:pb-32") : "md:pb-0 md:pl-64"
         }`}
       >
-        <Outlet />
+        {children ?? <Outlet />}
       </main>
 
       {/* Desktop palette — one button in the lower-left corner that fans out
@@ -582,7 +592,7 @@ export default function AppLayout() {
           ) : isPublicPath ? (
             <div className="px-4 py-3 border-t" style={{ borderColor: "var(--app-hairline)" }}>
               <Link
-                to={`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`}
+                to={loginHref(location.pathname + location.search)}
                 className="flex items-center justify-center px-3 py-2 rounded-lg text-[13.5px] font-medium transition-colors hover:bg-[var(--app-hairline)]"
                 style={{ color: "var(--app-text-muted)" }}
               >

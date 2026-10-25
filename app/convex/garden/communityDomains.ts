@@ -13,6 +13,7 @@ import { isHiddenCommunity } from "./hiddenCommunity";
 import { communityVisibility } from "./communityVisibility";
 import { normalizeHost } from "./brandHosts";
 import { COMMUNITY_KIND } from "./communityLookup";
+import { RESERVED_HANDLES } from "../handleRules";
 
 // "WWW.CreateSD.org:443" → "createsd.org": one rule for every host the
 // site compares, so it lives with The Garden's addresses.
@@ -110,15 +111,9 @@ export const getCommunityLanding = query({
 });
 
 /** First path segments the site already uses (app/routes.ts, public/) — a
- * community slug is its /<slug> address, so it can't be one of these. */
-export const RESERVED_SLUGS = new Set(
-  (
-    "about admin api assets c campaign claim communities coverage create demo events faq " +
-    "favorites for fund garden grant-program host ia invite j jobs join legal login messages " +
-    "oauth-callback offerings offers onboarding opportunities patron people pricing profile projects " +
-    "search settings showcase signup story tables today unsubscribe works"
-  ).split(" "),
-);
+ * community slug is its /<slug> address, so it can't be one of these. The
+ * same set a person's @handle can't be; handleRules.ts keeps it. */
+export const RESERVED_SLUGS = RESERVED_HANDLES;
 
 /** Renames a community (and optionally its slug, which is its /<slug>
  * address). Slugs must be unused, lowercase letters, digits and dashes.

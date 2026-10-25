@@ -91,6 +91,14 @@ export default defineSchema({
     stripeConnectPayoutsEnabled: v.optional(v.boolean()),
     stripeConnectDetailsSubmitted: v.optional(v.boolean()),
     stripeConnectUpdatedAt: v.optional(v.number()),
+    // The person's address, thecreative.exchange/@handle (handleRules.ts):
+    // lowercase, unique, Instagram's rules. Written only by
+    // handles.claimHandle, which also keeps the old one forwarding
+    // (handleForwards below).
+    handle: v.optional(v.string()),
+    // "Hide my profile from search engines" (Settings): the public page says
+    // noindex. Unset is findable — a profile with an address is public.
+    hideFromSearch: v.optional(v.boolean()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -98,7 +106,19 @@ export default defineSchema({
     .index("by_stripeConnectAccountId", ["stripeConnectAccountId"])
     .index("by_name", ["name"])
     .index("by_inviteSlug", ["inviteSlug"])
-    .index("by_adminCode", ["adminCode"]),
+    .index("by_adminCode", ["adminCode"])
+    .index("by_handle", ["handle"]),
+
+  // An address a person gave up, still theirs for HANDLE_FORWARD_DAYS
+  // (handleRules.ts): /@old opens their page, and nobody else can claim it
+  // until expiresAt. Written only by handles.claimHandle.
+  handleForwards: defineTable({
+    handle: v.string(),
+    profileId: v.id("profiles"),
+    expiresAt: v.number(),
+  })
+    .index("by_handle", ["handle"])
+    .index("by_profileId", ["profileId"]),
 
   // Flexible key-value attributes (social handles, employer, etc.)
   attributes: defineTable({

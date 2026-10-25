@@ -13,6 +13,14 @@ import { useSignOut } from "../lib/useSignOut";
 import { INTERESTS } from "../constants/interests";
 import { LEVEL_LABEL } from "../garden/capabilities";
 import { normalizeHandle, type PayoutKind } from "../../convex/garden/gigRules";
+import {
+  cleanHandle,
+  HANDLE_FORWARD_DAYS,
+  HANDLE_MAX_LENGTH,
+  HANDLE_PROBLEM_REASON,
+  handleProblem,
+  profilePath,
+} from "../../convex/handleRules";
 import { errorMessage } from "../lib/convexError";
 import { NetworkTab } from "../components/NetworkTab";
 import { PersonAvatar } from "../components/PersonAvatar";
@@ -140,6 +148,15 @@ export default function Settings() {
               </div>
             )}
           </div>
+
+          {/* Your address — thecreative.exchange/@handle — and the one
+              search switch. Always open like Organizations below; each
+              change saves on its own. Needs the profile row. */}
+          {profile?._id && (
+            <div id="address" className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+              <AddressSection profile={profile} />
+            </div>
+          )}
 
           {/* Organizations (docs/features/organizations.md). Always open,
               not behind the profile's Edit — every change saves on its own.
@@ -1673,6 +1690,159 @@ function ProfileEditForm({
       <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
         <LinksSection />
       </div>
+    </div>
+  );
+}
+
+/**
+ * Your address: thecreative.exchange/@handle (convex/handleRules.ts has the
+ * rules — Instagram's). Checks as you type: the rules here, taken or a
+ * community's name on the server (handles.checkHandle). Saves on its own; a
+ * change keeps the old address forwarding for HANDLE_FORWARD_DAYS. Under it,
+ * "Hide my profile from search engines" (handles.setHideFromSearch).
+ */
+function AddressSection({ profile }: { profile: { handle?: string; hideFromSearch?: boolean } }) {
+  const claimHandle = useMutation(api.handles.claimHandle);
+  const setHideFromSearch = useMutation(api.handles.setHideFromSearch);
+  const current = profile.handle ?? "";
+  const [typed, setTyped] = useState(current);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handle = cleanHandle(typed);
+  // A blank field isn't a problem yet; the rules speak once there's something.
+  const problem = handle ? handleProblem(handle) : null;
+  const unchanged = handle === current;
+
+  // The server's answer, a moment after typing stops.
+  const [asked, setAsked] = useState("");
+  useEffect(() => {
+    if (!handle || problem || unchanged) {
+      setAsked("");
+      return;
+    }
+    const timer = setTimeout(() => setAsked(handle), 300);
+    return () => clearTimeout(timer);
+  }, [handle, problem, unchanged]);
+  const check = useQuery(api.handles.checkHandle, asked ? { handle: asked } : "skip");
+  const answered = check !== undefined && check.handle === handle;
+  const refused = !!problem || (answered && !check.ok);
+  const status =
+    !handle || unchanged
+      ? null
+      : problem
+        ? HANDLE_PROBLEM_REASON[problem]
+        : !answered
+          ? "Checking…"
+          : check.ok
+            ? "Available."
+            : check.reason;
+  const canSave = !!handle && !problem && !unchanged && answered && check.ok && !saving;
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    if (!canSave) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await claimHandle({ handle });
+      setSaved(true);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleHide(hide: boolean) {
+    setError(null);
+    try {
+      await setHideFromSearch({ hide });
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  }
+
+  return (
+    <div>
+      <h2 className="text-lg font-semibold mb-2" style={{ color: "var(--app-text)" }}>
+        Your address
+      </h2>
+      <p className="text-sm mb-4" style={{ color: "var(--app-text-dim)" }}>
+        Your public page. Bring the name you use on Instagram.
+      </p>
+      <form onSubmit={save} className="flex flex-col sm:flex-row sm:items-center gap-2">
+        <label
+          className="flex flex-1 items-center border rounded-lg focus-within:ring-2 focus-within:ring-[var(--app-accent)]"
+          style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)" }}
+        >
+          <span className="pl-4 text-sm whitespace-nowrap select-none" style={{ color: "var(--app-text-dim)" }}>
+            thecreative.exchange/@
+          </span>
+          <input
+            type="text"
+            value={typed}
+            onChange={(e) => {
+              setTyped(e.target.value);
+              setSaved(false);
+              setError(null);
+            }}
+            placeholder="yourname"
+            aria-label="Your address"
+            aria-invalid={refused || undefined}
+            maxLength={HANDLE_MAX_LENGTH + 1}
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            className="min-w-0 flex-1 bg-transparent py-2 pr-4 outline-none"
+            style={{ color: "var(--app-text)" }}
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={!canSave}
+          className="px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50"
+          style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
+        >
+          {saving ? "Saving…" : "Save"}
+        </button>
+      </form>
+      {status && (
+        <p
+          role={refused ? "alert" : "status"}
+          className={`mt-2 text-sm ${refused ? "text-red-600 dark:text-red-400" : ""}`}
+          style={refused ? undefined : { color: "var(--app-text-muted)" }}
+        >
+          {status}
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">
+          {error}
+        </p>
+      )}
+      {current && !unchanged && !problem && (
+        <p className="mt-2 text-sm" style={{ color: "var(--app-text-dim)" }}>
+          Your old address, @{current}, forwards here for {HANDLE_FORWARD_DAYS} days.
+        </p>
+      )}
+      {current && unchanged && (
+        <p className="mt-2 text-sm">
+          <Link to={profilePath(current)} className="hover:underline" style={{ color: "var(--app-accent-ink)" }}>
+            {saved ? "Saved. " : ""}See your page →
+          </Link>
+        </p>
+      )}
+      <label className="mt-5 flex items-center gap-3 text-sm" style={{ color: "var(--app-text)" }}>
+        <input
+          type="checkbox"
+          checked={!!profile.hideFromSearch}
+          onChange={(e) => void toggleHide(e.target.checked)}
+          className="h-4 w-4"
+        />
+        Hide my profile from search engines
+      </label>
     </div>
   );
 }

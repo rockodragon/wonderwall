@@ -10,15 +10,14 @@
 // with the signup-deep-link regression test alongside (the SPA-fallback
 // lesson: anything near routing gets verified live immediately).
 
+import { injectShareHead } from "../../app/lib/shareHead";
+
 interface Env {
   ASSETS: { fetch: (req: Request | URL) => Promise<Response> };
   CONVEX_URL?: string;
 }
 
 const CONVEX_URL = "https://courteous-rabbit-750.convex.cloud";
-
-const esc = (s: string) =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 async function fetchEvent(convexUrl: string, eventId: string) {
   const res = await fetch(`${convexUrl}/api/query`, {
@@ -31,34 +30,8 @@ async function fetchEvent(convexUrl: string, eventId: string) {
   return data?.value ?? null;
 }
 
-function injectHead(
-  html: string,
-  tags: { title: string; description: string; url: string; image?: string },
-) {
-  const t = esc(tags.title);
-  const d = esc(tags.description);
-  const block = [
-    `<title>${t}</title>`,
-    `<meta property="og:title" content="${t}">`,
-    `<meta property="og:description" content="${d}">`,
-    `<meta property="og:type" content="website">`,
-    `<meta property="og:url" content="${esc(tags.url)}">`,
-    // The uploaded cover, else the still of a pasted reel/TikTok (both
-    // Convex storage URLs from events:get), is the link's picture.
-    ...(tags.image ? [`<meta property="og:image" content="${esc(tags.image)}">`] : []),
-    // The small card: the picture as a thumbnail beside the title. Covers
-    // are 4:5 portraits (docs/features/cover-4x5.md), and the large card
-    // crops them to a wide strip through the middle, often through the
-    // poster's own type. Small is fine (Rick, 2026-10-03).
-    `<meta name="twitter:card" content="summary">`,
-    `<meta name="description" content="${d}">`,
-  ].join("\n");
-  // Strip the shell's own title/OG/description tags, then inject ours.
-  const stripped = html
-    .replace(/<title>[\s\S]*?<\/title>/, "")
-    .replace(/<meta (?:property="og:[^"]*"|name="twitter:[^"]*"|name="description")[^>]*>/g, "");
-  return stripped.replace("</head>", `${block}\n</head>`);
-}
+// The head tags themselves are app/lib/shareHead.ts (injectShareHead), shared
+// with functions/[handle].ts.
 
 export const onRequestGet = async (context: {
   request: Request;
@@ -85,10 +58,12 @@ export const onRequestGet = async (context: {
     // Convex unreachable or invalid id — serve the shell; client router handles it.
   }
 
-  // The uploaded cover wins on every card and page, so it wins here too.
+  // The uploaded cover, else the still of a pasted reel/TikTok (both Convex
+  // storage URLs from events:get), is the link's picture: the cover wins on
+  // every card and page, so it wins here too.
   const image = event?.coverImageUrl ?? event?.mediaPreviewUrl;
   const html = event
-    ? injectHead(shell, {
+    ? injectShareHead(shell, {
         title: `${event.title} — TheCreative.exchange`,
         description: (event.description ?? "").slice(0, 200) || "A community event.",
         url: request.url,
