@@ -20,6 +20,7 @@ import {
   SortButton,
   ariaSortFor,
 } from "../components/admin/AdminUi";
+import { timeAgo } from "../lib/dates";
 import { useIsAdmin } from "../lib/useIsAdmin";
 
 export const meta: MetaFunction = () => {
@@ -820,7 +821,7 @@ function ExpandedOrgDetails({ org }: { org: Organization }) {
           )}
           {org.lastJobsCrawledAt && (
             <span className="ml-2 text-[color:var(--app-text-muted)]">
-              (scraped {formatRelativeTime(org.lastJobsCrawledAt)})
+              (scraped {timeAgo(org.lastJobsCrawledAt)})
             </span>
           )}
         </div>
@@ -917,16 +918,3 @@ function SegmentBadge({ segment }: { segment: string }) {
   );
 }
 
-function formatRelativeTime(timestamp: number): string {
-  const now = Date.now();
-  const diff = now - timestamp;
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  if (days < 7) return `${days}d ago`;
-  return new Date(timestamp).toLocaleDateString();
-}

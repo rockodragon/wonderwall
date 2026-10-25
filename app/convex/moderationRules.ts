@@ -19,6 +19,14 @@ export function isHidden(row: { status?: string } | null | undefined): boolean {
   return row?.status === HIDDEN_STATUS;
 }
 
+/** Whether one of a person's projects is still theirs to show: on their
+ * profile, an organization's page, their own pickers and the Shortlist's
+ * "latest from people you follow". Anything but archived (a take-down by the
+ * creator or an operator) or hidden (an admin's). */
+export function isShownProject(row: { status?: string }): boolean {
+  return row.status !== "archived" && !isHidden(row);
+}
+
 /** The project statuses a browse list shows: both listProjects, a
  * community's page, the stats strip, the operator's allocation picker, and
  * what a member may save. "pending" isn't used yet; "archived" is a
