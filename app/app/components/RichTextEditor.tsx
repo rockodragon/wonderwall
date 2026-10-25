@@ -31,18 +31,7 @@ import {
   type ResolvedRichBlock,
   type RichBlockType,
 } from "../lib/richText";
-import { uploadToStorage } from "../lib/uploadFile";
-
-// Convex file storage takes larger files than this, but a project page that
-// streams a 200MB upload to every visitor is a bad page. Video past this
-// belongs on YouTube or Vimeo — which the video block also accepts, and
-// which is the better answer anyway.
-const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
-const MAX_VIDEO_BYTES = 64 * 1024 * 1024;
-
-function mb(bytes: number): number {
-  return Math.round(bytes / (1024 * 1024));
-}
+import { useFileUpload } from "../lib/useFileUpload";
 
 // ————— shared field chrome —————
 
@@ -458,18 +447,13 @@ export function RichTextEditor({
   autoFocus?: boolean;
 }) {
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+  // One uploader for every block. Its previews stay valid until the editor
+  // closes, so each block keeps showing its file. Video past the cap belongs
+  // on YouTube or Vimeo, which the video block also takes.
+  const files = useFileUpload({ kinds: ["image", "video"], generateUploadUrl, takesLinks: true });
   const [uploadingAt, setUploadingAt] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
   const firstRef = useRef<HTMLTextAreaElement | null>(null);
-  // Object URLs created for just-uploaded files, revoked on unmount so a
-  // long editing session doesn't hold every file it previewed in memory.
-  const objectUrls = useRef<string[]>([]);
-
-  useEffect(() => {
-    const urls = objectUrls.current;
-    return () => urls.forEach((u) => URL.revokeObjectURL(u));
-  }, []);
 
   useEffect(() => {
     if (autoFocus) firstRef.current?.focus();
@@ -506,33 +490,17 @@ export function RichTextEditor({
   }
 
   async function uploadInto(index: number, file: File, kind: "image" | "video") {
-    const cap = kind === "image" ? MAX_IMAGE_BYTES : MAX_VIDEO_BYTES;
-    if (file.size > cap) {
-      setError(
-        kind === "image"
-          ? `That image is ${mb(file.size)}MB — images need to be under ${mb(cap)}MB.`
-          : `That video is ${mb(file.size)}MB. Files need to be under ${mb(cap)}MB — for anything longer, put it on YouTube or Vimeo and paste the link.`,
-      );
-      return;
-    }
-    setError(null);
     setUploadingAt(index);
-    try {
-      const storageId = await uploadToStorage(generateUploadUrl, file);
-      // The real URL arrives on the next read; until the author saves, the
-      // local file is the preview.
-      const localUrl = URL.createObjectURL(file);
-      objectUrls.current.push(localUrl);
-      patchBlock(index, {
-        storageId,
-        url: undefined,
-        resolvedUrl: localUrl,
-      } as Partial<ResolvedRichBlock>);
-    } catch {
-      setError("That file didn't upload. Try again, or paste a link instead.");
-    } finally {
-      setUploadingAt(null);
-    }
+    const uploaded = await files.upload(file, { kinds: [kind] });
+    setUploadingAt(null);
+    if (!uploaded) return;
+    // The real URL arrives on the next read; until the author saves, the
+    // local file is the preview.
+    patchBlock(index, {
+      storageId: uploaded.storageId,
+      url: undefined,
+      resolvedUrl: uploaded.preview,
+    } as Partial<ResolvedRichBlock>);
   }
 
   if (preview) {
@@ -703,9 +671,9 @@ export function RichTextEditor({
         }
       })}
 
-      {error && (
-        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: "var(--garden-citron)" }}>
-          {error}
+      {files.error && (
+        <p role="alert" style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: "var(--garden-citron)" }}>
+          {files.error}
         </p>
       )}
 

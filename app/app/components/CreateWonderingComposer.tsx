@@ -1,9 +1,8 @@
 import { useAction, useMutation, useQuery } from "convex/react";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
 import { PersonAvatar } from "./PersonAvatar";
-import { uploadToStorage } from "../lib/uploadFile";
 
 // Get anonymous ID for analytics
 function getAnonymousId(): string {
@@ -23,55 +22,14 @@ export function CreateWonderingComposer() {
   const createWondering = useMutation(api.wonderings.create);
   const updateWondering = useMutation(api.wonderings.update);
   const archiveWondering = useMutation(api.wonderings.archive);
-  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
-  const saveWonderingImage = useMutation(api.files.saveWonderingImage);
 
   const [isExpanded, setIsExpanded] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
   const [showReplaceConfirm, setShowReplaceConfirm] = useState(false);
-  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const isExpired = wondering?.expiresAt && Date.now() > wondering.expiresAt;
   const hasActiveWondering = wondering && !isExpired;
-
-  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      alert("Please select an image file");
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      alert("Image must be less than 5MB");
-      return;
-    }
-
-    setUploadingImage(true);
-    try {
-      const storageId = await uploadToStorage(generateUploadUrl, file);
-
-      // If user already has a wondering, save image to it
-      // Otherwise, we'll attach it when they create the wondering
-      if (hasActiveWondering) {
-        await saveWonderingImage({ wonderingId: wondering._id, storageId });
-      }
-
-      // For new wonderings, we'd need to store storageId temporarily
-      // For now, let's just upload to existing wondering
-    } catch (err) {
-      console.error("Upload error:", err);
-      alert("Failed to upload image. Please try again.");
-    } finally {
-      setUploadingImage(false);
-      if (imageInputRef.current) {
-        imageInputRef.current.value = "";
-      }
-    }
-  }
 
   async function handleSubmit() {
     if (!prompt.trim()) return;
@@ -216,31 +174,7 @@ export function CreateWonderingComposer() {
                 <span>{prompt.length}/280 characters</span>
               </div>
 
-              {/* Hidden image upload for future background image support */}
-              <input
-                ref={imageInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-              />
-
-              <div className="flex items-center justify-between pt-2">
-                <div className="flex gap-2">
-                  {/* Future: Add background image button */}
-                  {/* <button
-                    type="button"
-                    onClick={() => imageInputRef.current?.click()}
-                    disabled={uploadingImage}
-                    className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
-                    title="Add background image"
-                  >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </button> */}
-                </div>
-
+              <div className="flex items-center justify-end pt-2">
                 <div className="flex gap-2">
                   <button
                     onClick={handleCancel}
