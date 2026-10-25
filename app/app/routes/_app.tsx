@@ -123,9 +123,18 @@ const barRank = (to: string) => {
   return at === -1 ? BAR_ORDER.length : at;
 };
 
+// The layout route: the shell around whichever route sits below it.
+export default function AppLayout() {
+  return <AppShell />;
+}
+
 // With `children`, the shell wraps them instead of the route below it: for a
 // page mounted by a route outside this layout (routes/slug.tsx's /@handle).
-export default function AppLayout({ children }: { children?: ReactNode }) {
+// A named export on purpose: the production build wraps a route module's
+// default export in a component that passes only the route's own props, so
+// <AppLayout>{page}</AppLayout> would drop the page (blank /@handle,
+// 2026-10-25). e2e/handle.spec.ts guards it against the real build.
+export function AppShell({ children }: { children?: ReactNode }) {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const navigate = useNavigate();
   const location = useLocation();

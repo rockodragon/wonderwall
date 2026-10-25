@@ -10,7 +10,8 @@
 // does, so a member sees the shell they know and a visitor sees Sign in;
 // _app.tsx lists /@… as public. The shell is a layout route, and this route
 // can't be inside it for people and outside it for communities at once, so
-// it renders the layout itself with the page as its child.
+// it renders the shell itself (AppShell, not the layout's default export:
+// see _app.tsx) with the page as its child.
 //
 // The edge (functions/[handle].ts) serves /@handle with real link-preview
 // tags and sends an old address on; this does the same in the app.
@@ -20,7 +21,7 @@ import { Navigate, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { cleanHandle, handleProblem, profilePath } from "../../convex/handleRules";
 import NotFound from "./404";
-import AppLayout from "./_app";
+import { AppShell } from "./_app";
 import CommunityLanding from "./community.landing";
 import { ProfilePage } from "./profile";
 
@@ -32,9 +33,9 @@ export default function TopLevelSlug() {
   const { slug = "" } = useParams();
   if (!slug.startsWith("@")) return <CommunityLanding />;
   return (
-    <AppLayout>
+    <AppShell>
       <PublicProfile typed={slug.slice(1)} />
-    </AppLayout>
+    </AppShell>
   );
 }
 
