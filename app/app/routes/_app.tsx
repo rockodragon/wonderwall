@@ -57,8 +57,9 @@ const PUBLIC_PROJECT_DETAIL_PATH = /^\/projects\/[^/]+\/?$/;
 // guest branches (RSVP, no organizer tools) depend on this page not
 // redirecting them to /login (docs/gated-event-video-prd.md). The list at
 // /events is public too (the home page links it for signed-out visitors);
-// deeper paths are not, so this is not a prefix match.
-const PUBLIC_EVENT_DETAIL_PATH = /^\/events(\/[^/]+)?$/;
+// deeper paths are not, so this is not a prefix match. /e/:slug is the same
+// page at its readable address.
+const PUBLIC_EVENT_DETAIL_PATH = /^\/(events(\/[^/]+)?|e\/[^/]+)$/;
 
 function isPublicPathname(pathname: string): boolean {
   return (

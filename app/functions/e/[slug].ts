@@ -1,9 +1,15 @@
-// /e/{slug} — an event's short address (convex/eventSlug.ts). Looks the slug
-// up over plain HTTP, as functions/j/[id].ts does, and sends the visitor to
-// /events/{id}, whose own function (functions/events/[id].ts) adds the link
-// preview tags. An address nobody has goes to the events list.
+// /e/{slug} — an event's readable address (convex/eventSlug.ts). The page is
+// served here, at this address, not redirected: the slug is looked up over
+// plain HTTP, as functions/j/[id].ts does, and functions/events/[id].ts
+// writes the same link-preview tags it writes for /events/{id}, with this
+// address as og:url. routes/event.tsx answers both addresses in the app. An
+// address nobody has gets the bare shell, and the page says "Event not
+// found".
+
+import { onRequestGet as eventPage } from "../events/[id]";
 
 interface Env {
+  ASSETS: { fetch: (req: Request | URL) => Promise<Response> };
   CONVEX_URL?: string;
 }
 
@@ -31,12 +37,13 @@ const handle = async (context: {
   try {
     if (raw) id = await fetchEventId(env.CONVEX_URL ?? CONVEX_URL, raw);
   } catch {
-    // Convex unreachable: the events list is still a correct place to land.
+    // Convex unreachable: the shell still loads, and the page looks again.
   }
-  const to = new URL(id ? `/events/${encodeURIComponent(id)}` : "/events", request.url).toString();
-  return new Response(null, {
-    status: 302,
-    headers: { Location: to, "Cache-Control": "no-cache", "Referrer-Policy": "no-referrer" },
+  if (id) return eventPage({ request, params: { id }, env });
+  const shell = await env.ASSETS.fetch(new URL("/__spa-fallback", request.url));
+  return new Response(await shell.text(), {
+    status: 200,
+    headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, must-revalidate" },
   });
 };
 

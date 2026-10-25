@@ -1,4 +1,4 @@
-// /events/:eventId — the canonical event page, and PUBLIC for a signed-out
+// /events/:eventId and /e/:slug — the event page, and PUBLIC for a signed-out
 // guest holding a calendar invite (eventRsvps.userId is optional by
 // design): the join link, the recording, "add to calendar" and the RSVP
 // all live here. Gating it dead-ended exactly the person holding the
@@ -146,7 +146,12 @@ function EventsBackLink({ isGuest }: { isGuest: boolean }) {
 type EventTab = "details" | "going" | "guests" | "setup" | "hosts";
 
 export default function EventDetail() {
-  const { eventId } = useParams();
+  const { eventId: idParam, slug } = useParams();
+  // /e/:slug (convex/eventSlug.ts) opens this same page and keeps the
+  // readable address in the bar: the slug is looked up, never redirected.
+  const slugId = useQuery(api.eventSlug.idForSlug, slug ? { slug } : "skip");
+  const eventId = idParam ?? slugId ?? undefined;
+  const noSuchSlug = !!slug && slugId === null;
   // isLoading is true only while Convex resolves the stored token. Treating
   // that window as "logged out" would flash the guest RSVP at a signed-in
   // user, so both flags are read and the guest UI waits for a settled answer.
@@ -207,7 +212,7 @@ export default function EventDetail() {
     event ? event.coverImageUrl || event.galleryImageUrls?.[0] : null,
   );
 
-  if (event === undefined) {
+  if (event === undefined && !noSuchSlug) {
     return (
       <div className={`p-6 ${PAGE_WIDTH.list} mx-auto`}>
         <EventsBackLink isGuest={isGuest} />
@@ -570,7 +575,14 @@ export default function EventDetail() {
             {!isGuest && (
               <FavoriteButton targetType="event" targetId={event._id} />
             )}
-            <ShareButton type="event" title={event.title} size="sm" />
+            {/* The readable /e/ address when the event has one, whichever
+                address this page was opened at. */}
+            <ShareButton
+              type="event"
+              title={event.title}
+              size="sm"
+              url={event.slug ? `${window.location.origin}/e/${event.slug}` : undefined}
+            />
           </div>
         </div>
 
