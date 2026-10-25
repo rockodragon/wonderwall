@@ -82,6 +82,14 @@ describe("/@handle at the edge", () => {
     expect(html).toContain('<div id="root"></div>');
   });
 
+  it("puts a Garden member's canonical address under createthegarden.com, whichever host", async () => {
+    const { context } = scene("/@ana", { ...ANA, inGarden: true });
+    const html = await (await onRequestGet(context)).text();
+    expect(html).toContain('<link rel="canonical" href="https://createthegarden.com/@ana">');
+    // The preview's own address stays the one that was shared.
+    expect(html).toContain('<meta property="og:url" content="https://thecreative.exchange/@ana">');
+  });
+
   it("says noindex when the person hid their profile from search engines", async () => {
     const { context } = scene("/@ana", { ...ANA, hideFromSearch: true });
     const res = await onRequestGet(context);

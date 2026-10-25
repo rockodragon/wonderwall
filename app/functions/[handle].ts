@@ -19,7 +19,7 @@
 
 import { cleanHandle, handleProblem, profilePath } from "../convex/handleRules";
 import { CONVEX_URL, convexQuery } from "../app/lib/convexHttp";
-import { profileDescription, profileTitle, publicProfileUrl } from "../app/lib/profileHead";
+import { canonicalProfileUrl, profileDescription, profileTitle } from "../app/lib/profileHead";
 import { injectShareHead } from "../app/lib/shareHead";
 
 interface Env {
@@ -36,6 +36,8 @@ interface SharedProfile {
   location?: string;
   imageUrl?: string | null;
   hideFromSearch?: boolean;
+  /** An active member of The Garden: canonical under createthegarden.com. */
+  inGarden?: boolean;
 }
 
 /** Throws when Convex can't be asked (lib/convexHttp.ts); the caller then
@@ -111,7 +113,7 @@ export const onRequestGet = async (context: {
         url: `${url.origin}${profilePath(profile.handle ?? handle)}`,
         image: typeof image === "string" && /^https:\/\//.test(image) ? image : undefined,
         type: "profile",
-        canonical: publicProfileUrl(profile.handle ?? handle),
+        canonical: canonicalProfileUrl(profile.handle ?? handle, profile.inGarden),
         noindex: hidden,
       })
     : shell;

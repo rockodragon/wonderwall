@@ -37,6 +37,15 @@ export async function getDefaultCommunity(ctx: QueryCtx | MutationCtx) {
     .unique();
 }
 
+/** Whether the user is an active member of The Garden. Their public page is
+ *  then found under The Garden's address (lib/profileHead.ts
+ *  canonicalProfileUrl). */
+export async function isGardenMember(ctx: QueryCtx | MutationCtx, userId: Id<"users">): Promise<boolean> {
+  const garden = await getDefaultCommunity(ctx);
+  if (!garden) return false;
+  return (await getCommunityMember(ctx, garden._id, userId))?.status === "active";
+}
+
 /** Adds the user to The Garden as an active member. Does nothing when The
  * Garden isn't seeded, when it's invite-only (the new account joins with its
  * code via communities.ts joinCommunity, which is what checks the code), or

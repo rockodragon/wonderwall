@@ -8,7 +8,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { profilePath } from "../../convex/handleRules";
 import { normalizeUrl } from "../../convex/garden/richText";
 import { loginHref } from "../lib/loginHref";
-import { profileDescription, profileTitle, publicProfileUrl } from "../lib/profileHead";
+import { canonicalProfileUrl, profileDescription, profileTitle } from "../lib/profileHead";
 import { EmbedStill, PlayBadge } from "../components/EmbedStill";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { ShortlistLink } from "../components/shortlist/ShortlistLink";
@@ -874,7 +874,7 @@ function ProfileHead({ profile }: { profile: ProfileData }) {
   return (
     <>
       <meta name="description" content={profileDescription(profile)} />
-      {profile.handle && <link rel="canonical" href={publicProfileUrl(profile.handle)} />}
+      {profile.handle && <link rel="canonical" href={canonicalProfileUrl(profile.handle, profile.inGarden)} />}
       {profile.hideFromSearch && <meta name="robots" content="noindex" />}
     </>
   );

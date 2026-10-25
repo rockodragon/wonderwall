@@ -8,6 +8,7 @@ import { normalizeHandle, PAYOUT_KINDS, type PayoutHandles } from "./garden/gigR
 import { fillOrgWebsite, linkOrgByName, profileOrganizations, unlinkPrimaryOrg } from "./organizations";
 import { normalizeOrgUrl } from "./organizationRules";
 import { communityVisibility } from "./garden/communityVisibility";
+import { isGardenMember } from "./garden/defaultCommunity";
 import { pieceMediaUrl, profileImageUrl, storedFileUrl } from "./images";
 
 export { normalizeOrgUrl };
@@ -168,6 +169,9 @@ export async function publicProfilePage(ctx: QueryCtx, profile: Doc<"profiles">)
       wondering: wonderingWithImage,
       // Positions at organizations (docs/features/organizations.md).
       organizations: await profileOrganizations(ctx, profile._id),
+      // The Garden's members are found under createthegarden.com (Rick,
+      // 2026-10-25): their page's canonical address (lib/profileHead.ts).
+      inGarden: await isGardenMember(ctx, profile.userId),
     };
 }
 
