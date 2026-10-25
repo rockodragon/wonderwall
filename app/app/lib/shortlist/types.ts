@@ -119,10 +119,30 @@ export interface ShortlistEvent {
   pendingRequests?: number;
 }
 
+/** What a post's picture is of: a still, a video (a pasted reel is one), or
+ *  a recording, which may have no picture at all. */
+export type PostMedia = "image" | "video" | "audio";
+
+/** The newest thing someone you follow posted: a project they lead or an
+ *  event they organize, one you may open. */
+export interface ShortlistPost {
+  type: "project" | "event";
+  id: string;
+  title: string;
+  /** When it was posted (createdAt). */
+  at: number;
+  /** Its picture, as its card shows it; null when it has none. */
+  thumbUrl: string | null;
+  /** Null when there's nothing to show: no picture and no recording. */
+  media: PostMedia | null;
+}
+
 export interface ShortlistFollow extends ShortlistPerson {
   profileId: string;
   /** favorites.createdAt. */
   since: number;
+  /** Null when they've posted nothing you can open. */
+  latest: ShortlistPost | null;
 }
 
 export interface ShortlistData {

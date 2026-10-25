@@ -61,7 +61,7 @@ function closingFirst(a: ShortlistProject, b: ShortlistProject): number {
   return (x === y ? 0 : x < y ? -1 : 1) || newestFirst(a, b);
 }
 
-/** Each area's groups, in display order. People group by interest instead
+/** Each area's groups, in display order. People are one list instead
  *  (peopleGroups). */
 export const SHORTLIST_GROUPS = {
   projects: [
@@ -123,7 +123,6 @@ export interface EventGroup extends ShortlistGroup<EventGroupKey, ShortlistEvent
 }
 
 export interface PeopleGroups {
-  grouped: boolean;
   groups: { label: string; items: ShortlistFollow[] }[];
 }
 
@@ -321,15 +320,20 @@ function eventNext(events: ShortlistEvent[], now: number): string | null {
 // People
 // ——————————————————————————————————————————————————————————————
 
+/** Whoever posted most recently first; those who've posted nothing after,
+ *  the newest follow first. */
+const byLatestPost = (a: ShortlistFollow, b: ShortlistFollow) =>
+  (b.latest?.at ?? 0) - (a.latest?.at ?? 0) || b.since - a.since;
+
 // groupFollows reads the Following page's shape; this hands it ours.
 function asFollows(people: ShortlistFollow[]) {
   return people.map((profile) => ({ favoritedAt: profile.since, profile }));
 }
 
-/** Follows by first interest once there are 6 or more (groupFollows). */
+/** One list, by last activity (Rick, 2026-10-25): not grouped by interest,
+ *  so the newest post is always on top. */
 export function peopleGroups(data: ShortlistData): PeopleGroups {
-  const { grouped, groups } = groupFollows(asFollows(data.people));
-  return { grouped, groups: groups.map(({ label, items }) => ({ label, items: items.map((item) => item.profile) })) };
+  return { groups: [{ label: "", items: [...data.people].sort(byLatestPost) }] };
 }
 
 function peopleSummary(people: ShortlistFollow[]): AreaSummary {

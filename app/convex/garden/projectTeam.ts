@@ -23,7 +23,7 @@ import { can } from "./capabilities";
 import { assertCanPure, getGardenUser } from "./entitlements";
 import { insertNotification } from "../notify";
 import { toEmbedUrl } from "../videoEmbed";
-import { isHidden } from "../moderationRules";
+import { isHidden, isShownProject } from "../moderationRules";
 import { communityVisibility } from "./communityVisibility";
 import { projectVisibleTo } from "./projectVisibility";
 import { pieceMediaUrl, profileImageUrl, projectPhotoUrl } from "../images";
@@ -1636,7 +1636,7 @@ export const listAffiliations = query({
     const rows: { project: Doc<"projects">; role: string }[] = [];
     const seen = new Set<string>();
     const keep = (project: Doc<"projects"> | null): project is Doc<"projects"> =>
-      !!project && project.status !== "archived" && !isHidden(project);
+      !!project && isShownProject(project);
     for (const project of owned) {
       if (!keep(project)) continue;
       seen.add(String(project._id));
@@ -1670,7 +1670,7 @@ export const listOrgProjects = query({
         .query("projects")
         .withIndex("by_organizationId", (q) => q.eq("organizationId", args.organizationId))
         .collect()
-    ).filter((p) => p.status !== "archived" && !isHidden(p));
+    ).filter(isShownProject);
     const gate = communityVisibility(ctx);
     const shown = (
       await Promise.all(projects.map(async (p) => ((await gate.idVisible(p.hostOrgId)) ? p : null)))

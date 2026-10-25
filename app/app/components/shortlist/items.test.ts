@@ -149,10 +149,10 @@ describe("areaGroups", () => {
     expect(group.months?.[0].items[0]).toEqual({ type: "event", event: saved[0] });
   });
 
-  it("groups People by first interest at six or more, and lists fewer flat", () => {
+  it("lists People as one group with no heading, however many", () => {
     const groups = areaGroups(data, NOW, "people");
-    expect(groups.every((g) => g.label !== "" && !g.hot && !g.folded)).toBe(true);
-    expect(groups.flatMap((g) => g.items)).toHaveLength(14);
+    expect(groups.map((g) => [g.key, g.label, g.hot, g.folded])).toEqual([["all", "", false, false]]);
+    expect(groups[0].items).toHaveLength(14);
     const few = areaGroups(shortlist({ people: [follow("Mara Lin", ["Audio"], NOW)] }), NOW, "people");
     expect(few).toEqual([{ key: "all", label: "", hot: false, folded: false, items: [{ type: "person", person: expect.objectContaining({ name: "Mara Lin" }) }], months: null }]);
   });

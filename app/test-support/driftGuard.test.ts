@@ -172,6 +172,20 @@ const RULES: Rule[] = [
     home: "app/components/PersonAvatar.tsx",
     use: "PersonAvatar (people) or OrgLogo (organizations) in app/components",
   },
+  {
+    name: '"3d ago" written inline',
+    pattern: /\}\s?(?:m|h|d|w|mo|y|minutes?|hours?|days?|weeks?|months?|years?) ago\b/g,
+    limit: 2,
+    home: "app/lib/dates.ts",
+    use: "timeAgo in app/lib/dates.ts",
+  },
+  {
+    name: "project shown-or-not checked inline (one place)",
+    pattern: /status\s*!==\s*"archived"\s*&&\s*!isHidden\(/g,
+    limit: 0,
+    home: "convex/moderationRules.ts",
+    use: "isShownProject in convex/moderationRules.ts",
+  },
 ];
 
 describe("drift guard: no new copies of a shared rule", () => {

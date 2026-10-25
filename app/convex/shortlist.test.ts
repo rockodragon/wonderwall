@@ -20,7 +20,9 @@ import {
   dedupeProjects,
   getMine,
   memberRelation,
+  newestPost,
   payFor,
+  postMedia,
   projectThing,
   savedRoleRelation,
   summarizeBacking,
@@ -291,8 +293,9 @@ function indexFields(table: string, index: string): string[] {
 }
 
 /** Just enough of Convex's ctx for getMine and what it calls: db.get,
- * db.normalizeId, and query().withIndex(name, q => q.eq(..)...) then
- * collect/first/unique. withIndex checks the index exists and that the
+ * db.normalizeId, and query().withIndex(name, q => q.eq(..)...), optionally
+ * order("desc") (rows were inserted oldest first), then
+ * collect/first/unique/take. withIndex checks the index exists and that the
  * eq()s walk its fields in order; reading without one throws. Storage
  * resolves an id to https://files/<id>. `reads` lists every index used;
  * `lookups` every index read with the values it was read at, and every
@@ -327,8 +330,15 @@ function makeCtx(tables: Record<string, Row[]>, viewerId: string | null) {
         rows = rowsOf(table).filter((r) => conds.every(([f, v]) => r[f] === v));
         return api;
       },
+      order(direction: "asc" | "desc") {
+        if (direction === "desc") rows = [...matched()].reverse();
+        return api;
+      },
       async collect() {
         return matched();
+      },
+      async take(n: number) {
+        return matched().slice(0, n);
       },
       async first() {
         return matched()[0] ?? null;
@@ -1293,6 +1303,16 @@ describe("getMine — people", () => {
         imageUrl: "https://files/_storage:mara",
         interests: ["Music"],
         since: 320,
+        // Of Mara's newest, "art" is the first you may open; it's newer than
+        // any event of hers you may open. Its picture is its image piece.
+        latest: {
+          type: "project",
+          id: "projects:art",
+          title: "Project art",
+          at: 100,
+          thumbUrl: "https://files/_storage:art-img",
+          media: "image",
+        },
       },
       {
         profileId: "profiles:alex",
@@ -1300,8 +1320,123 @@ describe("getMine — people", () => {
         imageUrl: "https://legacy/alex.jpg",
         interests: ["Film", "Music"],
         since: 310,
+        latest: null,
       },
     ]);
+  });
+});
+
+describe("postMedia — what a post's picture is of", () => {
+  it("a video piece or a pasted reel is a video, before anything else", () => {
+    expect(postMedia("https://p/still.jpg", undefined, ["image", "video"])).toBe("video");
+    expect(postMedia("https://p/still.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", [])).toBe("video");
+    expect(postMedia(null, undefined, ["video", "audio"])).toBe("video");
+  });
+
+  it("a recording is audio, with a cover or without", () => {
+    expect(postMedia(null, undefined, ["audio"])).toBe("audio");
+    expect(postMedia("https://p/cover.jpg", undefined, ["text", "audio"])).toBe("audio");
+  });
+
+  it("else a picture is an image, and nothing is nothing", () => {
+    expect(postMedia("https://p/a.jpg", undefined, ["text"])).toBe("image");
+    expect(postMedia("https://p/a.jpg", "https://example.com/not-a-video", [])).toBe("image");
+    expect(postMedia(null, undefined, ["text", "link"])).toBe(null);
+  });
+});
+
+describe("newestPost", () => {
+  const post = (id: string, at: number) =>
+    ({ type: "project", id, title: id, at, thumbUrl: null, media: null }) as const;
+  it("the later of the two; either may be missing", () => {
+    expect(newestPost(post("a", 1), post("b", 2))?.id).toBe("b");
+    expect(newestPost(post("a", 3), post("b", 2))?.id).toBe("a");
+    expect(newestPost(null, post("b", 2))?.id).toBe("b");
+    expect(newestPost(null, null)).toBe(null);
+  });
+});
+
+describe("getMine — what people you follow last posted", () => {
+  const ANA = "users:ana";
+  function world(over: Record<string, Row[]> = {}): Record<string, Row[]> {
+    return {
+      profiles: [
+        { _id: "profiles:me", userId: ME, name: "Me Member", interests: [] },
+        { _id: "profiles:ana", userId: ANA, name: "Ana Reyes", interests: ["Film"] },
+      ],
+      favorites: [fav("profile", "profiles:ana", 10)],
+      projects: [],
+      events: [],
+      artifacts: [],
+      memberships: [],
+      hostOrgs: [],
+      ...over,
+    };
+  }
+  const latestOf = async (w: Record<string, Row[]>) => (await mine(ME, w)).data.people[0].latest;
+
+  it("the newest project they lead or event they organize; archived, hidden, draft and cancelled don't count", async () => {
+    const latest = await latestOf(
+      world({
+        projects: [
+          project("old", { userId: ANA, createdAt: 100, photoStorageId: "_storage:old" }),
+          project("hiddenNew", { userId: ANA, createdAt: 300, status: "hidden" }),
+          project("shelvedNew", { userId: ANA, createdAt: 400, status: "archived" }),
+        ],
+        events: [
+          event("reel", {
+            organizerId: ANA,
+            createdAt: 200,
+            mediaUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            mediaPreviewUrl: "https://still/reel.jpg",
+          }),
+          event("cancelledNew", { organizerId: ANA, createdAt: 450, status: "cancelled" }),
+          event("draftNew", { organizerId: ANA, createdAt: 500, status: "draft" }),
+        ],
+      }),
+    );
+    expect(latest).toEqual({
+      type: "event",
+      id: "events:reel",
+      title: "Event reel",
+      at: 200,
+      thumbUrl: "https://still/reel.jpg",
+      media: "video",
+    });
+  });
+
+  it("a recording with no picture is audio; a video piece is video", async () => {
+    const audio = await latestOf(
+      world({
+        projects: [project("album", { userId: ANA, createdAt: 100 })],
+        artifacts: [{ _id: "artifacts:track", projectId: "projects:album", type: "audio", mediaStorageId: "_storage:track", order: 0, createdAt: 1 }],
+      }),
+    );
+    expect(audio).toMatchObject({ id: "projects:album", thumbUrl: null, media: "audio" });
+
+    const video = await latestOf(
+      world({
+        projects: [project("cut", { userId: ANA, createdAt: 100, photoStorageId: "_storage:cut" })],
+        artifacts: [{ _id: "artifacts:clip", projectId: "projects:cut", type: "video", mediaStorageId: "_storage:clip", order: 0, createdAt: 1 }],
+      }),
+    );
+    expect(video).toMatchObject({ thumbUrl: "https://files/_storage:cut", media: "video" });
+  });
+
+  it("a post with no picture and no recording still shows, with nothing to draw", async () => {
+    const latest = await latestOf(world({ projects: [project("words", { userId: ANA, createdAt: 100 })] }));
+    expect(latest).toMatchObject({ id: "projects:words", thumbUrl: null, media: null });
+  });
+
+  it("a ticketed event you can't open isn't theirs to show you; nothing posted is null", async () => {
+    expect(await latestOf(world({ events: [event("paid", { organizerId: ANA, ticketTiers: TIERS })] }))).toBe(null);
+    expect(await latestOf(world())).toBe(null);
+  });
+
+  it("reads a few of their newest, through their own indexes", async () => {
+    const { lookups } = await mine(ME, world());
+    expect(lookups).toContain("projects.by_userId(users:ana)");
+    expect(lookups).toContain("events.by_organizerId(users:ana)");
   });
 });
 

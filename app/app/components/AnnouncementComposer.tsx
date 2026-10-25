@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { errorMessage } from "../lib/convexError";
+import { timeAgo } from "../lib/dates";
 
 // Shared across the three owner-facing surfaces (docs/announcements-prd.md,
 // UI/UX Specifications: "one <AnnouncementComposer targetType targetId />
@@ -101,7 +102,7 @@ export function AnnouncementComposer({
               {item.kind === "reminder" ? "Reminder (automatic)" : `"${truncate(item.body, 40)}"`}
             </span>
             <span className="shrink-0" style={{ fontFamily: "var(--garden-font-mono)", fontSize: 12 }}>
-              {item.recipientCount} · {relativeTime(item.createdAt)}
+              {item.recipientCount} · {timeAgo(item.createdAt)}
             </span>
           </li>
         ))}
@@ -245,19 +246,3 @@ function truncate(text: string, max: number): string {
   return collapsed.length > max ? `${collapsed.slice(0, max)}…` : collapsed;
 }
 
-function relativeTime(timestamp: number): string {
-  const diff = Date.now() - timestamp;
-  const seconds = Math.floor(diff / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-  const weeks = Math.floor(days / 7);
-  const months = Math.floor(days / 30);
-
-  if (months > 0) return `${months}mo ago`;
-  if (weeks > 0) return `${weeks}w ago`;
-  if (days > 0) return `${days}d ago`;
-  if (hours > 0) return `${hours}h ago`;
-  if (minutes > 0) return `${minutes}m ago`;
-  return "just now";
-}

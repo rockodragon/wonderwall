@@ -27,6 +27,26 @@ function person(name: string, image: string, interests: string[], orgName?: stri
   return { _id: name.toLowerCase().replace(/\s+/g, "-"), name, imageUrl: image, interests, orgName, location: "San Diego, CA", wondering: null };
 }
 
+/** The sample Shortlist, with what a few of the people followed last posted:
+ *  a still, a reel, a recording with no picture, an event, and nothing. */
+function shortlistWithPosts() {
+  const data = sampleShortlist();
+  const posts: Record<string, { type: "project" | "event"; title: string; ago: number; thumbUrl: string | null; media: "image" | "video" | "audio" | null }> = {
+    "Ana Reyes": { type: "project", title: "Harbor Light, a photo series", ago: 2 * HOUR, thumbUrl: "/campaign/gallery.jpg", media: "image" },
+    "Theo Okafor": { type: "project", title: "Night Shift (short film)", ago: 3 * DAY, thumbUrl: "/campaign/night.jpg", media: "video" },
+    "Kofi Mensah": { type: "project", title: "Field recordings, Vol. 2", ago: 9 * DAY, thumbUrl: null, media: "audio" },
+    "Dana Wells": { type: "event", title: "Open studio night", ago: 40 * DAY, thumbUrl: "/campaign/opening.jpg", media: "image" },
+    "Sam Ito": { type: "project", title: "Teaching notes", ago: 120 * DAY, thumbUrl: null, media: null },
+  };
+  data.people = data.people.map((p) => {
+    const post = posts[p.name];
+    return post
+      ? { ...p, latest: { type: post.type, id: `${post.type}s:${p.profileId}`, title: post.title, at: now - post.ago, thumbUrl: post.thumbUrl, media: post.media } }
+      : p;
+  });
+  return data;
+}
+
 const people = [
   person("Dee Alvarez", "/campaign/dee.jpg", ["Photography", "Film"], "Abiding Practice"),
   person("Marta Reyes", "/campaign/marta.jpg", ["Painting", "Murals"]),
@@ -284,7 +304,7 @@ export const answers: Record<string, unknown | ((args: unknown) => unknown)> = {
   "notifications:getNotifications": notifications,
   "notifications:listCelebrations": [],
   "messaging:getConversations": conversations,
-  "shortlist:getMine": sampleShortlist(),
+  "shortlist:getMine": shortlistWithPosts(),
   "garden/defaultCommunity:getSignupCommunity": { inviteOnly: false, viewer: { isMember: true } },
   "garden/communities:listMyCommunities": [{ ...community, role: "member", status: "active", isHome: true }],
   "garden/communities:listCommunities": [{ ...community, memberCount: 40 }],

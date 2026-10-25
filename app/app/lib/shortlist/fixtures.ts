@@ -13,6 +13,7 @@ import type {
   ShortlistData,
   ShortlistEvent,
   ShortlistFollow,
+  ShortlistPost,
   ShortlistProject,
   ShortlistRequest,
 } from "./types";
@@ -140,8 +141,13 @@ function person(name: string, interests: string[] = []) {
   return { profileId: slug(name), name, imageUrl: null, interests };
 }
 
-export function follow(name: string, interests: string[], since: number): ShortlistFollow {
-  return { ...person(name, interests), since };
+export function follow(
+  name: string,
+  interests: string[],
+  since: number,
+  latest: ShortlistPost | null = null,
+): ShortlistFollow {
+  return { ...person(name, interests), since, latest };
 }
 
 export function shortlist(extra: Partial<ShortlistData> = {}): ShortlistData {

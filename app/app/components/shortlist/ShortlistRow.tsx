@@ -1,8 +1,9 @@
 // One Shortlist row (rowModel.ts says what it reads): 64px, a thumbnail or
 // date block, the title and a second line, mono meta, the status, and on a
 // Needs you row a 3px yellow rule, a yellow mono status and an outline
-// action. Rows, not cards: status, dates and pay are what people decide on,
-// and rows fit 10+ items on a screen.
+// action. A followed person's row ends, where an action would be, with what
+// they last posted (PostThumbView). Rows, not cards: status, dates and pay
+// are what people decide on, and rows fit 10+ items on a screen.
 //
 // The whole row is one button that opens the item's card; the outline
 // "Reply" or "Apply" on it is a label for where that leads, not a second
@@ -14,12 +15,13 @@
 // follows light and dark, and with the pay and status under the title where
 // the desk has columns for them.
 
+import { Play, Waveform } from "@phosphor-icons/react";
 import { useState } from "react";
 import { Link } from "react-router";
 import { AbstractCover } from "../AbstractCover";
 import { DESK, DESK_MONO, FOCUS_RING_CLASS } from "../../desk/tokens";
 import { initialsOf } from "../../lib/initials";
-import type { RowModel, Thumb } from "./rowModel";
+import type { PostThumb, RowModel, Thumb } from "./rowModel";
 
 const MONO = { fontFamily: DESK_MONO, fontSize: 12, textTransform: "uppercase" } as const;
 const CLIP = { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } as const;
@@ -131,6 +133,8 @@ export function ShortlistRow({ row, ...target }: { row: RowModel } & RowTarget) 
     </span>
   );
   const thumb = <RowThumb thumb={row.thumb} hot={row.hot} skin={skin} />;
+  // A row has an action or a post, never both: the post sits where the action would.
+  const end = action || (row.post && <PostThumbView post={row.post} skin={skin} />);
 
   if (target.variant === "phone") {
     return (
@@ -150,7 +154,7 @@ export function ShortlistRow({ row, ...target }: { row: RowModel } & RowTarget) 
             {row.meta && meta}
           </span>
         </span>
-        {action}
+        {end}
       </Link>
     );
   }
@@ -178,12 +182,62 @@ export function ShortlistRow({ row, ...target }: { row: RowModel } & RowTarget) 
       </span>
       {meta}
       {status}
-      <span style={{ display: "flex", justifyContent: "flex-end" }}>{action}</span>
+      <span style={{ display: "flex", justifyContent: "flex-end" }}>{end}</span>
     </button>
   );
 }
 
 const THUMB = { width: 44, height: 44, borderRadius: 4, overflow: "hidden", flex: "none" } as const;
+
+const POST_MARK = { video: Play, audio: Waveform } as const;
+
+/** A followed person's latest post: its picture, a play mark on a video and a
+ *  waveform on a recording; the mark alone when there's no picture, or it
+ *  won't load. Decoration: the row's words already say what it is. */
+function PostThumbView({ post, skin }: { post: PostThumb; skin: Skin }) {
+  const [broken, setBroken] = useState<string | null>(null);
+  const url = post.url !== broken ? post.url : null;
+  const Mark = post.media === "image" ? null : POST_MARK[post.media];
+  if (!url && !Mark) return null;
+  return (
+    <span
+      aria-hidden
+      data-post-thumb={post.media}
+      style={{ ...THUMB, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", background: skin.block, border: `1px solid ${skin.line}` }}
+    >
+      {url && (
+        <img
+          src={url}
+          alt=""
+          decoding="async"
+          loading="lazy"
+          onError={() => setBroken(url)}
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      )}
+      {Mark &&
+        (url ? (
+          <span
+            style={{
+              position: "relative",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 22,
+              height: 22,
+              borderRadius: "50%",
+              background: "rgba(0,0,0,.55)",
+              color: "#fff",
+            }}
+          >
+            <Mark size={12} weight="fill" />
+          </span>
+        ) : (
+          <Mark size={20} weight={post.media === "video" ? "fill" : "regular"} style={{ color: skin.muted }} />
+        ))}
+    </span>
+  );
+}
 
 function RowThumb({ thumb, hot, skin }: { thumb: Thumb; hot: boolean; skin: Skin }) {
   // A picture that won't load falls back to the face the row has without one.

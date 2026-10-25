@@ -11,11 +11,11 @@
 import { workKind } from "../../lib/shortlist/kind";
 import { timeLabel, venueName } from "../../desk/deskCards";
 import type { DeskCardId } from "../../desk/deskState";
-import { calendarDay, shortDay } from "../../lib/dates";
+import { calendarDay, shortDay, timeAgo } from "../../lib/dates";
 import { addressName } from "../../lib/names";
 import { payText } from "../../lib/shortlist/model";
 import { closesAt } from "../../lib/shortlist/needsYou";
-import type { ClosedReason, ProjectKind, ShortlistEvent, ShortlistProject } from "../../lib/shortlist/types";
+import type { ClosedReason, PostMedia, ProjectKind, ShortlistEvent, ShortlistProject } from "../../lib/shortlist/types";
 import { stageLabel } from "../../lib/stage";
 import { AREA_LABEL, cardIdOf, type ShortlistItem } from "./items";
 
@@ -30,6 +30,11 @@ export type Thumb =
   /** A person: their photo, else their initials. */
   | { kind: "face"; name: string; url: string | null };
 
+/** What a person you follow last posted, at the row's end: its picture, with
+ *  a play mark for a video and a waveform for a recording (alone when it has
+ *  no picture). */
+export type PostThumb = { url: string | null; media: PostMedia };
+
 export interface RowModel {
   /** The card the row opens. */
   id: DeskCardId;
@@ -39,6 +44,8 @@ export interface RowModel {
   meta: string | null;
   status: string | null;
   thumb: Thumb;
+  /** A followed person's latest post, where other rows have their action. */
+  post?: PostThumb;
   /** The outline button on a Needs you row. It opens the card, where the
    *  action itself is. */
   action: string | null;
@@ -69,6 +76,9 @@ function line(...parts: (string | null | false | undefined)[]): string {
 function waiting(n: number): string {
   return `${n} ${n === 1 ? "request" : "requests"} waiting`;
 }
+
+/** The mono word beside a followed person's latest post. */
+const POST_LABEL = { project: "Project", event: "Event" } as const;
 
 const CLOSED: Record<ClosedReason, string> = {
   declined: "Declined",
@@ -199,17 +209,21 @@ export function rowModel(item: ShortlistItem, ctx: RowContext): RowModel {
       };
     }
     case "person": {
+      // What they last posted and when (Rick, 2026-10-25: when you followed
+      // them isn't interesting); with nothing posted, what they do.
       const { person } = item;
+      const { latest } = person;
       const interests = person.interests.filter((t) => !t.startsWith("other:")).slice(0, 2);
       return {
         id,
         hot,
         past,
         title: person.name,
-        sub: line(ctx.withArea && AREA_LABEL.people, ...interests),
-        meta: null,
-        status: `Followed ${shortDay(person.since)}`,
+        sub: line(ctx.withArea && AREA_LABEL.people, ...(latest ? [latest.title] : interests)),
+        meta: latest && POST_LABEL[latest.type],
+        status: latest && `Posted ${timeAgo(latest.at)}`,
         thumb: { kind: "face", name: person.name, url: person.imageUrl },
+        post: latest?.media ? { url: latest.thumbUrl, media: latest.media } : undefined,
         action: null,
       };
     }

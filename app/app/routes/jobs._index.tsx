@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router";
 import { usePostHog } from "@posthog/react";
 import { api } from "../../convex/_generated/api";
+import { timeAgo } from "../lib/dates";
 import { FF_JOBS, useFeatureGate } from "../lib/featureFlags";
 import { INTERESTS } from "../constants/interests";
 import { PAGE_WIDTH } from "../lib/pageWidth";
@@ -84,25 +85,6 @@ export default function JobsIndex() {
     statusFilter !== "Open" ||
     locationFilter !== "All" ||
     disciplinesFilter.length > 0;
-
-  // Helper to format relative time
-  const getRelativeTime = (timestamp: number): string => {
-    const now = Date.now();
-    const diff = now - timestamp;
-    const seconds = Math.floor(diff / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-    const weeks = Math.floor(days / 7);
-    const months = Math.floor(days / 30);
-
-    if (months > 0) return `${months}mo ago`;
-    if (weeks > 0) return `${weeks}w ago`;
-    if (days > 0) return `${days}d ago`;
-    if (hours > 0) return `${hours}h ago`;
-    if (minutes > 0) return `${minutes}m ago`;
-    return "just now";
-  };
 
   // Client-side text search
   const filteredJobs = useMemo(() => {
@@ -539,7 +521,7 @@ export default function JobsIndex() {
                     </div>
                   )}
                   <span className="text-xs flex-shrink-0" style={{ color: "var(--app-text-dim)" }}>
-                    {getRelativeTime(job.createdAt)}
+                    {timeAgo(job.createdAt)}
                   </span>
                 </div>
               </Link>
