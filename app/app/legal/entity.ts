@@ -51,7 +51,7 @@ export const LEGAL_ENTITY = {
   /** Bump both when either document changes materially. */
   termsUpdated: "September 2026",
   termsEffective: "September 1, 2026",
-  privacyUpdated: "September 2026",
-  privacyEffective: "September 1, 2026",
+  privacyUpdated: "October 2026",
+  privacyEffective: "October 22, 2026",
 
 } as const;

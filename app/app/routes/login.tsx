@@ -9,6 +9,7 @@ import { AgreementsConsent } from "../components/AgreementsConsent";
 import { useBrand } from "../brand/brands";
 import { GardenLockupThemed } from "../brand/GardenMark";
 import { errorMessage } from "../lib/convexError";
+import { signupHref } from "../lib/pendingIntent";
 
 export function meta() {
   return [
@@ -81,7 +82,7 @@ export default function Login() {
   const redirectParam = searchParams.get("redirect");
   const signupPath =
     redirectParam && redirectParam.startsWith("/") && !redirectParam.startsWith("//")
-      ? `/signup?redirect=${encodeURIComponent(redirectParam)}`
+      ? signupHref(redirectParam)
       : "/signup";
 
   async function handleSubmit(e: React.FormEvent) {

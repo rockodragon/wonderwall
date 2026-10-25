@@ -9,11 +9,17 @@
 // StatusSelect and SupportModal are reused directly from routes/projects.tsx
 // (the list page) rather than re-implemented — same convention offerings.
 // $id.tsx already uses for PostOfferingForm/SignupModal.
+//
+// Public (Rick, 2026-10-22; _app.tsx's PUBLIC_PROJECT_DETAIL_PATH): anyone
+// with the link opens it, the way a shared post opens on Instagram. A
+// visitor sees only the sections with something in them, names without
+// links (profiles are for members), and every action but a one-time Back
+// this sends them to sign up and back here. The owner keeps every section.
 
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { Link, useParams, useRouteError, useSearchParams } from "react-router";
+import { Link, useLocation, useNavigate, useParams, useRouteError, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { formatCents } from "../../convex/money";
 import { EMBED_PROVIDER_LABEL, toEmbedUrl } from "../lib/videoEmbed";
@@ -40,7 +46,7 @@ import { useLocationField } from "../lib/useLocationField";
 import { isRichDocEmpty, toStoredDoc, type ResolvedRichBlock } from "../lib/richText";
 import { budgetAmountLabel, budgetKindLabel, budgetLabel } from "../lib/budgetLabel";
 import { GigSchedule } from "../components/GigSchedule";
-import { projectTabs, readProjectTab, withProjectTab, type ProjectTab } from "../lib/projectTabs";
+import { projectTabs, readProjectTab, sectionsWithContent, withProjectTab, type ProjectTab } from "../lib/projectTabs";
 import { useBack } from "../lib/useBack";
 import { useCoverPick } from "../lib/useCoverPick";
 import { isWideCover, useImageAspect } from "../lib/useImageAspect";
@@ -58,6 +64,9 @@ import {
 } from "./projects";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { useStartConversation } from "../lib/useStartConversation";
+import { useIsAdmin } from "../lib/useIsAdmin";
+import { useProfileLinks } from "../lib/useProfileLinks";
+import { signupHref, supportDetour } from "../lib/pendingIntent";
 import { bylineOf } from "../lib/byline";
 import { Byline } from "../components/Byline";
 import { PersonAvatar } from "../components/PersonAvatar";
@@ -207,10 +216,20 @@ export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const project = useQuery(api.garden.projects.getProject, id ? { projectId: id } : "skip");
   const myProfile = useQuery(api.profiles.getMyProfile);
-  const { isAuthenticated } = useConvexAuth();
+  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
+  // Names link to profiles only for a member (profiles aren't public).
+  const profileLinks = useProfileLinks();
   // The team is read here, once, so the Team tab can say how many requests are
   // waiting; TeamCard draws from the same answer.
   const team = useQuery(api.garden.projectTeam.getTeam, id ? { projectId: id as Id<"projects"> } : "skip");
+  // The page is public. A visitor sees only the sections with something in
+  // them, so the roles and updates are read here too (RolesSection and
+  // ProjectUpdates read the same, one subscription each).
+  const roles = useQuery(api.garden.projectTeam.listRoles, id ? { projectId: id as Id<"projects"> } : "skip");
+  const updates = useQuery(api.garden.stories.listProjectUpdates, id ? { projectId: id } : "skip");
+  const isAdmin = useIsAdmin() === true;
+  const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [supportMode, setSupportMode] = useState<SupportMode | null>(null);
   // Lifted so the owner's "Next steps" nudge can open the support editor.
@@ -261,8 +280,9 @@ export default function ProjectDetail() {
     isAuthenticated && myProfile !== undefined && !isOwner && VISIBLE_PROJECT_STATUSES.has(project.status);
   const raising = isRaising(project);
   const isPassion = project.kind === "passion";
+  // No chip for a plain project: "Project" on a project's own page says nothing.
   const kindWord =
-    project.kind === "paid" ? budgetKindLabel(project) : raising ? "Seeking funding" : "Project";
+    project.kind === "paid" ? budgetKindLabel(project) : raising ? "Seeking funding" : null;
   const moneyAmount = project.kind === "paid" ? budgetAmountLabel(project) : null;
   // Live booking (docs/features/live-booking.md): a gig's money is per date.
   const isGig = !!project.gig;
@@ -286,11 +306,41 @@ export default function ProjectDetail() {
 
   // Requests waiting on the owner are the one thing worth a number on a tab.
   const requests = isOwner ? (team?.pending?.length ?? 0) : 0;
-  const tabs = projectTabs({ isGig, isPassion, requests, supporters: project.supportCount });
+  // The owner (and an admin) keeps every section, empty or not, with its
+  // empty state and edit controls, so there's somewhere to fill it in.
+  // Anyone else sees only what has something in it (lib/projectTabs.ts).
+  const seesEverything = isOwner || isAdmin;
+  const tabs = projectTabs({
+    isGig,
+    isPassion,
+    requests,
+    supporters: project.supportCount,
+    has: seesEverything
+      ? undefined
+      : sectionsWithContent({
+          team,
+          roles,
+          updates,
+          raising,
+          supporters: project.supportCount,
+        }),
+  });
   const tab = readProjectTab(rawTab, tabs);
+  // A section a viewer has no tab for isn't drawn at all, hidden or not.
+  const hasTab = (id: ProjectTab) => tabs.some((t) => t.id === id);
   function selectTab(next: ProjectTab) {
     // Replace the history entry, and stay where the page is scrolled.
     setSearchParams(withProjectTab(searchParams, next), { replace: true, preventScrollReset: true });
+  }
+  // Every action asks a visitor for an account first, and signup brings them
+  // back to this page (signup.tsx stashes it; _app.tsx replays it).
+  // Still checking the token reads as a member, not a visitor: no detour.
+  const visitorSignUp = !authLoading && !isAuthenticated ? signupHref(location.pathname + location.search) : null;
+  function support(mode: SupportMode) {
+    if (authLoading) return;
+    const detour = supportDetour(mode, isAuthenticated, location.pathname + location.search);
+    if (detour) navigate(detour);
+    else setSupportMode(mode);
   }
   // The owner's "Next steps" buttons: show the tab first, then scroll to it.
   function showTab(next: ProjectTab) {
@@ -411,14 +461,21 @@ export default function ProjectDetail() {
             // Posted as an organization: its page, not the person who runs it
             // (they're in the team below).
             <div className="flex items-center gap-3 mb-4">
-              <Byline byline={byline} linked>
+              {/* A profile is for members: a visitor sees a person's name as
+                  plain text. An organization's page is public. */}
+              <Byline byline={byline} linked={byline.kind === "org" || profileLinks}>
                 {project.community && (
                   <span style={{ color: "var(--garden-dim)" }}> · in {project.community.name}</span>
                 )}
               </Byline>
-              {byline.kind === "person" && project.creator && !isOwner && (
-                <FavoriteButton targetType="profile" targetId={project.creator._id} size="sm" />
-              )}
+              {byline.kind === "person" &&
+                project.creator &&
+                !isOwner &&
+                (visitorSignUp ? (
+                  <SignUpToFollow to={visitorSignUp} />
+                ) : (
+                  <FavoriteButton targetType="profile" targetId={project.creator._id} size="sm" />
+                ))}
             </div>
           )}
 
@@ -446,7 +503,7 @@ export default function ProjectDetail() {
               <GoalProgress raisedCents={project.raisedCents ?? 0} goal={project.goal!} />
             </div>
           )}
-          {!isOwner && <SupportButtons raising={raising} onSupport={setSupportMode} />}
+          {!isOwner && <SupportButtons raising={raising} count={project.supportCount} onSupport={support} />}
         </div>
       )}
 
@@ -491,31 +548,53 @@ export default function ProjectDetail() {
           <GigSchedule project={project} isOwner={isOwner} myProfile={myProfile} />
         </TabPanel>
       ) : (
-        <TabPanel base={TABS_BASE} id="team" selected={tab === "team"}>
-          <TeamCard project={project} team={team} isOwner={isOwner} myProfile={myProfile} canSave={canSave} />
+        hasTab("team") && (
+          <TabPanel base={TABS_BASE} id="team" selected={tab === "team"}>
+            <TeamCard
+              project={project}
+              team={team}
+              isOwner={isOwner}
+              myProfile={myProfile}
+              canSave={canSave}
+              visitorSignUp={visitorSignUp}
+            />
+          </TabPanel>
+        )
+      )}
+
+      {hasTab("updates") && (
+        <TabPanel base={TABS_BASE} id="updates" selected={tab === "updates"}>
+          <ProjectUpdates projectId={project._id} isOwner={isOwner} myUserId={myProfile?.userId} />
+          {isOwner && (
+            <div className="mt-8 mb-6">
+              <AnnouncementComposer targetType="project" targetId={project._id} heading="Message team and supporters" />
+            </div>
+          )}
         </TabPanel>
       )}
 
-      <TabPanel base={TABS_BASE} id="updates" selected={tab === "updates"}>
-        <ProjectUpdates projectId={project._id} isOwner={isOwner} myUserId={myProfile?.userId} />
-        {isOwner && (
-          <div className="mt-8 mb-6">
-            <AnnouncementComposer targetType="project" targetId={project._id} heading="Message team and supporters" />
-          </div>
-        )}
-      </TabPanel>
-
-      {isPassion && (
+      {hasTab("support") && (
         <TabPanel base={TABS_BASE} id="support" selected={tab === "support"}>
           {isOwner && (
             <AskForSupport project={project} raising={raising} editing={editingSupport} setEditing={setEditingSupport} />
           )}
           {isOwner && raising && <TierManager projectId={project._id} />}
-          <p className="mb-3 text-sm" style={{ color: "var(--garden-dim)" }}>
-            {project.supportCount > 0
-              ? `${project.supportCount} ${project.supportCount === 1 ? "supporter" : "supporters"}`
-              : "No supporters yet"}
-          </p>
+          {project.supportCount > 0 || seesEverything ? (
+            <p className="mb-3 text-sm" style={{ color: "var(--garden-dim)" }}>
+              {project.supportCount > 0
+                ? `${project.supportCount} ${project.supportCount === 1 ? "supporter" : "supporters"}`
+                : "No supporters yet"}
+            </p>
+          ) : (
+            // A visitor only gets this tab once the owner has asked for
+            // support, so the way to give it is the one thing to show.
+            <div className="mb-6 flex items-center justify-between gap-3">
+              <p className="text-sm" style={{ color: "var(--garden-body)" }}>
+                Be the first to back this.
+              </p>
+              <SupportButtons raising={raising} onSupport={support} />
+            </div>
+          )}
           <SupportersList projectId={project._id} />
         </TabPanel>
       )}
@@ -874,7 +953,8 @@ function ProjectHero({
   /** A 4:5 poster beside the title; false for a wide picture, a banner above it. */
   poster: boolean;
   title: string;
-  kindWord: string;
+  /** Null for a plain project: no chip. */
+  kindWord: string | null;
   hasMoney: boolean;
   moneyWord: string | null;
   projectId: Id<"projects">;
@@ -936,12 +1016,14 @@ function ProjectHero({
       );
     return wrap(
       <>
-        <span
-          className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-[0.06em]"
-          style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "rgba(20,20,18,0.72)", color: "var(--garden-paper)" }}
-        >
-          {kindWord}
-        </span>
+        {kindWord && (
+          <span
+            className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-[0.06em]"
+            style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "rgba(20,20,18,0.72)", color: "var(--garden-paper)" }}
+          >
+            {kindWord}
+          </span>
+        )}
         {hasMoney && moneyWord && (
           <span
             className="absolute top-3 right-3 px-3 py-1.5 rounded-full text-sm font-bold"
@@ -980,14 +1062,19 @@ function ProjectHero({
     );
   }
 
+  // No picture, no chip, no money and not the owner: nothing to draw.
+  if (!kindWord && !(hasMoney && moneyWord) && !isOwner) return null;
+
   return (
     <div className="flex flex-wrap items-center gap-2 mb-4">
-      <span
-        className="px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-[0.06em]"
-        style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "rgba(198,198,190,0.1)", color: "var(--garden-muted)" }}
-      >
-        {kindWord}
-      </span>
+      {kindWord && (
+        <span
+          className="px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-[0.06em]"
+          style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "rgba(198,198,190,0.1)", color: "var(--garden-muted)" }}
+        >
+          {kindWord}
+        </span>
+      )}
       {hasMoney && moneyWord && (
         <span
           className="px-3 py-1 rounded-full text-sm font-bold"
@@ -1475,12 +1562,11 @@ function InlineEditableLocation({ project, isOwner }: { project: any; isOwner: b
     );
   }
 
+  // Only a place that was set is worth a card: with none, a visitor sees no
+  // Location card (not "Remote-friendly — anywhere"), and the owner sees
+  // "No location set" with the pencil to add one.
   const isRemote = project.remote !== false;
-  const summary = isRemote
-    ? project.location
-      ? `${project.location} · remote-friendly`
-      : "Remote-friendly — anywhere"
-    : project.location || null;
+  const summary = project.location ? (isRemote ? `${project.location} · remote-friendly` : project.location) : null;
 
   if (summary) {
     return (
@@ -1602,6 +1688,20 @@ function InlineEditableInterests({ project, isOwner }: { project: any; isOwner: 
   );
 }
 
+// Follow, for a visitor: FavoriteButton's "Follow" pill, which asks them to
+// sign up first and brings them back here. Following needs an account.
+function SignUpToFollow({ to }: { to: string }) {
+  return (
+    <Link
+      to={to}
+      className="px-2.5 py-1 text-xs rounded-full font-medium border whitespace-nowrap transition-colors duration-200 hover:border-[var(--app-accent)]"
+      style={{ color: "var(--app-text-muted)", borderColor: "var(--app-hairline)" }}
+    >
+      Follow
+    </Link>
+  );
+}
+
 // The profile page's Message button, on a compact team row.
 function MessageButton({ userId }: { userId: string }) {
   const { start, starting, error } = useStartConversation();
@@ -1643,6 +1743,8 @@ function TeamMemberRow({
   memberId?: string;
 }) {
   const updateMemberRole = useMutation((api as any).garden.projectTeam.updateMemberRole);
+  // Profiles are for members: a visitor sees the name, not a link.
+  const profileLinks = useProfileLinks();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(roleLabel);
   const [saving, setSaving] = useState(false);
@@ -1668,7 +1770,7 @@ function TeamMemberRow({
   return (
     <div className="flex items-center gap-2 text-sm">
       <PersonAvatar name={name} imageUrl={imageUrl} size="xs" tone="garden" />
-      {profileId ? (
+      {profileId && profileLinks ? (
         <Link to={`/profile/${profileId}`} className="hover:opacity-80" style={{ color: "var(--garden-paper)" }}>
           {name}
         </Link>
@@ -1709,6 +1811,7 @@ function TeamCard({
   isOwner,
   myProfile,
   canSave,
+  visitorSignUp,
 }: {
   project: any;
   /** api.garden.projectTeam.getTeam, read by the page (which also counts the
@@ -1718,6 +1821,9 @@ function TeamCard({
   myProfile: any;
   /** See ProjectDetail's canSave. */
   canSave: boolean;
+  /** Signed out: where Apply / Ask to join go instead (sign up, then back
+   * here). Null for a member, who gets the request form. */
+  visitorSignUp: string | null;
 }) {
   // null = closed; {} = the free-text flow (generic Apply/Ask-to-join
   // button); {roleId,title} = applying for a specific posted role (from
@@ -1773,6 +1879,7 @@ function TeamCard({
         mine={team.mine}
         onApply={(role) => setJoinModal(role)}
         apply={team.apply}
+        visitorSignUp={visitorSignUp}
       />
 
       {!isOwner && (
@@ -1783,6 +1890,7 @@ function TeamCard({
           onOpenJoinModal={() => setJoinModal({})}
           apply={team.apply}
           acceptingPeople={team.acceptingPeople}
+          visitorSignUp={visitorSignUp}
         />
       )}
 
@@ -1835,6 +1943,7 @@ function RolesSection({
   mine,
   onApply,
   apply,
+  visitorSignUp,
 }: {
   project: any;
   isOwner: boolean;
@@ -1846,6 +1955,8 @@ function RolesSection({
   apply?: { allowed: boolean; reason: string | null; upgradePath: string | null };
   mine: { memberId: string; status: string; role: string } | undefined;
   onApply: (role: { roleId: string; title: string }) => void;
+  /** See TeamCard's: Apply is a link to sign up for a visitor. */
+  visitorSignUp: string | null;
 }) {
   const roles = useQuery(api.garden.projectTeam.listRoles, { projectId: project._id });
   const addRole = useMutation(api.garden.projectTeam.addRole);
@@ -2038,6 +2149,14 @@ function RolesSection({
                       style={{ color: "var(--garden-citron)" }}
                     >
                       Join to apply
+                    </Link>
+                  ) : !mine && visitorSignUp ? (
+                    <Link
+                      to={visitorSignUp}
+                      className="inline-block text-xs px-2.5 py-1 rounded-lg font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
+                      style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+                    >
+                      Apply
                     </Link>
                   ) : !mine ? (
                     <button
@@ -2236,6 +2355,7 @@ function ViewerTeamActions({
   onOpenJoinModal,
   apply,
   acceptingPeople,
+  visitorSignUp,
 }: {
   project: any;
   mine: { memberId: string; status: string; role: string } | undefined;
@@ -2248,6 +2368,8 @@ function ViewerTeamActions({
   /** Opens the shared JoinRequestModal TeamCard owns — with no preset,
    * this is the original free-text "propose your own role" flow. */
   onOpenJoinModal: () => void;
+  /** See TeamCard's: Apply / Ask to join is a link to sign up for a visitor. */
+  visitorSignUp: string | null;
 }) {
   const withdrawRequest = useMutation(api.garden.projectTeam.withdrawRequest);
   const respondToInvite = useMutation(api.garden.projectTeam.respondToInvite);
@@ -2285,6 +2407,14 @@ function ViewerTeamActions({
             {apply.upgradePath ?? "Join to apply"}
           </Link>
         </p>
+      ) : !mine && visitorSignUp ? (
+        <Link
+          to={visitorSignUp}
+          className="inline-block px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
+          style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+        >
+          {project.kind === "paid" ? "Apply" : "Ask to join"}
+        </Link>
       ) : !mine ? (
         <button
           onClick={onOpenJoinModal}
@@ -3373,7 +3503,7 @@ function SupportersList({ projectId }: { projectId: Id<"projects"> }) {
   );
   const [expanded, setExpanded] = useState(false);
 
-  if (!supporters || supporters.length === 0) return <div className="mb-6" />;
+  if (!supporters || supporters.length === 0) return null;
 
   const show = expanded ? supporters : supporters.slice(0, 5);
   const hasMore = supporters.length > 5;

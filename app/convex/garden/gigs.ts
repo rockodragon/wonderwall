@@ -21,6 +21,7 @@ import { insertNotification } from "../notify";
 import { slugifyTitle, resolveAvailableSlug } from "./stories";
 import { assertCommunityMember } from "./communities";
 import { isHiddenCommunityId } from "./communityVisibility";
+import { projectVisibleTo } from "./projectVisibility";
 import { validateBudgetDeclaration } from "./projects";
 import { ruleOf, summarizeGig } from "./gigSummary";
 import { can } from "./capabilities";
@@ -1191,6 +1192,10 @@ export const getSchedule = query({
       .withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
       .first();
     if (!series) return null;
+    // The project page is public: a gig not shown to this viewer
+    // (admin-hidden, or in a hidden community) has no schedule to them.
+    const project = await ctx.db.get(args.projectId);
+    if (!project || !(await projectVisibleTo(ctx, project, userId))) return null;
     const now = Date.now();
     const isHost = await isHostOrAdmin(ctx, series, userId);
     const viewerProfile = userId ? await getProfileByUserId(ctx, userId) : null;
@@ -1199,10 +1204,7 @@ export const getSchedule = query({
     // would refuse, and the denial text on the page is the server's own.
     const respond =
       userId && !isHost
-        ? can(
-            await getGardenUser(ctx, userId, (await ctx.db.get(args.projectId))?.hostOrgId),
-            "gig.respond",
-          )
+        ? can(await getGardenUser(ctx, userId, project.hostOrgId), "gig.respond")
         : { allowed: false as const };
 
     const rows = await ctx.db
