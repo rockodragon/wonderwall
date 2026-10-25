@@ -39,11 +39,19 @@ const VISIT_LIMIT = 3;
 // /communities/:slug should all be public.
 const PUBLIC_PATH_PREFIXES = ["/about", "/docs", "/communities", "/people", "/search", "/offerings", "/tables", "/orgs"];
 
-// The project list is public; a project's own page and every action on it
-// still need an account (projects.tsx sends Post/Cheer/Back to login).
+// The project list is public, and so is each project's own page (below);
+// acting on one still needs an account: Cheer, Follow and Apply send a
+// visitor to sign up and back (projects.tsx, projects.$id.tsx), and Back
+// this takes a one-time card payment without one.
 // /give is public too: The Garden's home asks visitors to give, and the page
 // shows them the two ways (use our money, bring your own) before any sign-in.
 const PUBLIC_EXACT_PATHS = ["/projects", "/give"];
+
+// /projects/:id is public (Rick, 2026-10-22), the way a shared post opens on
+// Instagram or TikTok: anyone with the link sees the work, and the page
+// shows a visitor only what has something in it. Only the page itself (a
+// trailing slash allowed); deeper paths are not, so this is not a prefix match.
+const PUBLIC_PROJECT_DETAIL_PATH = /^\/projects\/[^/]+\/?$/;
 
 // /events/:eventId is public too — a calendar invite goes to a guest with
 // no account by design (eventRsvps.userId is optional), and event.tsx's own
@@ -64,6 +72,7 @@ function isPublicPathname(pathname: string): boolean {
     PUBLIC_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
     PUBLIC_EXACT_PATHS.includes(pathname) ||
     PUBLIC_EVENT_DETAIL_PATH.test(pathname) ||
+    PUBLIC_PROJECT_DETAIL_PATH.test(pathname) ||
     PUBLIC_PERSON_PATH.test(pathname)
   );
 }
@@ -212,13 +221,6 @@ export default function AppLayout({ children }: { children?: ReactNode }) {
     if (mustInvite && !onEventPage && !onTablePage) navigate("/invite", { replace: true });
   }, [mustInvite, onEventPage, onTablePage, navigate]);
 
-  // The desktop first-visit note that says where the menu is
-  // (desk/PaletteHint.tsx) waits until nothing above is about to send this
-  // person somewhere else.
-  const navNoteReady =
-    !isLoading &&
-    (!isAuthenticated || (profile !== undefined && signupCommunity !== undefined && !mustOnboard && !mustInvite));
-
   useEffect(() => {
     if (isAuthenticated && mustOnboard && !onEventPage && !onTablePage && !mustInvite) {
       // Come back here afterwards — onboarding ends on /today, which
@@ -339,6 +341,9 @@ export default function AppLayout({ children }: { children?: ReactNode }) {
           a message thread are full-height and manage their own bottom. On a
           phone every page gets room for the bottom bar except a thread,
           which stops above the bar itself (lib/phoneBar.ts). */}
+      {/* Desktop pages end 128px clear of the palette's button in the
+          corner (desk/Palette.tsx), so the last row can scroll out from
+          under it. */}
       <main
         className={`${isThread ? "" : "pb-20"} ${
           FF_DESK ? (ownsBottom ? "md:pb-0" : "md:pb-32") : "md:pb-0 md:pl-64"
@@ -347,17 +352,12 @@ export default function AppLayout({ children }: { children?: ReactNode }) {
         {children ?? <Outlet />}
       </main>
 
-      {/* Desktop palette — one button in the lower-left corner that fans out
-          the places you can go (desk/Palette.tsx). Phones keep the bottom
-          bar below. */}
+      {/* Desktop palette — the places you can go, resting on an arc in the
+          lower-left corner (desk/Palette.tsx). Phones keep the bottom bar
+          below. */}
       {FF_DESK && (
         <div className="hidden md:block">
-          <Palette
-            isAuthenticated={isAuthenticated}
-            profile={profile}
-            badgeCount={sidebarBadgeCount}
-            hintReady={navNoteReady}
-          />
+          <Palette isAuthenticated={isAuthenticated} profile={profile} badgeCount={sidebarBadgeCount} />
         </div>
       )}
 

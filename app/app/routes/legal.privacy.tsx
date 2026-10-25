@@ -69,7 +69,8 @@ const SECTIONS: LegalSection[] = [
     bullets: [
       "Public to anyone, no account needed: event pages. Event detail pages are deliberately reachable without signing in, so that an invitation can reach a guest who has no account. The title, description, date, venue and address, tags, images, and any ticket price on an event are visible to anyone holding the link, and they appear in link previews when shared.",
       "Gated, even on a public event page: the join link for an online event and any recording of it. These are stored apart from the event itself and released only to someone whose access has been checked.",
-      "Visible to signed-in members: your profile, your projects and works, your interests and location, and your place in the invitation graph.",
+      "Public to anyone, no account needed: project pages, so that a project can be shared outside the community. Anyone holding the link can see a project's title, pictures, story, stage, updates, the place it names (only the city, when the place is a street address), and what it has raised. They can also see the names and pictures of the people on it; the profile name, picture, interests and location of whoever runs it; and the supporters who chose to be named, with their notes, offers of help and kind of backing. Supporters who chose not to be named are shown as anonymous.",
+      "Visible to signed-in members: your profile page and your place in the invitation graph.",
       "Between participants: direct messages. They are not end-to-end encrypted — see our access, below.",
       "Not shown to other members: your email address, your password, your analytics, and your payment records.",
     ],

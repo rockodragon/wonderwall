@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gigPhrase, isJob, isPaidRole, leadRoles, paidRoles, projectKindLabel, rolePay } from "./projectKind";
+import { distinctKindLabel, gigPhrase, isJob, isPaidRole, leadRoles, paidRoles, projectKindLabel, rolePay } from "./projectKind";
 
 const drummer = { title: "Drummer", budgetType: "amount", budget: 200 };
 const singer = { title: "Singer", budgetType: "range", budget: 300, budgetMax: 600 };
@@ -104,5 +104,20 @@ describe("projectKindLabel", () => {
   });
   it("does not lead with a role that does not pay", () => {
     expect(projectKindLabel({ kind: "passion", title: "Zine", openRoles: [stagehand] }, { onJobsAndGigs: true })).toBe("Project");
+  });
+});
+
+describe("distinctKindLabel", () => {
+  it("is null for a plain project: the word Project tells a viewer of projects nothing", () => {
+    expect(distinctKindLabel({ kind: "passion", title: "Zine" })).toBeNull();
+    expect(distinctKindLabel({ kind: "passion", title: "Zine", openRoles: [stagehand] }, { onJobsAndGigs: true })).toBeNull();
+  });
+  it("is the label whenever it says more than that", () => {
+    expect(distinctKindLabel({ kind: "passion", title: "Zine" }, { raising: true })).toBe("Seeking funding");
+    expect(distinctKindLabel({ kind: "paid", budgetType: "amount", budget: 400 })).toBe("Job");
+    expect(distinctKindLabel({ kind: "paid", budgetType: "volunteer" })).toBe("Volunteer");
+    expect(distinctKindLabel({ kind: "passion", title: "Harbor Mural", openRoles: [drummer] }, { onJobsAndGigs: true })).toBe(
+      "Role on Harbor Mural · Paid",
+    );
   });
 });

@@ -97,7 +97,8 @@ export const GRID_MAX_W = 300;
 export const GRID_GAP = 32;
 /** The header's left edge, and the same margin on the right. */
 export const GRID_SIDE = 48;
-/** Clear space under the last row, so it can scroll out from behind the palette. */
+/** Clear space under the last row, so it can scroll out from behind the
+ *  palette's button in the corner (its tools fan out only on a hover). */
 export const GRID_BOTTOM = 140;
 /** Air between the header and the first row. */
 export const GRID_BELOW_HEADER = 16;

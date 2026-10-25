@@ -56,8 +56,10 @@ describe("a project card's first line", () => {
     expect(html).not.toContain("$");
     expect(html).not.toContain(">Job<");
   });
-  it("says Project, or Seeking funding for one asking for backers", () => {
-    expect(card({}, "projects")).toContain(">Project<");
+  it("says nothing for a plain project, and Seeking funding for one asking for backers", () => {
+    const plain = card({}, "projects");
+    expect(plain).not.toContain(">Project<");
+    expect(plain).not.toMatch(/uppercase[^"]*line-clamp-2/);
     expect(card({ goal: 500, raisedCents: 0 }, "funding")).toContain(">Seeking funding<");
   });
 });
@@ -79,15 +81,15 @@ describe("a project card under Jobs and gigs", () => {
   });
   it("offers no support buttons: this is work, not a project to back", () => {
     const html = card(withRole, "work");
-    expect(html).not.toContain("Cheer them on");
-    expect(html).not.toContain("Back this");
+    expect(html).not.toContain('aria-label="Cheer"');
+    expect(html).not.toContain('aria-label="Back this"');
   });
   it("is the project, with a count of people, anywhere else", () => {
     const html = card(withRole, "projects");
-    expect(html).toContain(">Project<");
+    expect(html).not.toContain(">Project<");
     expect(html).toMatch(/<h3[^>]*>Harbor Mural<\/h3>/);
     expect(html).toContain("Looking for 2 people");
-    expect(html).toContain("Cheer them on");
+    expect(html).toContain('aria-label="Cheer"');
   });
   it("spells the roles out under Seeking people, with their pay", () => {
     const html = card(withRole, "people");
@@ -104,11 +106,32 @@ describe("a project card under Jobs and gigs", () => {
   });
 });
 
-describe("a funding card", () => {
-  it("offers Back this beside Cheer them on", () => {
+describe("a project card's support", () => {
+  it("is two icons on a funding card: Cheer, then Back this", () => {
     const html = card({ goal: 500, raisedCents: 12_000 }, "funding");
-    expect(html).toContain("Cheer them on");
-    expect(html).toContain("Back this");
+    const cheer = html.indexOf('aria-label="Cheer"');
+    const back = html.indexOf('aria-label="Back this"');
+    expect(cheer).toBeGreaterThan(-1);
+    expect(back).toBeGreaterThan(cheer);
+    expect(html).not.toContain("Cheer them on");
+    // The icons are drawings, not words.
+    expect(html).toMatch(/aria-label="Cheer"[^>]*>\s*<svg/);
+    expect(html).toMatch(/aria-label="Back this"[^>]*>\s*<svg/);
+  });
+  it("has no Back this on a project that isn't raising", () => {
+    const html = card({}, "projects");
+    expect(html).toContain('aria-label="Cheer"');
+    expect(html).not.toContain('aria-label="Back this"');
+  });
+  it("says nothing about supporters until there is one", () => {
+    const html = card({ supportCount: 0 });
+    expect(html).not.toContain("No supporters yet");
+    expect(html).not.toContain("supporter");
+  });
+  it("puts the count beside Cheer once there are supporters", () => {
+    const html = card({ supportCount: 3 });
+    expect(html).toMatch(/aria-label="Cheer".*?<\/button><span[^>]*>3<span class="sr-only"> supporters<\/span><\/span>/);
+    expect(card({ supportCount: 1 })).toContain('<span class="sr-only"> supporter</span>');
   });
 });
 
@@ -119,9 +142,15 @@ describe("a project card's cover", () => {
     expect(html).toContain("object-contain");
     expect(html).not.toContain("16/10");
   });
-  it("keeps a strip on a phone and the full 4:5 box from sm up when there is no picture", () => {
-    const html = card({});
+  it("keeps a strip on a phone for the badges, and the full 4:5 box from sm up, when there is no picture", () => {
+    const html = card({ goal: 500, raisedCents: 0 }, "funding");
     expect(html).toContain("sm:aspect-[4/5]");
     expect(html).toContain("h-16");
+    expect(card(job, "work")).toContain("h-16");
+  });
+  it("has no strip on a phone with no picture and no badge to hold, and keeps the 4:5 box from sm up", () => {
+    const html = card({});
+    expect(html).not.toContain("h-16");
+    expect(html).toContain("hidden sm:block sm:aspect-[4/5]");
   });
 });

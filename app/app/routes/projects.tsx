@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { HireFlow } from "../components/HireFlow";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import { formatCents, formatDollars } from "../../convex/money";
 import { justPublished } from "../lib/justPublished";
 import { INTERESTS } from "../constants/interests";
@@ -26,7 +27,7 @@ import {
   writeProjectsView,
   type ProjectsLens,
 } from "../lib/browse/projectsFilter";
-import { leadRoles, projectKindLabel, rolePay } from "../lib/projectKind";
+import { distinctKindLabel, leadRoles, rolePay } from "../lib/projectKind";
 import { FilterButton, FilterPanel, filterButtonLabel } from "../components/FilterMenu";
 import { ChevronDownIcon } from "../components/icons";
 import { TagFilterPills } from "../components/TagFilterPills";
@@ -42,8 +43,9 @@ import { ProjectModal } from "../components/ProjectModal";
 import { INTEREST_OPTIONS } from "../lib/browse/peopleFilter";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { PageTop, TopButton } from "../components/phone/PageTop";
-import { Plus } from "@phosphor-icons/react";
+import { CurrencyDollar, Heart, Plus } from "@phosphor-icons/react";
 import { readStartStage, shareProjectHref } from "../lib/shareProject";
+import { signupHref, supportDetour } from "../lib/pendingIntent";
 import { bylineOf } from "../lib/byline";
 import { Byline } from "../components/Byline";
 
@@ -84,12 +86,11 @@ export default function Projects() {
   const [hiring, setHiring] = useState(false);
   const navigate = useNavigate();
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
-  // Anyone can browse; posting and supporting need an account. Login
-  // brings them back here (and on to sign up, keeping the redirect).
+  // Anyone can browse; posting and cheering need an account. A visitor has
+  // none yet, so they go to sign up (Rick, 2026-10-09), which brings them
+  // back here.
   const withAccount = (act: () => void) => () =>
-    isAuthenticated
-      ? act()
-      : navigate(`/login?redirect=${encodeURIComponent(`/projects${window.location.search}`)}`);
+    isAuthenticated ? act() : navigate(signupHref(`/projects${window.location.search}`));
   const [showPassionForm, setShowPassionForm] = useState(false);
   // The header's create button and menu and the first card in the grid do the same two
   // things, so they share one handler each.
@@ -98,6 +99,17 @@ export default function Projects() {
   const startProject = () => (isAuthenticated ? setShowPassionForm(true) : navigate(shareProjectHref(false)));
   const hireSomeone = withAccount(() => setHiring(true));
   const [supporting, setSupporting] = useState<{ project: any; mode: SupportMode } | null>(null);
+  // Cheering needs an account; backing doesn't: the sheet opens for a
+  // visitor on a one-time payment (the server takes a guest's one-time
+  // backing, not a monthly one).
+  // Until the token check settles a member reads as signed out, so a tap
+  // then does nothing rather than send them to sign up or a guest's sheet.
+  const support = (project: any, mode: SupportMode) => {
+    if (authLoading) return;
+    const detour = supportDetour(mode, isAuthenticated, `/projects${window.location.search}`);
+    if (detour) navigate(detour);
+    else setSupporting({ project, mode });
+  };
   const [searchParams, setSearchParams] = useSearchParams();
   // /projects?new=project (the palette's "Start a project") opens the start
   // flow once, then drops the param so a refresh doesn't open it again. Signed
@@ -109,7 +121,7 @@ export default function Projects() {
   useEffect(() => {
     if (!wantsNewProject || authLoading) return;
     if (!isAuthenticated) {
-      navigate(`/signup?redirect=${encodeURIComponent(`/projects?${searchParams}`)}`, { replace: true });
+      navigate(signupHref(`/projects?${searchParams}`), { replace: true });
       return;
     }
     setShowPassionForm(true);
@@ -375,7 +387,7 @@ export default function Projects() {
                   project={project}
                   lens={lens}
                   feed
-                  onSupport={(mode) => withAccount(() => setSupporting({ project, mode }))()}
+                  onSupport={(mode) => support(project, mode)}
                   matched={hasMatchFilter && isMatch(project)}
                 />
               ))}
@@ -550,19 +562,22 @@ export function ProjectCard({
 
   // The first line says what the card is (lib/projectKind): "Job",
   // "Recurring gig · Fridays 8–10pm", "Volunteer" (an unpaid posting never
-  // passes itself off as paid), or "Seeking funding" / "Project". On Jobs and gigs a
-  // project with a paid role leads with that role: "Role on Harbor Mural ·
-  // Paid", the role as the title, its pay in the corner. The money half
-  // ("$400", "$300–600", "Open to proposals") comes from the same helper as
-  // the full badge on /projects/:id.
+  // passes itself off as paid), or "Seeking funding". A plain project says
+  // nothing: "Project" on every card of a list of projects is noise. On Jobs
+  // and gigs a project with a paid role leads with that role: "Role on
+  // Harbor Mural · Paid", the role as the title, its pay in the corner. The
+  // money half ("$400", "$300–600", "Open to proposals") comes from the same
+  // helper as the full badge on /projects/:id.
   const raising = isRaising(project);
   const onJobsAndGigs = lens === "work";
   const role = leadRoles(project, onJobsAndGigs)[0] ?? null;
-  const kindWord = projectKindLabel(project, { onJobsAndGigs, raising });
+  const kindWord = distinctKindLabel(project, { onJobsAndGigs, raising });
   const moneyAmount =
     project.kind === "paid" && budgetKindLabel(project) === "Paid" ? budgetAmountLabel(project) : role ? rolePay(role) : null;
   // A gig's money is per date ("$300/date"), not per project.
   const moneyWord = moneyAmount && project.gig && project.budgetType === "amount" ? `${moneyAmount}/date` : moneyAmount;
+  // Something to pin to the top of the cover: the first line or the money.
+  const hasBadge = !!kindWord || !!moneyWord;
   const title = role ? role.title : project.title;
   const stage = resolveStage(project);
   const openRoles: any[] = project.openRoles ?? [];
@@ -587,7 +602,8 @@ export function ProjectCard({
           photo-dependent position defeats the point of a fixed badge.
           The cover is 4:5 (docs/features/cover-4x5.md). Without a photo the
           area collapses to a strip on a phone, where a portrait empty box
-          was most of a screen of nothing; it keeps the full 4:5 box from sm
+          was most of a screen of nothing, and goes altogether when there's
+          no badge for the strip to hold; it keeps the full 4:5 box from sm
           up, where cards sit side by side and rows must line up. The
           badges sit beside the cover, not inside it, so the picture
           dissolves in as the card scrolls into view and they don't. */}
@@ -611,33 +627,40 @@ export function ProjectCard({
             </div>
           </Dissolve>
         ) : (
-          <div className="h-16 sm:h-auto sm:aspect-[4/5]" style={EMPTY_COVER} />
+          <div
+            className={hasBadge ? "h-16 sm:h-auto sm:aspect-[4/5]" : "hidden sm:block sm:aspect-[4/5]"}
+            style={EMPTY_COVER}
+          />
         )}
         {/* One row, so a long first line and the money never sit on each other. */}
-        <div className="absolute inset-x-2 top-2 flex items-start justify-between gap-2">
-          <span
-            className="min-w-0 px-2 py-0.5 rounded-[14px] text-[12px] font-semibold uppercase tracking-[0.06em] leading-snug line-clamp-2"
-            style={{
-              fontFamily: "var(--garden-font-mono)",
-              backgroundColor: "rgba(20,20,18,0.72)",
-              color: "var(--garden-paper)",
-            }}
-          >
-            {kindWord}
-          </span>
-          {moneyWord && (
-            <span
-              className="shrink-0 px-2.5 py-1 rounded-full text-xs font-bold"
-              style={{
-                fontFamily: "var(--garden-font-mono)",
-                backgroundColor: "var(--garden-citron)",
-                color: "var(--garden-ink)",
-              }}
-            >
-              {moneyWord}
-            </span>
-          )}
-        </div>
+        {hasBadge && (
+          <div className="absolute inset-x-2 top-2 flex items-start justify-between gap-2">
+            {kindWord && (
+              <span
+                className="min-w-0 px-2 py-0.5 rounded-[14px] text-[12px] font-semibold uppercase tracking-[0.06em] leading-snug line-clamp-2"
+                style={{
+                  fontFamily: "var(--garden-font-mono)",
+                  backgroundColor: "rgba(20,20,18,0.72)",
+                  color: "var(--garden-paper)",
+                }}
+              >
+                {kindWord}
+              </span>
+            )}
+            {moneyWord && (
+              <span
+                className="ml-auto shrink-0 px-2.5 py-1 rounded-full text-xs font-bold"
+                style={{
+                  fontFamily: "var(--garden-font-mono)",
+                  backgroundColor: "var(--garden-citron)",
+                  color: "var(--garden-ink)",
+                }}
+              >
+                {moneyWord}
+              </span>
+            )}
+          </div>
+        )}
       </div>
       <div className={`flex-1 flex flex-col min-w-0 ${feed ? "px-4 py-3 sm:p-4" : "p-4"}`}>
         <h3
@@ -782,6 +805,9 @@ export function ProjectCard({
             {project.blurb}
           </p>
         )}
+        {/* Who made it, and the two ways to show up for it as icons at the
+            end of the same line, the way a feed post carries its heart. A
+            job or gig is paid, not backed, so it has none. */}
         <div className="mt-auto flex items-center justify-between gap-2 pt-2 min-w-0">
           {byline && (
             <Byline byline={byline} size="sm">
@@ -790,19 +816,12 @@ export function ProjectCard({
               )}
             </Byline>
           )}
+          {project.kind === "passion" && lens !== "work" && (
+            <div className="ml-auto">
+              <SupportButtons raising={raising} onSupport={onSupport} count={project.supportCount} size="sm" />
+            </div>
+          )}
         </div>
-        {project.kind === "passion" && lens !== "work" && (
-          // Stacked, not side by side: a grid card is too narrow for a
-          // count and two buttons on one line.
-          <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--garden-hairline)" }}>
-            <p className="text-xs mb-2" style={{ color: "var(--garden-dim)" }}>
-              {project.supportCount > 0
-                ? `${project.supportCount} ${project.supportCount === 1 ? "supporter" : "supporters"}`
-                : "No supporters yet"}
-            </p>
-            <SupportButtons raising={raising} onSupport={onSupport} size="sm" stretch />
-          </div>
-        )}
       </div>
     </div>
   );
@@ -895,23 +914,25 @@ function StageMenu({ stage, onChange }: { stage: string; onChange: (stage: strin
 
 export type SupportMode = "cheer" | "back";
 
-/** The two ways to show up for a project (docs/features/project-ia.md).
+/** The two ways to show up for a project (docs/features/project-ia.md), as
+ * icons: a heart to Cheer, a dollar to Back this (Rick, 2026-10-22).
  * Cheering is always there and costs nothing; backing only appears once the
  * owner has asked for support — a project that isn't raising has no money
- * button to press. */
+ * button to press. `count` (everyone who cheered or backed it) sits beside
+ * the heart once there is one. */
 export function SupportButtons({
   raising,
   onSupport,
+  count = 0,
   size = "md",
-  stretch,
 }: {
   raising: boolean;
   onSupport: (mode: SupportMode) => void;
+  count?: number;
   size?: "sm" | "md";
-  /** Fill the row, buttons sharing it equally (the grid card). */
-  stretch?: boolean;
 }) {
-  const pad = size === "sm" ? "px-2.5 py-1.5 min-w-0" : "px-4 py-2";
+  const box = size === "sm" ? "w-9 h-9" : "w-10 h-10";
+  const icon = size === "sm" ? 20 : 22;
   const click = (mode: SupportMode) => (e: React.MouseEvent) => {
     // Cards are links; a button inside one must not also navigate.
     e.preventDefault();
@@ -919,21 +940,36 @@ export function SupportButtons({
     onSupport(mode);
   };
   return (
-    <div className={`flex items-center gap-2 ${stretch ? "w-full [&>button]:flex-1" : "shrink-0"}`}>
+    <div className="flex items-center gap-1 shrink-0">
       <button
+        type="button"
         onClick={click("cheer")}
-        className={`${pad} rounded-lg text-[13.5px] font-semibold whitespace-nowrap border transition-opacity hover:opacity-90`}
-        style={{ borderColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
+        aria-label="Cheer"
+        title="Cheer"
+        className={`${box} inline-flex items-center justify-center rounded-full transition-opacity hover:opacity-80`}
+        style={{ color: "var(--garden-paper)" }}
       >
-        Cheer them on
+        <Heart size={icon} aria-hidden="true" />
       </button>
+      {count > 0 && (
+        <span
+          className="text-[13.5px] tabular-nums pr-1"
+          style={{ color: "var(--garden-muted)", fontFamily: "var(--garden-font-mono)" }}
+        >
+          {count}
+          <span className="sr-only"> {count === 1 ? "supporter" : "supporters"}</span>
+        </span>
+      )}
       {raising && (
         <button
+          type="button"
           onClick={click("back")}
-          className={`${pad} rounded-lg text-[13.5px] font-semibold whitespace-nowrap transition-opacity hover:opacity-90`}
+          aria-label="Back this"
+          title="Back this"
+          className={`${box} inline-flex items-center justify-center rounded-full transition-opacity hover:opacity-90`}
           style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
         >
-          Back this
+          <CurrencyDollar size={icon} weight="bold" aria-hidden="true" />
         </button>
       )}
     </div>
@@ -1039,6 +1075,31 @@ const MIN_BACKING_DOLLARS = 5;
 // One-tap amounts in the Back this modal; each goes straight to Stripe.
 export const BACKING_PRESET_DOLLARS = [10, 25, 50] as const;
 
+/** What SupportModal sends createBackingCheckout. A signed-out backer who
+ *  chose to be named sends that name, trimmed (the server stores a guest's
+ *  backing under it); an anonymous guest and a member send none. Pure. */
+export function backingCheckoutArgs(p: {
+  projectId: Id<"projects">;
+  amountCents: number;
+  type: string;
+  visible: boolean;
+  message: string;
+  tierId?: string;
+  signedIn: boolean;
+  guestName: string;
+}) {
+  return {
+    projectId: p.projectId,
+    amountCents: p.amountCents,
+    recurring: p.type !== "financial_one_time",
+    visible: p.visible,
+    message: p.message.trim() || undefined,
+    tierId: p.tierId,
+    ...(p.type === "financial_annual" ? { interval: "year" as const } : {}),
+    ...(!p.signedIn && p.visible ? { guestName: p.guestName.trim() } : {}),
+  };
+}
+
 // Backing a project is REAL money now: the two financial options open a
 // Stripe Checkout session (convex/garden/stripe.ts's createBackingCheckout)
 // and hand the browser off to it, exactly like fund.$slug.tsx's
@@ -1061,8 +1122,20 @@ export function SupportModal({
   const tiers = useQuery((api as any).garden.patronTiers.listTiers, { projectId: project._id });
   const supportProject = useMutation(api.garden.support.supportProject);
   const createBackingCheckout = useAction(api.garden.stripe.createBackingCheckout);
+  // The project page is public, and a visitor may back it without an
+  // account: once only (a monthly backing needs one, and the server says
+  // so), under the name they type unless they back it anonymously.
+  const { isAuthenticated } = useConvexAuth();
 
-  const [type, setType] = useState(mode === "cheer" ? "encouragement" : "financial_recurring");
+  const [type, setType] = useState(
+    mode === "cheer" ? "encouragement" : isAuthenticated ? "financial_recurring" : "financial_one_time",
+  );
+  const [guestName, setGuestName] = useState("");
+  // A guest backs once: Monthly and Yearly need an account, so they aren't offered.
+  const typeOptions =
+    mode === "back" && !isAuthenticated
+      ? SUPPORT_TYPES.back.filter((t) => t.value === "financial_one_time")
+      : SUPPORT_TYPES[mode];
   const [amount, setAmount] = useState("");
   const [message, setMessage] = useState("");
   const [resourceDescription, setResourceDescription] = useState("");
@@ -1090,15 +1163,18 @@ export function SupportModal({
     }
     setSubmitting(true);
     try {
-      const { url } = await createBackingCheckout({
-        projectId: project._id,
-        amountCents: finalAmountCents,
-        recurring: type !== "financial_one_time",
-        visible,
-        message: message.trim() || undefined,
-        tierId: finalTierId,
-        ...(type === "financial_annual" ? { interval: "year" } : {}),
-      });
+      const { url } = await createBackingCheckout(
+        backingCheckoutArgs({
+          projectId: project._id,
+          amountCents: finalAmountCents,
+          type,
+          visible,
+          message,
+          tierId: finalTierId,
+          signedIn: isAuthenticated,
+          guestName,
+        }),
+      );
       // Leaving for Stripe — deliberately no setSubmitting(false), so the
       // button stays disabled through the handoff.
       window.location.assign(url);
@@ -1217,7 +1293,7 @@ export function SupportModal({
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-wrap gap-2">
-              {SUPPORT_TYPES[mode].map((t) => (
+              {typeOptions.map((t) => (
                 <button
                   key={t.value}
                   type="button"
@@ -1233,6 +1309,32 @@ export function SupportModal({
                 </button>
               ))}
             </div>
+
+            {/* Before the amounts: a preset goes straight to checkout. */}
+            {isFinancial && !isAuthenticated && visible && (
+              <div>
+                <label
+                  htmlFor="support-guest-name"
+                  className="block text-xs uppercase tracking-[0.06em] mb-1.5"
+                  style={{ color: "var(--garden-dim)" }}
+                >
+                  Your name, as it shows on the project
+                </label>
+                <input
+                  id="support-guest-name"
+                  type="text"
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
+                  autoComplete="name"
+                  className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+                  style={{
+                    backgroundColor: "var(--garden-ink)",
+                    borderColor: "var(--garden-hairline-raised)",
+                    color: "var(--garden-paper)",
+                  }}
+                />
+              </div>
+            )}
 
             {isFinancial && hasTiers && !showCustomAmount ? (
               <div className="flex flex-col gap-2">

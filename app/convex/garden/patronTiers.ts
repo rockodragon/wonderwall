@@ -2,11 +2,16 @@ import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError } from "convex/values";
-import { requireOwner } from "../helpers";
+import { currentUserId, requireOwner } from "../helpers";
+import { projectVisibleTo } from "./projectVisibility";
 
 export const listTiers = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
+    // The project page is public: a project not shown to this viewer
+    // (admin-hidden, or in a hidden community) has no tiers to them.
+    const project = await ctx.db.get(args.projectId);
+    if (!project || !(await projectVisibleTo(ctx, project, await currentUserId(ctx)))) return [];
     const tiers = await ctx.db
       .query("patronTiers")
       .withIndex("by_projectId_sortOrder", (q) => q.eq("projectId", args.projectId))

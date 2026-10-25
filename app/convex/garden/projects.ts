@@ -31,7 +31,8 @@ import { trackEvent } from "../posthog";
 // project is (docs/features/creator-media-cross-post.md, Round 2) — is
 // checked and stored the way artifacts and events store one.
 import { canonicalMediaUrl, schedulePreviewFetch } from "../linkPreview";
-import { displayNameOf, getProfileByUserId, isAdmin, requireOwner } from "../helpers";
+import { currentUserId, displayNameOf, getProfileByUserId, isAdmin, requireOwner } from "../helpers";
+import { placeForViewer, projectVisibleTo, seesProjectAddress } from "./projectVisibility";
 import { insertNotification } from "../notify";
 import { isHidden, isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
 import { communityVisibility, isHiddenCommunityId } from "./communityVisibility";
@@ -477,6 +478,9 @@ export const listProjects = query({
     // "Members respond" before anyone opens it. Membership is per community,
     // so one lookup per distinct community, not per project.
     const viewerId = await getAuthUserId(ctx);
+    // The list is public: a row's exact place is for its lead and admins
+    // (placeForViewer). The viewer's admin flag is read once, not per row.
+    const viewerIsAdmin = viewerId ? await isAdmin(ctx, viewerId) : false;
     const gateByCommunity = new Map<string, Promise<ReturnType<typeof can>[]>>();
     const gatesFor = (hostOrgId: Id<"hostOrgs"> | undefined) => {
       const key = String(hostOrgId ?? "");
@@ -528,7 +532,7 @@ export const listProjects = query({
         }
 
         return {
-          ...project,
+          ...placeForViewer(project, viewerIsAdmin || viewerId === project.userId),
           resolvedPhotoUrl,
           organization: await orgByline(ctx, project.organizationId),
           creator: user
@@ -572,20 +576,15 @@ export const getProject = query({
     if (!id) return null;
     const project = await ctx.db.get(id);
     if (!project) return null;
-    // An admin-hidden project (moderation.ts) reads as not-found to everyone
-    // but its lead and admins.
-    if (isHidden(project)) {
-      const viewerId = await getAuthUserId(ctx);
-      if (!viewerId || (viewerId !== project.userId && !(await isAdmin(ctx, viewerId)))) return null;
-    }
-    // Posted into a hidden (test) community: not found to everyone but its
-    // lead, admins and that community's members.
-    if (project.hostOrgId) {
-      const viewerId = await getAuthUserId(ctx);
-      if (viewerId !== project.userId && !(await communityVisibility(ctx, viewerId).idVisible(project.hostOrgId))) {
-        return null;
-      }
-    }
+    // The page is public (anyone with the link, signed in or not). An
+    // admin-hidden project, or one in a hidden (test) community, is
+    // not-found to everyone it isn't shown to (projectVisibility.ts).
+    const viewerId = await currentUserId(ctx);
+    if (!(await projectVisibleTo(ctx, project, viewerId))) return null;
+    // The exact place (street address, map position, Places id) is for the
+    // lead and admins; everyone else gets it cut back to the city
+    // (placeForViewer).
+    const exactPlace = await seesProjectAddress(ctx, project, viewerId);
 
     const [user, media, support, communityOrg, gig] = await Promise.all([
       getProfileByUserId(ctx, project.userId),
@@ -618,7 +617,7 @@ export const getProject = query({
     const resolvedBody = await resolveRichDocMedia(ctx.storage, project.body);
 
     return {
-      ...project,
+      ...placeForViewer(project, exactPlace),
       body: resolvedBody,
       resolvedPhotoUrl,
       organization: await orgByline(ctx, project.organizationId),
