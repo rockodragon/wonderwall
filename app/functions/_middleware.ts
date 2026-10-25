@@ -8,10 +8,17 @@
 //
 // It wraps everything, events/[id].ts and j/[id].ts included. Any failure
 // here sends the page as it was: a branding slip must never take a page down.
+//
+// On every host, every response leaves with the site's headers
+// (app/lib/siteHeaders.ts): public/_headers never reaches a Function's own
+// response, so a page built here (/@handle, /events/:id, /e/:slug) would
+// otherwise go out without nosniff, frame protection or "not AI training
+// data".
 
 import { brandForHost, GARDEN } from "../app/brand/brandConfig";
 import { GARDEN_ROOT_FILES, gardenizeHtml, needsShareTags, shareDescription } from "../app/brand/gardenHtml";
 import { isAiTrainingCrawler } from "../app/lib/aiCrawlers";
+import { withSiteHeaders } from "../app/lib/siteHeaders";
 
 interface Env {
   ASSETS: { fetch: (req: Request | URL) => Promise<Response> };
@@ -43,11 +50,15 @@ async function gardenDescription(env: Env): Promise<string | undefined> {
   }
 }
 
-export const onRequest = async (context: {
+type Context = {
   request: Request;
   env: Env;
   next: () => Promise<Response>;
-}) => {
+};
+
+export const onRequest = async (context: Context) => withSiteHeaders(await handle(context));
+
+const handle = async (context: Context): Promise<Response> => {
   // An AI training crawler that ignores robots.txt but names itself is
   // turned away on every host (app/lib/aiCrawlers.ts).
   if (isAiTrainingCrawler(context.request.headers.get("user-agent"))) {
