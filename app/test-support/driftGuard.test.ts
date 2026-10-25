@@ -81,7 +81,7 @@ const RULES: Rule[] = [
   {
     name: "storage.getUrl outside images.ts",
     pattern: /storage\.getUrl\(/g,
-    limit: 4,
+    limit: 2,
     home: "convex/images.ts",
     use: "storedFileUrl / storedOrExternalUrl / profileImageUrl / projectPhotoUrl / eventCoverUrl / orgLogoUrl in convex/images.ts (they serve files through our own domain when MEDIA_BASE_URL is set)",
   },

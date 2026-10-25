@@ -8,7 +8,7 @@ import { normalizeHandle, PAYOUT_KINDS, type PayoutHandles } from "./garden/gigR
 import { fillOrgWebsite, linkOrgByName, profileOrganizations, unlinkPrimaryOrg } from "./organizations";
 import { normalizeOrgUrl } from "./organizationRules";
 import { communityVisibility } from "./garden/communityVisibility";
-import { pieceMediaUrl, profileImageUrl } from "./images";
+import { pieceMediaUrl, profileImageUrl, storedFileUrl } from "./images";
 
 export { normalizeOrgUrl };
 
@@ -148,7 +148,7 @@ export async function publicProfilePage(ctx: QueryCtx, profile: Doc<"profiles">)
     let wonderingWithImage = null;
     if (wondering) {
       const wonderingImageUrl = wondering.imageStorageId
-        ? await ctx.storage.getUrl(wondering.imageStorageId)
+        ? await storedFileUrl(ctx, wondering.imageStorageId)
         : null;
       wonderingWithImage = {
         ...wondering,
@@ -479,9 +479,7 @@ export const search = query({
         // Resolve wondering image URL if exists
         let wonderingImageUrl: string | null = null;
         if (wondering?.imageStorageId) {
-          wonderingImageUrl = await ctx.storage.getUrl(
-            wondering.imageStorageId,
-          );
+          wonderingImageUrl = await storedFileUrl(ctx, wondering.imageStorageId);
         }
 
         return {
