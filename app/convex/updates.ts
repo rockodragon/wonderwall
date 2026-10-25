@@ -228,12 +228,8 @@ export const STARTER_UPDATES: readonly StarterUpdate[] = [
     audience: "everyone",
     order: 1,
   },
-  {
-    title: "Your tools are in the corner",
-    body: "On a computer, everything is behind the yellow button in the lower left. Hover it. Each tool sorts your canvas, and its menu takes you where you want to go.",
-    audience: "everyone",
-    order: 2,
-  },
+  // "Your tools are in the corner" explained the hover-only palette; gone
+  // with the resting arc (2026-10-21, desk/Palette.tsx).
   {
     title: "Add a photo and a few lines",
     body: "People say yes to a face. Add yours and say what you make.",
@@ -241,7 +237,7 @@ export const STARTER_UPDATES: readonly StarterUpdate[] = [
     actionUrl: "/settings",
     audience: "new",
     newForDays: 14,
-    order: 3,
+    order: 2,
   },
   {
     title: "Oct 6: What is this and why?",
@@ -249,7 +245,7 @@ export const STARTER_UPDATES: readonly StarterUpdate[] = [
     actionLabel: "See the event",
     actionUrl: "/events", // swapped for /events/<id> when the event exists
     audience: "everyone",
-    order: 4,
+    order: 3,
     linksToEvent: OCT6_EVENT_TITLE,
   },
 ];

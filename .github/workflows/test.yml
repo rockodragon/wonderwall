@@ -37,3 +37,64 @@ jobs:
 
       - name: E2E tests (playwright)
         run: npm run test:e2e
+
+  # Production Convex (courteous-rabbit-750) used to be deployed by hand,
+  # and it went wrong: deploys from a stale checkout, merges that shipped a
+  # frontend calling functions prod didn't have. This deploys it on every
+  # push to main, right after the unit tests pass. It doesn't wait for the
+  # browser tests, so the backend lands about a minute after Cloudflare
+  # ships the frontend instead of four.
+  #
+  # Needs the secret CONVEX_DEPLOY_KEY (Convex dashboard › Production ›
+  # Settings › Deploy key). Keep it in the `production` environment
+  # (GitHub › Settings › Environments) with deployment branches limited to
+  # main, so only this job on main can read it; a repository secret works
+  # too. Without it the job says so and passes, so nothing breaks before
+  # the key is added.
+  deploy-convex:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 10
+    # One deploy at a time, newest wins: two quick merges never race.
+    concurrency:
+      group: deploy-convex-prod
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: app
+    env:
+      CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+    steps:
+      # Runs before checkout, so not in app/ (the job default): that folder
+      # doesn't exist yet, and the step failed on every push to main.
+      - name: Check for the deploy key
+        id: key
+        working-directory: .
+        run: |
+          if [ -z "$CONVEX_DEPLOY_KEY" ]; then
+            echo "::warning::CONVEX_DEPLOY_KEY isn't set, so production Convex was not deployed."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.key.outputs.present == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.key.outputs.present == 'true'
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        if: steps.key.outputs.present == 'true'
+        run: npm install
+
+      - name: Unit tests (vitest)
+        if: steps.key.outputs.present == 'true'
+        run: npm test
+
+      - name: Deploy Convex to production
+        if: steps.key.outputs.present == 'true'
+        run: npx convex deploy

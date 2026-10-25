@@ -28,10 +28,16 @@ function firstRow(root: HTMLElement | null, id: ToolId): HTMLElement | null {
 /**
  * @param tools   what's in the fan, in arc order
  * @param onMain  a click on the main button (mouse, or Enter/Space)
+ * @param rested  the tools rest on the arc without a hover: `fanOpen` is
+ *                then always true, while `open` still says whether a hover
+ *                or the keyboard has the zone, which is what arms it for
+ *                pointer events and what leaving it folds. Palette.tsx rests
+ *                them folded (Rick, 2026-10-25), so it leaves this off.
  */
-export function usePaletteController(tools: PaletteTool[], onMain: () => void) {
+export function usePaletteController(tools: PaletteTool[], onMain: () => void, rested = false) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const fanOpen = rested || open;
   const [stackId, setStackId] = useState<ToolId | null>(null);
   const [roving, setRoving] = useState(0);
   // The same value as stackId, readable by a pointer event before the next render.
@@ -90,9 +96,10 @@ export function usePaletteController(tools: PaletteTool[], onMain: () => void) {
   );
   useEffect(() => () => grace.cancel(), [grace]);
 
-  // Tap outside closes everything (touch, or a click anywhere off the palette).
+  // Tap outside closes everything (touch, or a click anywhere off the
+  // palette): the fan, and a stack a tap opened on a resting tool.
   useEffect(() => {
-    if (!open) return;
+    if (!open && stackId === null) return;
     function onDown(e: PointerEvent) {
       const target = e.target as Element | null;
       if (target?.closest?.("[data-pal-hit]")) return;
@@ -101,18 +108,18 @@ export function usePaletteController(tools: PaletteTool[], onMain: () => void) {
     }
     document.addEventListener("pointerdown", onDown, true);
     return () => document.removeEventListener("pointerdown", onDown, true);
-  }, [open, closeAll]);
+  }, [open, stackId, closeAll]);
 
   // Keyboard hand-offs that have to wait for the render that shows the target.
   // The tools are focusable from the commit that opens the fan: their wrappers
   // flip to visible at once (fanTransition), only opacity and transform wait.
   useEffect(() => {
-    if (open && focusToolOnOpen.current !== null) {
+    if (fanOpen && focusToolOnOpen.current !== null) {
       const target = tools[focusToolOnOpen.current];
       focusToolOnOpen.current = null;
       if (target) toolRefs.current[target.id]?.focus();
     }
-  }, [open, tools]);
+  }, [fanOpen, tools]);
   useEffect(() => {
     if (stackId && focusStackOnOpen.current) {
       focusStackOnOpen.current = false;
@@ -169,7 +176,7 @@ export function usePaletteController(tools: PaletteTool[], onMain: () => void) {
     if (!ARROW_KEYS.includes(e.key)) return;
     e.preventDefault();
     const target = tools[roving];
-    if (open) {
+    if (fanOpen) {
       if (target) toolRefs.current[target.id]?.focus();
     } else {
       focusToolOnOpen.current = roving;
@@ -316,6 +323,8 @@ export function usePaletteController(tools: PaletteTool[], onMain: () => void) {
 
   return {
     open,
+    /** The tools are on the arc: resting, or fanned out by a hover or the keyboard. */
+    fanOpen,
     stackId,
     roving,
     rootRef,

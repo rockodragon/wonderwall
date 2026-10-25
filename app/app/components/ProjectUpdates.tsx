@@ -19,6 +19,7 @@ import { RichTextEditor } from "./RichTextEditor";
 import { isRichDocEmpty, toStoredDoc, type ResolvedRichBlock } from "../lib/richText";
 import { formatDate } from "../garden/ui";
 import { errorMessage } from "../lib/convexError";
+import { useProfileLinks } from "../lib/useProfileLinks";
 
 function PrimaryButton({
   onClick,
@@ -166,6 +167,7 @@ type UpdateRow = {
 function UpdateCard({ update, canManage }: { update: UpdateRow; canManage: boolean }) {
   const editStoryUpdate = useMutation(api.garden.stories.editStoryUpdate);
   const deleteStoryUpdate = useMutation(api.garden.stories.deleteStoryUpdate);
+  const profileLinks = useProfileLinks();
   const [editing, setEditing] = useState(false);
   const [blocks, setBlocks] = useState<ResolvedRichBlock[]>([]);
   const [busy, setBusy] = useState(false);
@@ -224,7 +226,7 @@ function UpdateCard({ update, canManage }: { update: UpdateRow; canManage: boole
             tone="garden"
           />
           <span style={{ fontSize: 14, color: "var(--garden-muted)" }} className="truncate">
-            {update.author?.profileId ? (
+            {update.author?.profileId && profileLinks ? (
               <Link to={`/profile/${update.author.profileId}`} className="hover:opacity-80">
                 {update.author.name}
               </Link>

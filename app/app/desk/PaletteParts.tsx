@@ -19,6 +19,8 @@ export const TOOL_FILL = withAlpha(DESK.panel, 0.92);
 /** The main button's wash and ring: the accent, faint. */
 export const MAIN_WASH = withAlpha(DESK.accent, 0.08);
 export const MAIN_RING = withAlpha(DESK.accent, 0.05);
+/** The glow a newcomer's palette button breathes with until they open it. */
+export const MAIN_GLOW = withAlpha(DESK.accent, 0.22);
 
 /** Hover and active looks live in a stylesheet rather than inline so :hover
  *  and :focus-visible can reach them. `reduced` (the visitor asked for less
@@ -29,7 +31,15 @@ export function paletteCss(reduced: boolean): string {
   const stackAnimation = reduced
     ? "none"
     : `desk-pal-stack-in ${PALETTE.stackMs}ms ${DESK.ease} both`;
+  // A slow breath of the ring, for a newcomer (Palette.tsx). With reduced
+  // motion it doesn't move: the button holds the brighter ring instead.
+  const glowAnimation = reduced ? "none" : "desk-pal-glow 2.8s ease-in-out infinite";
   return `
+@keyframes desk-pal-glow {
+  0%, 100% { box-shadow: 0 0 0 6px ${MAIN_RING}; }
+  50% { box-shadow: 0 0 0 10px ${MAIN_GLOW}, 0 0 24px 4px ${MAIN_GLOW}; }
+}
+.desk-pal-glow { animation: ${glowAnimation}; }
 @keyframes desk-pal-stack-in {
   from { opacity: 0; transform: translateX(-8px); }
   to { opacity: 1; transform: none; }

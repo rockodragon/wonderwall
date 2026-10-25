@@ -1,6 +1,9 @@
 // The palette: one button in the lower-left corner that replaces the sidebar
-// on desktop. Hover (or focus) it and six tools fan out on an arc; hover a
-// tool and its stack of actions opens beside it. Spec:
+// on desktop. Hover it (or reach it by keyboard) and six tools fan out on an
+// arc above it, each with its name; hover a tool and its stack of actions
+// opens beside it. The tools rest folded (Rick, 2026-10-25: resting open on
+// every page was too busy), and until this browser has opened the palette
+// once, its button glows so a newcomer finds it. Spec:
 // docs/features/desktop-desk-palette.md ("Palette") and the handoff README.
 //
 // It lives in the _app shell and never shares React state with the desk: it
@@ -11,10 +14,12 @@
 // avatar and stylesheet are PaletteParts.tsx; the rules that don't need React
 // are paletteLogic.ts; what's in each stack is paletteConfig.tsx.
 
+import type { CSSProperties } from "react";
 import { Palette as PaletteGlyph } from "@phosphor-icons/react";
 import { useLocation, useNavigate } from "react-router";
 import { canCopyInvite, inviteRowLabel } from "../components/InviteCTA";
 import { useReducedMotion } from "../hooks/useMediaQuery";
+import { useOnceNote } from "../hooks/useOnceNote";
 import { initialsOf } from "../lib/initials";
 import { useShortlist } from "../lib/shortlist/useShortlist";
 import { useInviteLink } from "../lib/useInviteLink";
@@ -25,6 +30,7 @@ import {
   Avatar,
   CountChip,
   Dot,
+  MAIN_GLOW,
   MAIN_RING,
   MAIN_WASH,
   StackPanel,
@@ -32,15 +38,16 @@ import {
 } from "./PaletteParts";
 import {
   PALETTE,
+  PALETTE_GLOW_KEY,
   activeToolId,
   badgeText,
   fanAngles,
   fanOffset,
   fanTransition,
+  labelAnchor,
   loginHref,
 } from "./paletteLogic";
-import { DESK, FOCUS_RING_CLASS, useDeskTint } from "./tokens";
-import { PaletteHint, usePaletteHint } from "./PaletteHint";
+import { DESK, DESK_SANS, FOCUS_RING_CLASS, useDeskTint } from "./tokens";
 import { usePaletteController } from "./usePaletteController";
 
 export interface PaletteProfile {
@@ -54,27 +61,44 @@ export interface PaletteProps {
   profile: PaletteProfile | null | undefined;
   /** Unread messages plus notifications. */
   badgeCount: number;
-  /** The first-visit note may show: nothing is about to send this person
-   *  elsewhere (PaletteHint.tsx). */
-  hintReady?: boolean;
 }
 
-export function Palette({ isAuthenticated, profile, badgeCount, hintReady = false }: PaletteProps) {
-  return isAuthenticated ? (
-    <SignedInPalette profile={profile} badgeCount={badgeCount} hintReady={hintReady} />
-  ) : (
-    <SignedOutPalette hintReady={hintReady} />
-  );
+export function Palette({ isAuthenticated, profile, badgeCount }: PaletteProps) {
+  return isAuthenticated ? <SignedInPalette profile={profile} badgeCount={badgeCount} /> : <SignedOutPalette />;
+}
+
+/** A tool's name on its ray, just past the circle (paletteLogic.ts
+ *  labelAnchor): 12px, DESK.textSoft on the ink (over 9:1), the active
+ *  tool's in the accent. It sits inside the button, so a click on the name
+ *  is a click on the tool, and it's cut short with an ellipsis past
+ *  PALETTE.labelMax. */
+function labelStyle(angleDeg: number, active: boolean): CSSProperties {
+  const a = labelAnchor(angleDeg);
+  const half = PALETTE.tool / 2;
+  const pct = (v: number) => Math.round(v * 10000) / 100;
+  return {
+    position: "absolute",
+    left: half + a.x,
+    bottom: half + a.y,
+    transform: `translate(${-pct(a.ax)}%, ${pct(a.ay)}%)`,
+    fontFamily: DESK_SANS,
+    fontSize: 12,
+    fontWeight: 500,
+    lineHeight: `${PALETTE.labelHeight}px`,
+    whiteSpace: "nowrap",
+    maxWidth: PALETTE.labelMax,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    color: active ? DESK.accent : DESK.textSoft,
+  };
 }
 
 function SignedInPalette({
   profile,
   badgeCount,
-  hintReady,
 }: {
   profile: PaletteProfile | null | undefined;
   badgeCount: number;
-  hintReady: boolean;
 }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -115,25 +139,17 @@ function SignedInPalette({
     onSignOut: () => void signOut(),
   });
 
-  return (
-    <PaletteShell
-      tools={tools}
-      badge={badgeCount}
-      mainTitle="Canvas"
-      onMain={() => navigate(deskHref("all"))}
-      hintReady={hintReady}
-    />
-  );
+  return <PaletteShell tools={tools} badge={badgeCount} mainTitle="Canvas" onMain={() => navigate(deskHref("all"))} />;
 }
 
-function SignedOutPalette({ hintReady }: { hintReady: boolean }) {
+function SignedOutPalette() {
   const location = useLocation();
   const navigate = useNavigate();
   const tools = buildSignedOutTools({
     active: activeToolId(location.pathname, location.search),
     loginTo: loginHref(location.pathname, location.search),
   });
-  return <PaletteShell tools={tools} badge={0} onMain={() => navigate("/garden")} hintReady={hintReady} />;
+  return <PaletteShell tools={tools} badge={0} onMain={() => navigate("/garden")} />;
 }
 
 function PaletteShell({
@@ -141,7 +157,6 @@ function PaletteShell({
   badge,
   mainTitle,
   onMain,
-  hintReady,
 }: {
   tools: PaletteTool[];
   /** Unread count for the main button. */
@@ -149,12 +164,13 @@ function PaletteShell({
   /** The main button's tooltip: signed in, it is the way back to the desk. */
   mainTitle?: string;
   onMain: () => void;
-  hintReady: boolean;
 }) {
   const reduced = useReducedMotion();
   const pal = usePaletteController(tools, onMain);
-  const { open, stackId, roving } = pal;
-  const hint = usePaletteHint(hintReady, open);
+  const { open, fanOpen, stackId, roving } = pal;
+  // The button glows until this browser has opened the palette once
+  // (paletteCss: a slow breath, or a still brighter ring with reduced motion).
+  const glow = useOnceNote(PALETTE_GLOW_KEY, true, open).show;
 
   const angles = fanAngles(tools.length);
   const mainBadge = badge > 0 ? badgeText(badge) : null;
@@ -197,7 +213,7 @@ function PaletteShell({
             aria-expanded={open}
             aria-describedby={mainBadge ? "desk-pal-unread" : undefined}
             data-pal-hit
-            className={FOCUS_RING_CLASS}
+            className={glow ? `${FOCUS_RING_CLASS} desk-pal-glow` : FOCUS_RING_CLASS}
             onPointerDown={pal.onMainPointerDown}
             onPointerEnter={pal.onMainPointerEnter}
             onClick={pal.onMainClick}
@@ -214,7 +230,7 @@ function PaletteShell({
               // The handoff's faint accent wash, over an opaque base so the
               // icon still reads on a light page.
               background: `linear-gradient(${MAIN_WASH}, ${MAIN_WASH}), ${tint.surface}`,
-              boxShadow: `0 0 0 6px ${MAIN_RING}`,
+              boxShadow: glow && reduced ? `0 0 0 10px ${MAIN_GLOW}` : `0 0 0 6px ${MAIN_RING}`,
               color: DESK.accent,
               display: "flex",
               alignItems: "center",
@@ -236,7 +252,7 @@ function PaletteShell({
 
           {tools.map((tool, i) => {
             const { x, y } = fanOffset(angles[i]);
-            const stackOpen = open && stackId === tool.id;
+            const stackOpen = fanOpen && stackId === tool.id;
             const hasBadge = (tool.badge ?? 0) > 0;
             // The dot is read out as the main button's count is: a description.
             const dotId = tool.dot ? `desk-pal-dot-${tool.id}` : undefined;
@@ -253,14 +269,14 @@ function PaletteShell({
                   width: PALETTE.tool,
                   height: PALETTE.tool,
                   borderRadius: "50%",
-                  // Closed: back at the button, small and invisible.
-                  transform: open ? "none" : `translate(${-x}px, ${y}px) scale(.4)`,
-                  opacity: open ? 1 : 0,
-                  pointerEvents: open ? "auto" : "none",
+                  // Folded: back at the button, small and invisible.
+                  transform: fanOpen ? "none" : `translate(${-x}px, ${y}px) scale(.4)`,
+                  opacity: fanOpen ? 1 : 0,
+                  pointerEvents: fanOpen ? "auto" : "none",
                   // Visible the moment the fan opens (so the keyboard can focus a
                   // tool at once); only transform and opacity are staggered.
-                  visibility: open ? "visible" : "hidden",
-                  transition: fanTransition(open, i, reduced),
+                  visibility: fanOpen ? "visible" : "hidden",
+                  transition: fanTransition(fanOpen, i, reduced),
                   zIndex: stackOpen ? 6 : 2,
                 }}
               >
@@ -272,7 +288,7 @@ function PaletteShell({
                   aria-expanded={stackOpen}
                   aria-current={tool.active ? "true" : undefined}
                   aria-describedby={dotId}
-                  tabIndex={open && i === roving ? 0 : -1}
+                  tabIndex={fanOpen && i === roving ? 0 : -1}
                   className={`desk-pal-tool ${FOCUS_RING_CLASS}`}
                   onPointerDown={pal.onToolPointerDown}
                   onClick={(e) => pal.onToolClick(e, tool)}
@@ -295,6 +311,9 @@ function PaletteShell({
                   }}
                 >
                   {tool.avatar ? <Avatar {...tool.avatar} /> : tool.icon}
+                  <span aria-hidden style={labelStyle(angles[i], !!tool.active)}>
+                    {tool.label}
+                  </span>
                   {hasBadge && <CountChip text={badgeText(tool.badge ?? 0)} offset={-6} />}
                   {tool.dot && <Dot />}
                 </button>
@@ -340,7 +359,6 @@ function PaletteShell({
           })}
         </div>
       </div>
-      {hint.show && <PaletteHint onDismiss={hint.dismiss} reduced={reduced} />}
     </>
   );
 }

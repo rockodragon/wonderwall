@@ -1,5 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { isSafeIntentPath, setPendingIntent, takePendingIntent } from "./pendingIntent";
+import { isSafeIntentPath, setPendingIntent, signupHref, supportDetour, takePendingIntent } from "./pendingIntent";
+
+describe("supportDetour: a project's Cheer and Back this", () => {
+  it("sends a signed-out Cheer to sign up, coming back to the page it was on", () => {
+    expect(supportDetour("cheer", false, "/projects/p1")).toBe("/signup?redirect=%2Fprojects%2Fp1");
+    expect(supportDetour("cheer", false, "/projects?view=funding")).toBe(signupHref("/projects?view=funding"));
+  });
+  it("opens Back this for a visitor: a one-time payment needs no account", () => {
+    expect(supportDetour("back", false, "/projects/p1")).toBeNull();
+  });
+  it("opens either for a member", () => {
+    expect(supportDetour("cheer", true, "/projects/p1")).toBeNull();
+    expect(supportDetour("back", true, "/projects/p1")).toBeNull();
+  });
+});
 
 function fakeStorage() {
   const map = new Map<string, string>();

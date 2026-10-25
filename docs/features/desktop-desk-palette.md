@@ -51,7 +51,7 @@ Everything the sidebar and bottom bar do today has a home in the palette. None o
 7. **Find people / Meet people near me.** The desk only holds people you follow, so these go to the directory: `/people` and `/people?near=1` (the Near me toggle is on by default with that param).
 8. **Community switch.** Today "The Exchange" means the `/communities` directory. Decision, per the design: switching re-filters the desk. The Garden shows content from The Garden plus content with no community, plus the Sophia Fund. The Exchange shows everything on the platform, and no fund card. Switching from another page goes to the desk.
 9. **Create flows** (Start a project, Hire someone, Host an event) open as cards on the desk: `/today?create=project|hire|event`. The list pages' own `/projects?new=project` and `/events?new=event` still open the same forms in place.
-10. **Palette over page content.** Off the desk, the 56px button sits over the bottom-left corner of pages (about 112×112px). The 280×280 hover zone takes no pointer events until the fan is open, so it never blocks clicks.
+10. **Palette over page content.** Off the desk, the 56px button sits over the bottom-left corner of pages (about 112×112px). The 340×340 zone takes no pointer events until a hover arms it, so it never blocks clicks; pages end 128px clear of the button (`_app.tsx` `md:pb-32`) so the last row can scroll out from under it.
 
 ### Rule departures from the handoff
 
@@ -68,7 +68,7 @@ The visual spec is the handoff README. What follows covers the build.
 
 **Layers.** The palette is fixed at the bottom-left with `z-40`: above the desk and its opened card, below page modals (`z-50`).
 
-**Tools, signed in.** The six tools follow the handoff's order and arc: Desk, Today, People, Projects, Events, Profile. The Profile circle shows the user's initials, or their avatar image when they have one.
+**Tools, signed in.** The six tools follow the handoff's order and arc: Desk, Today, People, Projects, Events, Profile. The Profile circle shows the user's initials, or their avatar image when they have one. Each tool shows its name (12px, `DESK.textSoft`, the active one in the accent) on the tool's own ray, just past its circle (`paletteLogic.ts` `labelAnchor`): centred above the top tool, to the right of the one at the foot, the corner between for the rest, so no name runs into the next circle even at seven tools. Names longer than 56px are cut short.
 
 **Tool click** (mouse, or a second tap on touch) navigates to `deskHref(view)`. Profile has no view, so clicking it only opens its stack.
 
@@ -109,7 +109,7 @@ The visual spec is the handoff README. What follows covers the build.
 
 **Main button.** Signed in, a click goes to `deskHref("all")`, which also closes any open card. Signed out, it goes to `/garden`.
 
-**Hover.** Entering the main button opens the fan. While the fan is open, the 280×280 zone takes pointer events, and leaving the zone closes the fan. Each tool's stack has a 14px bridge.
+**Folded, and hover** (Rick, 2026-10-25: the tools resting open on every page, 2026-10-21 to 25, were too busy). The tools rest folded behind the main button. Entering it (or reaching it by keyboard) fans them out with their names and arms the 340×340 zone for pointer events; hovering a tool opens its stack at once; leaving the zone closes any stack and folds the fan. Each tool's stack has a 14px bridge.
 
 **Keyboard.** The palette uses a roving tabindex.
 - Focus on the main button opens the fan.
@@ -131,12 +131,7 @@ The visual spec is the handoff README. What follows covers the build.
 - Tools: buttons named by their label.
 - Stacks: `role="menu"`, with items as `role="menuitem"`.
 
-**First visit** (Rick, 2026-10-03; `PaletteHint.tsx`). Nothing else on a desktop page says the corner button is the menu, so a note points at it once per browser:
-- "This is your menu" / "Hover or click it to get to People, Projects, Events, Tables and more." / **Got it**. An accent ring pulses around the main button three times while it shows.
-- Shows 900ms after the shell settles: signed out at once, signed in only once the profile has loaded and neither onboarding nor `/invite` is about to take over.
-- Gone for good (`localStorage["desk.paletteHint"] = "seen"`) on Got it or the first time the fan opens. Blocked storage brings it back next visit.
-- Reduced motion: no slide-in, no pulse.
-- The note uses `hooks/useOnceNote.ts` and the same readiness from the shell.
+**First visit** (Rick, 2026-10-25). The main button glows until this browser has opened the palette once: its accent ring breathes slowly (`PaletteParts.tsx` `desk-pal-glow`, 2.8s), starting after the page settles, and stops for good on the first open (`hooks/useOnceNote.ts`, key `desk.paletteOpened`). With reduced motion the ring holds still, brighter. No note: the one-time "This is your menu" note (`PaletteHint.tsx`, 2026-10-03) and the "Your tools are in the corner" starter Update stay removed (2026-10-21).
 
 ## Desk
 
@@ -213,7 +208,7 @@ The visual spec is the handoff README. What follows covers the build.
 **Scale.** `s = clamp(min(vw/1200, vh/760), 0.75, 1.3)`.
 
 **Scatter** (view `all`).
-- Slots in 1200×760 space: the handoff's four (330,170,230×310,−5°), (640,215,220×295,3°), (925,150,240×320,−2°), (560,520,240×170,4°), plus two more that keep clear of the greeting (top-left ~520×140) and the palette corner (bottom-left 280×280).
+- Slots in 1200×760 space: the handoff's four (330,170,230×310,−5°), (640,215,220×295,3°), (925,150,240×320,−2°), (560,520,240×170,4°), plus two more that keep clear of the greeting (top-left ~520×140) and the palette corner (bottom-left 340×340, the fan and its names).
 - Note cards take the short slots.
 - Map the slots into the viewport and center the cluster horizontally.
 - Card size scales by `s`.
