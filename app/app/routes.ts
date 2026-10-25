@@ -110,6 +110,11 @@ export default [
     // for logged-out visitors on its own (guest RSVP, no organizer tools,
     // back link routed to the guest-facing /garden/events) — see event.tsx.
     route("events/:eventId", "routes/event.tsx"),
+    // /e/renaissance-nov6 — the same page at the event's readable address
+    // (convex/eventSlug.ts); the address stays in the bar. Public like
+    // events/:eventId (_app.tsx), and functions/e/[slug].ts gives it the
+    // same link-preview tags.
+    route("e/:slug", "routes/event.tsx", { id: "routes/event-by-slug" }),
     route("communities", "routes/communities._index.tsx"),
     route("communities/apply", "routes/communities.apply.tsx"),
     route("communities/:slug", "routes/communities.$slug.tsx"),
@@ -196,10 +201,6 @@ export default [
   // real, currently-reachable route, and living outside the layout meant
   // the sidebar/wordmark disappeared on every project page.
   route("c/:code", "routes/c.$code.tsx"),
-  // /e/renaissance-nov6 — an event's short address (convex/eventSlug.ts).
-  // Production sends it to /events/:id at the edge (functions/e/[slug].ts);
-  // this route does the same in the app.
-  route("e/:slug", "routes/e.$slug.tsx"),
   // Old guest events addresses: /events and /events/:eventId are public now,
   // so both of these only redirect there.
   route("garden/events", "routes/events_.garden._index.tsx"),

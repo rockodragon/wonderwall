@@ -1,8 +1,8 @@
 // A short, readable address for an event: /e/renaissance-nov6. Made from the
 // title and the date when the event is created, kept for good once set (a
 // retitle keeps it so shared links hold), and unique across events.
-// functions/e/[slug].ts and routes/e.$slug.tsx send the address to
-// /events/:id.
+// The event page answers at it directly (routes/event.tsx in the app,
+// functions/e/[slug].ts at the edge), so the address stays in the bar.
 
 import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
@@ -87,7 +87,7 @@ export async function newEventSlug(ctx: QueryCtx, title: string, datetime: numbe
   return uniqueEventSlug(ctx, eventSlugBase(title, datetime));
 }
 
-/** Slug → event id, for the /e/:slug redirect. Public: the event page itself
+/** Slug → event id, for the page at /e/:slug. Public: the event page itself
  * decides who may see the event, so this reveals only that an address exists. */
 export const idForSlug = query({
   args: { slug: v.string() },
