@@ -37,11 +37,18 @@ describe("badgeSnippet", () => {
 });
 
 describe("embedSnippet", () => {
-  it("frames /embed/@handle, lazily, at the card's size", () => {
+  it("frames the compact card by default, lazily, at its size", () => {
     expect(embedPath("ana")).toBe("/embed/@ana");
     expect(embedSnippet("ana", "Ana Reyes")).toBe(
-      '<iframe src="https://thecreative.exchange/embed/@ana" width="400" height="440" ' +
+      '<iframe src="https://thecreative.exchange/embed/@ana" width="400" height="96" ' +
         'style="border:0;max-width:100%" loading="lazy" title="Ana Reyes on TheCreative.exchange"></iframe>',
+    );
+  });
+
+  it("frames the card with works at its taller size", () => {
+    expect(embedPath("ana", "works")).toBe("/embed/@ana?works");
+    expect(embedSnippet("ana", "Ana Reyes", "works")).toContain(
+      'src="https://thecreative.exchange/embed/@ana?works" width="400" height="290"',
     );
   });
 

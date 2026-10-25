@@ -52,21 +52,29 @@ export function badgeSnippet(handle: string, tone: BadgeTone): string {
   return `<a href="${href}"><img src="${src}" alt="${BADGE_ALT}" width="${BADGE_SIZE.width}" height="${BADGE_SIZE.height}"></a>`;
 }
 
+/** The card's two shapes: one line (photo, name, what they do, the link),
+ *  the default; or that line over a row of recent works (?works). */
+export type EmbedLayout = "compact" | "works";
+
 /** The card's own address, for a frame on someone else's page. */
-export function embedPath(handle: string): string {
-  return `/embed/@${handle}`;
+export function embedPath(handle: string, layout: EmbedLayout = "compact"): string {
+  return layout === "works" ? `/embed/@${handle}?works` : `/embed/@${handle}`;
 }
 
-/** The frame the embed snippet asks for. The card fits it with six works;
- *  narrower is fine (max-width: 100%). */
-export const EMBED_FRAME = { width: 400, height: 440 } as const;
+/** The frame the embed snippet asks for, per shape. The card fits it at
+ *  400px; narrower is fine (max-width: 100%). */
+export const EMBED_FRAME: Readonly<Record<EmbedLayout, { width: number; height: number }>> = {
+  compact: { width: 400, height: 96 },
+  works: { width: 400, height: 290 },
+};
 
 /** The card to paste into a website: a frame holding /embed/@handle. */
-export function embedSnippet(handle: string, name: string): string {
-  const src = escapeHtml(`${SITE_ORIGIN}${embedPath(handle)}`);
+export function embedSnippet(handle: string, name: string, layout: EmbedLayout = "compact"): string {
+  const src = escapeHtml(`${SITE_ORIGIN}${embedPath(handle, layout)}`);
   const title = escapeHtml(`${name.trim() || `@${handle}`} on TheCreative.exchange`);
+  const { width, height } = EMBED_FRAME[layout];
   return (
-    `<iframe src="${src}" width="${EMBED_FRAME.width}" height="${EMBED_FRAME.height}" ` +
+    `<iframe src="${src}" width="${width}" height="${height}" ` +
     `style="border:0;max-width:100%" loading="lazy" title="${title}"></iframe>`
   );
 }

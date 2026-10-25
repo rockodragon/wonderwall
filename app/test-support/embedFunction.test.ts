@@ -40,9 +40,9 @@ function convex({ profile = ANA, projects = PROJECTS, profileDown = false, proje
   return fetchMock;
 }
 
-function context(segment: string) {
+function context(segment: string, query = "") {
   return {
-    request: new Request(`https://thecreative.exchange/embed/${segment}`),
+    request: new Request(`https://thecreative.exchange/embed/${segment}${query}`),
     params: { handle: segment },
     env: { CONVEX_URL: "https://convex.test" },
   };
@@ -53,9 +53,27 @@ const bodyOf = (call: unknown[]) => JSON.parse(String((call[1] as RequestInit).b
 afterEach(() => vi.unstubAllGlobals());
 
 describe("/embed/@handle", () => {
-  it("draws the card: photo, name, what they do and where, works, and the way to the portfolio", async () => {
+  it("draws the compact card by default: one line, no works, and no works lookup", async () => {
     const fetchMock = convex();
     const res = await onRequestGet(context("@ana"));
+    const html = await res.text();
+
+    expect(res.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(html).toContain('<main class="card compact">');
+    expect(html).toContain('<h1 class="name">Ana Reyes</h1>');
+    expect(html).toContain('<p class="meta">Photography · Film · Music</p>');
+    expect(html).not.toContain("San Diego, CA");
+    expect(html).not.toContain('<ul class="works">');
+    expect(html).toContain(
+      '<a class="cta" href="https://thecreative.exchange/@ana?ref=embed" target="_blank" rel="noopener">See my work</a>',
+    );
+    expect(html).not.toMatch(/<script/i);
+  });
+
+  it("with ?works, draws the card: photo, name, what they do and where, works, and the way to the portfolio", async () => {
+    const fetchMock = convex();
+    const res = await onRequestGet(context("@ana", "?works"));
     const html = await res.text();
 
     expect(res.status).toBe(200);
@@ -108,7 +126,7 @@ describe("/embed/@handle", () => {
       },
       projects: [{ projectId: `p"1`, title: `<i>"Quotes"</i>`, imageUrl: "https://x.test/p.jpg" }],
     });
-    const html = await (await onRequestGet(context("@ana"))).text();
+    const html = await (await onRequestGet(context("@ana", "?works"))).text();
     expect(html).not.toMatch(/<script/i);
     expect(html).not.toContain("<b>");
     expect(html).not.toContain("<i>");
@@ -130,7 +148,7 @@ describe("/embed/@handle", () => {
         { projectId: "p2", imageUrl: "javascript:alert(1)" },
       ],
     });
-    const html = await (await onRequestGet(context("@ana"))).text();
+    const html = await (await onRequestGet(context("@ana", "?works"))).text();
     expect(html).toContain('src="https://thecreative.exchange/media/abc-123-def"');
     expect(html).not.toContain("convex.cloud");
     expect(html).not.toContain("plain.example");
@@ -138,18 +156,19 @@ describe("/embed/@handle", () => {
     expect(html).not.toContain('<ul class="works">');
   });
 
-  it("shows six works at most", async () => {
+  it("shows three works at most", async () => {
     convex({
       profile: { ...ANA, artifacts: [] },
       projects: Array.from({ length: 9 }, (_, i) => ({ projectId: `p${i}`, imageUrl: `https://x.test/${i}.jpg` })),
     });
-    const html = await (await onRequestGet(context("@ana"))).text();
+    const html = await (await onRequestGet(context("@ana", "?works"))).text();
     expect(html.match(/<li>/g)).toHaveLength(EMBED_WORKS);
+    expect(EMBED_WORKS).toBe(3);
   });
 
   it("draws initials without a photo, and the card without works when that lookup fails", async () => {
     convex({ profile: { ...ANA, imageUrl: null }, projectsDown: true });
-    const res = await onRequestGet(context("@ana"));
+    const res = await onRequestGet(context("@ana", "?works"));
     const html = await res.text();
     expect(res.status).toBe(200);
     expect(html).toContain('<span class="face initials" aria-hidden="true">AR</span>');

@@ -20,7 +20,15 @@ import { handleProblem } from "../../convex/handleRules";
 import { CONVEX_URL, convexQuery } from "../../app/lib/convexHttp";
 import { SITE_ORIGIN } from "../../app/lib/eventCalendar";
 import { initialsOf } from "../../app/lib/initials";
-import { profileLink, recentWorks, shownImageUrl, type PieceRow, type ProjectRow, type Work } from "../../app/lib/profileShare";
+import {
+  profileLink,
+  recentWorks,
+  shownImageUrl,
+  type EmbedLayout,
+  type PieceRow,
+  type ProjectRow,
+  type Work,
+} from "../../app/lib/profileShare";
 import { escapeHtml } from "../../app/lib/shareHead";
 import { handleFromSegment } from "../[handle]";
 
@@ -39,8 +47,8 @@ interface EmbedProfile {
   artifacts?: PieceRow[];
 }
 
-/** Two rows of three. */
-export const EMBED_WORKS = 6;
+/** One row of three, in the ?works shape (lib/profileShare.ts EmbedLayout). */
+export const EMBED_WORKS = 3;
 
 /** The page loads pictures and nothing else: no scripts, no fonts, no forms. */
 export const EMBED_CSP =
@@ -87,7 +95,15 @@ body{font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica
 .cta:hover{background:#ffea94}
 a:focus-visible{outline:2px solid var(--text);outline-offset:2px}
 .site{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--dim)}
-.site svg{width:16px;height:16px}
+.site{max-width:100%;min-width:0}
+.site svg{flex:none;width:16px;height:16px}
+.site span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.compact{padding:12px 14px}
+.row{display:flex;align-items:center;gap:12px}
+.row .id{flex:1}
+.compact .face{width:48px;height:48px}
+.compact .site{margin-top:2px}
+.compact .cta{flex:none}
 `;
 
 /** The Exchange mark (public/favicon.svg), in the card's text color. */
@@ -95,7 +111,7 @@ const MARK =
   '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="20" y="3" width="8" height="42" rx="4" fill="currentColor" transform="rotate(-18 24 24)"/>' +
   '<rect x="20" y="3" width="8" height="42" rx="4" fill="#fee268" transform="rotate(18 24 24)"/></svg>';
 
-const SITE = `<span class="site">${MARK}TheCreative.exchange</span>`;
+const SITE = `<span class="site">${MARK}<span>TheCreative.exchange</span></span>`;
 
 /** color-scheme "light dark": a browser paints a frame whose scheme differs
  *  from the page around it on an opaque backdrop. Declaring both lets the
@@ -124,9 +140,15 @@ function noticeCard(heading: string, line: string): string {
 const link = (href: string, inner: string, cls = "") =>
   `<a${cls ? ` class="${cls}"` : ""} href="${escapeHtml(href)}" target="_blank" rel="noopener">${inner}</a>`;
 
-/** The card: photo, name, what they do and where, recent works, and the way
- *  to the whole portfolio. */
-export function renderEmbedCard(profile: EmbedProfile, handle: string, works: readonly Work[]): string {
+/** The card: photo, name, what they do and where, and the way to the whole
+ *  portfolio. "compact" (the default) is that on one line; "works" adds a
+ *  row of recent works. */
+export function renderEmbedCard(
+  profile: EmbedProfile,
+  handle: string,
+  works: readonly Work[],
+  layout: EmbedLayout = "compact",
+): string {
   const name = profile.name.trim() || `@${handle}`;
   const photo = shownImageUrl(profile.imageUrl);
   const face = photo
@@ -139,6 +161,15 @@ export function renderEmbedCard(profile: EmbedProfile, handle: string, works: re
     .join("");
 
   const portfolio = profileLink(handle, "embed");
+  if (layout === "compact") {
+    const what = disciplines || profile.location?.trim() || "";
+    return page(
+      `${name} on TheCreative.exchange`,
+      `<main class="card compact"><div class="row">${face}<div class="id"><h1 class="name">${escapeHtml(name)}</h1>` +
+        (what ? `<p class="meta">${escapeHtml(what)}</p>` : "") +
+        `${SITE}</div>${link(portfolio, "See my work", "cta")}</div></main>`,
+    );
+  }
   const tiles = works
     .slice(0, EMBED_WORKS)
     .map((w) => {
@@ -164,7 +195,8 @@ type Context = {
 };
 
 export const onRequestGet = async (context: Context): Promise<Response> => {
-  const { params, env } = context;
+  const { request, params, env } = context;
+  const layout: EmbedLayout = new URL(request.url).searchParams.has("works") ? "works" : "compact";
   const segment = Array.isArray(params.handle) ? params.handle[0] : params.handle;
   const handle = handleFromSegment(segment);
   const notFound = () =>
@@ -187,21 +219,23 @@ export const onRequestGet = async (context: Context): Promise<Response> => {
   }
   if (!profile || typeof profile.name !== "string") return notFound();
 
-  // The works the profile page shows; without them the card still shows the
-  // person and the way to their page.
+  // The works the profile page shows, for the ?works shape only; without
+  // them the card still shows the person and the way to their page.
   let projects: ProjectRow[] | null = null;
-  try {
-    projects = await convexQuery<ProjectRow[]>(convexUrl, "garden/projectTeam:listAffiliations", {
-      profileId: profile._id,
-    });
-  } catch {
-    projects = null;
+  if (layout === "works") {
+    try {
+      projects = await convexQuery<ProjectRow[]>(convexUrl, "garden/projectTeam:listAffiliations", {
+        profileId: profile._id,
+      });
+    } catch {
+      projects = null;
+    }
   }
 
   // An old address answers with the person's current one (handles.ts).
   const current = profile.handle ?? handle;
-  const works = recentWorks(projects, profile.artifacts, EMBED_WORKS);
-  return new Response(renderEmbedCard(profile, current, works), { status: 200, headers: headers(FOUND_CACHE) });
+  const works = layout === "works" ? recentWorks(projects, profile.artifacts, EMBED_WORKS) : [];
+  return new Response(renderEmbedCard(profile, current, works, layout), { status: 200, headers: headers(FOUND_CACHE) });
 };
 
 export const onRequestHead = async (context: Context): Promise<Response> => {

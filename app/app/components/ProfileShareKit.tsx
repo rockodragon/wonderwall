@@ -30,6 +30,7 @@ import {
   recentWorks,
   shownImageUrl,
   type BadgeTone,
+  type EmbedLayout,
   type PieceRow,
   type ProjectRow,
   type ShareKind,
@@ -132,6 +133,7 @@ function ShareKitBody({
   const posthog = usePostHog();
   const { copied, copy } = useCopyText();
   const [tone, setTone] = useState<BadgeTone>("dark");
+  const [layout, setLayout] = useState<EmbedLayout>("compact");
   const [story, setStory] = useState<Story>({ state: "drawing" });
   const [problem, setProblem] = useState<string | null>(null);
 
@@ -152,7 +154,7 @@ function ShareKitBody({
 
   async function copySnippet(kind: "badge" | "embed", code: string) {
     const ok = await copy(code, kind);
-    if (ok) track(kind, kind, kind === "badge" ? { tone } : {});
+    if (ok) track(kind, kind, kind === "badge" ? { tone } : { layout });
     setProblem(ok ? null : "Your browser didn't let us copy. Select the code and copy it yourself.");
   }
 
@@ -211,7 +213,7 @@ function ShareKitBody({
   }, [worksKey, handle, profile.name, photoUrl, link]);
 
   const badgeCode = badgeSnippet(handle, tone);
-  const embedCode = embedSnippet(handle, profile.name);
+  const embedCode = embedSnippet(handle, profile.name, layout);
 
   return (
     <div className="space-y-7 px-5 pb-8 pt-5">
@@ -298,24 +300,15 @@ function ShareKitBody({
 
       <Section title="For your website">
         <h4 className="text-sm font-semibold">Badge</h4>
-        <div role="group" aria-label="Badge color" className="mt-2 flex flex-wrap gap-2">
-          {(["dark", "light"] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              aria-pressed={tone === t}
-              onClick={() => setTone(t)}
-              className="rounded-full border px-3 py-1 text-[13.5px] font-medium transition-colors"
-              style={
-                tone === t
-                  ? { backgroundColor: "var(--app-accent-wash)", color: "var(--app-accent-ink)", borderColor: "var(--app-accent)" }
-                  : { color: "var(--app-text-muted)", borderColor: "var(--app-hairline)" }
-              }
-            >
-              {t === "dark" ? "Dark, for a light page" : "Light, for a dark page"}
-            </button>
-          ))}
-        </div>
+        <PillChoice
+          label="Badge color"
+          value={tone}
+          onChange={setTone}
+          options={[
+            ["dark", "Dark, for a light page"],
+            ["light", "Light, for a dark page"],
+          ]}
+        />
         <div
           className="mt-3 flex items-center justify-center rounded-xl p-6"
           style={{ backgroundColor: tone === "dark" ? "#f7f7f4" : "#121212" }}
@@ -333,13 +326,23 @@ function ShareKitBody({
 
         <h4 className="mt-6 text-sm font-semibold">Card</h4>
         <p className="mt-1 text-sm" style={{ color: "var(--app-text-muted)" }}>
-          Your photo, name and recent work, with a link to your portfolio.
+          Your photo, name and what you do, with a link to your portfolio.
         </p>
+        <PillChoice
+          label="Card size"
+          value={layout}
+          onChange={setLayout}
+          options={[
+            ["compact", "Compact"],
+            ["works", "With 3 works"],
+          ]}
+        />
         <div className="mt-3 flex justify-center">
           <iframe
-            src={`${SITE_ORIGIN}${embedPath(handle)}`}
-            width={EMBED_FRAME.width}
-            height={EMBED_FRAME.height}
+            key={layout}
+            src={`${SITE_ORIGIN}${embedPath(handle, layout)}`}
+            width={EMBED_FRAME[layout].width}
+            height={EMBED_FRAME[layout].height}
             loading="lazy"
             title={`${profile.name} on TheCreative.exchange`}
             className="max-w-full rounded-xl"
@@ -353,6 +356,40 @@ function ShareKitBody({
           onCopy={() => copySnippet("embed", embedCode)}
         />
       </Section>
+    </div>
+  );
+}
+
+/** A row of pill buttons, one pressed: the badge's color, the card's size. */
+function PillChoice<T extends string>({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: T;
+  onChange: (value: T) => void;
+  options: ReadonlyArray<readonly [T, string]>;
+}) {
+  return (
+    <div role="group" aria-label={label} className="mt-2 flex flex-wrap gap-2">
+      {options.map(([v, text]) => (
+        <button
+          key={v}
+          type="button"
+          aria-pressed={value === v}
+          onClick={() => onChange(v)}
+          className="rounded-full border px-3 py-1 text-[13.5px] font-medium transition-colors"
+          style={
+            value === v
+              ? { backgroundColor: "var(--app-accent-wash)", color: "var(--app-accent-ink)", borderColor: "var(--app-accent)" }
+              : { color: "var(--app-text-muted)", borderColor: "var(--app-hairline)" }
+          }
+        >
+          {text}
+        </button>
+      ))}
     </div>
   );
 }
