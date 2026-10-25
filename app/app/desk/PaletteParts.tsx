@@ -9,9 +9,12 @@ import type { PaletteItem, PaletteTool } from "./paletteConfig";
 import { PALETTE, withAlpha } from "./paletteLogic";
 import { DESK, DESK_MONO, FOCUS_RING_CLASS, monoLabel, motion, useDeskTint } from "./tokens";
 
-// Colors the handoff gives that the DESK tokens don't hold: the stack panel's
-// #1a1a1a (a step lighter than DESK.panel) and the black of its shadow.
-export const STACK_PANEL_BG = "rgba(26,26,26,.94)";
+// Colors the DESK tokens don't hold: the stack panel's surface and the black
+// of its shadow. The handoff's #1a1a1a at .94 sat so close to the page that
+// the open menu didn't read as a layer over the fan (2026-10-25); #202020,
+// solid, is a clear step up and still darker than a row's DESK.hover.
+// DESK.muted on it measures 7:1, over the 6:1 floor.
+export const STACK_PANEL_BG = "#202020";
 export const STACK_PANEL_SHADOW = "0 24px 60px rgba(0,0,0,.55)";
 
 /** Tool fill: the panel color at .92, so the page shows through a little. */
@@ -75,9 +78,7 @@ export function StackPanel({
         padding: 8,
         borderRadius: 14,
         background: STACK_PANEL_BG,
-        backdropFilter: "blur(14px)",
-        WebkitBackdropFilter: "blur(14px)",
-        border: `1px solid ${DESK.line}`,
+        border: `1px solid ${DESK.lineStrong}`,
         boxShadow: STACK_PANEL_SHADOW,
       }}
     >
