@@ -15,7 +15,7 @@ import {
   range,
   role,
 } from "../../lib/shortlist/fixtures";
-import type { ClosedReason } from "../../lib/shortlist/types";
+import type { ClosedReason, ShortlistPost } from "../../lib/shortlist/types";
 import type { ShortlistItem } from "./items";
 import { KIND_LABEL, addressName, rowModel, whenLabel, type RowContext } from "./rowModel";
 
@@ -218,17 +218,45 @@ describe("an event row", () => {
 });
 
 describe("a person row", () => {
-  it("reads their first two interests and when you followed", () => {
-    expect(row({ type: "person", person: follow("Kofi Mensah", ["Design", "other:signs", "Production", "Type"], on(9, 30)) })).toEqual({
+  const daysAgo = (n: number) => Date.now() - n * 24 * 60 * 60 * 1000;
+  const post = (over: Partial<ShortlistPost> = {}): ShortlistPost => ({
+    type: "project",
+    id: "projects:bloom",
+    title: "Bloom.",
+    at: daysAgo(3),
+    thumbUrl: "https://p/bloom.jpg",
+    media: "image",
+    ...over,
+  });
+
+  it("says what they last posted and how long ago, with its picture where an action would be", () => {
+    expect(row({ type: "person", person: follow("Kofi Mensah", ["Design"], on(9, 30), post()) })).toEqual({
       id: "person:kofi-mensah",
       title: "Kofi Mensah",
-      sub: "Design · Production",
-      meta: null,
-      status: "Followed Sep 30",
+      sub: "Bloom.",
+      meta: "Project",
+      status: "Posted 3d ago",
       thumb: { kind: "face", name: "Kofi Mensah", url: null },
+      post: { url: "https://p/bloom.jpg", media: "image" },
       action: null,
       hot: false,
       past: false,
+    });
+    const reel = row({ type: "person", person: follow("Kofi Mensah", [], NOW, post({ type: "event", title: "Renaissance", media: "video" })) }, { ...CALM, withArea: true });
+    expect(reel).toMatchObject({ sub: "People · Renaissance", meta: "Event", post: { media: "video" } });
+  });
+
+  it("draws nothing at the end for a post with no picture and no recording; a recording alone gets its mark", () => {
+    expect(row({ type: "person", person: follow("Kofi Mensah", [], NOW, post({ thumbUrl: null, media: null })) }).post).toBeUndefined();
+    expect(row({ type: "person", person: follow("Kofi Mensah", [], NOW, post({ thumbUrl: null, media: "audio" })) }).post).toEqual({ url: null, media: "audio" });
+  });
+
+  it("with nothing posted, reads their first two interests, and not when you followed", () => {
+    expect(row({ type: "person", person: follow("Kofi Mensah", ["Design", "other:signs", "Production", "Type"], on(9, 30)) })).toMatchObject({
+      sub: "Design · Production",
+      meta: null,
+      status: null,
+      post: undefined,
     });
     expect(row({ type: "person", person: follow("Kofi Mensah", ["Design"], NOW) }, { ...CALM, withArea: true }).sub).toBe("People · Design");
   });

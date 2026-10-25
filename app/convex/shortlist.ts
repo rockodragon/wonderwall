@@ -36,8 +36,10 @@ import type {
   ProjectRelation,
   ShortlistData,
   ShortlistEvent,
+  PostMedia,
   ShortlistFollow,
   ShortlistPerson,
+  ShortlistPost,
   ShortlistProject,
   ShortlistRequest,
 } from "../app/lib/shortlist/types";
@@ -48,10 +50,11 @@ import { eventVisibilityChecker } from "./garden/eventVisibility";
 import { isProjectFinished } from "./garden/projectTeam";
 import { projectKind } from "./garden/projectsPublic";
 import { isGivenSupport, supportCadence, supportKind } from "./garden/support";
-import { isHidden, isPostedProject } from "./moderationRules";
+import { isHidden, isPostedProject, isShownProject } from "./moderationRules";
 import { feedLocation } from "./eventAddress";
 import { getProfileByUserId } from "./helpers";
 import { eventCoverUrl, pieceMediaUrl, profileImageUrl, projectPhotoUrl } from "./images";
+import { toEmbedUrl } from "./videoEmbed";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
@@ -170,6 +173,24 @@ export function dedupeEvents(rows: ShortlistEvent[]): ShortlistEvent[] {
   );
 }
 
+/** What a post's picture is of (ShortlistPost.media): a video when it holds
+ * one or is a pasted reel the page plays (toEmbedUrl), a recording when it
+ * holds one, else a still when it has a picture. */
+export function postMedia(
+  thumbUrl: string | null,
+  pastedLink: string | undefined,
+  pieceTypes: readonly string[],
+): PostMedia | null {
+  if (pieceTypes.includes("video") || toEmbedUrl(pastedLink)) return "video";
+  if (pieceTypes.includes("audio")) return "audio";
+  return thumbUrl ? "image" : null;
+}
+
+/** The newer of a person's latest project and latest event. */
+export function newestPost(...posts: (ShortlistPost | null)[]): ShortlistPost | null {
+  return posts.reduce<ShortlistPost | null>((a, b) => (b && (!a || b.at > a.at) ? b : a), null);
+}
+
 // ——————————————————————————————————————————————————————————————
 // Reads
 // ——————————————————————————————————————————————————————————————
@@ -178,6 +199,12 @@ export function dedupeEvents(rows: ShortlistEvent[]): ShortlistEvent[] {
  * this is history enough; past it, a member's whole event history would be
  * read on every load. */
 export const ENDED_EVENTS_KEPT = 25;
+
+/** How many of a followed person's newest projects, and of their newest
+ * events, are checked for one the member may open. Past these, what they
+ * last posted is older than the row needs, and a long follow list stays a
+ * few reads per person. */
+export const POSTS_CHECKED = 5;
 
 const isPresent = <T>(value: T | null): value is T => value !== null;
 
@@ -520,11 +547,64 @@ export const getMine = query({
     });
 
     // ——— People you follow ———
+    // Each with the newest thing they posted that you may open: a project
+    // they lead, shown as their profile shows it (isShownProject), or an
+    // event they organize that's published. Its picture is the one its card
+    // shows; its pieces say whether it's a video or a recording.
+    const newestOpenable = async <T extends { createdAt: number }>(rows: T[], keep: (row: T) => Promise<boolean>) =>
+      (await firstPassing([...rows].sort((a, b) => b.createdAt - a.createdAt), keep, 1))[0] ?? null;
+    async function latestProject(posterId: Id<"users">): Promise<ShortlistPost | null> {
+      const recent = await ctx.db
+        .query("projects")
+        .withIndex("by_userId", (q) => q.eq("userId", posterId))
+        .order("desc")
+        .take(POSTS_CHECKED);
+      const project = await newestOpenable(recent, async (p) => isShownProject(p) && (await canOpenProject(p)));
+      if (!project) return null;
+      const [thumbUrl, pieces] = await Promise.all([
+        read.projectCover(project._id),
+        ctx.db
+          .query("artifacts")
+          .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+          .collect(),
+      ]);
+      return {
+        type: "project",
+        id: project._id,
+        title: project.title,
+        at: project.createdAt,
+        thumbUrl,
+        media: postMedia(thumbUrl, project.mediaUrl, pieces.map((piece) => piece.type)),
+      };
+    }
+    async function latestEvent(organizerId: Id<"users">): Promise<ShortlistPost | null> {
+      const recent = await ctx.db
+        .query("events")
+        .withIndex("by_organizerId", (q) => q.eq("organizerId", organizerId))
+        .order("desc")
+        .take(POSTS_CHECKED);
+      const event = await newestOpenable(recent, async (e) => e.status === "published" && (await canOpenEvent(e)));
+      if (!event) return null;
+      const thumbUrl = await eventDeskCoverUrl(ctx, event);
+      return {
+        type: "event",
+        id: event._id,
+        title: event.title,
+        at: event.createdAt,
+        thumbUrl,
+        media: postMedia(thumbUrl, event.mediaUrl, []),
+      };
+    }
     const people = follows.map(async (fav): Promise<ShortlistFollow | null> => {
       const id = ctx.db.normalizeId("profiles", fav.targetId);
       const profile = id && (await ctx.db.get(id));
       if (!profile) return null;
-      return { ...(await toPerson(ctx, profile)), profileId: profile._id, since: fav.createdAt };
+      const [person, project, event] = await Promise.all([
+        toPerson(ctx, profile),
+        latestProject(profile.userId),
+        latestEvent(profile.userId),
+      ]);
+      return { ...person, profileId: profile._id, since: fav.createdAt, latest: newestPost(project, event) };
     });
 
     // ——— Events: hosting, going, requested, saved ———

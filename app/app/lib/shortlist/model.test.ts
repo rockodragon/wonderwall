@@ -369,6 +369,24 @@ describe("peopleGroups", () => {
   it("an empty list is flat", () => {
     expect(peopleGroups(shortlist())).toEqual({ grouped: false, groups: [{ label: "", items: [] }] });
   });
+
+  it("whoever posted most recently comes first; those who've posted nothing after, newest follow first", () => {
+    const posted = (at: number) => ({ type: "project" as const, id: `projects:${at}`, title: "Work", at, thumbUrl: null, media: null });
+    const data = shortlist({
+      people: [
+        follow("Quiet New", [], on(10, 20)),
+        follow("Posted Long Ago", [], on(10, 1), posted(on(3, 1))),
+        follow("Quiet Old", [], on(2, 1)),
+        follow("Posted Yesterday", [], on(1, 5), posted(on(10, 24))),
+      ],
+    });
+    expect(peopleGroups(data).groups[0].items.map((p) => p.name)).toEqual([
+      "Posted Yesterday",
+      "Posted Long Ago",
+      "Quiet New",
+      "Quiet Old",
+    ]);
+  });
 });
 
 describe("summary — the spec's sample member", () => {

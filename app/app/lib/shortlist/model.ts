@@ -321,9 +321,15 @@ function eventNext(events: ShortlistEvent[], now: number): string | null {
 // People
 // ——————————————————————————————————————————————————————————————
 
-// groupFollows reads the Following page's shape; this hands it ours.
+/** Whoever posted most recently first; those who've posted nothing after,
+ *  the newest follow first. */
+const byLatestPost = (a: ShortlistFollow, b: ShortlistFollow) =>
+  (b.latest?.at ?? 0) - (a.latest?.at ?? 0) || b.since - a.since;
+
+// groupFollows reads the Following page's shape and sorts on favoritedAt,
+// newest first; this hands it ours, ranked by byLatestPost.
 function asFollows(people: ShortlistFollow[]) {
-  return people.map((profile) => ({ favoritedAt: profile.since, profile }));
+  return [...people].sort(byLatestPost).map((profile, i, all) => ({ favoritedAt: all.length - i, profile }));
 }
 
 /** Follows by first interest once there are 6 or more (groupFollows). */

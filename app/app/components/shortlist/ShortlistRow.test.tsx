@@ -3,8 +3,8 @@ import { renderToString } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 import { formatMoney } from "../../garden/ui";
 import { NOW, event, on, project, role, amount } from "../../lib/shortlist/fixtures";
-import { rowModel } from "./rowModel";
-import { ShortlistRow } from "./ShortlistRow";
+import { rowModel, type RowModel } from "./rowModel";
+import { ShortlistRow, ShortlistRows } from "./ShortlistRow";
 
 const invite = rowModel(
   { type: "project", row: project("invited", "Hollow Creek", { role: role("Sound Mixer"), pay: amount(1200), since: on(9, 30) }) },
@@ -62,8 +62,27 @@ describe("ShortlistRow", () => {
     expect(out).not.toContain("border-radius:8px");
   });
 
+  it("draws a followed person's latest post where an action would be: the picture, a play mark on a video, the waveform alone without a picture", () => {
+    const person = (post: RowModel["post"]) => ({
+      ...rowModel({ type: "person", person: { profileId: "k", name: "Kofi Mensah", imageUrl: null, interests: [], since: NOW, latest: null } }, { hot: false, withArea: false, money: formatMoney }),
+      post,
+    });
+    const still = html(<ShortlistRows rows={[person({ url: "https://p/still.jpg", media: "image" })]} onOpen={() => {}} />);
+    expect(still).toContain('data-post-thumb="image"');
+    expect(still).toContain('src="https://p/still.jpg"');
+    const reel = html(<ShortlistRow variant="phone" row={person({ url: "https://p/reel.jpg", media: "video" })} href="/profile/k" />);
+    expect(reel).toContain('data-post-thumb="video"');
+    expect(reel).toContain('src="https://p/reel.jpg"');
+    expect(reel).toContain("<svg");
+    const track = html(<ShortlistRow variant="phone" row={person({ url: null, media: "audio" })} href="/profile/k" />);
+    expect(track).toContain('data-post-thumb="audio"');
+    expect(track).not.toContain("<img");
+    expect(track).toContain("<svg");
+    expect(html(<ShortlistRow variant="phone" row={person(undefined)} href="/profile/k" />)).not.toContain("data-post-thumb");
+  });
+
   it("draws a face and a date block in the phone's colors too", () => {
-    const person = rowModel({ type: "person", person: { profileId: "k", name: "Kofi Mensah", imageUrl: null, interests: [], since: NOW } }, { hot: false, withArea: false, money: formatMoney });
+    const person = rowModel({ type: "person", person: { profileId: "k", name: "Kofi Mensah", imageUrl: null, interests: [], since: NOW, latest: null } }, { hot: false, withArea: false, money: formatMoney });
     const face = html(<ShortlistRow variant="phone" row={person} href="/profile/k" />);
     expect(face).toContain("KM");
     expect(face).toContain("background:var(--app-hairline-raised)");
