@@ -106,14 +106,17 @@ export const onRequestGet = async (context: {
 
   const hidden = !!profile?.hideFromSearch;
   const image = profile?.imageUrl;
+  // og:url is the canonical too, whichever host served the page, so a share
+  // on Facebook or LinkedIn counts toward the address search ranks.
+  const canonical = profile ? canonicalProfileUrl(profile.handle ?? handle, profile.inGarden) : "";
   const html = profile
     ? injectShareHead(shell, {
         title: profileTitle(profile.name, profile.handle ?? handle),
         description: profileDescription(profile),
-        url: `${url.origin}${profilePath(profile.handle ?? handle)}`,
+        url: canonical,
         image: typeof image === "string" && /^https:\/\//.test(image) ? image : undefined,
         type: "profile",
-        canonical: canonicalProfileUrl(profile.handle ?? handle, profile.inGarden),
+        canonical,
         noindex: hidden,
       })
     : shell;

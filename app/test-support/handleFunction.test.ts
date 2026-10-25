@@ -19,7 +19,7 @@ const ANA = {
 };
 
 /** A request for `path`, Convex answering `value` (or throwing). */
-function scene(path: string, value: unknown, { convexDown = false } = {}) {
+function scene(path: string, value: unknown, { convexDown = false, host = "thecreative.exchange" } = {}) {
   const convex = vi.fn(async () => {
     if (convexDown) throw new Error("down");
     return new Response(JSON.stringify({ status: "success", value }), { status: 200 });
@@ -27,7 +27,7 @@ function scene(path: string, value: unknown, { convexDown = false } = {}) {
   vi.stubGlobal("fetch", convex);
   const next = vi.fn(async () => new Response("passed through", { status: 200 }));
   const context = {
-    request: new Request(`https://thecreative.exchange${path}`),
+    request: new Request(`https://${host}${path}`),
     params: { handle: path.slice(1) },
     env: { ASSETS: { fetch: async () => new Response(SHELL) } },
     next,
@@ -82,11 +82,18 @@ describe("/@handle at the edge", () => {
     expect(html).toContain('<div id="root"></div>');
   });
 
-  it("puts a Garden member's canonical address under createthegarden.com, whichever host", async () => {
+  it("puts a Garden member's address under createthegarden.com, whichever host", async () => {
     const { context } = scene("/@ana", { ...ANA, inGarden: true });
     const html = await (await onRequestGet(context)).text();
     expect(html).toContain('<link rel="canonical" href="https://createthegarden.com/@ana">');
-    // The preview's own address stays the one that was shared.
+    // The preview's address is the same one, so shares count toward it.
+    expect(html).toContain('<meta property="og:url" content="https://createthegarden.com/@ana">');
+  });
+
+  it("keeps everyone else's under thecreative.exchange, even reached on a Garden domain", async () => {
+    const { context } = scene("/@ana", ANA, { host: "createthegarden.com" });
+    const html = await (await onRequestGet(context)).text();
+    expect(html).toContain('<link rel="canonical" href="https://thecreative.exchange/@ana">');
     expect(html).toContain('<meta property="og:url" content="https://thecreative.exchange/@ana">');
   });
 
