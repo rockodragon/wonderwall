@@ -42,6 +42,4 @@ addresses on their next load; nothing else changes.
   picture views before a big push.
 - **Addresses already saved in the database** (link-preview stills, a piece's
   cover saved at creation) keep Convex's address. New ones get ours.
-- **Left to move:** the two wondering-image lookups in `convex/profiles.ts`
-  (moved once the public-profile branch merges, to avoid a conflict) and the
-  one-off `convex/garden/tablesMigration.ts`.
+- **Left to move:** only the one-off `convex/garden/tablesMigration.ts`.
