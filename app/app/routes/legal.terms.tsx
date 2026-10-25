@@ -95,6 +95,7 @@ const SECTIONS: LegalSection[] = [
       '"Your Content" means any text, images, video, audio, projects, works, prompts, replies, or other material you upload, submit, or create using the Service. You retain all ownership rights in Your Content.',
       `By posting Your Content, you grant ${company} a limited, non-exclusive, worldwide, royalty-free licence to host, store, process, reproduce, adapt for display, and show it within the Service and in reasonable promotion of the Service. The licence exists so we can put your work on a page, resize an image, generate a preview card, and index it for search. It terminates when you delete Your Content or close your account, allowing for backups and for copies others were permitted to keep.`,
       `Important: we do NOT use Your Content to train artificial intelligence or machine learning models. Your work remains yours and is processed only to provide the Service to you. Where the Service sends text to a third-party AI provider to power search, it does so through a paid API whose terms prohibit training on customer data — see the Privacy Policy for the detail.`,
+      "We do not sell Your Content, and we do not license it to anyone else. The licence above lets us show your work on the Service and promote the Service; we will not pass it on to a third party, including to train an artificial intelligence model. Companies that host or process Your Content for us, under contracts that bar any other use, are not licensees.",
       "You represent and warrant that:",
     ],
     bullets: [
@@ -102,6 +103,14 @@ const SECTIONS: LegalSection[] = [
       "Your Content does not violate any third-party rights, including copyright, trademark, contract, or privacy",
       "Your Content complies with applicable law and these Terms",
       "You have obtained any consent needed from people who appear in what you post",
+    ],
+  },
+  {
+    heading: "Our promises to creatives",
+    paragraphs: [
+      "Three parts of these Terms are promises to you: we do not use Your Content to train artificial intelligence models; we do not sell or license Your Content; and a person on our team decides before we remove Your Content or end your account, and tells you why.",
+      "Where the law requires us to act at once, or to stop serious harm to someone, we may act first, and a person will review it promptly after.",
+      "We will not change these promises for you unless you agree.",
     ],
   },
   {
@@ -123,7 +132,7 @@ const SECTIONS: LegalSection[] = [
       "Violate any applicable law, or put us in the position of hosting something illegal",
     ],
     trailing: [
-      "We may investigate and take action against violations, including suspending or ending an account.",
+      "We may investigate and take action against violations, including suspending or ending an account. A person makes those decisions, as set out in Our promises to creatives.",
     ],
   },
   {
@@ -201,7 +210,7 @@ const SECTIONS: LegalSection[] = [
   {
     heading: "Changes to these Terms",
     paragraphs: [
-      "We may modify these Terms. We will notify you of material changes by posting the updated Terms here and by email or in-product notice, and we will move the effective date at the top of this page. Continuing to use the Service after the changes take effect means you accept them. If you do not agree, stop using the Service before that date.",
+      "We may modify these Terms. We will notify you of material changes by posting the updated Terms here and by email or in-product notice, and we will move the effective date at the top of this page. Continuing to use the Service after the changes take effect means you accept them. If you do not agree, stop using the Service before that date. This does not apply to Our promises to creatives, which we will not change for you unless you agree.",
     ],
   },
   {
@@ -210,7 +219,7 @@ const SECTIONS: LegalSection[] = [
       `Entire agreement. These Terms, together with our Privacy Policy, are the entire agreement between you and ${company} regarding the Service.`,
       "Severability. If any provision is found unenforceable, the rest continues in full force.",
       "Waiver. Our failure to enforce a provision is not a waiver of it or of any other provision.",
-      "Assignment. You may not assign or transfer these Terms without our prior written consent. We may assign them without restriction.",
+      "Assignment. You may not assign or transfer these Terms without our prior written consent. We may assign them, but whoever receives them is bound by Our promises to creatives.",
       "Notices. We may give you notice by email to the address on your account, or by posting in the Service.",
     ],
   },
