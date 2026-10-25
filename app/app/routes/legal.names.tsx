@@ -58,10 +58,11 @@ const SECTIONS: LegalSection[] = [
     ],
   },
   {
-    heading: "Trademark and real-name owners can claim a name",
+    heading: "Real-name owners, and anyone being impersonated, can write to us",
     paragraphs: [
-      `If a held name is your trademark or your real name, or someone is using a name to pass as you or your brand, write to us at ${contactEmail}. Tell us the name and how it is yours.`,
-      "We check, then give you the name. Passing as someone else is against the Terms, so point 2 does not protect a name used that way.",
+      `If a held name is your real name, write to us at ${contactEmail}. Tell us the name and how it is yours. We check, then give it to you.`,
+      "If someone is using a name to pass as you or your brand, write to us the same way. Passing as someone else is against the Terms, so point 2 does not protect a name used that way.",
+      "A brand's own name comes with an Organization account (point 3).",
     ],
   },
 ];

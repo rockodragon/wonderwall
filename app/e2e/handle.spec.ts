@@ -29,7 +29,7 @@ test.describe("/legal/names", () => {
       "2. We never take a name from a member who is using it",
       "3. Some names are held",
       "4. Names of 3 characters or fewer are premium",
-      "5. Trademark and real-name owners can claim a name",
+      "5. Real-name owners, and anyone being impersonated, can write to us",
     ]) {
       await expect(page.getByRole("heading", { name: point })).toBeVisible();
     }
