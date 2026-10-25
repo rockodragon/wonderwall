@@ -33,6 +33,7 @@ import {
   type UpdateAudience,
   type UpdateForm,
 } from "../lib/updates";
+import { uploadToStorage } from "../lib/uploadFile";
 
 export type AdminUpdate = FunctionReturnType<typeof api.updates.adminList>[number];
 
@@ -116,15 +117,12 @@ export function UpdateEditor({
     }
     setUploading(true);
     try {
-      const uploadUrl = await generateUploadUrl();
-      const result = await fetch(uploadUrl, { method: "POST", headers: { "Content-Type": file.type }, body: file });
-      if (!result.ok) throw new Error("Upload failed");
-      const { storageId } = (await result.json()) as { storageId: Id<"_storage"> };
+      const storageId = await uploadToStorage(generateUploadUrl, file);
       if (localUrl.current) URL.revokeObjectURL(localUrl.current);
       localUrl.current = URL.createObjectURL(file);
       setForm((f) => ({ ...f, imageStorageId: storageId, imageUrl: localUrl.current }));
     } catch (err) {
-      setError(err instanceof Error && err.message === "Upload failed" ? "Couldn't upload that. Try again." : errorMessage(err));
+      setError(err instanceof Error && err.message.startsWith("Upload failed") ? "Couldn't upload that. Try again." : errorMessage(err));
     } finally {
       setUploading(false);
     }

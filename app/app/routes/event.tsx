@@ -3274,16 +3274,7 @@ function EventImageManager({
 
     setUploading("gallery");
     try {
-      const uploadUrl = await generateUploadUrl();
-      const result = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-
-      if (!result.ok) throw new Error("Upload failed");
-
-      const { storageId } = await result.json();
+      const storageId = await uploadToStorage(generateUploadUrl, file);
       await addEventGalleryImage({ eventId, storageId });
     } catch (err) {
       console.error("Upload error:", err);

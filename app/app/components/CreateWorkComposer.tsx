@@ -5,6 +5,7 @@ import { api } from "../../convex/_generated/api";
 import confetti from "canvas-confetti";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import { mediaLinkHint } from "../lib/mediaLink";
+import { uploadToStorage } from "../lib/uploadFile";
 import { PersonAvatar } from "./PersonAvatar";
 
 // Same caps as the project-page editor (RichTextEditor.tsx): Convex takes
@@ -103,16 +104,7 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
 
     setUploading(true);
     try {
-      const uploadUrl = await generateUploadUrl();
-      const result = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-
-      if (!result.ok) throw new Error("Upload failed");
-
-      const { storageId } = await result.json();
+      const storageId = await uploadToStorage(generateUploadUrl, file);
       setUploadedStorageId(storageId);
 
       if (isImage) {

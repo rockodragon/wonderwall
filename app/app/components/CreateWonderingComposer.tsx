@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
 import { PersonAvatar } from "./PersonAvatar";
+import { uploadToStorage } from "../lib/uploadFile";
 
 // Get anonymous ID for analytics
 function getAnonymousId(): string {
@@ -51,16 +52,7 @@ export function CreateWonderingComposer() {
 
     setUploadingImage(true);
     try {
-      const uploadUrl = await generateUploadUrl();
-      const result = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-
-      if (!result.ok) throw new Error("Upload failed");
-
-      const { storageId } = await result.json();
+      const storageId = await uploadToStorage(generateUploadUrl, file);
 
       // If user already has a wondering, save image to it
       // Otherwise, we'll attach it when they create the wondering

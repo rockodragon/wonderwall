@@ -19,6 +19,7 @@ import { haversineDistance, NEAR_ME_RADIUS_OPTIONS, useNearMe } from "../lib/use
 import { ChevronDownIcon, FilterIcon, LocationIcon } from "../components/icons";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { errorMessage } from "../lib/convexError";
+import { uploadToStorage } from "../lib/uploadFile";
 
 // AnnouncementComposer moved off this list page entirely — it now renders
 // only on the detail page (routes/offerings.$id.tsx), per the founder's
@@ -1042,14 +1043,7 @@ export function PostOfferingForm({
     setUploading(true);
     setError("");
     try {
-      const uploadUrl = await generateUploadUrl();
-      const result = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!result.ok) throw new Error("Upload failed");
-      const { storageId } = await result.json();
+      const storageId = await uploadToStorage(generateUploadUrl, file);
       setPhotoStorageId(storageId);
 
       const reader = new FileReader();

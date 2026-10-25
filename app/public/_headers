@@ -36,8 +36,13 @@
 /about/fonts/*
   Cache-Control: public, max-age=31536000, immutable
 
-# Security headers for all responses
+# Security headers for all responses. The last two say "not AI training
+# data" (app/lib/aiCrawlers.ts): noai/noimageai for dataset tools such as
+# img2dataset; tdm-reservation is the EU text-and-data-mining opt-out (W3C
+# TDMRep).
 /*
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
+  X-Robots-Tag: noai, noimageai
+  tdm-reservation: 1

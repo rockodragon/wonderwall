@@ -131,6 +131,14 @@ const RULES: Rule[] = [
     use: "errorMessage(err, fallback) in app/lib/convexError.ts, and a ConvexError reason (fail in convex/errors.ts) on the server",
   },
   {
+    name: "file uploaded to storage by hand (one place)",
+    // A hand-rolled POST skips the location strip (app/lib/imageLocation.ts).
+    pattern: /await generateUploadUrl\(\)/g,
+    limit: 0,
+    home: "app/lib/uploadFile.ts",
+    use: "uploadToStorage(generateUploadUrl, file) in app/lib/uploadFile.ts — it removes where a photo was taken before the upload",
+  },
+  {
     name: "avatar initial drawn by hand",
     pattern: /charAt\(0\)\.toUpperCase\(\)/g,
     limit: 8,
