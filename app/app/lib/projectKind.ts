@@ -82,6 +82,9 @@ export function leadRoles(p: KindSource, onJobsAndGigs: boolean): OpenRoleLike[]
   return onJobsAndGigs && p.kind === "passion" ? paidRoles(p.openRoles) : [];
 }
 
+/** What a project that is nothing more specific is called. */
+const GENERIC_KIND = "Project";
+
 /**
  * The first line of a card.
  *
@@ -109,5 +112,16 @@ export function projectKindLabel(
     return "Job";
   }
   if (leadRoles(p, opts.onJobsAndGigs ?? false).length > 0) return `Role on ${p.title ?? "a project"} · Paid`;
-  return opts.raising ? "Seeking funding" : "Project";
+  return opts.raising ? "Seeking funding" : GENERIC_KIND;
+}
+
+/** projectKindLabel, or null when it would only say "Project": on a list of
+ * projects that word on every card tells a viewer nothing. The /projects
+ * card reads this; the desk's kicker keeps the full label. */
+export function distinctKindLabel(
+  p: KindSource,
+  opts: { onJobsAndGigs?: boolean; raising?: boolean } = {},
+): string | null {
+  const label = projectKindLabel(p, opts);
+  return label === GENERIC_KIND ? null : label;
 }

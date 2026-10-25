@@ -24,6 +24,21 @@ export function isSafeIntentPath(path: unknown): path is string {
   );
 }
 
+/** Sign up, then come back to `path`: signup.tsx stashes ?redirect= as the
+ *  pending intent, and _app.tsx replays it once they're signed in. Where a
+ *  signed-out visitor's tap on any action goes (Cheer, Follow, Apply). */
+export function signupHref(path: string): string {
+  return `/signup?redirect=${encodeURIComponent(path)}`;
+}
+
+/** Where a tap on a project's Cheer or Back this goes (the /projects card
+ *  and the project page). Null: open its sheet. Signed out, Cheer (a note or
+ *  an offer of help, from a member) asks them to sign up and come back to
+ *  `path`; Back this opens on a one-time payment, which needs no account. */
+export function supportDetour(mode: "cheer" | "back", signedIn: boolean, path: string): string | null {
+  return signedIn || mode === "back" ? null : signupHref(path);
+}
+
 /** Remember where this person was going, before sending them to sign up. */
 export function setPendingIntent(path: string): void {
   if (!isSafeIntentPath(path)) return;

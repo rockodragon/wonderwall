@@ -51,7 +51,7 @@ Everything the sidebar and bottom bar do today has a home in the palette. None o
 7. **Find people / Meet people near me.** The desk only holds people you follow, so these go to the directory: `/people` and `/people?near=1` (the Near me toggle is on by default with that param).
 8. **Community switch.** Today "The Exchange" means the `/communities` directory. Decision, per the design: switching re-filters the desk. The Garden shows content from The Garden plus content with no community, plus the Sophia Fund. The Exchange shows everything on the platform, and no fund card. Switching from another page goes to the desk.
 9. **Create flows** (Start a project, Hire someone, Host an event) open as cards on the desk: `/today?create=project|hire|event`. The list pages' own `/projects?new=project` and `/events?new=event` still open the same forms in place.
-10. **Palette over page content.** Off the desk, the button and the resting tools with their names sit over the bottom-left corner of pages (about 330px across and 270px up). The 340×340 zone around them takes no pointer events until a hover arms it, so the empty parts never block clicks; pages end 256px clear of it (`_app.tsx` `md:pb-64`) so the last row can scroll out from under the arc.
+10. **Palette over page content.** Off the desk, the 56px button sits over the bottom-left corner of pages (about 112×112px). The 340×340 zone takes no pointer events until a hover arms it, so it never blocks clicks; pages end 128px clear of the button (`_app.tsx` `md:pb-32`) so the last row can scroll out from under it.
 
 ### Rule departures from the handoff
 
@@ -109,7 +109,7 @@ The visual spec is the handoff README. What follows covers the build.
 
 **Main button.** Signed in, a click goes to `deskHref("all")`, which also closes any open card. Signed out, it goes to `/garden`.
 
-**Resting, and hover** (Rick, 2026-10-21: the first level stays visible, as the phone's bar is; hidden behind a hover it needed two notes to explain). The tools rest on the arc with their names on every desktop page. They fold only while a Canvas card is open (`?card=` on `/today`), since the palette sits above the card. Hovering a tool opens its stack at once. Entering the main button arms the 340×340 zone for pointer events; leaving the zone closes any stack and disarms it. Each tool's stack has a 14px bridge.
+**Folded, and hover** (Rick, 2026-10-25: the tools resting open on every page, 2026-10-21 to 25, were too busy). The tools rest folded behind the main button. Entering it (or reaching it by keyboard) fans them out with their names and arms the 340×340 zone for pointer events; hovering a tool opens its stack at once; leaving the zone closes any stack and folds the fan. Each tool's stack has a 14px bridge.
 
 **Keyboard.** The palette uses a roving tabindex.
 - Focus on the main button opens the fan.
@@ -131,7 +131,7 @@ The visual spec is the handoff README. What follows covers the build.
 - Tools: buttons named by their label.
 - Stacks: `role="menu"`, with items as `role="menuitem"`.
 
-**First visit.** Nothing: the tools and their names are on the page. The one-time "This is your menu" note (`PaletteHint.tsx`, 2026-10-03) and the "Your tools are in the corner" starter Update were removed on 2026-10-21 with the resting arc; `hooks/useOnceNote.ts` stays for the invite nudge. A published copy of that Update in prod is archived by hand in /admin/updates.
+**First visit** (Rick, 2026-10-25). The main button glows until this browser has opened the palette once: its accent ring breathes slowly (`PaletteParts.tsx` `desk-pal-glow`, 2.8s), starting after the page settles, and stops for good on the first open (`hooks/useOnceNote.ts`, key `desk.paletteOpened`). With reduced motion the ring holds still, brighter. No note: the one-time "This is your menu" note (`PaletteHint.tsx`, 2026-10-03) and the "Your tools are in the corner" starter Update stay removed (2026-10-21).
 
 ## Desk
 
@@ -208,7 +208,7 @@ The visual spec is the handoff README. What follows covers the build.
 **Scale.** `s = clamp(min(vw/1200, vh/760), 0.75, 1.3)`.
 
 **Scatter** (view `all`).
-- Slots in 1200×760 space: the handoff's four (330,170,230×310,−5°), (640,215,220×295,3°), (925,150,240×320,−2°), (560,520,240×170,4°), plus two more that keep clear of the greeting (top-left ~520×140) and the palette corner (bottom-left 340×340, the resting arc and its names).
+- Slots in 1200×760 space: the handoff's four (330,170,230×310,−5°), (640,215,220×295,3°), (925,150,240×320,−2°), (560,520,240×170,4°), plus two more that keep clear of the greeting (top-left ~520×140) and the palette corner (bottom-left 340×340, the fan and its names).
 - Note cards take the short slots.
 - Map the slots into the viewport and center the cluster horizontally.
 - Card size scales by `s`.

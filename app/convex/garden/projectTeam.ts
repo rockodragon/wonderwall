@@ -15,7 +15,7 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { displayNameOf, getProfileByUserId, isAdminProfile, isOwnerOrAdmin } from "../helpers";
+import { currentUserId, displayNameOf, getProfileByUserId, isAdminProfile, isOwnerOrAdmin } from "../helpers";
 import { assertNotBlocked } from "../blocks";
 import { escapeHtml } from "../email/template";
 import { isValidEmail, normalizeEmail } from "./eventRsvps";
@@ -25,6 +25,7 @@ import { insertNotification } from "../notify";
 import { toEmbedUrl } from "../videoEmbed";
 import { isHidden } from "../moderationRules";
 import { communityVisibility } from "./communityVisibility";
+import { projectVisibleTo } from "./projectVisibility";
 import { pieceMediaUrl, profileImageUrl, projectPhotoUrl } from "../images";
 
 // ——————————————————————————————————————————————————————————————
@@ -1383,22 +1384,26 @@ export const getClaim = query({
   },
 });
 
-/** The Team card. `pending` / `invited` only for the lead (or an
- * operator). Never returns `email` or `claimToken` — every entry goes
- * through toPersonEntry / toCreditEntry / toInvitedEntry. Null when signed
- * out or the project is missing. */
+/** The Team card. The project page is public, so a signed-out visitor gets
+ * who is on it (lead, accepted members, credits) and whether it takes
+ * people, with no `mine` and no `apply`: every action asks them to sign up
+ * first. `pending` / `invited` only for the lead (or an operator). Never
+ * returns `email` or `claimToken` — every entry goes through toPersonEntry /
+ * toCreditEntry / toInvitedEntry. Null when the project is missing, or not
+ * shown to this viewer (projectVisibleTo: admin-hidden, or in a hidden
+ * community). */
 export const getTeam = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) return null;
+    const userId = await currentUserId(ctx);
     const project = await ctx.db.get(args.projectId);
     if (!project) return null;
+    if (!(await projectVisibleTo(ctx, project, userId))) return null;
 
     const [rows, leadProfile, viewerProfile] = await Promise.all([
       listProjectRows(ctx, args.projectId),
       getProfileByUserId(ctx, project.userId),
-      project.userId === userId ? Promise.resolve(null) : getProfileByUserId(ctx, userId),
+      !userId || project.userId === userId ? Promise.resolve(null) : getProfileByUserId(ctx, userId),
     ]);
     // Same rule as isOwnerOrAdmin (helpers.ts), on a profile already loaded.
     const isLead = project.userId === userId || isAdminProfile(viewerProfile);
@@ -1420,6 +1425,17 @@ export const getTeam = query({
       .filter((r) => r.status === "invited" && r.userId === undefined)
       .map(toCreditEntry);
 
+    // The page hides its join/apply controls on a finished project rather
+    // than offering a button requestToJoin will refuse.
+    const acceptingPeople = isAcceptingPeople(project);
+
+    // A member's note (their join request, or the lead's invite) is for the
+    // lead (LeadTeamTools): everyone else gets who is on it, not what they said.
+    const acceptedNoNotes: PersonEntry[] = accepted.map((m) => ({ ...m, message: null }));
+
+    // Signed out: who is on it, and nothing about the viewer.
+    if (!userId) return { lead, accepted: acceptedNoNotes, credits, acceptingPeople };
+
     const myRow = rows.find((r) => r.userId === userId);
     const mine =
       myRow && (myRow.status === "pending" || myRow.status === "invited" || myRow.status === "accepted")
@@ -1434,11 +1450,7 @@ export const getTeam = query({
       ? { allowed: true as const, reason: null, upgradePath: null }
       : { allowed: false as const, reason: applyResult.reason ?? "Applying to paid work takes membership.", upgradePath: applyResult.upgradePath ?? null };
 
-    // The page hides its join/apply controls on a finished project rather
-    // than offering a button requestToJoin will refuse.
-    const acceptingPeople = isAcceptingPeople(project);
-
-    if (!isLead) return { lead, accepted, credits, mine, apply, acceptingPeople };
+    if (!isLead) return { lead, accepted: acceptedNoNotes, credits, mine, apply, acceptingPeople };
 
     const pending: PersonEntry[] = [];
     for (const row of rows) {
@@ -1458,19 +1470,21 @@ export const getTeam = query({
  * what the lead is actually looking for, shown separately from the
  * invited-people list so a visitor can pick a specific opening (or the
  * free-text Apply/Ask-to-join button) instead of proposing a role blind.
- * Doesn't itself require the lead — the whole project page already does
- * (projects.$id.tsx lives inside the _app shell, which isn't on the
- * signed-out-public-path list). */
+ * Anyone may read it, signed in or not: the project page is public. A
+ * project not shown to this viewer (projectVisibleTo: admin-hidden, or in a
+ * hidden community) has no roles to them, same as getProject's not-found. */
 export const listRoles = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
-    const [project, rows] = await Promise.all([
+    const [project, rows, viewerId] = await Promise.all([
       ctx.db.get(args.projectId),
       ctx.db
         .query("projectRoles")
         .withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
         .collect(),
+      currentUserId(ctx),
     ]);
+    if (!project || !(await projectVisibleTo(ctx, project, viewerId))) return [];
     rows.sort((a, b) => a.createdAt - b.createdAt);
 
     const out: {

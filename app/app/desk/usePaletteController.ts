@@ -28,11 +28,11 @@ function firstRow(root: HTMLElement | null, id: ToolId): HTMLElement | null {
 /**
  * @param tools   what's in the fan, in arc order
  * @param onMain  a click on the main button (mouse, or Enter/Space)
- * @param rested  the tools rest on the arc without a hover (every desktop
- *                page, unless a Canvas card is open): `fanOpen` is then
- *                always true, while `open` still says whether a hover or the
- *                keyboard has the zone, which is what arms it for pointer
- *                events and what leaving it folds.
+ * @param rested  the tools rest on the arc without a hover: `fanOpen` is
+ *                then always true, while `open` still says whether a hover
+ *                or the keyboard has the zone, which is what arms it for
+ *                pointer events and what leaving it folds. Palette.tsx rests
+ *                them folded (Rick, 2026-10-25), so it leaves this off.
  */
 export function usePaletteController(tools: PaletteTool[], onMain: () => void, rested = false) {
   const navigate = useNavigate();
