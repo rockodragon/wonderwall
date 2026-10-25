@@ -371,7 +371,9 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
                   onChange={(e) => setMediaUrl(e.target.value)}
                   placeholder={
                     uploadedStorageId
-                      ? "Add a link for the image to open..."
+                      ? coverIsImage
+                        ? "Add a link the picture opens (optional)..."
+                        : "Add a link (optional)..."
                       : type === "link"
                         ? "Paste a link from Instagram, TikTok, YouTube, or any page..."
                         : type === "video"

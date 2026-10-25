@@ -153,13 +153,21 @@ export default function Settings() {
           </div>
 
           {/* Your address — thecreative.exchange/@handle — and the one
-              search switch. Always open like Organizations below; each
+              search switch. Always open like Organizations; each
               change saves on its own. Needs the profile row. */}
           {profile?._id && (
             <div id="address" className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
               <AddressSection profile={profile} />
             </div>
           )}
+
+          {/* Work & Portfolio, above Organizations as on the profile page */}
+          <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+            <ArtifactsSection
+              editArtifactId={editArtifactId}
+              onEditComplete={clearEditParam}
+            />
+          </div>
 
           {/* Organizations (docs/features/organizations.md). Always open,
               not behind the profile's Edit — every change saves on its own.
@@ -169,14 +177,6 @@ export default function Settings() {
               <OrganizationsEditor />
             </div>
           )}
-
-          {/* Work & Portfolio */}
-          <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
-            <ArtifactsSection
-              editArtifactId={editArtifactId}
-              onEditComplete={clearEditParam}
-            />
-          </div>
         </>
       )}
 
