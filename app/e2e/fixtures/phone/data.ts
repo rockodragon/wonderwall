@@ -12,6 +12,7 @@ const me = {
   _id: "me",
   userId: "u-me",
   name: "Rick Moy",
+  handle: "rick",
   primaryRole: "maker",
   bio: "Making things in San Diego.",
   interests: ["Film", "Music"],
@@ -223,7 +224,56 @@ const updates = [
   },
 ];
 
+/** Your own page, with an address, at /profile/me: what the share kit
+ *  (components/ProfileShareKit.tsx) opens from. */
+export const myPage = {
+  ...me,
+  handle: "rick",
+  hideFromSearch: false,
+  attributes: {},
+  links: [],
+  artifacts: [{ _id: "a-cafe", type: "image", mediaUrl: "/campaign/cafe.jpg", order: 0, createdAt: now - 40 * DAY }],
+  organizations: [],
+  wondering: null,
+};
+
+/** Someone else's page, at /profile/dee: what a scan of Dee's code opens
+ *  (/profile/dee?ref=f2f, components/ScanCard.tsx). */
+export const theirPage = {
+  ...people[0],
+  _id: "dee",
+  userId: "u-dee",
+  handle: "dee",
+  bio: "Photographs of people at work.",
+  hideFromSearch: false,
+  attributes: {},
+  links: [],
+  artifacts: [],
+  organizations: [],
+};
+
+/** Finished projects on your page (garden/projectTeam:listAffiliations). */
+const myProjects = [
+  ["p-bloom", "Bloom.", "/campaign/opening.jpg"],
+  ["p-mural", "Small Acts: Neighbors", "/campaign/pair.jpg"],
+  ["p-hymns", "Hymns for the Commons", "/campaign/church.jpg"],
+].map(([projectId, title, imageUrl]) => ({
+  projectId,
+  title,
+  imageUrl,
+  blurb: null,
+  role: "Lead",
+  stage: "completed",
+  kind: "passion",
+  completed: true,
+  openRoles: [],
+  gig: null,
+  raising: false,
+}));
+
 export const answers: Record<string, unknown | ((args: unknown) => unknown)> = {
+  "garden/projectTeam:listAffiliations": myProjects,
+  "invites:getInviteStats": null,
   "profiles:getMyProfile": me,
   "profiles:search": (args: unknown) => {
     const q = String((args as { query?: string } | undefined)?.query ?? "").toLowerCase();

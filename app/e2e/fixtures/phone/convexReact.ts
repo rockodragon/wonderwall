@@ -9,8 +9,14 @@ export class ConvexReactClient {
   constructor(_url: string) {}
 }
 
+/** `?visitor` in the address: the page as someone with no account sees it
+ *  (a public page only; the shell sends a visitor elsewhere to sign in). */
+function asVisitor(): boolean {
+  return new URLSearchParams(window.location.search).has("visitor");
+}
+
 export function useConvexAuth() {
-  return { isAuthenticated: true, isLoading: false };
+  return { isAuthenticated: !asVisitor(), isLoading: false };
 }
 
 const warned = new Set<string>();
@@ -21,6 +27,7 @@ const cache = new Map<string, unknown>();
 export function useQuery(fn: FunctionReference<"query">, args?: unknown): unknown {
   const name = getFunctionName(fn);
   if (args === "skip") return undefined;
+  if (name === "profiles:getMyProfile" && asVisitor()) return null;
   const answer = answers[name];
   if (answer === undefined) {
     if (!warned.has(name)) {

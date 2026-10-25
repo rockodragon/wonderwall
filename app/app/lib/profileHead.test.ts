@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DESCRIPTION_MAX, profileDescription, profileTitle, publicProfileUrl } from "./profileHead";
+import { DESCRIPTION_MAX, canonicalProfileUrl, profileDescription, profileTitle, publicProfileUrl } from "./profileHead";
 
 describe("profileTitle", () => {
   it("names the person, their address and the site", () => {
@@ -33,5 +33,13 @@ describe("profileDescription", () => {
 describe("publicProfileUrl", () => {
   it("is the one address on the main site", () => {
     expect(publicProfileUrl("ana")).toBe("https://thecreative.exchange/@ana");
+  });
+});
+
+describe("canonicalProfileUrl", () => {
+  it("is createthegarden.com for The Garden's members, the main site for everyone else", () => {
+    expect(canonicalProfileUrl("ana", true)).toBe("https://createthegarden.com/@ana");
+    expect(canonicalProfileUrl("ana", false)).toBe("https://thecreative.exchange/@ana");
+    expect(canonicalProfileUrl("ana")).toBe("https://thecreative.exchange/@ana");
   });
 });

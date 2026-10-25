@@ -23,6 +23,12 @@ export const GARDEN_HOSTS = [
 
 export const GARDEN_NAME = "The Garden";
 
+/** The Garden's main address: where a link shared from a Garden domain
+ *  points (the share kit's links and QR codes, the badge, the embed card).
+ *  createthegarden.com is The Garden's own name; the subdomains above still
+ *  answer. */
+export const GARDEN_ORIGIN = "https://createthegarden.com";
+
 /** "WWW.CreateTheGarden.com:443" or "https://x.org/path" → the bare host.
  *  Empty for anything unusable. */
 export function normalizeHost(host: string | null | undefined): string {

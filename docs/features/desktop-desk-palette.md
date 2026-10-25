@@ -78,7 +78,7 @@ The visual spec is the handoff README. What follows covers the build.
   - People: `/people`, `/search`, `/profile/*`.
   - Projects: `/projects*`.
   - Events: `/events*`.
-  - Profile: `/settings`, `/messages*`.
+  - Profile: `/settings`, `/messages*`, `/code`.
 
 **Stacks.** Copy is exact, in order:
 
@@ -99,6 +99,7 @@ The visual spec is the handoff README. What follows covers the build.
 | Profile ({full name}) | Edit my profile | `/settings` |
 | Profile | Read messages | `/messages`, with the count at the right of the row |
 | Profile | About {community} | The Garden goes to `/garden`. The Exchange goes to `/about`. |
+| Profile | My code | `/code`, your QR code to hold up face to face (routes/code.tsx) |
 | Profile | Switch to {other} | `setDeskCommunity(other)`, then the desk |
 | Profile | Admin | Admins only. `/admin` |
 | Profile | Sign out | `signOut()`, then `/`, the same as settings.tsx |

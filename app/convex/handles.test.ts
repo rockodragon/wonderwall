@@ -342,3 +342,30 @@ describe("getProfileByHandle, signed out", () => {
     expect(await run(getProfileByHandle, ctx, { handle: "" })).toBeNull();
   });
 });
+
+describe("getProfileByHandle inGarden", () => {
+  // The Garden's active members are found under createthegarden.com
+  // (lib/profileHead.ts canonicalProfileUrl); the page says which.
+  const GARDEN = { _id: "hostOrgs:garden", slug: "the-garden", name: "The Garden", kind: "community", status: "active", createdAt: 1 };
+  const member = (status: string) => ({
+    _id: "communityMembers:garden-ben",
+    hostOrgId: GARDEN._id,
+    userId: BEN,
+    role: "member",
+    status,
+    joinedAt: 0,
+  });
+  const inGarden = async (rows: unknown[], hostOrgs: unknown[] = [GARDEN]) =>
+    (await run(getProfileByHandle, makeCtx(world({ hostOrgs, communityMembers: rows }), null), { handle: "ben" }))?.inGarden;
+
+  it("is true for an active member", async () => {
+    expect(await inGarden([member("active")])).toBe(true);
+  });
+
+  it("is false for a pending or removed row, no row, or no Garden", async () => {
+    expect(await inGarden([member("pending")])).toBe(false);
+    expect(await inGarden([member("removed")])).toBe(false);
+    expect(await inGarden([])).toBe(false);
+    expect(await inGarden([member("active")], [])).toBe(false);
+  });
+});

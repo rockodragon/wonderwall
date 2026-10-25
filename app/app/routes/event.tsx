@@ -46,6 +46,7 @@ import { uploadToStorage } from "../lib/uploadFile";
 import { useFileUpload } from "../lib/useFileUpload";
 import { isWideCover, useImageAspect } from "../lib/useImageAspect";
 import { useBack } from "../lib/useBack";
+import { downloadBlob } from "../lib/downloadBlob";
 import { YOUTUBE_LIVE_LABEL, YOUTUBE_LIVE_URL } from "../constants/broadcast";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { ShareButton } from "../components/ShareButton";
@@ -2698,14 +2699,7 @@ function GuestsPanel({
   function downloadCsv() {
     if (!guests) return;
     const blob = new Blob([guestsToCsv(guests)], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${title.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "event"}-guests.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    downloadBlob(blob, `${title.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "event"}-guests.csv`);
   }
 
   async function decide(applicationId: string, status: "accepted" | "declined") {

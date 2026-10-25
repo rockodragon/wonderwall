@@ -126,6 +126,9 @@ export default [
     route("jobs/:id", "routes/jobs.$id.tsx"),
     route("jobs/:id/edit", "routes/jobs.$id.edit.tsx"),
     route("profile/:profileId", "routes/profile.tsx"),
+    // "My code": your QR code to hold up face to face (routes/code.tsx).
+    // Signed in only; handleRules.ts reserves "code".
+    route("code", "routes/code.tsx"),
     // Organizations (docs/features/organizations.md). Public like an event
     // page — a signed-out guest who clicks "Hosted by Abiding Practice"
     // lands here; _app.tsx lists "/orgs" as a public path. The edit page

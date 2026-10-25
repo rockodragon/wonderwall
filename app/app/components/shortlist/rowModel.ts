@@ -5,14 +5,14 @@
 // tested; ShortlistRow.tsx draws it.
 //
 // Dates, names and pay come from the app's own helpers (shortDay, calendarDay
-// for a role's deadline, firstNameOf, payText) and the desk's (timeLabel,
+// for a role's deadline, addressName, payText) and the desk's (timeLabel,
 // venueName).
 
 import { workKind } from "../../lib/shortlist/kind";
 import { timeLabel, venueName } from "../../desk/deskCards";
 import type { DeskCardId } from "../../desk/deskState";
 import { calendarDay, shortDay } from "../../lib/dates";
-import { firstNameOf } from "../../lib/names";
+import { addressName } from "../../lib/names";
 import { payText } from "../../lib/shortlist/model";
 import { closesAt } from "../../lib/shortlist/needsYou";
 import type { ClosedReason, ProjectKind, ShortlistEvent, ShortlistProject } from "../../lib/shortlist/types";
@@ -59,10 +59,8 @@ export interface RowContext {
   money: (cents: number) => string;
 }
 
-/** A first name to address someone by, or their whole name before they've set one. */
-export function addressName(name: string): string {
-  return firstNameOf(name) ?? name;
-}
+// The desk's cards (desk/shortlistCards.ts) read it from here.
+export { addressName };
 
 function line(...parts: (string | null | false | undefined)[]): string {
   return parts.filter(Boolean).join(" · ");

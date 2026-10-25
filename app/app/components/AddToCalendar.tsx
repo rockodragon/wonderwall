@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { downloadBlob } from "../lib/downloadBlob";
 import {
   buildGoogleCalendarUrl,
   buildIcs,
@@ -27,15 +28,7 @@ export function AddToCalendar({
     const blob = new Blob([buildIcs(event)], {
       type: "text/calendar;charset=utf-8",
     });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = icsFileName(event.title);
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
-    // Safari needs the object URL alive past the click.
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    downloadBlob(blob, icsFileName(event.title));
     setDownloaded(true);
     setTimeout(() => setDownloaded(false), 2000);
   }

@@ -1,3 +1,4 @@
+import { Scan } from "@phosphor-icons/react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { Link, Navigate, useLocation, useParams } from "react-router";
@@ -7,11 +8,14 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { profilePath } from "../../convex/handleRules";
 import { normalizeUrl } from "../../convex/garden/richText";
 import { loginHref } from "../lib/loginHref";
-import { profileDescription, profileTitle, publicProfileUrl } from "../lib/profileHead";
+import { canonicalProfileUrl, profileDescription, profileTitle } from "../lib/profileHead";
 import { EmbedStill, PlayBadge } from "../components/EmbedStill";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { ShortlistLink } from "../components/shortlist/ShortlistLink";
 import { ShareButton } from "../components/ShareButton";
+import { ShareProfileButton } from "../components/ShareProfileButton";
+import { ShareHint, useShareHint } from "../components/ShareHint";
+import { ScanCard } from "../components/ScanCard";
 import { shownTitle } from "../lib/placeholderTitle";
 import { OrgLogo } from "../components/OrgLogo";
 import { ProjectTile } from "../components/ProjectTile";
@@ -95,6 +99,9 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
 
   // Check if viewing own profile
   const isOwnProfile = !!profile && myProfile?._id === profile._id;
+  // Once, on your own profile: what the share buttons hold, or that an
+  // address comes first (components/ShareHint.tsx).
+  const shareHint = useShareHint(!!profile?.handle, isOwnProfile);
 
   // Following is private to the pair, so the only signal shown is whether
   // this person follows the viewer. Skipped on the own profile.
@@ -183,6 +190,9 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
     <div className={`relative p-4 sm:p-6 ${PAGE_WIDTH.list} mx-auto`}>
       <ProfileHead profile={profile} />
       <BackLink fallback="/people" className="mb-6" />
+      {/* Opened from this person's code (?ref=f2f, routes/code.tsx): Follow,
+          or join with their invite. Nothing for anyone else. */}
+      <ScanCard profile={profile} isOwner={myProfile === undefined ? undefined : isOwnProfile} />
       <div className="absolute top-3 right-3 flex items-center gap-1 sm:hidden">{shareAndMore}</div>
       {/* Profile header. Identity (name/role/location/network) sits on the
           left, all the ways to act on this person are grouped on the right
@@ -386,6 +396,27 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
                 {conversationError}
               </p>
             )}
+            {/* Your link, a QR code, a story picture, and a badge and a card
+                for your own website (components/ProfileShareKit.tsx); and
+                your code to hold up face to face (routes/code.tsx). */}
+            {isOwnProfile && (
+              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                <ShareProfileButton profile={profile} projects={affiliations} onOpen={shareHint.dismiss} />
+                <Link
+                  to="/code"
+                  className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-colors hover:border-[var(--app-accent)]"
+                  style={{
+                    backgroundColor: "var(--app-surface-raised)",
+                    color: "var(--app-text)",
+                    borderColor: "var(--app-hairline)",
+                  }}
+                >
+                  <Scan size={16} aria-hidden />
+                  Show my code
+                </Link>
+              </div>
+            )}
+            {isOwnProfile && shareHint.show && <ShareHint hasHandle={!!profile.handle} onClose={shareHint.dismiss} />}
             {/* Your own profile is one place a phone finds the Shortlist
                 (the other is Today's corner), in the place Message sits on
                 anyone else's. */}
@@ -843,7 +874,7 @@ function ProfileHead({ profile }: { profile: ProfileData }) {
   return (
     <>
       <meta name="description" content={profileDescription(profile)} />
-      {profile.handle && <link rel="canonical" href={publicProfileUrl(profile.handle)} />}
+      {profile.handle && <link rel="canonical" href={canonicalProfileUrl(profile.handle, profile.inGarden)} />}
       {profile.hideFromSearch && <meta name="robots" content="noindex" />}
     </>
   );
