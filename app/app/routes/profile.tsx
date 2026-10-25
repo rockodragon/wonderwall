@@ -1,9 +1,13 @@
-import { useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link, Navigate, useLocation, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
+import { profilePath } from "../../convex/handleRules";
+import { normalizeUrl } from "../../convex/garden/richText";
+import { loginHref } from "../lib/loginHref";
+import { profileDescription, profileTitle, publicProfileUrl } from "../lib/profileHead";
 import { EmbedStill, PlayBadge } from "../components/EmbedStill";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { ShortlistLink } from "../components/shortlist/ShortlistLink";
@@ -17,16 +21,42 @@ import { BackLink } from "../components/BackLink";
 import { FF_TABLES } from "../lib/featureFlags";
 import { useStartConversation } from "../lib/useStartConversation";
 
-// Matches listAffiliations's return shape (project-teams.md §4). Annotated
-// explicitly here — not inferred from the query — so this section still
-// typechecks while app/convex/garden/projectTeam.ts is still being written.
+/** What profiles.getProfile and getProfileByHandle answer with: one shape
+ * (profiles.ts publicProfilePage), so this page is the same either way. */
+export type ProfileData = NonNullable<ReturnType<typeof useQuery<typeof api.profiles.getProfile>>>;
+
+/**
+ * /profile/:id — a person's older address. With an address of their own the
+ * page lives at /@handle (routes/slug.tsx), signed in or out, so this only
+ * forwards there. Without one it behaves as before: a signed-out visitor goes
+ * to sign in and comes back. (routes/_app.tsx lists /profile/:id public so
+ * this can run for them at all.)
+ */
 export default function Profile() {
   const { profileId } = useParams();
-  const myProfile = useQuery(api.profiles.getMyProfile);
+  const location = useLocation();
+  const { isAuthenticated, isLoading } = useConvexAuth();
   const profile = useQuery(
     api.profiles.getProfile,
     profileId ? { profileId: profileId as Id<"profiles"> } : "skip",
   );
+  if (profile?.handle) return <Navigate to={profilePath(profile.handle)} replace />;
+  if (profile !== undefined && !isLoading && !isAuthenticated) {
+    return <Navigate to={loginHref(location.pathname + location.search)} replace />;
+  }
+  return <ProfilePage profile={profile} />;
+}
+
+/**
+ * The page itself: loading while `profile` is undefined, "not found" for
+ * null. Open to a signed-out visitor: Follow and Message take them to sign
+ * in and back here; the rest reads the same.
+ */
+export function ProfilePage({ profile }: { profile: ProfileData | null | undefined }) {
+  const location = useLocation();
+  const { isAuthenticated } = useConvexAuth();
+  const here = location.pathname + location.search;
+  const myProfile = useQuery(api.profiles.getMyProfile);
   const inviteStats = useQuery(
     api.invites.getInviteStats,
     profile?.userId ? { userId: profile.userId } : "skip",
@@ -48,6 +78,8 @@ export default function Profile() {
   // a project, so "Working on" and "Portfolio" are the same projects split
   // by done-or-not. Pieces with no project (from before every piece got
   // one) still show in Portfolio on their own.
+  // Matches listAffiliations's return shape (project-teams.md §4), annotated
+  // `any` here rather than inferred from the query.
   const openProjects = (affiliations ?? []).filter((a: any) => !a.completed);
   const completedProjects = (affiliations ?? []).filter((a: any) => a.completed);
   const loosePieces = (profile?.artifacts ?? []).filter((a: any) => !a.projectId);
@@ -62,7 +94,7 @@ export default function Profile() {
   });
 
   // Check if viewing own profile
-  const isOwnProfile = myProfile?._id === profileId;
+  const isOwnProfile = !!profile && myProfile?._id === profile._id;
 
   // Following is private to the pair, so the only signal shown is whether
   // this person follows the viewer. Skipped on the own profile.
@@ -82,12 +114,11 @@ export default function Profile() {
     (!profile?.interests || profile.interests.length === 0) &&
     (!profile?.artifacts || profile.artifacts.length === 0);
 
-  // Record profile view on mount
+  // Record the view once the page knows whose it is.
+  const viewedId = profile?._id;
   useEffect(() => {
-    if (profileId) {
-      recordView({ profileId: profileId as Id<"profiles"> }).catch(() => {});
-    }
-  }, [profileId, recordView]);
+    if (viewedId) recordView({ profileId: viewedId }).catch(() => {});
+  }, [viewedId, recordView]);
 
   const handleToggleBlock = async () => {
     if (!profile?.userId) return;
@@ -135,10 +166,14 @@ export default function Profile() {
     );
   }
 
+  // The website and social links saved in Settings › Links, in their order.
+  const links = profile.links ?? [];
+
   const shareAndMore = (
     <>
       <ShareButton type="profile" title={profile.name} size="sm" />
-      {!isOwnProfile && blockStatus !== undefined && (
+      {/* Blocking needs an account; a visitor gets Share alone. */}
+      {isAuthenticated && !isOwnProfile && blockStatus !== undefined && (
         <ProfileOverflowMenu blocked={blockStatus.blockedByMe} onToggleBlock={handleToggleBlock} />
       )}
     </>
@@ -146,6 +181,7 @@ export default function Profile() {
 
   return (
     <div className={`relative p-4 sm:p-6 ${PAGE_WIDTH.list} mx-auto`}>
+      <ProfileHead profile={profile} />
       <BackLink fallback="/people" className="mb-6" />
       <div className="absolute top-3 right-3 flex items-center gap-1 sm:hidden">{shareAndMore}</div>
       {/* Profile header. Identity (name/role/location/network) sits on the
@@ -189,6 +225,22 @@ export default function Profile() {
                 </span>
               )}
             </div>
+            {/* The address, /@handle — the one link to give out. Without
+                one, the owner sees where to claim it (Settings › Profile). */}
+            {profile.handle ? (
+              <p className="mt-0.5 text-sm" style={{ color: "var(--app-text-dim)" }}>
+                @{profile.handle}
+              </p>
+            ) : (
+              isOwnProfile && (
+                <p className="mt-0.5 text-sm">
+                  <Link to="/settings#address" className="hover:underline" style={{ color: "var(--app-accent-ink)" }}>
+                    Claim your address
+                  </Link>
+                  <span style={{ color: "var(--app-text-dim)" }}> · thecreative.exchange/@you</span>
+                </p>
+              )
+            )}
             {/* Where they work, LinkedIn-headline style: "Founder at
                 Abiding Practice · Grove". Current positions only; the full
                 list with years is the Organizations section below. An org
@@ -283,8 +335,15 @@ export default function Profile() {
               Block kebab only make sense on someone else's. */}
           <div className="flex flex-col items-start sm:items-end gap-2 shrink-0">
             <div className="flex items-center gap-2">
-              <FavoriteButton targetType="profile" targetId={profile._id} />
-              {!isOwnProfile && (
+              {/* Signed out, Follow and Message go to sign in and come back
+                  here (lib/loginHref.ts); signed in, they act. */}
+              {isAuthenticated ? (
+                <FavoriteButton targetType="profile" targetId={profile._id} />
+              ) : (
+                <SignInTo label="Follow" returnTo={here} />
+              )}
+              {!isOwnProfile && !isAuthenticated && <SignInTo label="Message" returnTo={here} />}
+              {!isOwnProfile && isAuthenticated && (
                 <button
                   onClick={() => profile.userId && startConversation(profile.userId)}
                   disabled={startingConversation}
@@ -358,13 +417,32 @@ export default function Profile() {
         </div>
       </div>
 
-      {profile.bio && (
-        <p
-          className="-mt-4 mb-8 text-sm sm:text-base"
-          style={{ color: "var(--app-text-muted)" }}
-        >
-          {profile.bio}
-        </p>
+      {(profile.bio || links.length > 0) && (
+        <div className="-mt-4 mb-8 space-y-3">
+          {profile.bio && (
+            <p className="text-sm sm:text-base" style={{ color: "var(--app-text-muted)" }}>
+              {profile.bio}
+            </p>
+          )}
+          {/* Their website and social links (Settings › Links). rel="me":
+              the person's own addresses elsewhere. */}
+          {links.length > 0 && (
+            <nav aria-label="Links" className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+              {links.map((link) => (
+                <a
+                  key={link._id}
+                  href={normalizeUrl(link.url)}
+                  target="_blank"
+                  rel="me noopener"
+                  className="font-medium hover:underline"
+                  style={{ color: "var(--app-accent-ink)" }}
+                >
+                  {link.label}
+                </a>
+              ))}
+            </nav>
+          )}
+        </div>
       )}
 
       {/* Profile setup prompt for own incomplete profile */}
@@ -752,9 +830,39 @@ export default function Profile() {
   );
 }
 
-// One line of what an open project is asking for — hiring (its open roles,
-// or a paid posting's own pay), gig dates, raising. Nothing when it's
-// asking for nothing: the stage beside the title already says enough.
+/** What the page says about itself (lib/profileHead.ts): the title, one
+ * line for search, the one address, and noindex when the person asked to be
+ * hidden. React puts these in <head>; the edge writes the same for crawlers
+ * that run no JavaScript (functions/[handle].ts). */
+function ProfileHead({ profile }: { profile: ProfileData }) {
+  const title = profileTitle(profile.name, profile.handle);
+  useEffect(() => {
+    document.title = title;
+  }, [title]);
+  return (
+    <>
+      <meta name="description" content={profileDescription(profile)} />
+      {profile.handle && <link rel="canonical" href={publicProfileUrl(profile.handle)} />}
+      {profile.hideFromSearch && <meta name="robots" content="noindex" />}
+    </>
+  );
+}
+
+/** A signed-out visitor's Follow or Message: a pill like the real one, and
+ * it goes to sign in and back to this page. */
+function SignInTo({ label, returnTo }: { label: string; returnTo: string }) {
+  return (
+    <Link
+      to={loginHref(returnTo)}
+      title={`Sign in to ${label.toLowerCase()}`}
+      className="px-3 py-1.5 rounded-full text-sm font-medium border whitespace-nowrap transition-colors hover:border-[var(--app-accent)]"
+      style={{ color: "var(--app-text-muted)", borderColor: "var(--app-hairline)" }}
+    >
+      {label}
+    </Link>
+  );
+}
+
 // The overflow menu for rare/destructive profile actions — just Block today.
 // Same fixed-backdrop dropdown pattern as projects.tsx's PostProjectMenu.
 function ProfileOverflowMenu({

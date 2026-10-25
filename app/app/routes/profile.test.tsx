@@ -10,6 +10,7 @@ const scene = vi.hoisted(() => ({ me: "ana" }));
 vi.mock("convex/react", async () => {
   const { getFunctionName } = await import("convex/server");
   return {
+    useConvexAuth: () => ({ isAuthenticated: true, isLoading: false }),
     useMutation: () => async () => {},
     useQuery: (fn: Parameters<typeof getFunctionName>[0], args?: unknown) => {
       if (args === "skip") return undefined;

@@ -1,8 +1,9 @@
 import { v, ConvexError } from "convex/values";
-import { internalAction, internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { internalAction, internalMutation, internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { currentUserId, getProfileByUserId, requireProfile, requireUserId } from "./helpers";
 import type { Doc } from "./_generated/dataModel";
+import { profileForHandle } from "./handles";
 import { normalizeHandle, PAYOUT_KINDS, type PayoutHandles } from "./garden/gigRules";
 import { fillOrgWebsite, linkOrgByName, profileOrganizations, unlinkPrimaryOrg } from "./organizations";
 import { normalizeOrgUrl } from "./organizationRules";
@@ -42,6 +43,11 @@ export function toPublicProfile(profile: Doc<"profiles">) {
     orgUrl: profile.orgUrl,
     supportInterests: profile.supportInterests,
     partnerOfferings: profile.partnerOfferings,
+    // The address, /@handle (handleRules.ts), and whether its page asks
+    // search engines to leave it out. Both public by nature: the address is
+    // the link, and the page itself carries the noindex.
+    handle: profile.handle,
+    hideFromSearch: profile.hideFromSearch,
     createdAt: profile.createdAt,
     updatedAt: profile.updatedAt,
   };
@@ -89,12 +95,14 @@ export const getMyProfile = query({
   },
 });
 
-export const getProfile = query({
-  args: { profileId: v.id("profiles") },
-  handler: async (ctx, args) => {
-    const profile = await ctx.db.get(args.profileId);
-    if (!profile) return null;
-
+/**
+ * Everything a person's page shows (routes/profile.tsx): the public fields
+ * (toPublicProfile), the picture, attributes, links, pieces, the active
+ * wondering and positions at organizations. getProfile (by id) and
+ * getProfileByHandle (by address) answer with exactly this, so the page is
+ * the same whichever way it was reached.
+ */
+export async function publicProfilePage(ctx: QueryCtx, profile: Doc<"profiles">) {
     // Resolve image URL
     const imageUrl = await profileImageUrl(ctx, profile);
 
@@ -161,6 +169,30 @@ export const getProfile = query({
       // Positions at organizations (docs/features/organizations.md).
       organizations: await profileOrganizations(ctx, profile._id),
     };
+}
+
+export const getProfile = query({
+  args: { profileId: v.id("profiles") },
+  handler: async (ctx, args) => {
+    const profile = await ctx.db.get(args.profileId);
+    if (!profile) return null;
+    return await publicProfilePage(ctx, profile);
+  },
+});
+
+/**
+ * A person's page by their address, /@handle (routes/slug.tsx and the edge,
+ * functions/[handle].ts). Public like getProfile: the page works signed out
+ * and is for search engines to find. An old address still answers for
+ * HANDLE_FORWARD_DAYS after a change (handles.profileForHandle); the caller
+ * compares `handle` on the answer with the address it asked for and moves to
+ * the current one. Null for an address nobody has.
+ */
+export const getProfileByHandle = query({
+  args: { handle: v.string() },
+  handler: async (ctx, args) => {
+    const profile = await profileForHandle(ctx, args.handle);
+    return profile ? await publicProfilePage(ctx, profile) : null;
   },
 });
 

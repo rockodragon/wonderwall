@@ -207,11 +207,15 @@ export default [
 
   route("ia", "routes/ia.tsx"),
 
-  // A community's front door: /sd, /the-garden (community.landing.tsx).
-  // Every static route above wins over it; a slug that isn't a community
-  // renders the 404. convex/garden/communityDomains.ts RESERVED_SLUGS keeps
-  // a community from taking a path the site already uses.
-  route(":communitySlug", "routes/community.landing.tsx"),
+  // The one top-level dynamic address (routes/slug.tsx). "/@handle" is a
+  // person's public page — the profile is the portfolio — and anything else
+  // is a community's front door: /sd, /the-garden (community.landing.tsx).
+  // React Router can't match a partial segment like "/@:handle", and two
+  // dynamic siblings would tie, so one route tells them apart. Every static
+  // route above wins over it; a slug that is neither renders the 404.
+  // convex/handleRules.ts RESERVED_HANDLES keeps a community or a person
+  // from taking a path the site already uses.
+  route(":slug", "routes/slug.tsx"),
 
   // 404 catch-all
   route("*", "routes/404.tsx"),
