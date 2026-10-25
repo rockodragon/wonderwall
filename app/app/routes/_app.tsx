@@ -211,13 +211,6 @@ export default function AppLayout() {
     if (mustInvite && !onEventPage && !onTablePage) navigate("/invite", { replace: true });
   }, [mustInvite, onEventPage, onTablePage, navigate]);
 
-  // The desktop first-visit note that says where the menu is
-  // (desk/PaletteHint.tsx) waits until nothing above is about to send this
-  // person somewhere else.
-  const navNoteReady =
-    !isLoading &&
-    (!isAuthenticated || (profile !== undefined && signupCommunity !== undefined && !mustOnboard && !mustInvite));
-
   useEffect(() => {
     if (isAuthenticated && mustOnboard && !onEventPage && !onTablePage && !mustInvite) {
       // Come back here afterwards — onboarding ends on /today, which
@@ -338,25 +331,22 @@ export default function AppLayout() {
           a message thread are full-height and manage their own bottom. On a
           phone every page gets room for the bottom bar except a thread,
           which stops above the bar itself (lib/phoneBar.ts). */}
+      {/* Desktop pages end 256px clear of the palette's resting arc
+          (desk/Palette.tsx), so the last row can scroll out from under it. */}
       <main
         className={`${isThread ? "" : "pb-20"} ${
-          FF_DESK ? (ownsBottom ? "md:pb-0" : "md:pb-32") : "md:pb-0 md:pl-64"
+          FF_DESK ? (ownsBottom ? "md:pb-0" : "md:pb-64") : "md:pb-0 md:pl-64"
         }`}
       >
         <Outlet />
       </main>
 
-      {/* Desktop palette — one button in the lower-left corner that fans out
-          the places you can go (desk/Palette.tsx). Phones keep the bottom
-          bar below. */}
+      {/* Desktop palette — the places you can go, resting on an arc in the
+          lower-left corner (desk/Palette.tsx). Phones keep the bottom bar
+          below. */}
       {FF_DESK && (
         <div className="hidden md:block">
-          <Palette
-            isAuthenticated={isAuthenticated}
-            profile={profile}
-            badgeCount={sidebarBadgeCount}
-            hintReady={navNoteReady}
-          />
+          <Palette isAuthenticated={isAuthenticated} profile={profile} badgeCount={sidebarBadgeCount} />
         </div>
       )}
 
