@@ -31,6 +31,7 @@
 // module without pulling them in.
 
 import { ConvexError, v } from "convex/values";
+import { servedFileUrl } from "../images";
 
 // ——————————————————————————————————————————————————————————————
 // Types
@@ -453,7 +454,8 @@ export async function resolveRichDocMedia(
       if (!block.storageId) return { ...block, resolvedUrl: block.url ?? null };
       let resolved: string | null = null;
       try {
-        resolved = await storage.getUrl(block.storageId);
+        const url = await storage.getUrl(block.storageId);
+        resolved = url && servedFileUrl(url);
       } catch {
         // A file that has been deleted out from under the document — the
         // block renders as a quiet gap rather than a broken image.

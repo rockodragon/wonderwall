@@ -33,7 +33,7 @@ import { getTableParticipation } from "./garden/tablePolicy";
 import { notifyDateCanceled, notifyDateChanged } from "./garden/tableNotify";
 import { isEventListed } from "./eventWindow";
 import { isSafeHttpsUrl } from "./garden/richText";
-import { eventCoverUrl, orgLogoUrl, profileImageUrl, storedOrExternalUrl } from "./images";
+import { eventCoverUrl, orgLogoUrl, profileImageUrl, storedFileUrl, storedOrExternalUrl } from "./images";
 
 // ——— Pure validation helpers (unit-tested in events.test.ts) ———
 
@@ -415,7 +415,7 @@ export const get = query({
     // Resolve gallery image URLs
     const galleryImageUrls = event.imageStorageIds
       ? await Promise.all(
-          event.imageStorageIds.map((id) => ctx.storage.getUrl(id)),
+          event.imageStorageIds.map((id) => storedFileUrl(ctx, id)),
         )
       : [];
 

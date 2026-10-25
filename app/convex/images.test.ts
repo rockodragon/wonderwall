@@ -8,7 +8,7 @@
 // blank instead of using its pasted link, and the event page ignored the
 // gallery image the cards fall back to.
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { makeCtx, run, type Row } from "../test-support/convexContext";
 import {
   eventCoverUrl,
@@ -16,6 +16,8 @@ import {
   pieceMediaUrl,
   profileImageUrl,
   projectPhotoUrl,
+  servedFileUrl,
+  storedFileUrl,
   storedOrExternalUrl,
 } from "./images";
 import { getProject, listProjects } from "./garden/projects";
@@ -340,5 +342,46 @@ describe("an event's cover", () => {
     const data = eventWorld({});
     const page = await run(getEvent, withStorage(makeCtx(data, null), urls), { eventId: "events:e1" });
     expect(page.organizer.imageUrl).toBe("https://files/host");
+  });
+});
+
+describe("servedFileUrl and storedFileUrl (files through our own domain)", () => {
+  const convexFile = "https://courteous-rabbit-750.convex.cloud/api/storage/2f8a1c3e-7b4d-4e2a-9f10-5c6d7e8f9a0b";
+  const ours = "https://thecreative.exchange/media/2f8a1c3e-7b4d-4e2a-9f10-5c6d7e8f9a0b";
+  const before = process.env.MEDIA_BASE_URL;
+  const setBase = (base: string | undefined) => {
+    if (base === undefined) delete process.env.MEDIA_BASE_URL;
+    else process.env.MEDIA_BASE_URL = base;
+  };
+  afterEach(() => setBase(before));
+
+  it("leaves Convex's address alone until MEDIA_BASE_URL is set", () => {
+    setBase(undefined);
+    expect(servedFileUrl(convexFile)).toBe(convexFile);
+  });
+
+  it("serves the file from our domain when it is", () => {
+    setBase("https://thecreative.exchange/media/");
+    expect(servedFileUrl(convexFile)).toBe(ours);
+  });
+
+  it("never rewrites an address that isn't a Convex file", () => {
+    setBase("https://thecreative.exchange/media/");
+    const pasted = "https://example.com/api/storage/abc12345";
+    expect(servedFileUrl(pasted)).toBe(pasted);
+  });
+
+  it("storedFileUrl serves through our domain, and a missing or failing file is null", async () => {
+    setBase("https://thecreative.exchange/media/");
+    expect(await storedFileUrl(storageOf({ a: convexFile }), sid("a"))).toBe(ours);
+    expect(await storedFileUrl(storageOf({}), sid("gone"))).toBeNull();
+    const throwing = { storage: { getUrl: async () => { throw new Error("boom"); } } } as any;
+    expect(await storedFileUrl(throwing, sid("x"))).toBeNull();
+  });
+
+  it("storedOrExternalUrl uses the served address, then the pasted link", async () => {
+    setBase("https://thecreative.exchange/media/");
+    expect(await storedOrExternalUrl(storageOf({ a: convexFile }), sid("a"), "https://x.test/p.jpg")).toBe(ours);
+    expect(await storedOrExternalUrl(storageOf({}), sid("gone"), "https://x.test/p.jpg")).toBe("https://x.test/p.jpg");
   });
 });

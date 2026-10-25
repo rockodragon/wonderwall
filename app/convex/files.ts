@@ -3,6 +3,7 @@ import { internalMutation, mutation, query } from "./_generated/server";
 import { fail } from "./errors";
 import { requireEventHost } from "./eventHosts";
 import { requireOwner, requireOwnProfileRow, requireProfile, requireUserId } from "./helpers";
+import { storedFileUrl } from "./images";
 
 // Generate an upload URL for the client to upload a file directly to Convex
 export const generateUploadUrl = mutation({
@@ -46,7 +47,7 @@ export const getImageUrl = query({
     storageId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
-    return await ctx.storage.getUrl(args.storageId);
+    return await storedFileUrl(ctx, args.storageId);
   },
 });
 
@@ -274,7 +275,7 @@ export const adminSetArtifactImage = internalMutation({
       mediaStorageId: args.storageId,
     });
 
-    const url = await ctx.storage.getUrl(args.storageId);
+    const url = await storedFileUrl(ctx, args.storageId);
     return { success: true, url };
   },
 });

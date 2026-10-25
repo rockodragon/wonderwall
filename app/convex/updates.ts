@@ -27,6 +27,7 @@ import { fail } from "./errors";
 import { getCommunityMember } from "./garden/communityLookup";
 import { insertNotification } from "./notify";
 import { escapeHtml } from "./email/template";
+import { storedFileUrl } from "./images";
 
 // ——————————————————————————————————————————————————————————————
 // Limits and the pure rules
@@ -351,7 +352,7 @@ export const listMine = query({
         _id: u._id,
         title: u.title,
         body: u.body,
-        imageUrl: u.imageStorageId ? await ctx.storage.getUrl(u.imageStorageId) : null,
+        imageUrl: u.imageStorageId ? await storedFileUrl(ctx, u.imageStorageId) : null,
         actionLabel: u.actionLabel ?? null,
         actionUrl: u.actionUrl ?? null,
       })),
@@ -436,7 +437,7 @@ export const listPastMine = query({
         _id: u._id,
         title: u.title,
         body: u.body,
-        imageUrl: u.imageStorageId ? await ctx.storage.getUrl(u.imageStorageId) : null,
+        imageUrl: u.imageStorageId ? await storedFileUrl(ctx, u.imageStorageId) : null,
         actionLabel: u.actionLabel ?? null,
         actionUrl: u.actionUrl ?? null,
         archivedAt: at,
@@ -555,7 +556,7 @@ export const adminList = query({
           .collect();
         return {
           ...u,
-          imageUrl: u.imageStorageId ? await ctx.storage.getUrl(u.imageStorageId) : null,
+          imageUrl: u.imageStorageId ? await storedFileUrl(ctx, u.imageStorageId) : null,
           opened: reads.filter((r) => r.openedAt !== undefined).length,
           clicked: reads.filter((r) => r.clickedAt !== undefined).length,
           archived: reads.filter((r) => r.archivedAt !== undefined).length,

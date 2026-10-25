@@ -17,6 +17,36 @@ type StorageCtx = {
   storage: { getUrl(storageId: Id<"_storage">): Promise<string | null> };
 };
 
+// Convex's own address for a stored file; the last segment is the file's key.
+const CONVEX_FILE_URL = /^https:\/\/[^/]+\.convex\.cloud\/api\/storage\/([A-Za-z0-9-]+)$/;
+
+/**
+ * Where a stored file is served from. With MEDIA_BASE_URL set (production:
+ * "https://thecreative.exchange/media/"), Convex's address is swapped for
+ * ours, so the file comes through our Cloudflare edge: cached, refused to AI
+ * training crawlers, and sent with the same "not training data" headers as
+ * our pages (functions/media/[id].ts). Unset, Convex's address is returned
+ * as is, so turning it on or off is one environment variable. richText.ts
+ * re-exports into the browser bundle, hence the `process` guard.
+ */
+export function servedFileUrl(convexUrl: string): string {
+  const base = typeof process === "undefined" ? undefined : process.env.MEDIA_BASE_URL;
+  if (!base) return convexUrl;
+  const key = CONVEX_FILE_URL.exec(convexUrl)?.[1];
+  return key ? `${base}${key}` : convexUrl;
+}
+
+/** A stored file's address (servedFileUrl), or null when it doesn't resolve:
+ *  a deleted file, or a lookup that throws. */
+export async function storedFileUrl(ctx: StorageCtx, storageId: Id<"_storage">): Promise<string | null> {
+  try {
+    const url = await ctx.storage.getUrl(storageId);
+    return url ? servedFileUrl(url) : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * The stored file's URL when it resolves, else the pasted link, else null.
  * A file that was deleted, or a lookup that throws, falls back to the link
@@ -28,16 +58,8 @@ export async function storedOrExternalUrl(
   storageId: Id<"_storage"> | undefined | null,
   externalUrl: string | undefined | null,
 ): Promise<string | null> {
-  if (storageId) {
-    let stored: string | null = null;
-    try {
-      stored = await ctx.storage.getUrl(storageId);
-    } catch {
-      stored = null;
-    }
-    if (stored) return stored;
-  }
-  return externalUrl || null;
+  const stored = storageId ? await storedFileUrl(ctx, storageId) : null;
+  return stored || externalUrl || null;
 }
 
 /**
