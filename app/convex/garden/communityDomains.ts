@@ -14,6 +14,7 @@ import { communityVisibility } from "./communityVisibility";
 import { normalizeHost } from "./brandHosts";
 import { COMMUNITY_KIND } from "./communityLookup";
 import { RESERVED_HANDLES } from "../handleRules";
+import { profileForHandle } from "../handles";
 
 // "WWW.CreateSD.org:443" → "createsd.org": one rule for every host the
 // site compares, so it lives with The Garden's addresses.
@@ -116,7 +117,10 @@ export const getCommunityLanding = query({
 export const RESERVED_SLUGS = RESERVED_HANDLES;
 
 /** Renames a community (and optionally its slug, which is its /<slug>
- * address). Slugs must be unused, lowercase letters, digits and dashes.
+ * address). Slugs must be unused — by a community or as a person's @address
+ * — lowercase letters, digits and dashes. A held city name
+ * (heldHandles.ts) is free to take: that's how it's released to the
+ * community that runs the city.
  *   npx convex run garden/communityDomains:renameCommunity '{"slug":"create-sd","newSlug":"sd","name":"The Creative Exchange San Diego"}' [--prod] */
 export const renameCommunity = internalMutation({
   args: {
@@ -135,6 +139,10 @@ export const renameCommunity = internalMutation({
     if (args.newSlug && args.newSlug !== org.slug) {
       if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(args.newSlug)) throw new Error(`Bad slug "${args.newSlug}"`);
       if (RESERVED_SLUGS.has(args.newSlug)) throw new Error(`/${args.newSlug} is already a page on the site`);
+      // A person's @address, their old one while it forwards, or a founder
+      // alias: /sd and /@sd would read as the same name.
+      const person = await profileForHandle(ctx, args.newSlug);
+      if (person) throw new Error(`"${args.newSlug}" is a person's address (@${person.handle ?? args.newSlug})`);
       const taken = await ctx.db
         .query("hostOrgs")
         .withIndex("by_slug", (q) => q.eq("slug", args.newSlug!))

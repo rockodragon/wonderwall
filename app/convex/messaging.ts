@@ -8,6 +8,7 @@ import { currentUserId, getProfileByUserId, requireUserId } from "./helpers";
 import { insertNotification } from "./notify";
 import type { Doc, Id } from "./_generated/dataModel";
 import { isEventHost } from "./eventHosts";
+import { hasPaidMembership } from "./garden/entitlements";
 import { profileImageUrl } from "./images";
 
 // The conversation between two people, if they have one. conversations has
@@ -192,11 +193,7 @@ export const sendMessage = mutation({
         if (!(await notCold(conversationId))) coldSent += count;
       }
 
-      const memberships = await ctx.db
-        .query("memberships")
-        .withIndex("by_userId", (q) => q.eq("userId", userId))
-        .collect();
-      const isMember = memberships.some((m) => m.status === "active" || m.status === "past_due");
+      const isMember = await hasPaidMembership(ctx, userId);
       const limit = coldMessageLimit(isMember);
       if (coldSent >= limit) {
         throw new ConvexError(coldLimitMessage(isMember));

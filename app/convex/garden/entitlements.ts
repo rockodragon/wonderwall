@@ -171,3 +171,22 @@ export async function getGardenUser(
     community,
   });
 }
+
+// ——— Is this seat paid? (one rule: ENTITLED_STATUSES above) ———
+
+/** True when this membership row is a paid tier right now (ENTITLED_STATUSES).
+ * A covered seat counts: it's a full seat. Pure. */
+export function isEntitledMembership(m: Pick<MembershipRow, "status">): boolean {
+  return ENTITLED_STATUSES.has(m.status);
+}
+
+/** True when the person holds a paid membership in any community, a covered
+ * seat included. For what belongs to the platform rather than to one
+ * community, like a 3-character @address (handles.handleRefusal). */
+export async function hasPaidMembership(ctx: Pick<QueryCtx, "db">, userId: Id<"users">): Promise<boolean> {
+  const memberships = await ctx.db
+    .query("memberships")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .collect();
+  return memberships.some(isEntitledMembership);
+}
