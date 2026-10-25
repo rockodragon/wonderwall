@@ -2,9 +2,15 @@
 // and how many are new in the last 7 days — three small tables side by side.
 // The numbers come from convex/garden/operatorCounts.ts, which also says
 // what "last 7 days" means (new in that row, never "touched").
+//
+// A failed count stays inside this panel: useQuery throws on a server
+// error, and without the boundary below that took down all of /admin
+// (2026-10-25, prod backend deployed from a stale checkout).
 
+import { Component, type ReactNode } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { errorMessage } from "../../lib/convexError";
 import { admin } from "./adminStyles";
 
 const TH =
@@ -13,8 +19,6 @@ const LABEL = "py-1.5 pr-3 text-left text-[14px] font-normal text-[color:var(--a
 const NUMBER = "py-1.5 pl-3 text-right text-[14px] tabular-nums text-[color:var(--app-text)]";
 
 export function CountsPanel() {
-  const counts = useQuery(api.garden.operatorCounts.getCounts, {});
-
   return (
     <section className={admin.panel} aria-labelledby="counts-title">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -23,7 +27,34 @@ export function CountsPanel() {
         </h2>
         <p className={admin.hint}>7 days = new this week. Sample postings left out.</p>
       </div>
-      {!counts ? (
+      <CountsBoundary>
+        <Counts />
+      </CountsBoundary>
+    </section>
+  );
+}
+
+/** Keeps a server error in the panel, as one line, instead of the page. */
+class CountsBoundary extends Component<{ children: ReactNode }, { error: unknown }> {
+  state = { error: null as unknown };
+  static getDerivedStateFromError(error: unknown) {
+    return { error };
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <p role="alert" className={`mt-3 ${admin.meta}`}>
+          {errorMessage(this.state.error, "Couldn't count right now. The rest of this page still works.")}
+        </p>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function Counts() {
+  const counts = useQuery(api.garden.operatorCounts.getCounts, {});
+  return !counts ? (
         <p className={`mt-3 ${admin.meta}`}>Counting…</p>
       ) : (
         <div className="mt-4 grid grid-cols-1 gap-x-8 gap-y-6 md:grid-cols-3">
@@ -56,7 +87,5 @@ export function CountsPanel() {
             </table>
           ))}
         </div>
-      )}
-    </section>
-  );
+      );
 }
