@@ -17,13 +17,15 @@ export type ToolId =
 
 /** Sizes and timings from the handoff, "Palette" section. `zone` is the
  *  square of the lower-left corner the palette claims (the desk keeps its
- *  cards clear of it). */
+ *  cards clear of it). The tools rest on the arc with their names (Rick,
+ *  2026-10-21: the first level stays visible, as the phone's bar is), so the
+ *  zone holds the widest label at the arc's foot (toolReach). */
 export const PALETTE = {
   button: 56,
   inset: 28,
   tool: 44,
   radius: 170,
-  zone: 280,
+  zone: 340,
   stagger: 35,
   fanMs: 340,
   stackMs: 240,
@@ -31,7 +33,47 @@ export const PALETTE = {
    *  behind the tool's button (covering the gaps at the circle's corners); the
    *  other half is the visible gap to the menu. It runs the menu's full height. */
   bridge: 28,
+  /** A tool's name: the gap from its circle, the widest it may run before it
+   *  is cut short, and its line height. */
+  labelGap: 6,
+  // 56 holds "Projects" and "Shortlist" at 12px with room, and at seven
+  // tools (15 degrees apart) the top two names stay clear of each other.
+  labelMax: 56,
+  labelHeight: 14,
 } as const;
+
+/** Where a tool's name sits: on the tool's own ray, just past its circle, so
+ *  no name runs into the next circle on the arc (at seven tools the circles
+ *  nearly touch). `x`/`y` is the point on the ray the name's box touches,
+ *  from the tool's centre; `ax`/`ay` is how far along the box's width (from
+ *  the left) and height (from the bottom) that point falls. Straight up the
+ *  box is centred with its bottom on the point; straight right its left edge
+ *  is on it at mid height; in between, the corner between the two. */
+export function labelAnchor(angleDeg: number): { x: number; y: number; ax: number; ay: number } {
+  const rad = (angleDeg * Math.PI) / 180;
+  const c = Math.cos(rad);
+  const s = Math.sin(rad);
+  const d = PALETTE.tool / 2 + PALETTE.labelGap;
+  return { x: c * d, y: s * d, ax: (1 - c) / 2, ay: (1 - s) / 2 };
+}
+
+/** The box a tool's name takes, from the tool's centre, at a given width
+ *  (the widest it may run, unless told otherwise). */
+export function labelBox(angleDeg: number, width: number = PALETTE.labelMax): { x0: number; x1: number; y0: number; y1: number } {
+  const a = labelAnchor(angleDeg);
+  const x0 = a.x - a.ax * width;
+  const y0 = a.y - a.ay * PALETTE.labelHeight;
+  return { x0, x1: x0 + width, y0, y1: y0 + PALETTE.labelHeight };
+}
+
+/** How far a tool reaches from the main button's centre, name included: x to
+ *  the right, y up. The zone has to hold both. */
+export function toolReach(angleDeg: number): { x: number; y: number } {
+  const { x, y } = fanOffset(angleDeg);
+  const box = labelBox(angleDeg);
+  const half = PALETTE.tool / 2;
+  return { x: x + Math.max(half, box.x1), y: y + Math.max(half, box.y1) };
+}
 
 /** Where each tool sits on the quarter arc. Six tools use the handoff's exact
  *  angles (90 down to 0 in 18 degree steps); fewer spread evenly over the

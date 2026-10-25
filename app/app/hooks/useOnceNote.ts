@@ -1,5 +1,5 @@
-// A note shown once per browser: the palette's (desk/PaletteHint.tsx) and the
-// invite nudge. It waits until the page has settled, shows after a beat, and is gone for good once dismissed.
+// A note shown once per browser: the invite nudge (components/InviteNudge.tsx).
+// It waits until the page has settled, shows after a beat, and is gone for good once dismissed.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
