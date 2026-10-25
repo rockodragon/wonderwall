@@ -53,6 +53,9 @@ test.describe("/embed/@handle", () => {
   test("the rest of the site still refuses to be framed", async ({ request }) => {
     const res = await request.get("/");
     expect(res.headers()["x-frame-options"]).toBe("DENY");
+    // Below the card's one segment is the app shell, not the card.
+    const deeper = await request.get("/embed/a/b");
+    expect(deeper.headers()["x-frame-options"]).toBe("DENY");
   });
 
   test("the badges are there for other sites to show", async ({ request }) => {

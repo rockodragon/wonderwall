@@ -55,10 +55,11 @@
 # Framing is allowed here and nowhere else: "! X-Frame-Options" takes off the
 # DENY that /* above sets. It must come after /*: a rule further down sets
 # the header again. A Function's response doesn't get these rules, so the
-# function sends the same headers itself; these cover anything else served
-# under /embed/. noindex joins the X-Robots-Tag above: the card repeats the
+# function sends the same headers itself; this is the fallback. One segment
+# only (:handle): a deeper path such as /embed/a/b is the app shell, which
+# stays DENY. noindex joins the X-Robots-Tag above: the card repeats the
 # profile, which is the page to find.
-/embed/*
+/embed/:handle
   ! X-Frame-Options
   Content-Security-Policy: frame-ancestors *
   X-Robots-Tag: noindex
