@@ -6,6 +6,7 @@
   ],
   "exclude": [
     "/assets/*",
+    "/badge/*",
     "/brand/*",
     "/about/fonts/*",
     "/about/brand.css",

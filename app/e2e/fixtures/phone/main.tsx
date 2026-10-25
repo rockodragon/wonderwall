@@ -11,6 +11,9 @@ import Projects from "../../../app/routes/projects";
 import Favorites from "../../../app/routes/favorites";
 import Messages from "../../../app/routes/messages._index";
 import People from "../../../app/routes/search";
+// A named export, never a route's default (see routes/slug.tsx).
+import { ProfilePage, type ProfileData } from "../../../app/routes/profile";
+import { myPage } from "./data";
 import "./fixture.css";
 
 function Elsewhere({ what }: { what: string }) {
@@ -48,6 +51,8 @@ const router = createBrowserRouter([
       { path: "search", Component: People },
       { path: "projects/:id", element: <Elsewhere what="a project" /> },
       { path: "events/:eventId", element: <Elsewhere what="an event" /> },
+      // Your own page with an address, and its "Share your profile".
+      { path: "profile/me", element: <ProfilePage profile={myPage as unknown as ProfileData} /> },
       { path: "profile/:profileId", element: <Elsewhere what="a profile" /> },
       { path: "orgs/:slug", element: <Elsewhere what="an organization" /> },
       { path: "messages/:conversationId", element: <Elsewhere what="a conversation" /> },

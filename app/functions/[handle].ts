@@ -17,6 +17,7 @@
 // profile from search engines" adds noindex, in the head and as a header.
 
 import { cleanHandle, handleProblem, profilePath } from "../convex/handleRules";
+import { CONVEX_URL, convexQuery } from "../app/lib/convexHttp";
 import { profileDescription, profileTitle, publicProfileUrl } from "../app/lib/profileHead";
 import { injectShareHead } from "../app/lib/shareHead";
 
@@ -24,8 +25,6 @@ interface Env {
   ASSETS: { fetch: (req: Request | URL) => Promise<Response> };
   CONVEX_URL?: string;
 }
-
-const CONVEX_URL = "https://courteous-rabbit-750.convex.cloud";
 
 /** The fields the head needs, of profiles:getProfileByHandle's answer. */
 interface SharedProfile {
@@ -38,16 +37,11 @@ interface SharedProfile {
   hideFromSearch?: boolean;
 }
 
+/** Throws when Convex can't be asked (lib/convexHttp.ts); the caller then
+ * serves the shell alone. */
 async function fetchProfile(convexUrl: string, handle: string): Promise<SharedProfile | null> {
-  const res = await fetch(`${convexUrl}/api/query`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ path: "profiles:getProfileByHandle", args: { handle }, format: "json" }),
-    signal: AbortSignal.timeout(3000),
-  });
-  if (!res.ok) return null;
-  const data = (await res.json()) as { status?: string; value?: SharedProfile | null };
-  return data?.status === "success" && data.value && typeof data.value.name === "string" ? data.value : null;
+  const profile = await convexQuery<SharedProfile>(convexUrl, "profiles:getProfileByHandle", { handle });
+  return profile && typeof profile.name === "string" ? profile : null;
 }
 
 /** "@Ana" or "%40ana" → "ana"; null when the segment isn't an address at all. */

@@ -125,3 +125,10 @@ export async function orgLogoUrl(
 ): Promise<string | null> {
   return await storedOrExternalUrl(ctx, org.logoStorageId, null);
 }
+
+/** The file's key when `url` is Convex's own address for a stored file
+ *  (CONVEX_FILE_URL above), else null. The edge and the browser use it to
+ *  serve such a file through /media instead (lib/profileShare.ts). */
+export function convexFileKey(url: string): string | null {
+  return CONVEX_FILE_URL.exec(url)?.[1] ?? null;
+}

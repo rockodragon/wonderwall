@@ -1,0 +1,141 @@
+// Pointing people at a creative's public page: the share kit on your own
+// profile (components/ProfileShareKit.tsx) and the card other sites frame
+// (functions/embed/[handle].ts). The addresses with where-from tags, the
+// snippets to paste into a website, and which works to show. Pure: the edge
+// bundles it.
+//
+// ?ref= says where a visit came from. PostHog records the address of every
+// page view, so the tag shows up there with nothing else to set up.
+
+import { convexFileKey } from "../../convex/images";
+import { SITE_ORIGIN } from "./eventCalendar";
+import { shownTitle } from "./placeholderTitle";
+import { publicProfileUrl } from "./profileHead";
+import { escapeHtml } from "./shareHead";
+
+/** Where a link to the profile was put: Instagram bio, Linktree, your own
+ *  website, the QR code, the story image, the badge, the embed. */
+export type ShareRef = "ig" | "linktree" | "site" | "qr" | "story" | "badge" | "embed";
+
+/** What a creative did in the share kit, for PostHog's `profile_share`. */
+export type ShareKind = "copy_link" | "qr_png" | "qr_svg" | "story" | "badge" | "embed";
+
+/** The profile's one address, tagged with where it was put. */
+export function profileLink(handle: string, ref?: ShareRef): string {
+  const url = publicProfileUrl(handle);
+  return ref ? `${url}?ref=${ref}` : url;
+}
+
+/** The address as people read it: no "https://". */
+export function displayLink(url: string): string {
+  return url.replace(/^https?:\/\//, "");
+}
+
+// ——— For your website ———
+
+export type BadgeTone = "dark" | "light";
+
+/** The badge's words, also its alt text. */
+export const BADGE_ALT = "See my work on TheCreative.exchange";
+/** public/badge/*.svg are drawn at this size. */
+export const BADGE_SIZE = { width: 221, height: 48 } as const;
+
+/** Where a badge picture lives: public/badge/<tone>.svg. */
+export function badgePath(tone: BadgeTone): string {
+  return `/badge/${tone}.svg`;
+}
+
+/** The badge to paste into a website: the picture, linking to the profile. */
+export function badgeSnippet(handle: string, tone: BadgeTone): string {
+  const href = escapeHtml(profileLink(handle, "badge"));
+  const src = `${SITE_ORIGIN}${badgePath(tone)}`;
+  return `<a href="${href}"><img src="${src}" alt="${BADGE_ALT}" width="${BADGE_SIZE.width}" height="${BADGE_SIZE.height}"></a>`;
+}
+
+/** The card's own address, for a frame on someone else's page. */
+export function embedPath(handle: string): string {
+  return `/embed/@${handle}`;
+}
+
+/** The frame the embed snippet asks for. The card fits it with six works;
+ *  narrower is fine (max-width: 100%). */
+export const EMBED_FRAME = { width: 400, height: 440 } as const;
+
+/** The card to paste into a website: a frame holding /embed/@handle. */
+export function embedSnippet(handle: string, name: string): string {
+  const src = escapeHtml(`${SITE_ORIGIN}${embedPath(handle)}`);
+  const title = escapeHtml(`${name.trim() || `@${handle}`} on TheCreative.exchange`);
+  return (
+    `<iframe src="${src}" width="${EMBED_FRAME.width}" height="${EMBED_FRAME.height}" ` +
+    `style="border:0;max-width:100%" loading="lazy" title="${title}"></iframe>`
+  );
+}
+
+// ——— Which works to show ———
+
+/**
+ * A picture safe to put on another site or a canvas: https, or a path on our
+ * own site. Convex's own address for a stored file goes through /media, as
+ * every stored picture does (functions/media/[id].ts). Anything else (plain
+ * http, data:, a script URL) is no picture.
+ */
+export function shownImageUrl(url: string | null | undefined): string | null {
+  const u = url?.trim();
+  if (!u) return null;
+  const key = convexFileKey(u);
+  if (key) return `${SITE_ORIGIN}/media/${key}`;
+  if (/^https:\/\//i.test(u)) return u;
+  if (u.startsWith("/") && !u.startsWith("//")) return u;
+  return null;
+}
+
+/** A project row from garden/projectTeam:listAffiliations, the list the
+ *  profile page shows. */
+export interface ProjectRow {
+  projectId: string;
+  title?: string | null;
+  imageUrl?: string | null;
+}
+
+/** A piece from the profile (profiles.publicProfilePage `artifacts`). */
+export interface PieceRow {
+  _id: string;
+  projectId?: string | null;
+  type?: string;
+  title?: string | null;
+  mediaUrl?: string | null;
+  ogImageUrl?: string | null;
+  createdAt?: number;
+}
+
+export interface Work {
+  imageUrl: string;
+  title?: string;
+  /** Set for a project, which has its own public page. */
+  projectId?: string;
+}
+
+/**
+ * The works with a picture, newest first: the person's projects (the list
+ * already comes newest first), then pieces that never got a project, as the
+ * profile's Portfolio shows them. Pieces inside a project are that project.
+ */
+export function recentWorks(
+  projects: readonly ProjectRow[] | null | undefined,
+  pieces: readonly PieceRow[] | null | undefined,
+  limit: number,
+): Work[] {
+  const fromProjects = (projects ?? []).flatMap((p) => {
+    const imageUrl = shownImageUrl(p.imageUrl);
+    return imageUrl ? [{ imageUrl, title: shownTitle(p.title), projectId: String(p.projectId) }] : [];
+  });
+  const loose = (pieces ?? [])
+    .filter((p) => !p.projectId)
+    .slice()
+    .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
+    .flatMap((p) => {
+      const imageUrl = shownImageUrl(p.type === "image" ? p.mediaUrl : p.ogImageUrl);
+      return imageUrl ? [{ imageUrl, title: shownTitle(p.title) }] : [];
+    });
+  return [...fromProjects, ...loose].slice(0, Math.max(0, limit));
+}

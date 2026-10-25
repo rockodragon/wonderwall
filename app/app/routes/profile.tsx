@@ -12,6 +12,7 @@ import { EmbedStill, PlayBadge } from "../components/EmbedStill";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { ShortlistLink } from "../components/shortlist/ShortlistLink";
 import { ShareButton } from "../components/ShareButton";
+import { ShareProfileButton } from "../components/ShareProfileButton";
 import { shownTitle } from "../lib/placeholderTitle";
 import { OrgLogo } from "../components/OrgLogo";
 import { ProjectTile } from "../components/ProjectTile";
@@ -386,6 +387,9 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
                 {conversationError}
               </p>
             )}
+            {/* Your link, a QR code, a story picture, and a badge and a card
+                for your own website (components/ProfileShareKit.tsx). */}
+            {isOwnProfile && <ShareProfileButton profile={profile} projects={affiliations} />}
             {/* Your own profile is one place a phone finds the Shortlist
                 (the other is Today's corner), in the place Message sits on
                 anyone else's. */}

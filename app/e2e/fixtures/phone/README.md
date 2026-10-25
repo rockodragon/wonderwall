@@ -1,7 +1,8 @@
 # Phone preview
 
 The app shell and its phone screens (Today, People, Projects, Events,
-Shortlist, Messages) on sample data, for looking at them at a phone width
+Shortlist, Messages, and your own profile at `/profile/me`, with its
+"Share your profile" panel) on sample data, for looking at them at a phone width
 without an account. The screens are the real ones (`app/routes/*`); only
 `convex/react` and `@posthog/react` are swapped for the stand-ins here, and
 every query is answered from `data.ts` by the function's name.

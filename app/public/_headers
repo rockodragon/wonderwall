@@ -36,6 +36,10 @@
 /about/fonts/*
   Cache-Control: public, max-age=31536000, immutable
 
+# The badge creatives put on their own websites (lib/profileShare.ts).
+/badge/*
+  Cache-Control: public, max-age=86400
+
 # Security headers for all responses. The last two say "not AI training
 # data" (app/lib/aiCrawlers.ts): noai/noimageai for dataset tools such as
 # img2dataset; tdm-reservation is the EU text-and-data-mining opt-out (W3C
@@ -46,3 +50,15 @@
   Referrer-Policy: strict-origin-when-cross-origin
   X-Robots-Tag: noai, noimageai
   tdm-reservation: 1
+
+# The profile card other sites put in a frame (functions/embed/[handle].ts).
+# Framing is allowed here and nowhere else: "! X-Frame-Options" takes off the
+# DENY that /* above sets. It must come after /*: a rule further down sets
+# the header again. A Function's response doesn't get these rules, so the
+# function sends the same headers itself; these cover anything else served
+# under /embed/. noindex joins the X-Robots-Tag above: the card repeats the
+# profile, which is the page to find.
+/embed/*
+  ! X-Frame-Options
+  Content-Security-Policy: frame-ancestors *
+  X-Robots-Tag: noindex
