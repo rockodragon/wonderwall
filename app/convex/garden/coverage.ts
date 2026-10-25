@@ -11,6 +11,7 @@ import { mutation, query } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Id } from "../_generated/dataModel";
 import { getDefaultCommunity } from "./defaultCommunity";
+import { isEntitledMembership } from "./entitlements";
 
 // ——— Pure core ———
 
@@ -121,9 +122,7 @@ export const redeem = mutation({
       alreadyRedeemedByUser: code
         ? myRedemptions.some((r) => r.codeId === code._id)
         : false,
-      userHasEntitledMembership: myMemberships.some(
-        (m) => m.status === "active" || m.status === "past_due",
-      ),
+      userHasEntitledMembership: myMemberships.some(isEntitledMembership),
     });
     if (!verdict.ok || !code) {
       throw new ConvexError({ code: "redemption_failed", reason: verdict.reason });

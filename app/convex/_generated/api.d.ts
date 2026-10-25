@@ -118,6 +118,7 @@ import type * as garden_ticketRouting from "../garden/ticketRouting.js";
 import type * as garden_waitlistHostFieldMigration from "../garden/waitlistHostFieldMigration.js";
 import type * as handleRules from "../handleRules.js";
 import type * as handles from "../handles.js";
+import type * as heldHandles from "../heldHandles.js";
 import type * as helpers from "../helpers.js";
 import type * as http from "../http.js";
 import type * as images from "../images.js";
@@ -277,6 +278,7 @@ declare const fullApi: ApiFromModules<{
   "garden/waitlistHostFieldMigration": typeof garden_waitlistHostFieldMigration;
   handleRules: typeof handleRules;
   handles: typeof handles;
+  heldHandles: typeof heldHandles;
   helpers: typeof helpers;
   http: typeof http;
   images: typeof images;
