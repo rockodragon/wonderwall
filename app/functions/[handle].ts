@@ -12,7 +12,8 @@
 // page on a Garden domain. The middleware runs first on every host and turns
 // AI training crawlers away.
 //
-// An old address (convex/handles.ts, HANDLE_FORWARD_DAYS) answers with the
+// An old address (convex/handles.ts, HANDLE_FORWARD_DAYS) and a founder
+// alias (convex/heldHandles.ts HANDLE_ALIASES: /@rick) answer with the
 // person's current one, so crawlers and people are sent there. "Hide my
 // profile from search engines" adds noindex, in the head and as a header.
 
@@ -89,8 +90,9 @@ export const onRequestGet = async (context: {
   }
 
   if (profile?.handle && profile.handle !== handle) {
-    // An old address: the current one. 302, not 301 — the forward lasts
-    // HANDLE_FORWARD_DAYS, and the person may take the old address back.
+    // An old address or a founder alias: the current one. 302, not 301 —
+    // the forward lasts HANDLE_FORWARD_DAYS and the person may take the old
+    // address back, and an alias follows wherever its person's address goes.
     return new Response(null, {
       status: 302,
       headers: {

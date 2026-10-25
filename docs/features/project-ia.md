@@ -6,7 +6,7 @@ Decided 2026-09-27. Replaces the Passion / Paid / Paid gigs split at posting tim
 
 ## The model in one paragraph
 
-There is one thing, a **Project**. It has a stage (planning → … → completed). It can carry pieces of work (media), open roles (each with its own pay), a support ask (goal, deadline, tiers), or a schedule of paid dates (a gig series). Nothing about money is chosen when it's created. Its owner turns things on from the project page. Profiles and browse pages are **views** of projects: open ones are "Working on", completed ones are the Portfolio, and ones hiring show up under Jobs and gigs.
+There is one thing, a **Project**. It has a stage (planning → … → completed). It can carry pieces of work (media), open roles (each with its own pay), a support ask (goal, deadline, tiers), or a schedule of paid dates (a gig series). Nothing about money is chosen when it's created. Its owner turns things on from the project page. Profiles and browse pages are **views** of projects: open ones are "In progress", completed ones are "Completed" (the person's portfolio), and ones hiring show up under Jobs and gigs.
 
 ## The problem
 
@@ -91,7 +91,7 @@ A shared piece of work **is** a project (V1 PRD §7). "Add work" creates the pie
 - **New pieces** land as completed. The composer's "Still working on it" leaves them open instead (`artifacts.create` `inProgress`).
 - **Existing pieces**: `garden/portfolioCompletedMigration:completePortfolioProjects` marks every never-staged portfolio-origin project completed. It's idempotent, dry run by default, and patches directly so no follower notifications go out.
 - **One person's cleanup**: `completeProjectsForProfile` marks all of a person's projects completed except the ids passed in `keep`. Dry run by default; the dry run lists titles and ids.
-- **Profile**: **Working on** lists the open projects, with Hiring / Booking / Raising lines; **Portfolio** lists the completed projects. Both come from `listAffiliations`. Pieces that never got a project still show in Portfolio on their own.
+- **Profile**: **In progress** lists the open projects, with Hiring / Booking / Raising lines; **Completed** lists the completed projects (renamed from "Working on" and "Portfolio" on 2026-10-25 so the split reads at a glance). Both come from `listAffiliations`. Pieces that never got a project still show in Completed on their own. Organizations sit below both.
 - **Project page** plays or shows its attached pieces: embeds, video, audio, images, text and links. It skips whatever the hero or blurb already shows.
 - **`/works/:id`** redirects to the piece's project. `/works` itself stays for now; it's where clips for gig responses are added.
 

@@ -14,7 +14,8 @@
 // see _app.tsx) with the page as its child.
 //
 // The edge (functions/[handle].ts) serves /@handle with real link-preview
-// tags and sends an old address on; this does the same in the app.
+// tags and sends an old address or a founder alias on; this does the same
+// in the app.
 
 import { useQuery } from "convex/react";
 import { Navigate, useParams } from "react-router";
@@ -46,8 +47,9 @@ function PublicProfile({ typed }: { typed: string }) {
   const impossible = !!handleProblem(handle);
   const profile = useQuery(api.profiles.getProfileByHandle, impossible ? "skip" : { handle });
   if (impossible || profile === null) return <NotFound />;
-  // An old address (handles.ts forwards it for 90 days), or one typed with
-  // capitals: on to the current, lowercase one.
+  // An old address (handles.ts forwards it for 90 days), a founder alias
+  // (heldHandles.ts HANDLE_ALIASES: /@rick opens @rickmoy's page), or one
+  // typed with capitals: on to the current, lowercase one.
   if (profile?.handle && profile.handle !== typed) return <Navigate to={profilePath(profile.handle)} replace />;
   return <ProfilePage profile={profile} />;
 }

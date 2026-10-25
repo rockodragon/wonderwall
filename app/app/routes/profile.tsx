@@ -76,9 +76,9 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
     profile?._id ? { profileId: profile._id } : "skip",
   );
   // One list, two sections (docs/features/project-ia.md): a shared piece is
-  // a project, so "Working on" and "Portfolio" are the same projects split
+  // a project, so "In progress" and "Completed" are the same projects split
   // by done-or-not. Pieces with no project (from before every piece got
-  // one) still show in Portfolio on their own.
+  // one) still show in Completed on their own.
   // Matches listAffiliations's return shape (project-teams.md §4), annotated
   // `any` here rather than inferred from the query.
   const openProjects = (affiliations ?? []).filter((a: any) => !a.completed);
@@ -506,46 +506,6 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
         </div>
       )}
 
-      {/* Organizations: every position, current first, with logo, title
-          and years. Each opens the organization's page. */}
-      {organizations.length > 0 && (
-        <div className="mb-8">
-          <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
-            Organizations
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {organizations.map((o) => {
-              const years = yearsLabel(o.startYear, o.endYear);
-              return (
-                <Link
-                  key={o.organizationId}
-                  to={`/orgs/${o.slug}`}
-                  className="flex items-center gap-4 p-4 rounded-2xl border transition-colors hover:border-[var(--app-accent)]"
-                  style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)" }}
-                >
-                  <OrgLogo name={o.name} logoUrl={o.logoUrl} size="md" />
-                  <div className="min-w-0">
-                    <div className="font-medium break-words" style={{ color: "var(--app-text)" }}>
-                      {o.name}
-                    </div>
-                    {o.title && (
-                      <div className="text-sm" style={{ color: "var(--app-text-muted)" }}>
-                        {o.title}
-                      </div>
-                    )}
-                    {(years || o.category) && (
-                      <div className="text-sm" style={{ color: "var(--app-text-dim)" }}>
-                        {[years, o.category].filter(Boolean).join(" · ")}
-                      </div>
-                    )}
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {/* Tables this person sits at — follow a person into their rooms. */}
       {theirTables && theirTables.length > 0 && (
         <div className="mb-8">
@@ -588,13 +548,13 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
       )}
 
       {/* Open projects this person leads or is on (docs/features/
-          project-ia.md). Completed ones are the Portfolio below, so this
-          section is what they're working on NOW — and whether they're
-          hiring or raising, which is what a visitor came to find out. */}
+          project-ia.md). Completed ones are listed below, so this section
+          is what they're working on NOW — and whether they're hiring or
+          raising, which is what a visitor came to find out. */}
       {openProjects.length > 0 && (
         <div className="mb-8">
           <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
-            Working on
+            In progress
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {openProjects.map((a: any) => (
@@ -604,12 +564,12 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
         </div>
       )}
 
-      {/* Portfolio: finished work — completed projects, then any loose
+      {/* Completed: finished work — completed projects, then any loose
           pieces that never got a project. */}
       {(completedProjects.length > 0 || loosePieces.length > 0) && (
         <>
           <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
-            Portfolio
+            Completed
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {completedProjects.map((a: any) => (
@@ -830,6 +790,47 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
             <p>This profile doesn't have any content yet</p>
           </div>
         ))}
+
+      {/* Organizations: every position, current first, with logo, title
+          and years. Each opens the organization's page. Below the work:
+          the profile leads with what the person makes. */}
+      {organizations.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
+            Organizations
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {organizations.map((o) => {
+              const years = yearsLabel(o.startYear, o.endYear);
+              return (
+                <Link
+                  key={o.organizationId}
+                  to={`/orgs/${o.slug}`}
+                  className="flex items-center gap-4 p-4 rounded-2xl border transition-colors hover:border-[var(--app-accent)]"
+                  style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)" }}
+                >
+                  <OrgLogo name={o.name} logoUrl={o.logoUrl} size="md" />
+                  <div className="min-w-0">
+                    <div className="font-medium break-words" style={{ color: "var(--app-text)" }}>
+                      {o.name}
+                    </div>
+                    {o.title && (
+                      <div className="text-sm" style={{ color: "var(--app-text-muted)" }}>
+                        {o.title}
+                      </div>
+                    )}
+                    {(years || o.category) && (
+                      <div className="text-sm" style={{ color: "var(--app-text-dim)" }}>
+                        {[years, o.category].filter(Boolean).join(" · ")}
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

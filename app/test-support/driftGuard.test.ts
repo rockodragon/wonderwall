@@ -156,6 +156,16 @@ const RULES: Rule[] = [
     use: "useFileUpload in app/lib/useFileUpload.ts — show its `error` next to the picker",
   },
   {
+    name: "paid membership status checked inline",
+    // products.ts's ["paid", "active", "past_due"] is a purchase's status,
+    // not a seat's, and doesn't match.
+    pattern: /new Set\(\[\s*"active",\s*"past_due"\s*\]\)|status === "active" \|\| \w+\.status === "past_due"/g,
+    // Left: garden/memberships.ts and garden/reports.ts keep their own set.
+    limit: 2,
+    home: "convex/garden/entitlements.ts",
+    use: "isEntitledMembership / hasPaidMembership in convex/garden/entitlements.ts",
+  },
+  {
     name: "avatar initial drawn by hand",
     pattern: /charAt\(0\)\.toUpperCase\(\)/g,
     limit: 8,

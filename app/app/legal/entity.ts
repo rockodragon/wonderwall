@@ -53,5 +53,8 @@ export const LEGAL_ENTITY = {
   termsEffective: "September 1, 2026",
   privacyUpdated: "October 2026",
   privacyEffective: "October 22, 2026",
+  /** The naming policy (routes/legal.names.tsx). */
+  namesUpdated: "October 2026",
+  namesEffective: "October 25, 2026",
 
 } as const;
