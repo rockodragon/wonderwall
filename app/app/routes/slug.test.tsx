@@ -41,6 +41,8 @@ vi.mock("convex/react", async () => {
           return scene.signedIn ? { _id: "me", name: "Me", primaryRole: "creative", bio: "Hi", interests: [] } : null;
         case "garden/communityDomains:getCommunityLanding":
           return null;
+        case "favorites:isFavorited":
+          return false;
         default:
           return undefined;
       }
@@ -96,6 +98,24 @@ describe("/@handle, a person's public page", () => {
     expect(html).not.toContain("/login?redirect=");
     expect(html).toMatch(/<button[^>]*>Follow<\/button>/);
     expect(html).toMatch(/<button[^>]*>(?:(?!<\/button>)[\s\S])*Message<\/button>/);
+  });
+
+  it("opened from Ana's code, says who invited a visitor and offers a member Follow", async () => {
+    scene.hidden = false;
+    scene.signedIn = false;
+    let html = await page("/@ana?invite=K7M4QD&ref=f2f");
+    expect(html).toContain("Ana invited you to TheCreative.exchange.");
+    expect(html).toContain('href="/signup?redirect=%2F%40ana%3Fref%3Df2f"');
+    scene.signedIn = true;
+    html = await page("/@ana?invite=K7M4QD&ref=f2f");
+    expect(html).toContain("You scanned Ana&#x27;s code.");
+    // Anyone else sees the page as it always was.
+    for (const signedIn of [false, true]) {
+      scene.signedIn = signedIn;
+      html = await page("/@ana");
+      expect(html).not.toContain("invited you to");
+      expect(html).not.toContain("You scanned");
+    }
   });
 
   it("is the 404 for an address nobody has, or one that breaks the rules", async () => {

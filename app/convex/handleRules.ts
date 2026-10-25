@@ -25,7 +25,7 @@ export const HANDLE_FORWARD_MS = HANDLE_FORWARD_DAYS * 24 * 60 * 60 * 1000;
  * checks every static route in app/routes.ts is here. */
 export const RESERVED_HANDLES: ReadonlySet<string> = new Set(
   (
-    "about admin api assets brand c campaign claim communities coverage create demo docs e events exchange faq " +
+    "about admin api assets brand c campaign claim code communities coverage create demo docs e events exchange faq " +
     "favorites for fund garden give grant-program help host ia invite j jobs join legal login messages " +
     "oauth-callback offerings offers onboarding opportunities orgs patron people pricing profile projects " +
     "search settings showcase signup story support tables today unsubscribe works"

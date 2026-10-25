@@ -262,6 +262,10 @@ function ShareKitBody({
               <button type="button" onClick={downloadQrSvg} className={BUTTON} style={BUTTON_STYLE}>
                 Download SVG
               </button>
+              {/* Your code to hold up face to face, with your invite (routes/code.tsx). */}
+              <Link to="/code" className={BUTTON} style={BUTTON_STYLE}>
+                Open full screen
+              </Link>
             </div>
           </div>
         </div>

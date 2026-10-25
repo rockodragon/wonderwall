@@ -1,3 +1,4 @@
+import { Scan } from "@phosphor-icons/react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { Link, Navigate, useLocation, useParams } from "react-router";
@@ -13,6 +14,7 @@ import { FavoriteButton } from "../components/FavoriteButton";
 import { ShortlistLink } from "../components/shortlist/ShortlistLink";
 import { ShareButton } from "../components/ShareButton";
 import { ShareProfileButton } from "../components/ShareProfileButton";
+import { ScanCard } from "../components/ScanCard";
 import { shownTitle } from "../lib/placeholderTitle";
 import { OrgLogo } from "../components/OrgLogo";
 import { ProjectTile } from "../components/ProjectTile";
@@ -184,6 +186,9 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
     <div className={`relative p-4 sm:p-6 ${PAGE_WIDTH.list} mx-auto`}>
       <ProfileHead profile={profile} />
       <BackLink fallback="/people" className="mb-6" />
+      {/* Opened from this person's code (?ref=f2f, routes/code.tsx): Follow,
+          or join with their invite. Nothing for anyone else. */}
+      <ScanCard profile={profile} isOwner={myProfile === undefined ? undefined : isOwnProfile} />
       <div className="absolute top-3 right-3 flex items-center gap-1 sm:hidden">{shareAndMore}</div>
       {/* Profile header. Identity (name/role/location/network) sits on the
           left, all the ways to act on this person are grouped on the right
@@ -388,8 +393,25 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
               </p>
             )}
             {/* Your link, a QR code, a story picture, and a badge and a card
-                for your own website (components/ProfileShareKit.tsx). */}
-            {isOwnProfile && <ShareProfileButton profile={profile} projects={affiliations} />}
+                for your own website (components/ProfileShareKit.tsx); and
+                your code to hold up face to face (routes/code.tsx). */}
+            {isOwnProfile && (
+              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                <ShareProfileButton profile={profile} projects={affiliations} />
+                <Link
+                  to="/code"
+                  className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-colors hover:border-[var(--app-accent)]"
+                  style={{
+                    backgroundColor: "var(--app-surface-raised)",
+                    color: "var(--app-text)",
+                    borderColor: "var(--app-hairline)",
+                  }}
+                >
+                  <Scan size={16} aria-hidden />
+                  Show my code
+                </Link>
+              </div>
+            )}
             {/* Your own profile is one place a phone finds the Shortlist
                 (the other is Today's corner), in the place Message sits on
                 anyone else's. */}

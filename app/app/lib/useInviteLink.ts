@@ -14,9 +14,12 @@ import { withInvite } from "./carriedInvite";
  * With `page`, the link is that page carrying the invite
  * (/events/<id>?invite=<code>, lib/carriedInvite.ts): the "Invite people"
  * card after publishing (components/InviteToThis.tsx).
+ *
+ * "code" is the QR code you hold up (routes/code.tsx), which reads only the
+ * slug.
  */
 export function useInviteLink(
-  variant: "sidebar" | "settings" | "people" | "palette" | "published" | "nudge",
+  variant: "sidebar" | "settings" | "people" | "palette" | "published" | "nudge" | "code",
   page?: { path: string; title: string },
 ) {
   const posthog = usePostHog();
