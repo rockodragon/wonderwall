@@ -332,31 +332,13 @@ describe("eventGroups — Saved by month", () => {
 });
 
 describe("peopleGroups", () => {
-  it("reuses groupFollows: by first interest at 6+, most recent first", () => {
-    const { grouped, groups } = peopleGroups(sampleShortlist());
-    expect(grouped).toBe(true);
-    expect(groups.map((g) => g.label)).toEqual([
-      "Design",
-      "Photography",
-      "Filmmaking",
-      "Writing",
-      "Art",
-      "Music",
-      "Worship",
-      "Audio",
-    ]);
-    expect(groups.find((g) => g.label === "Writing")?.items.map((p) => p.name)).toEqual([
-      "Jo Alvarez",
-      "Esther Park",
-      "Miriam Cole",
-    ]);
-  });
-
-  it("stays flat under 6", () => {
-    const data = shortlist({
-      people: [follow("Mara Lin", ["Audio"], on(9, 10)), follow("Theo Okafor", ["Filmmaking"], on(5, 20))],
-    });
-    expect(peopleGroups(data)).toEqual({ grouped: false, groups: [{ label: "", items: data.people }] });
+  it("is one list, not grouped by interest, however many you follow", () => {
+    const data = sampleShortlist();
+    expect(data.people.length).toBeGreaterThanOrEqual(6);
+    const { groups } = peopleGroups(data);
+    expect(groups.map((g) => g.label)).toEqual([""]);
+    // Nobody in the sample has posted, so it's newest follow first.
+    expect(groups[0].items.map((p) => p.since)).toEqual([...data.people].map((p) => p.since).sort((a, b) => b - a));
   });
 
   it("hands back the Shortlist's own follow rows", () => {
@@ -367,7 +349,7 @@ describe("peopleGroups", () => {
   });
 
   it("an empty list is flat", () => {
-    expect(peopleGroups(shortlist())).toEqual({ grouped: false, groups: [{ label: "", items: [] }] });
+    expect(peopleGroups(shortlist())).toEqual({ groups: [{ label: "", items: [] }] });
   });
 
   it("whoever posted most recently comes first; those who've posted nothing after, newest follow first", () => {

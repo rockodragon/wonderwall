@@ -243,9 +243,9 @@ describe("an area", () => {
     expect(text(page(SAMPLE, "projects"))).not.toContain("Remove");
   });
 
-  it("groups People by first interest", () => {
+  it("lists People as one list, with no interest headings", () => {
     const html = text(page(SAMPLE, "people"));
-    expect(html).toContain("Design 2");
+    expect(html).not.toContain("Design 2");
     expect(html).toContain("Kofi Mensah");
   });
 
