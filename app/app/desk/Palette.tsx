@@ -67,12 +67,19 @@ export function Palette({ isAuthenticated, profile, badgeCount }: PaletteProps) 
   return isAuthenticated ? <SignedInPalette profile={profile} badgeCount={badgeCount} /> : <SignedOutPalette />;
 }
 
+/** How a tool's name shows while the fan is open. With a menu open, that
+ *  tool's name is hidden (it sits where the menu grows, up and right of the
+ *  circle, and the menu's own header already names it) and the others dim,
+ *  so the menu reads as the one thing in front. */
+type LabelMode = "shown" | "dimmed" | "hidden";
+const LABEL_OPACITY: Record<LabelMode, number> = { shown: 1, dimmed: 0.4, hidden: 0 };
+
 /** A tool's name on its ray, just past the circle (paletteLogic.ts
  *  labelAnchor): 12px, DESK.textSoft on the ink (over 9:1), the active
  *  tool's in the accent. It sits inside the button, so a click on the name
  *  is a click on the tool, and it's cut short with an ellipsis past
  *  PALETTE.labelMax. */
-function labelStyle(angleDeg: number, active: boolean): CSSProperties {
+function labelStyle(angleDeg: number, active: boolean, mode: LabelMode, reduced: boolean): CSSProperties {
   const a = labelAnchor(angleDeg);
   const half = PALETTE.tool / 2;
   const pct = (v: number) => Math.round(v * 10000) / 100;
@@ -90,6 +97,8 @@ function labelStyle(angleDeg: number, active: boolean): CSSProperties {
     overflow: "hidden",
     textOverflow: "ellipsis",
     color: active ? DESK.accent : DESK.textSoft,
+    opacity: LABEL_OPACITY[mode],
+    transition: reduced ? "none" : `opacity ${PALETTE.stackMs}ms ${DESK.ease}`,
   };
 }
 
@@ -253,6 +262,7 @@ function PaletteShell({
           {tools.map((tool, i) => {
             const { x, y } = fanOffset(angles[i]);
             const stackOpen = fanOpen && stackId === tool.id;
+            const labelMode: LabelMode = stackOpen ? "hidden" : fanOpen && stackId ? "dimmed" : "shown";
             const hasBadge = (tool.badge ?? 0) > 0;
             // The dot is read out as the main button's count is: a description.
             const dotId = tool.dot ? `desk-pal-dot-${tool.id}` : undefined;
@@ -311,7 +321,7 @@ function PaletteShell({
                   }}
                 >
                   {tool.avatar ? <Avatar {...tool.avatar} /> : tool.icon}
-                  <span aria-hidden style={labelStyle(angles[i], !!tool.active)}>
+                  <span aria-hidden style={labelStyle(angles[i], !!tool.active, labelMode, reduced)}>
                     {tool.label}
                   </span>
                   {hasBadge && <CountChip text={badgeText(tool.badge ?? 0)} offset={-6} />}

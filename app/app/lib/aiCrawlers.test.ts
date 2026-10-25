@@ -45,4 +45,9 @@ describe("robots.txt", () => {
     expect(agents.sort()).toEqual([...AI_TRAINING_CRAWLERS, ...AI_TRAINING_ROBOTS_TOKENS].sort());
     expect(training).toMatch(/^Disallow: \/$/m);
   });
+
+  it("tells every crawler: search yes, AI search answers yes, AI training no", () => {
+    const everyone = robots.split(/\n\s*\n/).find((g) => /^User-agent: \*$/m.test(g)) ?? "";
+    expect(everyone).toMatch(/^Content-Signal: search=yes, ai-input=yes, ai-train=no$/m);
+  });
 });
