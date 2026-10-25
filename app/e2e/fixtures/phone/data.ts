@@ -12,6 +12,7 @@ const me = {
   _id: "me",
   userId: "u-me",
   name: "Rick Moy",
+  handle: "rick",
   primaryRole: "maker",
   bio: "Making things in San Diego.",
   interests: ["Film", "Music"],
@@ -234,6 +235,21 @@ export const myPage = {
   artifacts: [{ _id: "a-cafe", type: "image", mediaUrl: "/campaign/cafe.jpg", order: 0, createdAt: now - 40 * DAY }],
   organizations: [],
   wondering: null,
+};
+
+/** Someone else's page, at /profile/dee: what a scan of Dee's code opens
+ *  (/profile/dee?ref=f2f, components/ScanCard.tsx). */
+export const theirPage = {
+  ...people[0],
+  _id: "dee",
+  userId: "u-dee",
+  handle: "dee",
+  bio: "Photographs of people at work.",
+  hideFromSearch: false,
+  attributes: {},
+  links: [],
+  artifacts: [],
+  organizations: [],
 };
 
 /** Finished projects on your page (garden/projectTeam:listAffiliations). */

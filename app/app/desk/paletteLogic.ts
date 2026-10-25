@@ -120,7 +120,7 @@ export function activeToolId(pathname: string, search: string): ToolId | null {
   if (isUnder(pathname, "/projects")) return "projects";
   if (isUnder(pathname, "/events")) return "events";
   if (isUnder(pathname, "/tables")) return "tables";
-  if (["/settings", "/messages"].some((base) => isUnder(pathname, base))) return "profile";
+  if (["/settings", "/messages", "/code"].some((base) => isUnder(pathname, base))) return "profile";
   return null;
 }
 

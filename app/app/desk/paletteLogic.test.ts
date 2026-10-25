@@ -61,6 +61,7 @@ describe("activeToolId", () => {
     expect(activeToolId("/settings", "?tab=network")).toBe("profile");
     expect(activeToolId("/messages", "")).toBe("profile");
     expect(activeToolId("/messages/xyz", "")).toBe("profile");
+    expect(activeToolId("/code", "")).toBe("profile");
   });
 
   it("lights nothing on pages the palette has no tool for", () => {

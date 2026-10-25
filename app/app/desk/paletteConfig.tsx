@@ -126,6 +126,8 @@ export function buildSignedInTools(d: SignedInDeps): PaletteTool[] {
       label: COMMUNITY_LABEL[d.community],
       to: d.community === "garden" ? `/communities/${GARDEN_SLUG}` : "/about",
     },
+    // Your QR code to hold up face to face (routes/code.tsx).
+    { id: "code", label: "My code", to: "/code" },
     {
       id: "messages",
       label: "Read messages",

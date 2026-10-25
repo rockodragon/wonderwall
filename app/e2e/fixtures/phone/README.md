@@ -2,7 +2,9 @@
 
 The app shell and its phone screens (Today, People, Projects, Events,
 Shortlist, Messages, and your own profile at `/profile/me`, with its
-"Share your profile" panel) on sample data, for looking at them at a phone width
+"Share your profile" panel; your code at `/code`; and someone else's page
+as a scan of their code opens it, `/profile/dee?ref=f2f`, with `&visitor`
+to see it signed out) on sample data, for looking at them at a phone width
 without an account. The screens are the real ones (`app/routes/*`); only
 `convex/react` and `@posthog/react` are swapped for the stand-ins here, and
 every query is answered from `data.ts` by the function's name.

@@ -68,6 +68,11 @@ describe("buildSignedInTools", () => {
     ]);
   });
 
+  it("has My code, the QR code to hold up, right after the community's page", () => {
+    const items = tool(buildSignedInTools(deps()), "profile").items ?? [];
+    expect(items[2]).toEqual({ id: "code", label: "My code", to: "/code" });
+  });
+
   it("gives Shortlist the bookmark, and sends its click to the Shortlist", () => {
     const t = shortlistTool();
     expect(t.label).toBe("Shortlist");

@@ -7,3 +7,8 @@ export function firstNameOf(name: string | undefined | null): string | null {
   if (!full || /^new user$/i.test(full)) return null;
   return full.split(/\s+/)[0] || null;
 }
+
+/** A first name to address someone by, or their whole name before they've set one. */
+export function addressName(name: string): string {
+  return firstNameOf(name) ?? name;
+}

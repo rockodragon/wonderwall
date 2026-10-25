@@ -29,4 +29,8 @@ describe("ProfileShareKit", () => {
     expect(markup).toContain('src="https://thecreative.exchange/embed/@ana"');
     expect(markup).toContain("thecreative.exchange/@ana?ref=badge");
   });
+
+  it("links the QR code to the full-screen code, which carries your invite", () => {
+    expect(html("ana")).toMatch(/<a [^>]*href="\/code"[^>]*>Open full screen<\/a>/);
+  });
 });
