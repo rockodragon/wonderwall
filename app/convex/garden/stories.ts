@@ -17,7 +17,8 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { shapeCredits } from "./allocations";
 import { resolveProjectPhotoUrl } from "./projectsPublic";
 import { profileImageUrl } from "../images";
-import { displayNameOf, getProfileByUserId } from "../helpers";
+import { currentUserId, displayNameOf, getProfileByUserId } from "../helpers";
+import { projectVisibleTo } from "./projectVisibility";
 import { notifyFollowers } from "../follows";
 import { isHidden } from "../moderationRules";
 import { communityVisibility, isHiddenCommunityId } from "./communityVisibility";
@@ -321,6 +322,10 @@ export const listProjectUpdates = query({
   handler: async (ctx, args) => {
     const projectId = ctx.db.normalizeId("projects", args.projectId);
     if (!projectId) return [];
+    // The project page is public: a project not shown to this viewer
+    // (admin-hidden, or in a hidden community) has no updates to them.
+    const project = await ctx.db.get(projectId);
+    if (!project || !(await projectVisibleTo(ctx, project, await currentUserId(ctx)))) return [];
 
     const rows = await ctx.db
       .query("storyUpdates")

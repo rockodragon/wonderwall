@@ -47,7 +47,7 @@ const SEED_EMAIL_SUFFIX = "@seed.creatives.exchange";
 const POOL_KINDS = new Set(["platform", "community"]);
 
 /** One users lookup per distinct userId, memoized for the life of the query. */
-class SeedCheck {
+export class SeedCheck {
   private cache = new Map<string, boolean>();
   constructor(private ctx: QueryCtx) {}
   async isSeed(userId: Id<"users">): Promise<boolean> {
@@ -68,7 +68,7 @@ class SeedCheck {
  * explicit patron/partner is excluded. Someone who onboarded as a patron
  * and later also makes work is undercounted — acceptable for a headline
  * number, and it errs low rather than high. */
-function isCreativeProfile(p: Doc<"profiles">): boolean {
+export function isCreativeProfile(p: Pick<Doc<"profiles">, "primaryRole">): boolean {
   return p.primaryRole === undefined || p.primaryRole === "creative";
 }
 

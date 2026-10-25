@@ -3,7 +3,7 @@
 // that: the front door's link, the one onboarding screen's choices and exits
 // (routes/onboarding.tsx), and the stashed visit that screen replaces.
 
-import { takePendingIntent, setPendingIntent } from "./pendingIntent";
+import { signupHref, takePendingIntent, setPendingIntent } from "./pendingIntent";
 import { isStage, type Stage } from "./stage";
 
 /** Where "Share your project" goes for someone with an account: the form. */
@@ -14,7 +14,7 @@ export const SHARE_PROJECT_PATH = "/projects?new=project";
  *  keeps ?redirect= as a stashed visit (routes/signup.tsx), so someone who
  *  already has an account and signs in instead still lands on the form. */
 export function shareProjectHref(signedIn: boolean): string {
-  return signedIn ? SHARE_PROJECT_PATH : `/signup?redirect=${encodeURIComponent(SHARE_PROJECT_PATH)}`;
+  return signedIn ? SHARE_PROJECT_PATH : signupHref(SHARE_PROJECT_PATH);
 }
 
 /** True when a stashed visit is "start a project": /projects with ?new=project. */

@@ -14,7 +14,7 @@ const EVENT_PLACE = "Lightchurch, Encinitas, California";
 
 const TICKET = {
   label: "Admission",
-  price: "$20",
+  price: "$15",
 } as const;
 
 // The November 6 event on the platform. Its page sells the ticket. The event
@@ -286,11 +286,16 @@ export function ShowcaseContent({ embedded = false }: { embedded?: boolean }) {
       </Section>
       )}
 
+      {/* The event page already shows its own date, place and price, all
+          editable there; a second, hard-coded copy here went stale ($20
+          after the ticket became $15, 2026-10-25). /showcase keeps it. */}
+      {!embedded && (
       <Section label="The details">
         <FactLine k="When" v={EVENT_DATE} />
         <FactLine k="Where" v={EVENT_PLACE} />
         <FactLine k="Admission" v={`${TICKET.price} · Kids under 12 free`} />
       </Section>
+      )}
 
       {/* Art is submitted from a profile in the app, not a form here. Its
           own section with the steps spelled out, below the details (Rick,
