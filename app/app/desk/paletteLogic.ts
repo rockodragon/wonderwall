@@ -15,11 +15,14 @@ export type ToolId =
   | "profile"
   | "signin";
 
+/** Remembers that this browser has opened the palette once: until then its
+ *  button glows (Palette.tsx, hooks/useOnceNote.ts). */
+export const PALETTE_GLOW_KEY = "desk.paletteOpened";
+
 /** Sizes and timings from the handoff, "Palette" section. `zone` is the
  *  square of the lower-left corner the palette claims (the desk keeps its
- *  cards clear of it). The tools rest on the arc with their names (Rick,
- *  2026-10-21: the first level stays visible, as the phone's bar is), so the
- *  zone holds the widest label at the arc's foot (toolReach). */
+ *  cards clear of it). The fanned tools carry their names, so the zone holds
+ *  the widest label at the arc's foot (toolReach). */
 export const PALETTE = {
   button: 56,
   inset: 28,

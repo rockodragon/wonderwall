@@ -1,10 +1,10 @@
 // The palette: one button in the lower-left corner that replaces the sidebar
-// on desktop, with six tools resting on an arc above it, each with its name
-// (Rick, 2026-10-21: the first level stays visible, as the phone's bar is;
-// hidden behind a hover it needed two notes to explain). Hover a tool and
-// its stack of actions opens beside it. The tools fold only while a Canvas
-// card is open. Spec: docs/features/desktop-desk-palette.md ("Palette") and
-// the handoff README.
+// on desktop. Hover it (or reach it by keyboard) and six tools fan out on an
+// arc above it, each with its name; hover a tool and its stack of actions
+// opens beside it. The tools rest folded (Rick, 2026-10-25: resting open on
+// every page was too busy), and until this browser has opened the palette
+// once, its button glows so a newcomer finds it. Spec:
+// docs/features/desktop-desk-palette.md ("Palette") and the handoff README.
 //
 // It lives in the _app shell and never shares React state with the desk: it
 // writes the URL (deskHref), the desk reads it.
@@ -19,16 +19,18 @@ import { Palette as PaletteGlyph } from "@phosphor-icons/react";
 import { useLocation, useNavigate } from "react-router";
 import { canCopyInvite, inviteRowLabel } from "../components/InviteCTA";
 import { useReducedMotion } from "../hooks/useMediaQuery";
+import { useOnceNote } from "../hooks/useOnceNote";
 import { initialsOf } from "../lib/initials";
 import { useShortlist } from "../lib/shortlist/useShortlist";
 import { useInviteLink } from "../lib/useInviteLink";
 import { useSignOut } from "../lib/useSignOut";
-import { DESK_PATH, setDeskCommunity, useDeskCommunity, deskHref } from "./deskState";
+import { setDeskCommunity, useDeskCommunity, deskHref } from "./deskState";
 import { buildSignedInTools, buildSignedOutTools, type PaletteTool } from "./paletteConfig";
 import {
   Avatar,
   CountChip,
   Dot,
+  MAIN_GLOW,
   MAIN_RING,
   MAIN_WASH,
   StackPanel,
@@ -36,6 +38,7 @@ import {
 } from "./PaletteParts";
 import {
   PALETTE,
+  PALETTE_GLOW_KEY,
   activeToolId,
   badgeText,
   fanAngles,
@@ -163,12 +166,11 @@ function PaletteShell({
   onMain: () => void;
 }) {
   const reduced = useReducedMotion();
-  const location = useLocation();
-  // The tools rest on the arc, folded only while a Canvas card is open on top
-  // of everything: the palette reads the URL the desk writes, as always.
-  const cardOpen = location.pathname.startsWith(DESK_PATH) && new URLSearchParams(location.search).has("card");
-  const pal = usePaletteController(tools, onMain, !cardOpen);
+  const pal = usePaletteController(tools, onMain);
   const { open, fanOpen, stackId, roving } = pal;
+  // The button glows until this browser has opened the palette once
+  // (paletteCss: a slow breath, or a still brighter ring with reduced motion).
+  const glow = useOnceNote(PALETTE_GLOW_KEY, true, open).show;
 
   const angles = fanAngles(tools.length);
   const mainBadge = badge > 0 ? badgeText(badge) : null;
@@ -211,7 +213,7 @@ function PaletteShell({
             aria-expanded={open}
             aria-describedby={mainBadge ? "desk-pal-unread" : undefined}
             data-pal-hit
-            className={FOCUS_RING_CLASS}
+            className={glow ? `${FOCUS_RING_CLASS} desk-pal-glow` : FOCUS_RING_CLASS}
             onPointerDown={pal.onMainPointerDown}
             onPointerEnter={pal.onMainPointerEnter}
             onClick={pal.onMainClick}
@@ -228,7 +230,7 @@ function PaletteShell({
               // The handoff's faint accent wash, over an opaque base so the
               // icon still reads on a light page.
               background: `linear-gradient(${MAIN_WASH}, ${MAIN_WASH}), ${tint.surface}`,
-              boxShadow: `0 0 0 6px ${MAIN_RING}`,
+              boxShadow: glow && reduced ? `0 0 0 10px ${MAIN_GLOW}` : `0 0 0 6px ${MAIN_RING}`,
               color: DESK.accent,
               display: "flex",
               alignItems: "center",

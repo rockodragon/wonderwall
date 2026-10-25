@@ -331,11 +331,12 @@ export default function AppLayout() {
           a message thread are full-height and manage their own bottom. On a
           phone every page gets room for the bottom bar except a thread,
           which stops above the bar itself (lib/phoneBar.ts). */}
-      {/* Desktop pages end 256px clear of the palette's resting arc
-          (desk/Palette.tsx), so the last row can scroll out from under it. */}
+      {/* Desktop pages end 128px clear of the palette's button in the
+          corner (desk/Palette.tsx), so the last row can scroll out from
+          under it. */}
       <main
         className={`${isThread ? "" : "pb-20"} ${
-          FF_DESK ? (ownsBottom ? "md:pb-0" : "md:pb-64") : "md:pb-0 md:pl-64"
+          FF_DESK ? (ownsBottom ? "md:pb-0" : "md:pb-32") : "md:pb-0 md:pl-64"
         }`}
       >
         <Outlet />
