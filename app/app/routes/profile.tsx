@@ -14,6 +14,7 @@ import { FavoriteButton } from "../components/FavoriteButton";
 import { ShortlistLink } from "../components/shortlist/ShortlistLink";
 import { ShareButton } from "../components/ShareButton";
 import { ShareProfileButton } from "../components/ShareProfileButton";
+import { ShareHint, useShareHint } from "../components/ShareHint";
 import { ScanCard } from "../components/ScanCard";
 import { shownTitle } from "../lib/placeholderTitle";
 import { OrgLogo } from "../components/OrgLogo";
@@ -98,6 +99,9 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
 
   // Check if viewing own profile
   const isOwnProfile = !!profile && myProfile?._id === profile._id;
+  // Once, on your own profile: what the share buttons hold, or that an
+  // address comes first (components/ShareHint.tsx).
+  const shareHint = useShareHint(!!profile?.handle, isOwnProfile);
 
   // Following is private to the pair, so the only signal shown is whether
   // this person follows the viewer. Skipped on the own profile.
@@ -397,7 +401,7 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
                 your code to hold up face to face (routes/code.tsx). */}
             {isOwnProfile && (
               <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                <ShareProfileButton profile={profile} projects={affiliations} />
+                <ShareProfileButton profile={profile} projects={affiliations} onOpen={shareHint.dismiss} />
                 <Link
                   to="/code"
                   className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-colors hover:border-[var(--app-accent)]"
@@ -412,6 +416,7 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
                 </Link>
               </div>
             )}
+            {isOwnProfile && shareHint.show && <ShareHint hasHandle={!!profile.handle} onClose={shareHint.dismiss} />}
             {/* Your own profile is one place a phone finds the Shortlist
                 (the other is Today's corner), in the place Message sits on
                 anyone else's. */}

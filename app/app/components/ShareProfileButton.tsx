@@ -17,16 +17,22 @@ const ProfileShareKit = lazy(() =>
 export function ShareProfileButton({
   profile,
   projects,
+  onOpen,
 }: {
   profile: ShareKitProfile;
   projects: readonly ProjectRow[] | undefined;
+  /** The panel opened: the one-time hint has done its job (ShareHint). */
+  onOpen?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setOpen(true);
+          onOpen?.();
+        }}
         aria-haspopup="dialog"
         className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-colors hover:border-[var(--app-accent)]"
         style={{
