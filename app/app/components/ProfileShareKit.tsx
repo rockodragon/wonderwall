@@ -1,7 +1,9 @@
 // "Share your profile" on your own profile (routes/profile.tsx, through
-// ShareProfileButton): everything that points people at thecreative.exchange/
-// @handle. Your link with where-from tags, a QR code for print, an Instagram
-// story picture, and a badge and a card for your own website.
+// ShareProfileButton): everything that points people at their public page,
+// /@handle. Your link with where-from tags, a QR code for print, an Instagram
+// story picture, and a badge and a card for your own website. On a Garden
+// domain all of it says The Garden and points at createthegarden.com
+// (lib/profileShare.ts shareSite); elsewhere, TheCreative.exchange.
 //
 // Loaded only when the panel opens (ShareProfileButton), and the QR code
 // library with it (lib/qrCode.ts). A native <dialog>: it takes focus, Escape
@@ -15,12 +17,12 @@ import { usePostHog } from "@posthog/react";
 import { X } from "@phosphor-icons/react";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
-import { SITE_ORIGIN } from "../lib/eventCalendar";
+import { useBrand } from "../brand/brands";
 import { downloadBlob } from "../lib/downloadBlob";
 import {
-  BADGE_ALT,
   BADGE_SIZE,
   EMBED_FRAME,
+  badgeAlt,
   badgePath,
   badgeSnippet,
   displayLink,
@@ -28,6 +30,7 @@ import {
   embedSnippet,
   profileLink,
   recentWorks,
+  shareSite,
   shownImageUrl,
   type BadgeTone,
   type EmbedLayout,
@@ -137,17 +140,18 @@ function ShareKitBody({
   const [story, setStory] = useState<Story>({ state: "drawing" });
   const [problem, setProblem] = useState<string | null>(null);
 
-  const link = profileLink(handle);
-  const qr = useMemo(() => qrMatrix(profileLink(handle, "qr")), [handle]);
+  const site = shareSite(useBrand());
+  const link = profileLink(handle, undefined, site);
+  const qr = useMemo(() => qrMatrix(profileLink(handle, "qr", site)), [handle, site.origin]);
   const qrPreview = useMemo(() => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg(qr))}`, [qr]);
-  const file = `${handle}-thecreative-exchange`;
+  const file = `${handle}-${site.brand === "garden" ? "the-garden" : "thecreative-exchange"}`;
 
   function track(kind: ShareKind, ref: ShareRef | null, extra: Record<string, string> = {}) {
     posthog?.capture("profile_share", { kind, ref, ...extra });
   }
 
   async function copyLink(ref: ShareRef | null) {
-    const ok = await copy(profileLink(handle, ref ?? undefined), `link:${ref ?? ""}`);
+    const ok = await copy(profileLink(handle, ref ?? undefined, site), `link:${ref ?? ""}`);
     if (ok) track("copy_link", ref);
     setProblem(ok ? null : "Your browser didn't let us copy. Select the text and copy it yourself.");
   }
@@ -193,7 +197,8 @@ function ShareKitBody({
       handle,
       photoUrl,
       works: works ?? [],
-      qr: qrMatrix(profileLink(handle, "story")),
+      qr: qrMatrix(profileLink(handle, "story", site)),
+      site,
       address: displayLink(link),
     })
       .then((blob) => {
@@ -212,8 +217,8 @@ function ShareKitBody({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [worksKey, handle, profile.name, photoUrl, link]);
 
-  const badgeCode = badgeSnippet(handle, tone);
-  const embedCode = embedSnippet(handle, profile.name, layout);
+  const badgeCode = badgeSnippet(handle, tone, site);
+  const embedCode = embedSnippet(handle, profile.name, layout, site);
 
   return (
     <div className="space-y-7 px-5 pb-8 pt-5">
@@ -313,8 +318,13 @@ function ShareKitBody({
           className="mt-3 flex items-center justify-center rounded-xl p-6"
           style={{ backgroundColor: tone === "dark" ? "#f7f7f4" : "#121212" }}
         >
-          <a href={profileLink(handle, "badge")} target="_blank" rel="noopener">
-            <img src={badgePath(tone)} alt={BADGE_ALT} width={BADGE_SIZE.width} height={BADGE_SIZE.height} />
+          <a href={profileLink(handle, "badge", site)} target="_blank" rel="noopener">
+            <img
+              src={badgePath(tone, site.brand)}
+              alt={badgeAlt(site)}
+              width={BADGE_SIZE[site.brand].width}
+              height={BADGE_SIZE[site.brand].height}
+            />
           </a>
         </div>
         <Snippet
@@ -340,11 +350,11 @@ function ShareKitBody({
         <div className="mt-3 flex justify-center">
           <iframe
             key={layout}
-            src={`${SITE_ORIGIN}${embedPath(handle, layout)}`}
+            src={`${site.origin}${embedPath(handle, layout)}`}
             width={EMBED_FRAME[layout].width}
             height={EMBED_FRAME[layout].height}
             loading="lazy"
-            title={`${profile.name} on TheCreative.exchange`}
+            title={`${profile.name} on ${site.name}`}
             className="max-w-full rounded-xl"
             style={{ border: 0 }}
           />

@@ -6,8 +6,13 @@
 //
 // ?ref= says where a visit came from. PostHog records the address of every
 // page view, so the tag shows up there with nothing else to set up.
+//
+// What is shared from a Garden domain says The Garden and points at The
+// Garden's address (ShareSite); from anywhere else, TheCreative.exchange.
 
+import { profilePath } from "../../convex/handleRules";
 import { convexFileKey } from "../../convex/images";
+import { GARDEN, GARDEN_ORIGIN, PLATFORM_NAME, type BrandId } from "../brand/brandConfig";
 import { SITE_ORIGIN } from "./eventCalendar";
 import { shownTitle } from "./placeholderTitle";
 import { publicProfileUrl } from "./profileHead";
@@ -20,9 +25,27 @@ export type ShareRef = "ig" | "linktree" | "site" | "qr" | "story" | "badge" | "
 /** What a creative did in the share kit, for PostHog's `profile_share`. */
 export type ShareKind = "copy_link" | "qr_png" | "qr_svg" | "story" | "badge" | "embed";
 
-/** The profile's one address, tagged with where it was put. */
-export function profileLink(handle: string, ref?: ShareRef): string {
-  const url = publicProfileUrl(handle);
+/** Where a share points and the name it goes by. */
+export interface ShareSite {
+  brand: BrandId;
+  name: string;
+  origin: string;
+}
+
+/** The Garden's name and address on a Garden domain (brandForHost /
+ *  useBrand), TheCreative.exchange's everywhere else. */
+export function shareSite(brand: BrandId): ShareSite {
+  return brand === "garden"
+    ? { brand, name: GARDEN.name, origin: GARDEN_ORIGIN }
+    : { brand, name: PLATFORM_NAME, origin: SITE_ORIGIN };
+}
+
+const EXCHANGE = shareSite("exchange");
+
+/** The profile's address on the site it's shared from, tagged with where it
+ *  was put. */
+export function profileLink(handle: string, ref?: ShareRef, site: ShareSite = EXCHANGE): string {
+  const url = site.brand === "garden" ? `${site.origin}${profilePath(handle)}` : publicProfileUrl(handle);
   return ref ? `${url}?ref=${ref}` : url;
 }
 
@@ -36,20 +59,26 @@ export function displayLink(url: string): string {
 export type BadgeTone = "dark" | "light";
 
 /** The badge's words, also its alt text. */
-export const BADGE_ALT = "See my work on TheCreative.exchange";
-/** public/badge/*.svg are drawn at this size. */
-export const BADGE_SIZE = { width: 221, height: 48 } as const;
+export function badgeAlt(site: ShareSite = EXCHANGE): string {
+  return `See my work on ${site.name}`;
+}
+/** public/badge/*.svg are drawn at these sizes: "The Garden" is the shorter name. */
+export const BADGE_SIZE: Readonly<Record<BrandId, { width: number; height: number }>> = {
+  exchange: { width: 221, height: 48 },
+  garden: { width: 147, height: 48 },
+};
 
-/** Where a badge picture lives: public/badge/<tone>.svg. */
-export function badgePath(tone: BadgeTone): string {
-  return `/badge/${tone}.svg`;
+/** Where a badge picture lives: public/badge/<tone>.svg, or garden-<tone>.svg. */
+export function badgePath(tone: BadgeTone, brand: BrandId = "exchange"): string {
+  return brand === "garden" ? `/badge/garden-${tone}.svg` : `/badge/${tone}.svg`;
 }
 
 /** The badge to paste into a website: the picture, linking to the profile. */
-export function badgeSnippet(handle: string, tone: BadgeTone): string {
-  const href = escapeHtml(profileLink(handle, "badge"));
-  const src = `${SITE_ORIGIN}${badgePath(tone)}`;
-  return `<a href="${href}"><img src="${src}" alt="${BADGE_ALT}" width="${BADGE_SIZE.width}" height="${BADGE_SIZE.height}"></a>`;
+export function badgeSnippet(handle: string, tone: BadgeTone, site: ShareSite = EXCHANGE): string {
+  const href = escapeHtml(profileLink(handle, "badge", site));
+  const src = `${site.origin}${badgePath(tone, site.brand)}`;
+  const { width, height } = BADGE_SIZE[site.brand];
+  return `<a href="${href}"><img src="${src}" alt="${badgeAlt(site)}" width="${width}" height="${height}"></a>`;
 }
 
 /** The card's two shapes: one line (photo, name, what they do, the link),
@@ -69,9 +98,14 @@ export const EMBED_FRAME: Readonly<Record<EmbedLayout, { width: number; height: 
 };
 
 /** The card to paste into a website: a frame holding /embed/@handle. */
-export function embedSnippet(handle: string, name: string, layout: EmbedLayout = "compact"): string {
-  const src = escapeHtml(`${SITE_ORIGIN}${embedPath(handle, layout)}`);
-  const title = escapeHtml(`${name.trim() || `@${handle}`} on TheCreative.exchange`);
+export function embedSnippet(
+  handle: string,
+  name: string,
+  layout: EmbedLayout = "compact",
+  site: ShareSite = EXCHANGE,
+): string {
+  const src = escapeHtml(`${site.origin}${embedPath(handle, layout)}`);
+  const title = escapeHtml(`${name.trim() || `@${handle}`} on ${site.name}`);
   const { width, height } = EMBED_FRAME[layout];
   return (
     `<iframe src="${src}" width="${width}" height="${height}" ` +

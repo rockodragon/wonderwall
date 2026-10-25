@@ -1,6 +1,9 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  BADGE_ALT,
+  BADGE_SIZE,
+  badgeAlt,
   badgePath,
   badgeSnippet,
   displayLink,
@@ -8,8 +11,11 @@ import {
   embedSnippet,
   profileLink,
   recentWorks,
+  shareSite,
   shownImageUrl,
 } from "./profileShare";
+
+const GARDEN_SITE = shareSite("garden");
 
 describe("profileLink", () => {
   it("is the one address, tagged with where it was put", () => {
@@ -32,7 +38,35 @@ describe("badgeSnippet", () => {
     );
     expect(badgeSnippet("ana", "light")).toContain('src="https://thecreative.exchange/badge/light.svg"');
     expect(badgePath("light")).toBe("/badge/light.svg");
-    expect(BADGE_ALT).toBe("See my work on TheCreative.exchange");
+    expect(badgeAlt()).toBe("See my work on TheCreative.exchange");
+  });
+
+  it("from a Garden domain, is The Garden's badge on The Garden's address", () => {
+    expect(badgeSnippet("ana", "dark", GARDEN_SITE)).toBe(
+      '<a href="https://createthegarden.com/@ana?ref=badge"><img src="https://createthegarden.com/badge/garden-dark.svg" ' +
+        'alt="See my work on The Garden" width="147" height="48"></a>',
+    );
+    expect(badgePath("light", "garden")).toBe("/badge/garden-light.svg");
+  });
+});
+
+describe("shareSite", () => {
+  it("is The Garden's name and address on a Garden domain, the Exchange's elsewhere", () => {
+    expect(shareSite("garden")).toEqual({ brand: "garden", name: "The Garden", origin: "https://createthegarden.com" });
+    expect(shareSite("exchange")).toEqual({
+      brand: "exchange",
+      name: "TheCreative.exchange",
+      origin: "https://thecreative.exchange",
+    });
+  });
+
+  it("puts every link on that site", () => {
+    expect(profileLink("ana", "qr", GARDEN_SITE)).toBe("https://createthegarden.com/@ana?ref=qr");
+    expect(profileLink("ana", "qr")).toBe("https://thecreative.exchange/@ana?ref=qr");
+    expect(embedSnippet("ana", "Ana Reyes", "compact", GARDEN_SITE)).toContain(
+      'src="https://createthegarden.com/embed/@ana" width="400" height="96"',
+    );
+    expect(embedSnippet("ana", "Ana Reyes", "compact", GARDEN_SITE)).toContain('title="Ana Reyes on The Garden"');
   });
 });
 
@@ -103,5 +137,18 @@ describe("recentWorks", () => {
     expect(recentWorks(projects, pieces, 3)).toHaveLength(3);
     expect(recentWorks(undefined, null, 6)).toEqual([]);
     expect(recentWorks(projects, pieces, 0)).toEqual([]);
+  });
+});
+
+describe("badge files", () => {
+  it("are drawn at BADGE_SIZE, and say the site they're for", () => {
+    for (const brand of ["exchange", "garden"] as const) {
+      for (const tone of ["dark", "light"] as const) {
+        const svg = readFileSync(join(__dirname, "../../public", badgePath(tone, brand)), "utf8");
+        const { width, height } = BADGE_SIZE[brand];
+        expect(svg, `${brand} ${tone}`).toContain(`width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"`);
+        expect(svg, `${brand} ${tone}`).toContain(`aria-label="${badgeAlt(shareSite(brand))}"`);
+      }
+    }
   });
 });

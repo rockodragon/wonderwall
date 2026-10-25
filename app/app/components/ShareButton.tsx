@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useBrand } from "../brand/brands";
+import { shareSite } from "../lib/profileShare";
 
 interface ShareButtonProps {
   /** Type of content being shared */
@@ -24,6 +26,8 @@ export function ShareButton({
   className = "",
 }: ShareButtonProps) {
   const [copied, setCopied] = useState(false);
+  // "on The Garden" on a Garden domain, "on TheCreative.exchange" elsewhere.
+  const site = shareSite(useBrand());
 
   const shareUrl =
     url || (typeof window !== "undefined" ? window.location.href : "");
@@ -31,7 +35,7 @@ export function ShareButton({
   async function handleShare() {
     const shareData = {
       title,
-      text: text || `Check out this ${type} on The Exchange`,
+      text: text || `Check out this ${type} on ${site.name}`,
       url: shareUrl,
     };
 

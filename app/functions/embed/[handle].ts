@@ -18,13 +18,16 @@
 
 import { handleProblem } from "../../convex/handleRules";
 import { CONVEX_URL, convexQuery } from "../../app/lib/convexHttp";
-import { SITE_ORIGIN } from "../../app/lib/eventCalendar";
+import { brandForHost } from "../../app/brand/brandConfig";
+import { GARDEN_G_PATH } from "../../app/brand/gardenPath";
 import { initialsOf } from "../../app/lib/initials";
 import {
   profileLink,
   recentWorks,
+  shareSite,
   shownImageUrl,
   type EmbedLayout,
+  type ShareSite,
   type PieceRow,
   type ProjectRow,
   type Work,
@@ -78,8 +81,8 @@ const CSS = `
 *{box-sizing:border-box;margin:0}
 html,body{background:transparent}
 body{font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;-webkit-text-size-adjust:100%}
-.card{--bg:#f7f7f4;--line:#e2e2d8;--text:#121212;--dim:#6b6b62;--tile:#e3e3d6;max-width:480px;margin:0 auto;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--bg);color:var(--text)}
-@media (prefers-color-scheme:dark){.card{--bg:#121212;--line:#2a2a28;--text:#f7f7f4;--dim:#94948c;--tile:#1c1c19}}
+.card{--bg:#f7f7f4;--line:#e2e2d8;--text:#121212;--dim:#6b6b62;--tile:#e3e3d6;--disc:#A51C30;max-width:480px;margin:0 auto;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--bg);color:var(--text)}
+@media (prefers-color-scheme:dark){.card{--bg:#121212;--line:#2a2a28;--text:#f7f7f4;--dim:#94948c;--tile:#1c1c19;--disc:#D93A4B}}
 .who{display:flex;align-items:center;gap:12px}
 .face{flex:none;width:56px;height:56px;border-radius:50%;object-fit:cover;background:var(--tile)}
 .initials{display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--dim)}
@@ -107,11 +110,20 @@ a:focus-visible{outline:2px solid var(--text);outline-offset:2px}
 `;
 
 /** The Exchange mark (public/favicon.svg), in the card's text color. */
-const MARK =
+const EXCHANGE_MARK =
   '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="20" y="3" width="8" height="42" rx="4" fill="currentColor" transform="rotate(-18 24 24)"/>' +
   '<rect x="20" y="3" width="8" height="42" rx="4" fill="#fee268" transform="rotate(18 24 24)"/></svg>';
 
-const SITE = `<span class="site">${MARK}<span>TheCreative.exchange</span></span>`;
+/** The Garden's disc with the G cut out (app/brand/GardenMark.tsx), crimson
+ *  for the card's ground (--disc). */
+const GARDEN_MARK =
+  '<svg viewBox="0 0 32 32" aria-hidden="true"><defs><mask id="gm" maskUnits="userSpaceOnUse" x="0" y="0" width="32" height="32">' +
+  `<rect width="32" height="32" fill="#fff"/><path d="${GARDEN_G_PATH}" fill="none" stroke="#000" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 -0.5)"/>` +
+  '</mask></defs><circle cx="16" cy="16" r="16" style="fill:var(--disc)" mask="url(#gm)"/></svg>';
+
+/** The site's mark and name, small. */
+const siteLabel = (site: ShareSite) =>
+  `<span class="site">${site.brand === "garden" ? GARDEN_MARK : EXCHANGE_MARK}<span>${escapeHtml(site.name)}</span></span>`;
 
 /** color-scheme "light dark": a browser paints a frame whose scheme differs
  *  from the page around it on an opaque backdrop. Declaring both lets the
@@ -129,11 +141,11 @@ function page(title: string, body: string): string {
 
 /** A card with a line or two and no person: nobody has the address, or
  *  Convex couldn't be asked. */
-function noticeCard(heading: string, line: string): string {
+function noticeCard(heading: string, line: string, site: ShareSite): string {
   return page(
-    `${heading} — TheCreative.exchange`,
+    `${heading} — ${site.name}`,
     `<main class="card"><p class="name">${escapeHtml(heading)}</p><p class="meta">${escapeHtml(line)}</p>` +
-      `<div class="foot">${SITE}</div></main>`,
+      `<div class="foot">${siteLabel(site)}</div></main>`,
   );
 }
 
@@ -148,6 +160,7 @@ export function renderEmbedCard(
   handle: string,
   works: readonly Work[],
   layout: EmbedLayout = "compact",
+  site: ShareSite = shareSite("exchange"),
 ): string {
   const name = profile.name.trim() || `@${handle}`;
   const photo = shownImageUrl(profile.imageUrl);
@@ -160,20 +173,20 @@ export function renderEmbedCard(
     .map((l) => `<p class="meta">${escapeHtml(l)}</p>`)
     .join("");
 
-  const portfolio = profileLink(handle, "embed");
+  const portfolio = profileLink(handle, "embed", site);
   if (layout === "compact") {
     const what = disciplines || profile.location?.trim() || "";
     return page(
-      `${name} on TheCreative.exchange`,
+      `${name} on ${site.name}`,
       `<main class="card compact"><div class="row">${face}<div class="id"><h1 class="name">${escapeHtml(name)}</h1>` +
         (what ? `<p class="meta">${escapeHtml(what)}</p>` : "") +
-        `${SITE}</div>${link(portfolio, "See my work", "cta")}</div></main>`,
+        `${siteLabel(site)}</div>${link(portfolio, "See my work", "cta")}</div></main>`,
     );
   }
   const tiles = works
     .slice(0, EMBED_WORKS)
     .map((w) => {
-      const href = w.projectId ? `${SITE_ORIGIN}/projects/${encodeURIComponent(w.projectId)}?ref=embed` : portfolio;
+      const href = w.projectId ? `${site.origin}/projects/${encodeURIComponent(w.projectId)}?ref=embed` : portfolio;
       const alt = w.title ?? `Work by ${name}`;
       const img = `<img src="${escapeHtml(w.imageUrl)}" alt="${escapeHtml(alt)}" width="150" height="150" loading="lazy" decoding="async">`;
       return `<li>${link(href, img)}</li>`;
@@ -181,10 +194,10 @@ export function renderEmbedCard(
     .join("");
 
   return page(
-    `${name} on TheCreative.exchange`,
+    `${name} on ${site.name}`,
     `<main class="card"><div class="who">${face}<div class="id"><h1 class="name">${escapeHtml(name)}</h1>${lines}</div></div>` +
       (tiles ? `<ul class="works">${tiles}</ul>` : "") +
-      `<div class="foot">${link(portfolio, "See my portfolio", "cta")}${SITE}</div></main>`,
+      `<div class="foot">${link(portfolio, "See my portfolio", "cta")}${siteLabel(site)}</div></main>`,
   );
 }
 
@@ -196,11 +209,14 @@ type Context = {
 
 export const onRequestGet = async (context: Context): Promise<Response> => {
   const { request, params, env } = context;
-  const layout: EmbedLayout = new URL(request.url).searchParams.has("works") ? "works" : "compact";
+  const url = new URL(request.url);
+  const layout: EmbedLayout = url.searchParams.has("works") ? "works" : "compact";
+  // Loaded from a Garden domain, the card says The Garden and links there.
+  const site = shareSite(brandForHost(url.hostname));
   const segment = Array.isArray(params.handle) ? params.handle[0] : params.handle;
   const handle = handleFromSegment(segment);
   const notFound = () =>
-    new Response(noticeCard("Not found", "There's no profile at this address."), {
+    new Response(noticeCard("Not found", "There's no profile at this address.", site), {
       status: 404,
       headers: headers(NOT_FOUND_CACHE),
     });
@@ -212,7 +228,7 @@ export const onRequestGet = async (context: Context): Promise<Response> => {
   try {
     profile = await convexQuery<EmbedProfile>(convexUrl, "profiles:getProfileByHandle", { handle });
   } catch {
-    return new Response(noticeCard("Can't show this right now", "Try again in a few minutes."), {
+    return new Response(noticeCard("Can't show this right now", "Try again in a few minutes.", site), {
       status: 503,
       headers: headers("no-store"),
     });
@@ -235,7 +251,10 @@ export const onRequestGet = async (context: Context): Promise<Response> => {
   // An old address answers with the person's current one (handles.ts).
   const current = profile.handle ?? handle;
   const works = layout === "works" ? recentWorks(projects, profile.artifacts, EMBED_WORKS) : [];
-  return new Response(renderEmbedCard(profile, current, works, layout), { status: 200, headers: headers(FOUND_CACHE) });
+  return new Response(renderEmbedCard(profile, current, works, layout, site), {
+    status: 200,
+    headers: headers(FOUND_CACHE),
+  });
 };
 
 export const onRequestHead = async (context: Context): Promise<Response> => {

@@ -3,10 +3,10 @@
 // themselves live with the backend's (convex/garden/brandHosts.ts), which
 // also lets sign-in return to them.
 
-import { GARDEN_HOSTS, GARDEN_NAME, PLATFORM_NAME, isGardenHost, normalizeHost } from "../../convex/garden/brandHosts";
+import { GARDEN_HOSTS, GARDEN_NAME, GARDEN_ORIGIN, PLATFORM_NAME, isGardenHost, normalizeHost } from "../../convex/garden/brandHosts";
 import { GARDEN_SLUG } from "../lib/communitySlugs";
 
-export { GARDEN_HOSTS, PLATFORM_NAME, normalizeHost };
+export { GARDEN_HOSTS, GARDEN_ORIGIN, PLATFORM_NAME, normalizeHost };
 
 export type BrandId = "exchange" | "garden";
 

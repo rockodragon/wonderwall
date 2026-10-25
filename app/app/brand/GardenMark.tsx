@@ -13,14 +13,14 @@
 //
 // Crimson is for the mark only, never for text: on the dark site it holds
 // about 4.2:1, under the floor for words. When the member artist draws the
-// final G, GARDEN_G_PATH is the one line to change (and the files in
-// public/brand/garden/).
+// final G, GARDEN_G_PATH (gardenPath.ts) is the one line to change (and the
+// files in public/brand/garden/).
 
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { GARDEN } from "./brands";
+import { GARDEN_G_PATH } from "./gardenPath";
 
-export const GARDEN_G_PATH =
-  "M23.4 10.4C21.7 8.3 19.1 7 16.2 7C10.8 7 6.6 11.2 6.6 16.5C6.6 21.8 10.8 26 16.2 26C21.2 26 25.2 22.3 25.4 17.2C22.6 17.2 19.8 17.2 17 17.2";
+export { GARDEN_G_PATH };
 /** The G inside the disc, full size (it was drawn at 0.66) and a touch lower.
  *  The cut-out's stroke (3.4) is in path units, so it grows with the G; the
  *  gap from the disc edge to the G is about half what it was. GardenGrow ends

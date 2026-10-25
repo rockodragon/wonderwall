@@ -70,6 +70,10 @@ const handle = async (context: Context): Promise<Response> => {
 
   const url = new URL(context.request.url);
   if (brandForHost(url.hostname) !== "garden") return context.next();
+  // The embed card brands itself by host (functions/embed/[handle].ts) and
+  // lives in someone else's page: no head to rewrite, no Convex lookup for a
+  // link preview on every view.
+  if (url.pathname.startsWith("/embed/")) return context.next();
 
   const rootFile = GARDEN_ROOT_FILES[url.pathname];
   if (rootFile) {

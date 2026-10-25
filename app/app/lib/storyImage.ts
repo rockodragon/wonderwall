@@ -7,11 +7,17 @@
 // Access-Control-Allow-Origin: * (functions/media/[id].ts), so they're loaded
 // with crossOrigin="anonymous" and the canvas stays exportable. A picture that
 // doesn't load, or won't share, is left out and the rest is drawn without it.
+//
+// The top line is the site's: the Exchange mark and THECREATIVE.EXCHANGE, or,
+// shared from a Garden domain, The Garden's disc and "The Garden" in Jost
+// (title case, never capitals: app/brand/GardenMark.tsx).
 
+import { GARDEN } from "../brand/brandConfig";
+import { GARDEN_G_PATH } from "../brand/gardenPath";
 import { DESK, DESK_SANS } from "../desk/tokens";
 import { cropRect } from "./coverCrop";
 import { initialsOf } from "./initials";
-import type { Work } from "./profileShare";
+import type { ShareSite, Work } from "./profileShare";
 import { drawQr } from "./qrCode";
 
 export const STORY_WIDTH = 1080;
@@ -109,7 +115,9 @@ async function fontsReady(): Promise<void> {
   const fonts = typeof document === "undefined" ? undefined : document.fonts;
   if (!fonts) return;
   await Promise.race([
-    Promise.all([fonts.load(`700 88px Inter`), fonts.load(`500 44px Inter`)]).catch(() => undefined),
+    Promise.all([fonts.load(`700 88px Inter`), fonts.load(`500 44px Inter`), fonts.load(`500 40px Jost`)]).catch(
+      () => undefined,
+    ),
     new Promise((resolve) => setTimeout(resolve, 2000)),
   ]);
 }
@@ -145,6 +153,26 @@ function drawMark(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: n
     ctx.fill();
     ctx.restore();
   }
+}
+
+/** The Garden's disc with the G cut out, on the story's dark ground: the G is
+ *  stroked in the page color, which is what shows through the cut-out. */
+function drawGardenDisc(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number) {
+  const s = size / 32;
+  ctx.save();
+  ctx.translate(cx - size / 2, cy - size / 2);
+  ctx.scale(s, s);
+  ctx.fillStyle = GARDEN.crimson;
+  ctx.beginPath();
+  ctx.arc(16, 16, 16, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.translate(0, -0.5);
+  ctx.strokeStyle = DESK.page;
+  ctx.lineWidth = 3.4;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.stroke(new Path2D(GARDEN_G_PATH));
+  ctx.restore();
 }
 
 /** Text centered on the story, shrunk to fit the width, and cut with "…"
@@ -188,6 +216,8 @@ export interface StoryInput {
   qr: readonly (readonly boolean[])[];
   /** The address as written under the code: thecreative.exchange/@handle. */
   address: string;
+  /** Whose name and mark top the picture (lib/profileShare.ts shareSite). */
+  site: Pick<ShareSite, "brand" | "name">;
 }
 
 function draw(
@@ -203,16 +233,19 @@ function draw(
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
 
   // The mark beside the site's name.
-  ctx.font = `600 30px ${DESK_SANS}`;
-  const label = "THECREATIVE.EXCHANGE";
-  // Letter spacing where the browser has it (not every Safari does).
-  const spaced = "letterSpacing" in ctx;
+  const garden = input.site.brand === "garden";
+  ctx.font = garden ? `500 40px Jost, ${DESK_SANS}` : `600 30px ${DESK_SANS}`;
+  const label = garden ? input.site.name : input.site.name.toUpperCase();
+  // Letter spacing where the browser has it (not every Safari does); The
+  // Garden's wordmark is set tight.
+  const spaced = !garden && "letterSpacing" in ctx;
   if (spaced) ctx.letterSpacing = "6px";
   const labelWidth = ctx.measureText(label).width;
-  const markSize = 40;
+  const markSize = garden ? 48 : 40;
   const rowLeft = mid - (markSize + 16 + labelWidth) / 2;
-  drawMark(ctx, rowLeft + markSize / 2, at.label + LABEL / 2, markSize);
-  ctx.fillStyle = DESK.muted;
+  if (garden) drawGardenDisc(ctx, rowLeft + markSize / 2, at.label + LABEL / 2, markSize);
+  else drawMark(ctx, rowLeft + markSize / 2, at.label + LABEL / 2, markSize);
+  ctx.fillStyle = garden ? DESK.text : DESK.muted;
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
   ctx.fillText(label, rowLeft + markSize + 16, at.label + LABEL / 2 + 1);

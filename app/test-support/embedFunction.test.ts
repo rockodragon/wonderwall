@@ -40,9 +40,9 @@ function convex({ profile = ANA, projects = PROJECTS, profileDown = false, proje
   return fetchMock;
 }
 
-function context(segment: string, query = "") {
+function context(segment: string, query = "", host = "thecreative.exchange") {
   return {
-    request: new Request(`https://thecreative.exchange/embed/${segment}${query}`),
+    request: new Request(`https://${host}/embed/${segment}${query}`),
     params: { handle: segment },
     env: { CONVEX_URL: "https://convex.test" },
   };
@@ -174,6 +174,20 @@ describe("/embed/@handle", () => {
     expect(html).toContain('<span class="face initials" aria-hidden="true">AR</span>');
     // The loose piece still comes from the profile itself.
     expect(html.match(/<li>/g)).toHaveLength(1);
+  });
+
+  it("on a Garden domain, says The Garden and links to The Garden's address", async () => {
+    convex();
+    for (const query of ["", "?works"]) {
+      const html = await (await onRequestGet(context("@ana", query, "garden.thecreative.exchange"))).text();
+      expect(html, query).toContain("<title>Ana Reyes on The Garden</title>");
+      expect(html, query).toContain("<span>The Garden</span>");
+      expect(html, query).toContain('href="https://createthegarden.com/@ana?ref=embed"');
+      expect(html, query).not.toContain("TheCreative.exchange");
+      expect(html, query).not.toContain('href="https://thecreative.exchange');
+    }
+    const missing = await (await onRequestGet(context("@a..b", "", "createthegarden.com"))).text();
+    expect(missing).toContain("<title>Not found — The Garden</title>");
   });
 
   it("links to the current address when an old one was asked for", async () => {
