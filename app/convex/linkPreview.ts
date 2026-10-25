@@ -32,6 +32,7 @@ import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { isSafeHttpUrl, normalizeUrl } from "./garden/richText";
 import { isTikTokShortLink, toEmbedUrl } from "./videoEmbed";
+import { storedFileUrl } from "./images";
 
 export type PreviewTarget = "artifact" | "event" | "project";
 
@@ -248,7 +249,7 @@ export const fetchPreview = internalAction({
       if (preview.imageUrl) {
         imageStorageId = await storeImage(ctx, preview.imageUrl);
         if (imageStorageId) {
-          imageUrl = (await ctx.storage.getUrl(imageStorageId)) ?? undefined;
+          imageUrl = (await storedFileUrl(ctx, imageStorageId)) ?? undefined;
         }
       }
       await ctx.runMutation(internal.linkPreview.apply, {

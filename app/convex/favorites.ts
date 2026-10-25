@@ -8,7 +8,7 @@ import { eventVisibilityChecker } from "./garden/eventVisibility";
 import { isAcceptingPeople } from "./garden/projectTeam";
 import { VISIBLE_PROJECT_STATUSES } from "./moderationRules";
 import { feedLocation } from "./eventAddress";
-import { eventCoverUrl, profileImageUrl } from "./images";
+import { eventCoverUrl, profileImageUrl, storedFileUrl } from "./images";
 
 /** What a favorite points at. A profile is a follow and an event is a heart
  * (docs/features/following.md); a project, or one role on it, is a save for
@@ -237,9 +237,7 @@ export const getMyFavorites = query({
 
         let wonderingImageUrl: string | null = null;
         if (wondering?.imageStorageId) {
-          wonderingImageUrl = await ctx.storage.getUrl(
-            wondering.imageStorageId,
-          );
+          wonderingImageUrl = await storedFileUrl(ctx, wondering.imageStorageId);
         }
 
         return {

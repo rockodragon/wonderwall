@@ -3,7 +3,7 @@ import { mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
 import { fail } from "./errors";
 import { currentUserId, getProfileByUserId, requireOwnProfileRow, requireProfile, requireUserId } from "./helpers";
-import { profileImageUrl } from "./images";
+import { profileImageUrl, storedFileUrl } from "./images";
 
 const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
 
@@ -28,7 +28,7 @@ export const getMyWondering = query({
 
     // Resolve image URL from storage
     const imageUrl = wondering.imageStorageId
-      ? await ctx.storage.getUrl(wondering.imageStorageId)
+      ? await storedFileUrl(ctx, wondering.imageStorageId)
       : null;
 
     return {

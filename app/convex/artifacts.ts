@@ -10,7 +10,7 @@ import { slugifyTitle, resolveAvailableSlug } from "./garden/stories";
 import { normalizeUrl, isSafeHttpUrl } from "./garden/richText";
 import { parseOgMeta } from "./ogParse";
 import { currentUserId, getProfileByUserId, requireOwnProfileRow, requireProfile, requireUserId } from "./helpers";
-import { pieceMediaUrl, profileImageUrl } from "./images";
+import { pieceMediaUrl, profileImageUrl, storedFileUrl } from "./images";
 
 export const getMyArtifacts = query({
   args: {},
@@ -200,7 +200,7 @@ export const create = mutation({
     // and anything that isn't http(s) is refused (convex/linkPreview.ts).
     const mediaUrl = canonicalMediaUrl(args.mediaUrl);
     const coverUrl = args.coverStorageId
-      ? await ctx.storage.getUrl(args.coverStorageId)
+      ? await storedFileUrl(ctx, args.coverStorageId)
       : null;
 
     const createdAt = Date.now();

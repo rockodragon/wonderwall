@@ -1,5 +1,5 @@
 import { query } from "./_generated/server";
-import { pieceMediaUrl, profileImageUrl } from "./images";
+import { pieceMediaUrl, profileImageUrl, storedFileUrl } from "./images";
 
 // Get public wonderings with profile info for landing page
 export const getFeaturedWonderings = query({
@@ -22,7 +22,7 @@ export const getFeaturedWonderings = query({
         let wonderingImageUrl = null;
         if (wondering.imageStorageId) {
           wonderingImageUrl =
-            (await ctx.storage.getUrl(wondering.imageStorageId)) ?? undefined;
+            (await storedFileUrl(ctx, wondering.imageStorageId)) ?? undefined;
         }
 
         return {
