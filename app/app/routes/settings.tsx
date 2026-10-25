@@ -18,6 +18,7 @@ import { NetworkTab } from "../components/NetworkTab";
 import { PersonAvatar } from "../components/PersonAvatar";
 import { OrganizationsEditor } from "../components/OrganizationsEditor";
 import { PAGE_WIDTH } from "../lib/pageWidth";
+import { uploadToStorage } from "../lib/uploadFile";
 import { ShortlistLink } from "../components/shortlist/ShortlistLink";
 import { isGardenHost } from "../../convex/garden/brandHosts";
 import { formatCents } from "../../convex/money";
@@ -1392,16 +1393,7 @@ function ProfileEditForm({
 
     setUploading(true);
     try {
-      const uploadUrl = await generateUploadUrl();
-      const result = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-
-      if (!result.ok) throw new Error("Upload failed");
-
-      const { storageId } = await result.json();
+      const storageId = await uploadToStorage(generateUploadUrl, file);
       await saveProfileImage({ storageId });
     } catch (err) {
       console.error("Upload error:", err);
@@ -2096,16 +2088,7 @@ function ArtifactsSection({
 
     setUploading(true);
     try {
-      const uploadUrl = await generateUploadUrl();
-      const result = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-
-      if (!result.ok) throw new Error("Upload failed");
-
-      const { storageId } = await result.json();
+      const storageId = await uploadToStorage(generateUploadUrl, file);
       setUploadedStorageId(storageId);
 
       // Create preview for images

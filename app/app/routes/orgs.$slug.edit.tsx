@@ -14,6 +14,7 @@ import { OrgLogo } from "../components/OrgLogo";
 import { useLocationField } from "../lib/useLocationField";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { errorMessage } from "../lib/convexError";
+import { uploadToStorage } from "../lib/uploadFile";
 import { PersonAvatar } from "../components/PersonAvatar";
 
 const inputClass =
@@ -133,14 +134,7 @@ export default function OrgEdit() {
     }
     setUploading(true);
     try {
-      const uploadUrl = await generateUploadUrl();
-      const result = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!result.ok) throw new Error("Upload failed");
-      const { storageId } = await result.json();
+      const storageId = await uploadToStorage(generateUploadUrl, file);
       await setLogo({ organizationId: org._id, storageId });
     } catch (err) {
       console.error("Logo upload error:", err);

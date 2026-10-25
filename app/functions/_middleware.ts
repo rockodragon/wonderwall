@@ -11,6 +11,7 @@
 
 import { brandForHost, GARDEN } from "../app/brand/brandConfig";
 import { GARDEN_ROOT_FILES, gardenizeHtml, needsShareTags, shareDescription } from "../app/brand/gardenHtml";
+import { isAiTrainingCrawler } from "../app/lib/aiCrawlers";
 
 interface Env {
   ASSETS: { fetch: (req: Request | URL) => Promise<Response> };
@@ -47,6 +48,15 @@ export const onRequest = async (context: {
   env: Env;
   next: () => Promise<Response>;
 }) => {
+  // An AI training crawler that ignores robots.txt but names itself is
+  // turned away on every host (app/lib/aiCrawlers.ts).
+  if (isAiTrainingCrawler(context.request.headers.get("user-agent"))) {
+    return new Response("Members' work here is not AI training data.\n", {
+      status: 403,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+  }
+
   const url = new URL(context.request.url);
   if (brandForHost(url.hostname) !== "garden") return context.next();
 

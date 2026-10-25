@@ -31,6 +31,7 @@ import {
   type ResolvedRichBlock,
   type RichBlockType,
 } from "../lib/richText";
+import { uploadToStorage } from "../lib/uploadFile";
 
 // Convex file storage takes larger files than this, but a project page that
 // streams a 200MB upload to every visitor is a bad page. Video past this
@@ -517,14 +518,7 @@ export function RichTextEditor({
     setError(null);
     setUploadingAt(index);
     try {
-      const uploadUrl = await generateUploadUrl();
-      const res = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!res.ok) throw new Error("upload failed");
-      const { storageId } = await res.json();
+      const storageId = await uploadToStorage(generateUploadUrl, file);
       // The real URL arrives on the next read; until the author saves, the
       // local file is the preview.
       const localUrl = URL.createObjectURL(file);
