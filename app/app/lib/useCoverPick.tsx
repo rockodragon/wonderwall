@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { CoverPicker, type CoverChoice } from "../components/CoverPicker";
 import { cropRect, isCoverShape, wholeSize } from "./coverCrop";
+import { UNREADABLE_PICTURE, drawJpeg, loadImage } from "./shrinkImage";
 
 export type CoverPick = {
   /** Check the file; a 4:5 picture is encoded right away, any other shape opens the framer. */
@@ -23,58 +24,25 @@ const MAX_BYTES = 20 * 1024 * 1024;
 const FILL_WIDTH = 1080;
 const FILL_HEIGHT = 1350;
 const WHOLE_MAX_LONG = 2160;
-const JPEG_QUALITY = 0.86;
 
 const ERR_NOT_IMAGE = "Choose a picture.";
 const ERR_TOO_BIG = "Pictures up to 20 MB.";
-const ERR_UNREADABLE = "This picture can't be read here. Try a JPG or PNG.";
+const ERR_UNREADABLE = UNREADABLE_PICTURE;
 const ERR_UPLOAD = "Upload failed — try again.";
 
 type Loaded = { url: string; img: HTMLImageElement; w: number; h: number };
 
-/** Loads a picture. `onload`, not `img.decode()`: Chrome never settles
- *  decode() for a page that's hidden, as it can be while a phone's photo
- *  picker is open. */
-function loadImage(url: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("Couldn't read the picture"));
-    img.src = url;
-  });
-}
-
 const CENTRED_FILL: CoverChoice = { mode: "fill", zoom: 1, x: 0.5, y: 0.5 };
 
-async function encode(
-  { img, w, h }: Loaded,
-  choice: CoverChoice,
-): Promise<Blob> {
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("No canvas");
-  ctx.imageSmoothingQuality = "high";
+function encode({ img, w, h }: Loaded, choice: CoverChoice): Promise<Blob> {
   if (choice.mode === "fill") {
-    canvas.width = FILL_WIDTH;
-    canvas.height = FILL_HEIGHT;
-    // Under any transparent pixels of a PNG.
-    ctx.fillStyle = "#111";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
     const r = cropRect({ w, h, zoom: choice.zoom, x: choice.x, y: choice.y });
-    ctx.drawImage(img, r.sx, r.sy, r.sw, r.sh, 0, 0, FILL_WIDTH, FILL_HEIGHT);
-  } else {
-    const { width, height } = wholeSize(w, h, WHOLE_MAX_LONG);
-    canvas.width = width;
-    canvas.height = height;
-    ctx.fillStyle = "#111";
-    ctx.fillRect(0, 0, width, height);
-    ctx.drawImage(img, 0, 0, width, height);
+    return drawJpeg(FILL_WIDTH, FILL_HEIGHT, (ctx) =>
+      ctx.drawImage(img, r.sx, r.sy, r.sw, r.sh, 0, 0, FILL_WIDTH, FILL_HEIGHT),
+    );
   }
-  const blob = await new Promise<Blob | null>((resolve) =>
-    canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY),
-  );
-  if (!blob) throw new Error("Couldn't encode the picture");
-  return blob;
+  const { width, height } = wholeSize(w, h, WHOLE_MAX_LONG);
+  return drawJpeg(width, height, (ctx) => ctx.drawImage(img, 0, 0, width, height));
 }
 
 export function useCoverPick(onReady: (blob: Blob) => Promise<void> | void): CoverPick {

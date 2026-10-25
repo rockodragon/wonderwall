@@ -16,9 +16,10 @@ function clamp01(v: number): number {
 }
 
 /**
- * The source rectangle of a 4:5 crop of a w × h picture.
+ * The source rectangle of a 4:5 crop of a w × h picture (or of `aspect`,
+ * width over height: 1 for an avatar's square).
  *
- * At zoom 1 it is the largest 4:5 rectangle that fits inside the picture, so
+ * At zoom 1 it is the largest such rectangle that fits inside the picture, so
  * it covers the shorter side. Zoom z divides its size by z. `x` and `y` run
  * from 0 to 1 and place the crop across the slack left over (0.5, 0.5 is
  * centred). Zoom below 1 counts as 1; x and y are clamped to 0..1.
@@ -29,23 +30,25 @@ export function cropRect({
   zoom,
   x,
   y,
+  aspect = COVER_ASPECT,
 }: {
   w: number;
   h: number;
   zoom: number;
   x: number;
   y: number;
+  aspect?: number;
 }): { sx: number; sy: number; sw: number; sh: number } {
   const z = Number.isFinite(zoom) ? Math.max(1, zoom) : 1;
-  // Largest 4:5 rect inside the picture.
+  // Largest rect of that shape inside the picture.
   let sw: number;
   let sh: number;
-  if (w / h > COVER_ASPECT) {
+  if (w / h > aspect) {
     sh = h;
-    sw = h * COVER_ASPECT;
+    sw = h * aspect;
   } else {
     sw = w;
-    sh = w / COVER_ASPECT;
+    sh = w / aspect;
   }
   sw /= z;
   sh /= z;

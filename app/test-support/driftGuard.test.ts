@@ -139,6 +139,23 @@ const RULES: Rule[] = [
     use: "uploadToStorage(generateUploadUrl, file) in app/lib/uploadFile.ts — it removes where a photo was taken before the upload",
   },
   {
+    name: "upload size cap written inline",
+    pattern: /\d+\s*\*\s*1024\s*\*\s*1024/g,
+    // Left on purpose: useCoverPick takes bigger pictures because it shrinks
+    // them first, and convex/linkPreview.ts caps the preview image it fetches
+    // for a pasted link.
+    limit: 2,
+    home: "app/lib/useFileUpload.ts",
+    use: "useFileUpload in app/lib/useFileUpload.ts (it checks the size), or MAX_UPLOAD_BYTES / maxSize there for a hint",
+  },
+  {
+    name: "upload problem shown in alert()",
+    // alert() is poor on phones. Matches an alert that talks about a file.
+    pattern: /\balert\([^)]*?(?:\b(?:upload\w*|images?|files?|photos?|pictures?|logos?)\b|\d\s*MB\b)/gi,
+    limit: 0,
+    use: "useFileUpload in app/lib/useFileUpload.ts — show its `error` next to the picker",
+  },
+  {
     name: "avatar initial drawn by hand",
     pattern: /charAt\(0\)\.toUpperCase\(\)/g,
     limit: 8,

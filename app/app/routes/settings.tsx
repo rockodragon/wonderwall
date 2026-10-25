@@ -18,7 +18,8 @@ import { NetworkTab } from "../components/NetworkTab";
 import { PersonAvatar } from "../components/PersonAvatar";
 import { OrganizationsEditor } from "../components/OrganizationsEditor";
 import { PAGE_WIDTH } from "../lib/pageWidth";
-import { uploadToStorage } from "../lib/uploadFile";
+import { maxSize, useFileUpload } from "../lib/useFileUpload";
+import { AVATAR_PX } from "../lib/shrinkImage";
 import { ShortlistLink } from "../components/shortlist/ShortlistLink";
 import { isGardenHost } from "../../convex/garden/brandHosts";
 import { formatCents } from "../../convex/money";
@@ -1352,9 +1353,18 @@ function ProfileEditForm({
   const [imageUrlInput, setImageUrlInput] = useState("");
   const [interests, setInterests] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [savingUrl, setSavingUrl] = useState(false);
+  const [urlError, setUrlError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const photo = useFileUpload({
+    kinds: ["image"],
+    generateUploadUrl,
+    square: AVATAR_PX,
+    onUploaded: ({ storageId }) => saveProfileImage({ storageId }),
+  });
+  const uploading = photo.uploading || savingUrl;
+  const photoError = photo.error || urlError;
 
   useEffect(() => {
     if (profile && !initialized) {
@@ -1377,32 +1387,23 @@ function ProfileEditForm({
     );
   }
 
-  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    setUrlError(null);
+    void photo.onPick(e);
+  }
 
-    if (!file.type.startsWith("image/")) {
-      alert("Please select an image file");
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      alert("Image must be less than 5MB");
-      return;
-    }
-
-    setUploading(true);
+  async function handleUseImageUrl() {
+    if (!imageUrlInput.trim()) return;
+    photo.reset();
+    setUrlError(null);
+    setSavingUrl(true);
     try {
-      const storageId = await uploadToStorage(generateUploadUrl, file);
-      await saveProfileImage({ storageId });
+      await saveProfileImageUrl({ imageUrl: normalizeUrl(imageUrlInput) });
+      setImageUrlInput("");
     } catch (err) {
-      console.error("Upload error:", err);
-      alert("Failed to upload image. Please try again.");
+      setUrlError(errorMessage(err, "That link didn't work. Check it and try again."));
     } finally {
-      setUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      setSavingUrl(false);
     }
   }
 
@@ -1521,8 +1522,13 @@ function ProfileEditForm({
                 </button>
               )}
             </div>
+            {photoError && (
+              <p className="mt-2 text-sm" style={{ color: "var(--app-text)" }} role="alert">
+                {photoError}
+              </p>
+            )}
             <p className="mt-2 text-xs" style={{ color: "var(--app-text-dim)" }}>
-              JPG, PNG or GIF. Max 5MB.
+              JPG, PNG or GIF, up to {maxSize("image")}.
             </p>
             {/* URL input option */}
             <div className="mt-3">
@@ -1542,23 +1548,7 @@ function ProfileEditForm({
                 />
                 <button
                   type="button"
-                  onClick={async () => {
-                    if (!imageUrlInput.trim()) return;
-                    setUploading(true);
-                    try {
-                      await saveProfileImageUrl({
-                        imageUrl: normalizeUrl(imageUrlInput),
-                      });
-                      setImageUrlInput("");
-                    } catch (err) {
-                      console.error("Save URL error:", err);
-                      alert(
-                        "Failed to save image URL. Please check the URL and try again.",
-                      );
-                    } finally {
-                      setUploading(false);
-                    }
-                  }}
+                  onClick={handleUseImageUrl}
                   disabled={uploading || !imageUrlInput.trim()}
                   className="px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-[var(--app-hairline-raised)] disabled:opacity-50"
                   style={{ backgroundColor: "var(--app-hairline)", color: "var(--app-text-muted)" }}
@@ -2027,12 +2017,9 @@ function ArtifactsSection({
   const [content, setContent] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
-  const [uploadedStorageId, setUploadedStorageId] = useState<string | null>(
-    null,
-  );
-  const [uploadedPreview, setUploadedPreview] = useState<string | null>(null);
+  const piece = useFileUpload({ kinds: ["image", "video", "audio"], generateUploadUrl, takesLinks: true });
+  const uploadedStorageId = piece.storageId;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sectionRef = useRef<HTMLDivElement>(null);
 
@@ -2053,8 +2040,7 @@ function ArtifactsSection({
     setTitle("");
     setContent("");
     setMediaUrl("");
-    setUploadedStorageId(null);
-    setUploadedPreview(null);
+    piece.reset();
     setShowAddForm(false);
     setEditingId(null);
     // Clear the URL param if we were editing from a deep link
@@ -2062,50 +2048,9 @@ function ArtifactsSection({
   }
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // 5MB limit
-    if (file.size > 5 * 1024 * 1024) {
-      alert("File must be less than 5MB");
-      return;
-    }
-
-    // Validate file type
-    const isImage = file.type.startsWith("image/");
-    const isVideo = file.type.startsWith("video/");
-    const isAudio = file.type.startsWith("audio/");
-
-    if (!isImage && !isVideo && !isAudio) {
-      alert("Please select an image, video, or audio file");
-      return;
-    }
-
-    // Auto-set type based on file
-    if (isImage) setType("image");
-    else if (isVideo) setType("video");
-    else if (isAudio) setType("audio");
-
-    setUploading(true);
-    try {
-      const storageId = await uploadToStorage(generateUploadUrl, file);
-      setUploadedStorageId(storageId);
-
-      // Create preview for images
-      if (isImage) {
-        const reader = new FileReader();
-        reader.onload = (e) => setUploadedPreview(e.target?.result as string);
-        reader.readAsDataURL(file);
-      } else {
-        setUploadedPreview(null);
-      }
-    } catch (err) {
-      console.error("Upload error:", err);
-      alert("Failed to upload file. Please try again.");
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
+    // The piece takes the kind of the file picked.
+    const uploaded = await piece.onPick(e);
+    if (uploaded) setType(uploaded.kind);
   }
 
   async function handleCreate() {
@@ -2125,7 +2070,7 @@ function ArtifactsSection({
           type !== "text" && !uploadedStorageId
             ? normalizeUrl(mediaUrl)
             : undefined,
-        mediaStorageId: mediaStorageId as any,
+        mediaStorageId,
       });
       resetForm();
 
@@ -2155,7 +2100,7 @@ function ArtifactsSection({
           type !== "text" && !uploadedStorageId
             ? normalizeUrl(mediaUrl)
             : undefined,
-        mediaStorageId: mediaStorageId as any,
+        mediaStorageId,
       });
       resetForm();
     } finally {
@@ -2186,8 +2131,7 @@ function ArtifactsSection({
     setTitle(artifact.title || "");
     setContent(artifact.content || "");
     setMediaUrl(artifact.mediaUrl || "");
-    setUploadedStorageId(null);
-    setUploadedPreview(null);
+    piece.reset();
   }
 
   const hasMedia = mediaUrl.trim().length > 0 || uploadedStorageId;
@@ -2217,8 +2161,8 @@ function ArtifactsSection({
         )}
       </div>
       <p className="text-sm mb-4" style={{ color: "var(--app-text-dim)" }}>
-        Showcase your work with text, images, videos, audio, or links. Max 5MB
-        per file.
+        Showcase your work with text, images, videos, audio, or links.
+        Pictures up to {maxSize("image")}; video and audio up to {maxSize("video")}.
       </p>
 
       {/* Add/Edit Form */}
@@ -2283,11 +2227,11 @@ function ArtifactsSection({
                 className="hidden"
               />
 
-              {uploadedPreview || uploadedStorageId ? (
+              {uploadedStorageId ? (
                 <div className="relative">
-                  {uploadedPreview ? (
+                  {piece.kind === "image" && piece.preview ? (
                     <img
-                      src={uploadedPreview}
+                      src={piece.preview}
                       alt="Preview"
                       className="w-full h-40 object-cover rounded-lg"
                     />
@@ -2299,10 +2243,7 @@ function ArtifactsSection({
                     </div>
                   )}
                   <button
-                    onClick={() => {
-                      setUploadedStorageId(null);
-                      setUploadedPreview(null);
-                    }}
+                    onClick={piece.reset}
                     className="absolute top-2 right-2 w-6 h-6 bg-red-600 text-white rounded-full flex items-center justify-center text-sm"
                   >
                     ×
@@ -2311,19 +2252,24 @@ function ArtifactsSection({
               ) : (
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
+                  disabled={piece.uploading}
                   className="w-full py-8 border-2 border-dashed rounded-lg transition-colors hover:border-[var(--app-accent)] hover:text-[var(--app-accent-ink)]"
                   style={{ borderColor: "var(--app-hairline)", color: "var(--app-text-dim)" }}
                 >
-                  {uploading ? (
+                  {piece.uploading ? (
                     <span className="flex items-center justify-center gap-2">
                       <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-400 border-t-transparent" />
                       Uploading...
                     </span>
                   ) : (
-                    <span>Click to upload {type} (max 5MB)</span>
+                    <span>Click to upload {type}</span>
                   )}
                 </button>
+              )}
+              {piece.error && (
+                <p className="text-sm" style={{ color: "var(--app-text)" }} role="alert">
+                  {piece.error}
+                </p>
               )}
 
               {/* Or use URL */}

@@ -43,6 +43,7 @@ import { ImageFill } from "../components/ImageFill";
 import { CoverFrame } from "../components/CoverFrame";
 import { useCoverPick } from "../lib/useCoverPick";
 import { uploadToStorage } from "../lib/uploadFile";
+import { useFileUpload } from "../lib/useFileUpload";
 import { isWideCover, useImageAspect } from "../lib/useImageAspect";
 import { useBack } from "../lib/useBack";
 import { YOUTUBE_LIVE_LABEL, YOUTUBE_LIVE_URL } from "../constants/broadcast";
@@ -3229,15 +3230,20 @@ function EventImageManager({
   );
   const updateEventCoverColor = useMutation(api.files.updateEventCoverColor);
 
-  const [uploading, setUploading] = useState<"cover" | "gallery" | null>(null);
+  const [coverUploading, setCoverUploading] = useState(false);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const gallery = useFileUpload({
+    kinds: ["image"],
+    generateUploadUrl,
+    onUploaded: ({ storageId }) => addEventGalleryImage({ eventId, storageId }),
+  });
 
   // The hook checks the file (image, up to 20MB), frames it 4:5 and hands
   // back a small JPEG; we upload that.
   const [coverError, setCoverError] = useState<string | null>(null);
   const coverPick = useCoverPick(async (blob) => {
-    setUploading("cover");
+    setCoverUploading(true);
     setCoverError(null);
     try {
       const storageId = await uploadToStorage(generateUploadUrl, blob);
@@ -3246,7 +3252,7 @@ function EventImageManager({
       console.error("Upload error:", err);
       setCoverError("Failed to upload image. Please try again.");
     } finally {
-      setUploading(null);
+      setCoverUploading(false);
     }
   });
 
@@ -3256,33 +3262,6 @@ function EventImageManager({
     if (!file) return;
     setCoverError(null);
     coverPick.pick(file);
-  }
-
-  async function handleGalleryUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      alert("Please select an image file");
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      alert("Image must be less than 5MB");
-      return;
-    }
-
-    setUploading("gallery");
-    try {
-      const storageId = await uploadToStorage(generateUploadUrl, file);
-      await addEventGalleryImage({ eventId, storageId });
-    } catch (err) {
-      console.error("Upload error:", err);
-      alert("Failed to upload image. Please try again.");
-    } finally {
-      setUploading(null);
-      if (galleryInputRef.current) galleryInputRef.current.value = "";
-    }
   }
 
   async function handleRemoveGalleryImage(storageId: Id<"_storage">) {
@@ -3331,10 +3310,10 @@ function EventImageManager({
             <div className="flex items-center gap-3">
               <button
                 onClick={() => coverInputRef.current?.click()}
-                disabled={uploading === "cover" || coverPick.busy}
+                disabled={coverUploading || coverPick.busy}
                 className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
               >
-                {uploading === "cover" || coverPick.busy
+                {coverUploading || coverPick.busy
                   ? "Uploading..."
                   : event.coverImageUrl
                     ? "Change Cover"
@@ -3392,7 +3371,7 @@ function EventImageManager({
           ref={galleryInputRef}
           type="file"
           accept="image/*"
-          onChange={handleGalleryUpload}
+          onChange={gallery.onPick}
           className="hidden"
         />
 
@@ -3417,10 +3396,10 @@ function EventImageManager({
           {canAddMoreGallery && (
             <button
               onClick={() => galleryInputRef.current?.click()}
-              disabled={uploading === "gallery"}
+              disabled={gallery.uploading}
               className="aspect-square rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-400 hover:border-gray-400 hover:text-gray-500 disabled:opacity-50"
             >
-              {uploading === "gallery" ? (
+              {gallery.uploading ? (
                 <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-400 border-t-transparent" />
               ) : (
                 <svg
@@ -3440,6 +3419,11 @@ function EventImageManager({
             </button>
           )}
         </div>
+        {gallery.error && (
+          <p role="alert" className="mb-2 text-sm text-red-700 dark:text-red-300">
+            {gallery.error}
+          </p>
+        )}
         <p className="text-xs text-gray-500 dark:text-gray-400">
           Add up to 3 photos to showcase your event
         </p>

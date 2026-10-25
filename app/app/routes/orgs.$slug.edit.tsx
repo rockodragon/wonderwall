@@ -14,7 +14,7 @@ import { OrgLogo } from "../components/OrgLogo";
 import { useLocationField } from "../lib/useLocationField";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { errorMessage } from "../lib/convexError";
-import { uploadToStorage } from "../lib/uploadFile";
+import { useFileUpload } from "../lib/useFileUpload";
 import { PersonAvatar } from "../components/PersonAvatar";
 
 const inputClass =
@@ -54,8 +54,13 @@ export default function OrgEdit() {
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [uploading, setUploading] = useState(false);
   const [logoError, setLogoError] = useState("");
+  const logo = useFileUpload({
+    kinds: ["image"],
+    generateUploadUrl,
+    onUploaded: ({ storageId }) => org && setLogo({ organizationId: org._id, storageId }),
+  });
+  const uploading = logo.uploading;
   const [busyProfileId, setBusyProfileId] = useState<string | null>(null);
   const [peopleError, setPeopleError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -120,33 +125,14 @@ export default function OrgEdit() {
     ...org.alumni.map((p) => ({ ...p, former: true })),
   ];
 
-  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !org) return;
+  function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     setLogoError("");
-    if (!file.type.startsWith("image/")) {
-      setLogoError("Pick an image file.");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setLogoError("Image must be under 5MB.");
-      return;
-    }
-    setUploading(true);
-    try {
-      const storageId = await uploadToStorage(generateUploadUrl, file);
-      await setLogo({ organizationId: org._id, storageId });
-    } catch (err) {
-      console.error("Logo upload error:", err);
-      setLogoError(errorMessage(err, "Couldn't upload that. Try again."));
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
+    void logo.onPick(e);
   }
 
   async function handleRemoveLogo() {
     if (!org || !window.confirm("Remove the logo?")) return;
+    logo.reset();
     setLogoError("");
     try {
       await setLogo({ organizationId: org._id });
@@ -260,9 +246,9 @@ export default function OrgEdit() {
                 </button>
               )}
             </div>
-            {logoError && (
+            {(logo.error || logoError) && (
               <p className="mt-2 text-sm" style={{ color: "var(--app-text)" }} role="alert">
-                {logoError}
+                {logo.error || logoError}
               </p>
             )}
           </div>

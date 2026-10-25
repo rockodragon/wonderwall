@@ -10,7 +10,7 @@
 // Admin pages in this app are light and plain (admin.showcase.tsx); this one
 // follows them. Muted text is gray-700 and up.
 
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "../../convex/_generated/api";
@@ -33,11 +33,9 @@ import {
   type UpdateAudience,
   type UpdateForm,
 } from "../lib/updates";
-import { uploadToStorage } from "../lib/uploadFile";
+import { useFileUpload } from "../lib/useFileUpload";
 
 export type AdminUpdate = FunctionReturnType<typeof api.updates.adminList>[number];
-
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 const fieldClass =
   "rounded-md border border-gray-400 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-600";
@@ -66,21 +64,18 @@ export function UpdateEditor({
 }) {
   const [form, setForm] = useState<UpdateForm>(() => (update ? formFrom(update) : emptyForm(Date.now(), order)));
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
-  // A picture picked in this editor is previewed from the file until it is saved.
-  const localUrl = useRef<string | null>(null);
 
   const save = useMutation(api.updates.save);
   const generateUploadUrl = useMutation(api.updates.generateImageUploadUrl);
-
-  useEffect(
-    () => () => {
-      if (localUrl.current) URL.revokeObjectURL(localUrl.current);
-    },
-    [],
-  );
+  // A picture picked in this editor is previewed from the file until it is saved.
+  const picture = useFileUpload({
+    kinds: ["image"],
+    generateUploadUrl,
+    onUploaded: ({ storageId, preview }) => setForm((f) => ({ ...f, imageStorageId: storageId, imageUrl: preview })),
+  });
+  const uploading = picture.uploading;
 
   const set = <K extends keyof UpdateForm>(key: K, value: UpdateForm[K]) => setForm((f) => ({ ...f, [key]: value }));
 
@@ -102,35 +97,13 @@ export function UpdateEditor({
 
   // ——— The picture ———
 
-  async function onPick(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (fileRef.current) fileRef.current.value = "";
-    if (!file) return;
+  function onPick(e: ChangeEvent<HTMLInputElement>) {
     setError("");
-    if (!file.type.startsWith("image/")) {
-      setError("Pick an image file.");
-      return;
-    }
-    if (file.size > MAX_IMAGE_BYTES) {
-      setError("The picture must be under 5MB.");
-      return;
-    }
-    setUploading(true);
-    try {
-      const storageId = await uploadToStorage(generateUploadUrl, file);
-      if (localUrl.current) URL.revokeObjectURL(localUrl.current);
-      localUrl.current = URL.createObjectURL(file);
-      setForm((f) => ({ ...f, imageStorageId: storageId, imageUrl: localUrl.current }));
-    } catch (err) {
-      setError(err instanceof Error && err.message.startsWith("Upload failed") ? "Couldn't upload that. Try again." : errorMessage(err));
-    } finally {
-      setUploading(false);
-    }
+    void picture.onPick(e);
   }
 
   function removePicture() {
-    if (localUrl.current) URL.revokeObjectURL(localUrl.current);
-    localUrl.current = null;
+    picture.reset();
     setForm((f) => ({ ...f, imageStorageId: null, imageUrl: null }));
   }
 
@@ -210,6 +183,11 @@ export function UpdateEditor({
               </button>
             )}
           </div>
+          {picture.error && (
+            <p role="alert" className="mt-2 text-sm text-red-800">
+              {picture.error}
+            </p>
+          )}
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">

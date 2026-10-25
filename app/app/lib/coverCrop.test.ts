@@ -29,6 +29,11 @@ describe("isCoverShape", () => {
 describe("cropRect", () => {
   const centred = { zoom: 1, x: 0.5, y: 0.5 };
 
+  it("takes the centred square of a wide or tall picture for an avatar", () => {
+    expect(cropRect({ w: 4000, h: 3000, ...centred, aspect: 1 })).toEqual({ sx: 500, sy: 0, sw: 3000, sh: 3000 });
+    expect(cropRect({ w: 3000, h: 4000, ...centred, aspect: 1 })).toEqual({ sx: 0, sy: 500, sw: 3000, sh: 3000 });
+  });
+
   it("takes the full height of a wide picture, centred across the width", () => {
     const r = cropRect({ w: 1600, h: 900, ...centred });
     expect(r.sh).toBeCloseTo(900);

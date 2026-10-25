@@ -19,7 +19,7 @@ import { haversineDistance, NEAR_ME_RADIUS_OPTIONS, useNearMe } from "../lib/use
 import { ChevronDownIcon, FilterIcon, LocationIcon } from "../components/icons";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { errorMessage } from "../lib/convexError";
-import { uploadToStorage } from "../lib/uploadFile";
+import { useFileUpload } from "../lib/useFileUpload";
 
 // AnnouncementComposer moved off this list page entirely — it now renders
 // only on the detail page (routes/offerings.$id.tsx), per the founder's
@@ -970,7 +970,14 @@ export function PostOfferingForm({
     offering?.photoStorageId ?? null,
   );
   const [photoPreview, setPhotoPreview] = useState<string | null>(offering?.photoUrl ?? null);
-  const [uploading, setUploading] = useState(false);
+  const photo = useFileUpload({
+    kinds: ["image"],
+    generateUploadUrl,
+    onUploaded: ({ storageId, preview }) => {
+      setPhotoStorageId(storageId);
+      setPhotoPreview(preview);
+    },
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -1025,40 +1032,8 @@ export function PostOfferingForm({
     setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
   }
 
-  // Same generateUploadUrl → fetch(POST, file) → storageId pattern as
-  // CreateWorkComposer.tsx's handleFileUpload.
-  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 5 * 1024 * 1024) {
-      setError("Image must be less than 5MB.");
-      return;
-    }
-    if (!file.type.startsWith("image/")) {
-      setError("Please select an image file.");
-      return;
-    }
-
-    setUploading(true);
-    setError("");
-    try {
-      const storageId = await uploadToStorage(generateUploadUrl, file);
-      setPhotoStorageId(storageId);
-
-      const reader = new FileReader();
-      reader.onload = (ev) => setPhotoPreview(ev.target?.result as string);
-      reader.readAsDataURL(file);
-    } catch (err) {
-      console.error("Upload error:", err);
-      setError("Failed to upload image — try again.");
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  }
-
   function handleRemovePhoto() {
+    photo.reset();
     setPhotoStorageId(null);
     setPhotoPreview(null);
   }
@@ -1426,7 +1401,10 @@ export function PostOfferingForm({
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
-                onChange={handleFileUpload}
+                onChange={(e) => {
+                  setError("");
+                  void photo.onPick(e);
+                }}
                 className="hidden"
               />
               {photoPreview ? (
@@ -1445,12 +1423,17 @@ export function PostOfferingForm({
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
+                  disabled={photo.uploading}
                   className="w-full py-6 rounded-lg border border-dashed text-xs disabled:opacity-50 transition-colors"
                   style={{ borderColor: "var(--garden-hairline-raised)", color: "var(--garden-dim)" }}
                 >
-                  {uploading ? "Uploading…" : "Click to upload an image"}
+                  {photo.uploading ? "Uploading…" : "Click to upload an image"}
                 </button>
+              )}
+              {photo.error && (
+                <p role="alert" className="mt-2 text-sm text-red-400">
+                  {photo.error}
+                </p>
               )}
             </div>
           </FormSection>

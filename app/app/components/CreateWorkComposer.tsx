@@ -5,14 +5,8 @@ import { api } from "../../convex/_generated/api";
 import confetti from "canvas-confetti";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import { mediaLinkHint } from "../lib/mediaLink";
-import { uploadToStorage } from "../lib/uploadFile";
+import { maxSize, useFileUpload } from "../lib/useFileUpload";
 import { PersonAvatar } from "./PersonAvatar";
-
-// Same caps as the project-page editor (RichTextEditor.tsx): Convex takes
-// files up to 1GB, but a raw upload streams to every visitor, so video past
-// this belongs on a host — or, for a reel, is a pasted link that plays here.
-const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
-const MAX_MEDIA_BYTES = 64 * 1024 * 1024;
 
 const WORK_TYPES = [
   { value: "image", label: "Image", icon: ImageIcon },
@@ -48,11 +42,10 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
   const [content, setContent] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadedStorageId, setUploadedStorageId] = useState<string | null>(
-    null,
-  );
-  const [uploadedPreview, setUploadedPreview] = useState<string | null>(null);
+  // A video past the cap belongs on a host, or, for a reel, is a pasted link
+  // that plays here.
+  const piece = useFileUpload({ kinds: ["image", "video", "audio"], generateUploadUrl, takesLinks: true });
+  const uploadedStorageId = piece.storageId;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -63,8 +56,7 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
     setTitle("");
     setContent("");
     setMediaUrl("");
-    setUploadedStorageId(null);
-    setUploadedPreview(null);
+    piece.reset();
     setInProgress(false);
     setIsExpanded(false);
   }
@@ -75,50 +67,9 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
   }
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const isImage = file.type.startsWith("image/");
-    const isVideo = file.type.startsWith("video/");
-    const isAudio = file.type.startsWith("audio/");
-
-    if (!isImage && !isVideo && !isAudio) {
-      alert("Please select an image, video, or audio file");
-      return;
-    }
-
-    const cap = isImage ? MAX_IMAGE_BYTES : MAX_MEDIA_BYTES;
-    if (file.size > cap) {
-      const mb = (bytes: number) => Math.round(bytes / (1024 * 1024));
-      alert(
-        isImage
-          ? `That image is ${mb(file.size)}MB. Images need to be under ${mb(cap)}MB.`
-          : `That file is ${mb(file.size)}MB. Files need to be under ${mb(cap)}MB. For a reel or a longer video, paste its Instagram, TikTok or YouTube link instead and it plays here.`,
-      );
-      return;
-    }
-
-    if (isImage) setType("image");
-    else if (isVideo) setType("video");
-    else if (isAudio) setType("audio");
-
-    setUploading(true);
-    try {
-      const storageId = await uploadToStorage(generateUploadUrl, file);
-      setUploadedStorageId(storageId);
-
-      if (isImage) {
-        const reader = new FileReader();
-        reader.onload = (e) => setUploadedPreview(e.target?.result as string);
-        reader.readAsDataURL(file);
-      }
-    } catch (err) {
-      console.error("Upload error:", err);
-      alert("Failed to upload file. Please try again.");
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
+    // The piece takes the kind of the file picked.
+    const uploaded = await piece.onPick(e);
+    if (uploaded) setType(uploaded.kind);
   }
 
   // A pasted Instagram, TikTok, YouTube or Vimeo link is a video however the
@@ -127,7 +78,7 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
   // beside it is its cover, not the work. Pure and cheap, so it runs on
   // every render to drive the hint and the Post button.
   const pastedEmbed = toEmbedUrl(normalizeUrl(mediaUrl));
-  const coverIsImage = !!uploadedStorageId && !!uploadedPreview;
+  const coverIsImage = piece.kind === "image";
 
   async function handleSubmit() {
     if (type === "text" && !content.trim()) return;
@@ -152,10 +103,8 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
             ? (embed?.canonicalUrl ?? normalizedUrl)
             : undefined,
         mediaStorageId:
-          uploadedStorageId && !uploadIsCover
-            ? (uploadedStorageId as any)
-            : undefined,
-        coverStorageId: uploadIsCover ? (uploadedStorageId as any) : undefined,
+          uploadedStorageId && !uploadIsCover ? uploadedStorageId : undefined,
+        coverStorageId: uploadIsCover ? (uploadedStorageId ?? undefined) : undefined,
         inProgress: inProgress || undefined,
       });
 
@@ -318,11 +267,11 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
                 className="hidden"
               />
 
-              {uploadedPreview || uploadedStorageId ? (
+              {uploadedStorageId ? (
                 <div className="relative rounded-xl overflow-hidden mb-3">
-                  {uploadedPreview ? (
+                  {coverIsImage && piece.preview ? (
                     <img
-                      src={uploadedPreview}
+                      src={piece.preview}
                       alt="Preview"
                       className="w-full h-48 object-cover"
                     />
@@ -349,10 +298,7 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
                     </div>
                   )}
                   <button
-                    onClick={() => {
-                      setUploadedStorageId(null);
-                      setUploadedPreview(null);
-                    }}
+                    onClick={piece.reset}
                     className="absolute top-2 right-2 w-8 h-8 bg-black/50 hover:bg-black/70 text-white rounded-full flex items-center justify-center transition-colors"
                   >
                     <svg
@@ -373,10 +319,10 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
               ) : !mediaUrl ? (
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
+                  disabled={piece.uploading}
                   className="w-full py-12 border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-xl text-gray-400 dark:text-gray-500 hover:border-purple-400 hover:text-purple-500 dark:hover:border-purple-500 dark:hover:text-purple-400 transition-all group"
                 >
-                  {uploading ? (
+                  {piece.uploading ? (
                     <div className="flex flex-col items-center gap-2">
                       <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-purple-500" />
                       <span className="text-sm">Uploading...</span>
@@ -402,12 +348,17 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
                         Drop a file or click to upload
                       </span>
                       <span className="text-xs text-gray-400">
-                        Images to 12MB, video and audio to 64MB
+                        Pictures up to {maxSize("image")}, video and audio up to {maxSize("video")}
                       </span>
                     </div>
                   )}
                 </button>
               ) : null}
+              {piece.error && (
+                <p className="mb-3 text-sm text-red-700 dark:text-red-300" role="alert">
+                  {piece.error}
+                </p>
+              )}
 
               {/* URL Input */}
               <div className="relative mt-3">
