@@ -56,6 +56,27 @@ export async function activeCommunityMemberships(
   return (await communityMembershipsOf(ctx, userId)).filter((m) => m.status === "active");
 }
 
+/** Every row of the community, any status — pending and removed included.
+ * For callers that need those too (its page, its member list, its reports). */
+export async function membersOfCommunity(
+  ctx: Ctx,
+  hostOrgId: Id<"hostOrgs">,
+): Promise<Doc<"communityMembers">[]> {
+  return ctx.db
+    .query("communityMembers")
+    .withIndex("by_hostOrgId", (q) => q.eq("hostOrgId", hostOrgId))
+    .collect();
+}
+
+/** The community's ACTIVE members: who is in it now. Pending requests and
+ * removed members aren't. */
+export async function activeMembersOfCommunity(
+  ctx: Ctx,
+  hostOrgId: Id<"hostOrgs">,
+): Promise<Doc<"communityMembers">[]> {
+  return (await membersOfCommunity(ctx, hostOrgId)).filter((m) => m.status === "active");
+}
+
 /** Batches hostOrgs lookups into one Map keyed by hostOrgId string — one
  * ctx.db.get per DISTINCT org, never one per row (several projects, events,
  * classes can share a community). Only real communities (kind COMMUNITY_KIND)

@@ -28,7 +28,13 @@ import { canSeeCommunity, isHiddenCommunity } from "./hiddenCommunity";
 import { communityVisibility } from "./communityVisibility";
 import { isEventListed } from "../eventWindow";
 import { feedLocation } from "../eventAddress";
-import { COMMUNITY_KIND, communityMembershipsOf, getCommunityMember } from "./communityLookup";
+import {
+  COMMUNITY_KIND,
+  activeMembersOfCommunity,
+  communityMembershipsOf,
+  getCommunityMember,
+  membersOfCommunity,
+} from "./communityLookup";
 import { projectPhotoUrl } from "../images";
 
 // Defined in communityLookup.ts (so smaller modules can use them); exported
@@ -450,11 +456,7 @@ export const listCommunities = query({
 
     return Promise.all(
       listed.map(async (org) => {
-        const members = await ctx.db
-          .query("communityMembers")
-          .withIndex("by_hostOrgId", (q) => q.eq("hostOrgId", org._id))
-          .collect();
-        const active = members.filter((m) => m.status === "active");
+        const active = await activeMembersOfCommunity(ctx, org._id);
         const hostIds = active.filter((m) => m.role === "host").map((m) => m.userId);
         const names = await profileNames(ctx, hostIds);
         return {
@@ -485,10 +487,7 @@ export const getCommunity = query({
     const c = normalizeCommunity(org);
 
     const [members, viewerProfile] = await Promise.all([
-      ctx.db
-        .query("communityMembers")
-        .withIndex("by_hostOrgId", (q) => q.eq("hostOrgId", org._id))
-        .collect(),
+      membersOfCommunity(ctx, org._id),
       userId ? getProfileByUserId(ctx, userId) : Promise.resolve(null),
     ]);
     const mine = userId ? members.find((m) => String(m.userId) === String(userId)) ?? null : null;
@@ -859,11 +858,8 @@ export const leaveCommunity = mutation({
       });
     }
     if (existing.role === "host") {
-      const hosts = await ctx.db
-        .query("communityMembers")
-        .withIndex("by_hostOrgId", (q) => q.eq("hostOrgId", args.hostOrgId))
-        .collect();
-      if (hosts.filter((m) => m.role === "host" && m.status === "active").length <= 1) {
+      const members = await activeMembersOfCommunity(ctx, args.hostOrgId);
+      if (members.filter((m) => m.role === "host").length <= 1) {
         throw new ConvexError({
           code: "last_host",
           reason: "You're the only host — hand it to someone else before leaving.",
@@ -1067,10 +1063,7 @@ export const listMembers = query({
       isAdminProfile(profile) || (mine?.status === "active" && canManageCommunity(mine.role));
     if (!manages && mine?.status !== "active") return null;
 
-    const rows = await ctx.db
-      .query("communityMembers")
-      .withIndex("by_hostOrgId", (q) => q.eq("hostOrgId", args.hostOrgId))
-      .collect();
+    const rows = await membersOfCommunity(ctx, args.hostOrgId);
     const shown = rows.filter((m) => m.status !== "removed" && (manages || m.status === "active"));
     const names = await profileNames(ctx, shown.map((m) => m.userId));
     const ownerId = org.ownerUserId ? String(org.ownerUserId) : undefined;
@@ -1119,15 +1112,12 @@ export const listCommunityApplications = query({
     const names = await profileNames(ctx, ownerIds);
     return Promise.all(
       orgs.map(async (o) => {
-        const members = await ctx.db
-          .query("communityMembers")
-          .withIndex("by_hostOrgId", (q) => q.eq("hostOrgId", o._id))
-          .collect();
+        const members = await activeMembersOfCommunity(ctx, o._id);
         return {
           ...publicShape(o),
           applicantNote: o.applicantNote,
           ownerName: o.ownerUserId ? names.get(String(o.ownerUserId)) : undefined,
-          memberCount: members.filter((m) => m.status === "active").length,
+          memberCount: members.length,
         };
       }),
     ).then((rows) =>

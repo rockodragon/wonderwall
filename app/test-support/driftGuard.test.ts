@@ -188,6 +188,15 @@ const RULES: Rule[] = [
     use: "hasRealName / PLACEHOLDER_NAME in convex/names.ts",
   },
   {
+    name: "a community's members read inline",
+    pattern: /query\(\s*"communityMembers"\s*\)\s*\.withIndex\(\s*"by_hostOrgId"/g,
+    // Left on purpose: updates.ts deliverBatch reads them a page at a time
+    // (.paginate), which a helper that collects every row can't do.
+    limit: 1,
+    home: "convex/garden/communityLookup.ts",
+    use: "activeMembersOfCommunity (who is in it now) / membersOfCommunity (every row, any status) in convex/garden/communityLookup.ts",
+  },
+  {
     name: "project shown-or-not checked inline (one place)",
     pattern: /status\s*!==\s*"archived"\s*&&\s*!isHidden\(/g,
     limit: 0,

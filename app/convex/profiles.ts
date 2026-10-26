@@ -11,11 +11,14 @@ import { normalizeOrgUrl } from "./organizationRules";
 import { communityVisibility } from "./garden/communityVisibility";
 import { isGardenMember } from "./garden/defaultCommunity";
 import { pieceMediaUrl, profileImageUrl, storedFileUrl } from "./images";
+import { byLatestActivity, directoryLimit, latestPostAt, listedFor, searchedText } from "./directoryRules";
+import { activeMembersOfCommunity } from "./garden/communityLookup";
+import { filterProfiles } from "../app/lib/browse/peopleFilter";
 
 export { normalizeOrgUrl };
 
-// What any visitor may see of someone else's profile. getProfile and search
-// are public queries (/people works signed out), so this is an allowlist:
+// What any visitor may see of someone else's profile. getProfile, directory
+// and search are public queries (/people works signed out), so this is an allowlist:
 // a field added to profiles later (payout handles, Stripe ids, addresses)
 // stays private until someone adds it here on purpose. Coordinates are
 // rounded to ~1 km — enough for "Near me", not a doorstep.
@@ -54,6 +57,8 @@ export function toPublicProfile(profile: Doc<"profiles">) {
     updatedAt: profile.updatedAt,
   };
 }
+
+type PublicProfile = ReturnType<typeof toPublicProfile>;
 
 export const getMyProfile = query({
   args: {},
@@ -409,126 +414,166 @@ export const updateAttribute = mutation({
   },
 });
 
+// ——————————————————————————————————————————————————————————————
+// The People directory
+// ——————————————————————————————————————————————————————————————
+
+/** What narrows the directory. Nothing set is everyone. */
+type DirectoryFilter = {
+  query?: string;
+  /** People with any of these interests (the Discipline multi-select). */
+  interests?: readonly string[];
+  location?: string;
+  communitySlug?: string;
+  /** Near me: within `radius` miles of lat/lng, nearest first. */
+  near?: { lat: number; lng: number; radius: number };
+};
+
+/** How many name matches search returns (the org page's "Add a person"). */
+const SEARCH_LIMIT = 30;
+
+/**
+ * Everyone the directory lists for this caller and filter, in its order
+ * (directoryRules.ts): latest activity first, or nearest first under Near
+ * me. A visitor's list leaves out anyone who hid their profile from search.
+ *
+ * Reads every profile, and every project and published event once, to find
+ * each person's latest post in memory. That is fine at this size (hundreds
+ * of profiles); thousands would want the latest post stored on the profile.
+ * Rows are the public projection (toPublicProfile), so Near me measures the
+ * rounded coordinates anyone can see, never the exact ones.
+ */
+async function directoryPeople(ctx: QueryCtx, filter: DirectoryFilter, signedIn: boolean) {
+  const gate = communityVisibility(ctx);
+  let profiles = (await ctx.db.query("profiles").collect()).filter((p) => listedFor(p, signedIn));
+
+  // Community context (docs/features/community-ux.md §2): when set, only
+  // ACTIVE members of that community are people here. An unknown slug
+  // matches nobody rather than everybody — a wrong filter must fail
+  // closed, never leak the whole directory under a community's name.
+  if (filter.communitySlug) {
+    const org = await ctx.db
+      .query("hostOrgs")
+      .withIndex("by_slug", (q) => q.eq("slug", filter.communitySlug!))
+      .unique();
+    if (!org) return [];
+    // A hidden (test) community's people are findable only by admins and
+    // its own members — same empty answer as an unknown slug.
+    if (!(await gate.orgVisible(org))) return [];
+    const members = await activeMembersOfCommunity(ctx, org._id);
+    const memberIds = new Set(members.map((m) => String(m.userId)));
+    profiles = profiles.filter((p) => memberIds.has(String(p.userId)));
+  }
+
+  if (filter.location) {
+    const place = filter.location.toLowerCase();
+    profiles = profiles.filter((p) => p.location?.toLowerCase().includes(place));
+  }
+
+  // A visitor's one-letter search is no search (searchedText), so a sweep
+  // through the alphabet can't page the directory 24 at a time.
+  const text = searchedText(filter.query, signedIn);
+  if (text) {
+    // What each person is wondering is searched too.
+    const wonderings = await ctx.db
+      .query("wonderings")
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+    const wonderingOf = new Map(wonderings.map((w) => [String(w.profileId), w.prompt]));
+    const q = text.toLowerCase();
+    profiles = profiles.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.bio?.toLowerCase().includes(q) ||
+        p.interests.some((interest) => interest.toLowerCase().includes(q)) ||
+        p.location?.toLowerCase().includes(q) ||
+        p.orgName?.toLowerCase().includes(q) ||
+        wonderingOf.get(String(p._id))?.toLowerCase().includes(q),
+    );
+  }
+
+  // Latest activity, from what their profile shows: a project or event
+  // posted into a hidden (test) community counts only for those who may see it.
+  const [projects, events] = await Promise.all([
+    ctx.db.query("projects").collect(),
+    ctx.db
+      .query("events")
+      .withIndex("by_status", (q) => q.eq("status", "published"))
+      .collect(),
+  ]);
+  const latest = latestPostAt(await gate.filter(projects), await gate.filter(events));
+  const ordered = byLatestActivity(profiles.map(toPublicProfile), latest);
+
+  // The pages' own Discipline and Near me cut, run over everyone who matches.
+  const near = filter.near;
+  const people: (PublicProfile & { _distance?: number })[] = filterProfiles(ordered, {
+    interests: filter.interests ?? [],
+    near: near ? { pos: { lat: near.lat, lng: near.lng }, radius: near.radius } : null,
+  });
+  return people;
+}
+
+/** A directory row: the public profile (with how far away they are, under
+ * Near me) and its picture resolved. */
+async function directoryRow(ctx: QueryCtx, person: PublicProfile & { _distance?: number }) {
+  return { ...person, imageUrl: await profileImageUrl(ctx, person) };
+}
+
+/**
+ * The People directory (/people, and the desk's People › Everyone), a page
+ * at a time: the first `limit` people in its order, and `total`, how many
+ * match in all. A member raises `limit` by DIRECTORY_PAGE to load more. A
+ * visitor (`visitor` true) gets one page at most whatever `limit` says, and
+ * the page ends with how many more there are and a way to join.
+ */
+export const directory = query({
+  args: {
+    query: v.optional(v.string()),
+    interests: v.optional(v.array(v.string())),
+    communitySlug: v.optional(v.string()),
+    near: v.optional(v.object({ lat: v.number(), lng: v.number(), radius: v.number() })),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const signedIn = (await currentUserId(ctx)) !== null;
+    const everyone = await directoryPeople(ctx, args, signedIn);
+    const shown = everyone.slice(0, directoryLimit(args.limit, signedIn));
+    return {
+      people: await Promise.all(shown.map((person) => directoryRow(ctx, person))),
+      total: everyone.length,
+      visitor: !signedIn,
+    };
+  },
+});
+
+/**
+ * The directory's people matching a search, as a plain list: what /people
+ * and the organization page's "Add a person" called before directory and
+ * searchPeopleForInvite. No page calls it now; it stays for pages loaded
+ * before that deploy, and can go once they are gone. The same rules as
+ * directory, so a visitor gets one page at most here too.
+ */
 export const search = query({
   args: {
     query: v.optional(v.string()),
     interest: v.optional(v.string()),
     location: v.optional(v.string()),
-    // Community context (docs/features/community-ux.md §2): when set, only
-    // ACTIVE members of that community are people here. An unknown slug
-    // matches nobody rather than everybody — a wrong filter must fail
-    // closed, never leak the whole directory under a community's name.
     communitySlug: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Get all profiles with their wonderings pre-fetched
-    let profiles = await ctx.db.query("profiles").collect();
-
-    if (args.communitySlug) {
-      const org = await ctx.db
-        .query("hostOrgs")
-        .withIndex("by_slug", (q) => q.eq("slug", args.communitySlug!))
-        .unique();
-      if (!org) return [];
-      // A hidden (test) community's people are findable only by admins and
-      // its own members — same empty answer as an unknown slug.
-      if (!(await communityVisibility(ctx).orgVisible(org))) return [];
-      const members = await ctx.db
-        .query("communityMembers")
-        .withIndex("by_hostOrgId", (q) => q.eq("hostOrgId", org._id))
-        .collect();
-      const memberIds = new Set(
-        members.filter((m) => m.status === "active").map((m) => String(m.userId)),
-      );
-      profiles = profiles.filter((p) => memberIds.has(String(p.userId)));
-    }
-
-    // Fetch all active wonderings to search
-    const wonderings = await ctx.db
-      .query("wonderings")
-      .filter((q) => q.eq(q.field("isActive"), true))
-      .collect();
-
-    // Create a map of profileId -> wondering for quick lookup
-    const wonderingMap = new Map<string, (typeof wonderings)[0]>();
-    for (const w of wonderings) {
-      wonderingMap.set(w.profileId, w);
-    }
-
-    // Filter profiles
-    let filteredProfiles = profiles;
-
-    if (args.interest) {
-      filteredProfiles = filteredProfiles.filter((p) =>
-        p.interests.includes(args.interest!),
-      );
-    }
-
-    if (args.location) {
-      filteredProfiles = filteredProfiles.filter((p) =>
-        p.location?.toLowerCase().includes(args.location!.toLowerCase()),
-      );
-    }
-
-    if (args.query) {
-      const q = args.query.toLowerCase();
-      filteredProfiles = filteredProfiles.filter((p) => {
-        const wondering = wonderingMap.get(p._id);
-        return (
-          p.name.toLowerCase().includes(q) ||
-          p.bio?.toLowerCase().includes(q) ||
-          p.interests.some((jf) => jf.toLowerCase().includes(q)) ||
-          p.location?.toLowerCase().includes(q) ||
-          p.orgName?.toLowerCase().includes(q) ||
-          wondering?.prompt.toLowerCase().includes(q)
-        );
-      });
-    }
-
-    // Fetch active wondering and resolve image URL for each profile
-    const profilesWithData = await Promise.all(
-      filteredProfiles.slice(0, 30).map(async (profile) => {
-        const wondering = wonderingMap.get(profile._id) || null;
-
-        // Resolve profile image URL
-        const imageUrl = await profileImageUrl(ctx, profile);
-
-        // Resolve wondering image URL if exists
-        let wonderingImageUrl: string | null = null;
-        if (wondering?.imageStorageId) {
-          wonderingImageUrl = await storedFileUrl(ctx, wondering.imageStorageId);
-        }
-
-        return {
-          ...toPublicProfile(profile),
-          imageUrl,
-          wondering: wondering
-            ? {
-                prompt: wondering.prompt,
-                _id: wondering._id,
-                imageUrl: wonderingImageUrl,
-                createdAt: wondering.createdAt,
-              }
-            : null,
-        };
-      }),
+    const signedIn = (await currentUserId(ctx)) !== null;
+    const everyone = await directoryPeople(
+      ctx,
+      {
+        query: args.query,
+        interests: args.interest ? [args.interest] : undefined,
+        location: args.location,
+        communitySlug: args.communitySlug,
+      },
+      signedIn,
     );
-
-    // Sort profiles: those with wonderings first (most recent wondering first), then others
-    profilesWithData.sort((a, b) => {
-      // Both have wonderings - sort by wondering createdAt (most recent first)
-      if (a.wondering && b.wondering) {
-        return b.wondering.createdAt - a.wondering.createdAt;
-      }
-      // Only a has wondering - a comes first
-      if (a.wondering) return -1;
-      // Only b has wondering - b comes first
-      if (b.wondering) return 1;
-      // Neither has wondering - maintain original order
-      return 0;
-    });
-
-    return profilesWithData;
+    const shown = everyone.slice(0, directoryLimit(SEARCH_LIMIT, signedIn));
+    return await Promise.all(shown.map((person) => directoryRow(ctx, person)));
   },
 });
 

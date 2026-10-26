@@ -1,7 +1,8 @@
-// What /people (routes/search.tsx) and the desk's People view do to the
-// profiles the server returns: the Discipline multi-select, then Near me.
-// The text search itself runs on the server (api.profiles.search), so it is
-// not here.
+// The Discipline multi-select, then Near me. The People directory runs these
+// on the server (convex/profiles.ts directory), so a page of 24 is cut from
+// everyone who matches rather than from the first 24; the desk's Following
+// list, which is the member's own, runs them here. The text search itself is
+// the server's, so it is not here.
 
 import { INTERESTS } from "../../constants/interests";
 import { withinRadius, type LatLng, type NearMe, type WithDistance } from "./nearMe";

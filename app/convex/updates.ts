@@ -24,7 +24,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireAdmin } from "./helpers";
 import { fail } from "./errors";
-import { getCommunityMember } from "./garden/communityLookup";
+import { activeMembersOfCommunity, getCommunityMember } from "./garden/communityLookup";
 import { insertNotification } from "./notify";
 import { escapeHtml } from "./email/template";
 import { storedFileUrl } from "./images";
@@ -266,11 +266,7 @@ async function countAudience(ctx: QueryCtx, rule: AudienceRule, at: number): Pro
   if (rule.audience === "community") {
     const hostOrgId = rule.hostOrgId;
     if (!hostOrgId) return 0;
-    const members = await ctx.db
-      .query("communityMembers")
-      .withIndex("by_hostOrgId", (q) => q.eq("hostOrgId", hostOrgId))
-      .collect();
-    return members.filter((m) => m.status === "active").length;
+    return (await activeMembersOfCommunity(ctx, hostOrgId)).length;
   }
   if (rule.audience === "new") {
     const cutoff = newCutoff(rule.newForDays, at);

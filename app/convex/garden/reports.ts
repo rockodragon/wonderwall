@@ -26,6 +26,7 @@ import {
 import { computeHostEarnings, type EarningsLike } from "./products";
 import { buildCreativeEarningsRows, classPaymentToEarningsPayment, isPayableClassPayment, giftPaymentToEarningsPayment } from "./payouts";
 import { assertCanManageCommunity, normalizeCommunity, COMMUNITY_KIND } from "./communities";
+import { membersOfCommunity } from "./communityLookup";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core — no ctx. Unit-tested in reports.test.ts.
@@ -810,12 +811,7 @@ export const getCommunityMembersByLevel = query({
     if (!userId) throw new ConvexError({ code: "unauthenticated" });
     await assertCanManageCommunity(ctx, args.hostOrgId, userId);
 
-    const members = (
-      await ctx.db
-        .query("communityMembers")
-        .withIndex("by_hostOrgId", (q) => q.eq("hostOrgId", args.hostOrgId))
-        .collect()
-    ).filter((m) => m.status !== "removed");
+    const members = (await membersOfCommunity(ctx, args.hostOrgId)).filter((m) => m.status !== "removed");
 
     const membershipLists = await Promise.all(
       members.map((m) =>

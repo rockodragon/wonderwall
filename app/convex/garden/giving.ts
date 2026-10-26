@@ -35,6 +35,7 @@ import { getProfileByUserId, requireOperator } from "../helpers";
 import { insertNotification } from "../notify";
 import { SPLITS } from "./capabilities";
 import { getCommunityMember } from "./communities";
+import { activeMembersOfCommunity } from "./communityLookup";
 import { communityVisibility } from "./communityVisibility";
 import { profileImageUrl, projectPhotoUrl } from "../images";
 import { formatCents } from "../money";
@@ -821,13 +822,8 @@ export const searchRecipients = query({
     const gift = await ctx.db.get(args.giftId);
     if (!gift || gift.userId !== userId) return [];
 
-    const members = await ctx.db
-      .query("communityMembers")
-      .withIndex("by_hostOrgId", (q) => q.eq("hostOrgId", gift.communityId))
-      .collect();
-    const memberIds = members
-      .filter((m) => m.status === "active" && String(m.userId) !== String(userId))
-      .map((m) => m.userId);
+    const members = await activeMembersOfCommunity(ctx, gift.communityId);
+    const memberIds = members.filter((m) => String(m.userId) !== String(userId)).map((m) => m.userId);
 
     const needle = (args.query ?? "").trim().toLowerCase();
     const [profiles, followed] = await Promise.all([
