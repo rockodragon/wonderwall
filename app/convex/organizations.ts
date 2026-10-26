@@ -23,6 +23,7 @@ import {
 import { currentUserId, getProfileByUserId, isAdminProfile, requireProfile, requireUserId } from "./helpers";
 import { insertNotification } from "./notify";
 import { fail } from "./errors";
+import { claimUpload } from "./uploads";
 
 type Ctx = QueryCtx | MutationCtx;
 
@@ -687,6 +688,7 @@ export const setLogo = mutation({
   args: { organizationId: v.id("organizations"), storageId: v.optional(v.id("_storage")) },
   handler: async (ctx, args) => {
     const org = await requireEditor(ctx, args.organizationId);
+    await claimUpload(ctx, await requireUserId(ctx), args.storageId, [org.logoStorageId]);
     if (org.logoStorageId && org.logoStorageId !== args.storageId) {
       await ctx.storage.delete(org.logoStorageId);
     }

@@ -3,7 +3,11 @@ export type Row = Record<string, any> & { _id: string };
 /** Just enough of Convex's ctx: get / insert / patch / delete, and
  * query().withIndex(name, q => q.eq(..).gte(..)) or .filter(...) followed by
  * collect / first / unique / take. Index names aren't checked — the schema
- * does that for real. */
+ * does that for real.
+ *
+ * Stored files are rows of a `_storage` table ({ _id: "_storage:a",
+ * _creationTime }), read by db.system.get. storage.delete removes the row
+ * and records the id in `deletedFiles`. */
 export function makeCtx(
   tables: Record<string, Row[]>,
   viewerId: string | null,
@@ -12,6 +16,7 @@ export function makeCtx(
   for (const [name, rows] of Object.entries(tables))
     store[name] = rows.map((r) => ({ ...r }));
   const rowsOf = (table: string) => (store[table] ??= []);
+  const deletedFiles: string[] = [];
   let counter = 100;
   const find = (id: string) =>
     rowsOf(id.split(":")[0]).find((r) => r._id === id) ?? null;
@@ -95,6 +100,17 @@ export function makeCtx(
       const table = id.split(":")[0];
       store[table] = rowsOf(table).filter((r) => r._id !== id);
     },
+    // System tables: only `_storage` is used. normalizeId checks the shape,
+    // not that the file exists, as Convex's does.
+    system: {
+      normalizeId(table: string, id: string) {
+        return id.startsWith(`${table}:`) ? id : null;
+      },
+      async get(id: string) {
+        const r = rowsOf("_storage").find((f) => f._id === id);
+        return r ? { ...r } : null;
+      },
+    },
   };
 
   return {
@@ -103,9 +119,16 @@ export function makeCtx(
       getUserIdentity: async () =>
         viewerId ? { subject: `${viewerId}|session` } : null,
     },
-    storage: { getUrl: async () => null, delete: async () => {} },
+    storage: {
+      getUrl: async () => null,
+      delete: async (id: string) => {
+        deletedFiles.push(id);
+        store._storage = rowsOf("_storage").filter((f) => f._id !== id);
+      },
+    },
     scheduler: { runAfter: async () => {} },
     store,
+    deletedFiles,
   } as any;
 }
 

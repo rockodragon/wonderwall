@@ -22,6 +22,7 @@ import { classCheckoutRefusal, classPaymentPath, classPriceProblem } from "./gar
 import { getProfileByUserId, isAdmin, isAdminProfile, requireOwner } from "./helpers";
 import { communityVisibility } from "./garden/communityVisibility";
 import { profileImageUrl, projectPhotoUrl } from "./images";
+import { claimUpload } from "./uploads";
 
 const VALID_STATUSES = new Set(["active", "archived"]);
 
@@ -303,6 +304,7 @@ export const createOffering = mutation({
     if (args.hostOrgId) {
       await assertCommunityMember(ctx, args.hostOrgId, userId);
     }
+    await claimUpload(ctx, userId, args.photoStorageId);
 
     const now = Date.now();
     const id = await ctx.db.insert("offerings", {
@@ -534,6 +536,9 @@ export const updateOffering = mutation({
     if (args.hostOrgId) {
       await assertCommunityMember(ctx, args.hostOrgId, userId);
     }
+    // The form sends the photo back unchanged on every edit; only a new one
+    // needs claiming.
+    await claimUpload(ctx, userId, args.photoStorageId, [offering.photoStorageId]);
 
     // updateOffering fully replaces the record from form state each submit
     // (same convention as events.ts's `update`), so a photoStorageId that's

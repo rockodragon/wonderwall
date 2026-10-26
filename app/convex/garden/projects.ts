@@ -17,11 +17,13 @@ import { assertCanPostAs, orgByline } from "../organizations";
 import { notifyFollowers } from "../follows";
 import { isStage, stageLabel, shouldNotifyStageChange } from "./projectTeam";
 import {
+  collectStorageIds,
   normalizeRichDoc,
   orphanedStorageIds,
   resolveRichDocMedia,
   richDocValidator,
 } from "./richText";
+import { claimUploads } from "../uploads";
 import { summarizeGig } from "./gigSummary";
 import { can } from "./capabilities";
 import { getGardenUser } from "./entitlements";
@@ -242,8 +244,11 @@ export const updateProject = mutation({
     // here rather than left behind — an author who swaps a photo five times
     // while writing would otherwise leave five files paid for and unread.
     // Deletion is best-effort: a file already gone must not fail the save.
+    // Pictures new to the body are claimed first; the ones already in it
+    // came back unchanged.
     if (args.body !== undefined) {
       const body = normalizeRichDoc(args.body);
+      await claimUploads(ctx, userId, collectStorageIds(body), collectStorageIds(project.body));
       patch.body = body;
       for (const storageId of orphanedStorageIds(project.body, body)) {
         try {

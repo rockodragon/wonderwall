@@ -4,6 +4,7 @@ import { api } from "./_generated/api";
 import { fail } from "./errors";
 import { currentUserId, getProfileByUserId, requireOwnProfileRow, requireProfile, requireUserId } from "./helpers";
 import { profileImageUrl, storedFileUrl } from "./images";
+import { claimUpload } from "./uploads";
 
 const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
 
@@ -66,6 +67,8 @@ export const create = mutation({
       );
     }
 
+    await claimUpload(ctx, userId, args.imageStorageId);
+
     const now = Date.now();
 
     const wonderingId = await ctx.db.insert("wonderings", {
@@ -95,6 +98,7 @@ export const update = mutation({
   },
   handler: async (ctx, args) => {
     const { userId, row: wondering, profile } = await requireOwnProfileRow(ctx, "wonderings", args.wonderingId);
+    await claimUpload(ctx, userId, args.imageStorageId, [wondering.imageStorageId]);
 
     await ctx.db.patch(args.wonderingId, {
       prompt: args.prompt.trim(),

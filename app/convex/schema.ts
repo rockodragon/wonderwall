@@ -2463,4 +2463,14 @@ export default defineSchema({
     userId: v.id("users"),
     startedAt: v.number(),
   }).index("by_userId_startedAt", ["userId", "startedAt"]),
+
+  // Who uploaded a stored file, recorded the first time it is attached to
+  // something (claimUpload, convex/uploads.ts). Storage ids are public, so
+  // without this anyone could attach someone else's file to a row of their
+  // own and then replace it, which deletes the file. One row per file.
+  uploadClaims: defineTable({
+    storageId: v.id("_storage"),
+    userId: v.id("users"),
+    claimedAt: v.number(),
+  }).index("by_storageId", ["storageId"]),
 }, { schemaValidation: false });

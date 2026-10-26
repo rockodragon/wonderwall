@@ -11,6 +11,7 @@ import { normalizeUrl, isSafeHttpUrl } from "./garden/richText";
 import { parseOgMeta } from "./ogParse";
 import { currentUserId, getProfileByUserId, requireOwnProfileRow, requireProfile, requireUserId } from "./helpers";
 import { pieceMediaUrl, profileImageUrl, storedFileUrl } from "./images";
+import { claimUpload } from "./uploads";
 
 export const getMyArtifacts = query({
   args: {},
@@ -184,6 +185,8 @@ export const create = mutation({
     if (!validTypes.includes(args.type)) {
       fail("invalid_input", "That isn't a type of work we can show.");
     }
+    await claimUpload(ctx, userId, args.mediaStorageId);
+    await claimUpload(ctx, userId, args.coverStorageId);
 
     // Get current max order
     const existing = await ctx.db
@@ -284,9 +287,10 @@ export const update = mutation({
   },
   handler: async (ctx, args) => {
     const { userId, row: artifact, profile } = await requireOwnProfileRow(ctx, "artifacts", args.artifactId);
+    await claimUpload(ctx, userId, args.mediaStorageId, [artifact.mediaStorageId]);
 
-    // Delete old storage file if replacing
-    if (args.mediaStorageId && artifact.mediaStorageId) {
+    // Delete old storage file if replacing it with a different one
+    if (args.mediaStorageId && artifact.mediaStorageId && args.mediaStorageId !== artifact.mediaStorageId) {
       await ctx.storage.delete(artifact.mediaStorageId);
     }
 

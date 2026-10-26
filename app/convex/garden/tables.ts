@@ -29,6 +29,7 @@ import { syncCoHosts } from "../eventHosts";
 import { eventHasStarted } from "../eventWindow";
 import { primaryOrgByUserId } from "../organizations";
 import { profileImageUrl, projectPhotoUrl } from "../images";
+import { claimUpload } from "../uploads";
 import { MIN_CLASS_PRICE_CENTS, MAX_CLASS_PRICE_CENTS } from "./stripeHandlers";
 import {
   inviteToRunAgain,
@@ -775,6 +776,9 @@ export const createTable = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError({ code: "unauthenticated" });
+    // Claimed here, not in createTableFor: runTableAgain hands it the old
+    // Table's photo, which is already the host's.
+    await claimUpload(ctx, userId, args.photoStorageId);
     return await createTableFor(ctx, userId, args);
   },
 });

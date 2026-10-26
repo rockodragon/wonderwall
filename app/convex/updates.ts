@@ -28,6 +28,7 @@ import { activeMembersOfCommunity, getCommunityMember } from "./garden/community
 import { insertNotification } from "./notify";
 import { escapeHtml } from "./email/template";
 import { storedFileUrl } from "./images";
+import { claimUpload } from "./uploads";
 
 // ——————————————————————————————————————————————————————————————
 // Limits and the pure rules
@@ -587,6 +588,7 @@ export const save = mutation({
 
     const now = Date.now();
     if (!args.updateId) {
+      await claimUpload(ctx, userId, args.imageStorageId);
       return await ctx.db.insert("updates", {
         ...fields,
         imageStorageId: args.imageStorageId,
@@ -599,6 +601,8 @@ export const save = mutation({
 
     const existing = await ctx.db.get(args.updateId);
     if (!existing) fail("not_found", "That Update isn't here anymore.");
+    // An edit sends the picture back unchanged; only a new one is claimed.
+    await claimUpload(ctx, userId, args.imageStorageId, [existing.imageStorageId]);
     await ctx.db.patch(args.updateId, {
       ...fields,
       imageStorageId: args.imageStorageId,

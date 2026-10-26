@@ -4,8 +4,12 @@ import { fail } from "./errors";
 import { requireEventHost } from "./eventHosts";
 import { requireOwner, requireOwnProfileRow, requireProfile, requireUserId } from "./helpers";
 import { storedFileUrl } from "./images";
+import { claimUpload } from "./uploads";
 
-// Generate an upload URL for the client to upload a file directly to Convex
+// Generate an upload URL for the client to upload a file directly to Convex.
+// It can't record who uploads: the file's id only exists once the browser
+// has posted it. The mutations that attach an id claim it instead
+// (claimUpload, convex/uploads.ts).
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
@@ -24,9 +28,10 @@ export const saveProfileImage = mutation({
     const userId = await requireUserId(ctx);
 
     const profile = await requireProfile(ctx, userId);
+    await claimUpload(ctx, userId, args.storageId, [profile.imageStorageId]);
 
-    // Delete old image if exists
-    if (profile.imageStorageId) {
+    // Delete the old image, unless it's the one being saved again
+    if (profile.imageStorageId && profile.imageStorageId !== args.storageId) {
       await ctx.storage.delete(profile.imageStorageId);
     }
 
@@ -107,9 +112,10 @@ export const saveWonderingImage = mutation({
   },
   handler: async (ctx, args) => {
     const { userId, row: wondering, profile } = await requireOwnProfileRow(ctx, "wonderings", args.wonderingId);
+    await claimUpload(ctx, userId, args.storageId, [wondering.imageStorageId]);
 
-    // Delete old image if exists
-    if (wondering.imageStorageId) {
+    // Delete the old image, unless it's the one being saved again
+    if (wondering.imageStorageId && wondering.imageStorageId !== args.storageId) {
       await ctx.storage.delete(wondering.imageStorageId);
     }
 
@@ -148,9 +154,10 @@ export const saveProjectImage = mutation({
     storageId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
-    const { row: project } = await requireOwner(ctx, "projects", args.projectId);
+    const { userId, row: project } = await requireOwner(ctx, "projects", args.projectId);
+    await claimUpload(ctx, userId, args.storageId, [project.photoStorageId]);
 
-    if (project.photoStorageId) {
+    if (project.photoStorageId && project.photoStorageId !== args.storageId) {
       await ctx.storage.delete(project.photoStorageId);
     }
 
@@ -170,10 +177,11 @@ export const saveEventCoverImage = mutation({
     storageId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
-    const { event } = await requireEventHost(ctx, args.eventId);
+    const { userId, event } = await requireEventHost(ctx, args.eventId);
+    await claimUpload(ctx, userId, args.storageId, [event.coverImageStorageId]);
 
-    // Delete old image if exists
-    if (event.coverImageStorageId) {
+    // Delete the old image, unless it's the one being saved again
+    if (event.coverImageStorageId && event.coverImageStorageId !== args.storageId) {
       await ctx.storage.delete(event.coverImageStorageId);
     }
 
@@ -214,12 +222,13 @@ export const addEventGalleryImage = mutation({
     storageId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
-    const { event } = await requireEventHost(ctx, args.eventId);
+    const { userId, event } = await requireEventHost(ctx, args.eventId);
 
     const currentImages = event.imageStorageIds || [];
     if (currentImages.length >= 3) {
       fail("too_many", "Maximum 3 gallery images allowed");
     }
+    await claimUpload(ctx, userId, args.storageId);
 
     await ctx.db.patch(args.eventId, {
       imageStorageIds: [...currentImages, args.storageId],
@@ -230,7 +239,9 @@ export const addEventGalleryImage = mutation({
   },
 });
 
-// Remove event gallery image
+// Remove event gallery image. Only a picture in this event's gallery: the id
+// comes from the browser, and deleting whatever it named let any host delete
+// anyone's file.
 export const removeEventGalleryImage = mutation({
   args: {
     eventId: v.id("events"),
@@ -240,6 +251,9 @@ export const removeEventGalleryImage = mutation({
     const { event } = await requireEventHost(ctx, args.eventId);
 
     const currentImages = event.imageStorageIds || [];
+    if (!currentImages.includes(args.storageId)) {
+      fail("not_found", "That picture isn't in this event's gallery.");
+    }
     const newImages = currentImages.filter((id) => id !== args.storageId);
 
     // Delete from storage
