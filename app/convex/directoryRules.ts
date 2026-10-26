@@ -14,6 +14,7 @@
 // the same numbers. Unit-tested in directory.test.ts.
 
 import { isShownProject } from "./moderationRules";
+import { hasRealName } from "./names";
 
 /** How many people one page holds: what Load more adds, and all a visitor gets. */
 export const DIRECTORY_PAGE = 24;
@@ -56,10 +57,11 @@ export function byLatestActivity<T extends { userId: string; createdAt: number }
   });
 }
 
-/** Whether a profile is in the directory for this caller: always for a
+/** Whether a profile is in the directory for this caller: never before
+ * the person has named themselves (convex/names.ts); then always for a
  * member, and for a visitor unless the person hid it from search. */
-export function listedFor(profile: { hideFromSearch?: boolean }, signedIn: boolean): boolean {
-  return signedIn || !profile.hideFromSearch;
+export function listedFor(profile: { name?: string; hideFromSearch?: boolean }, signedIn: boolean): boolean {
+  return hasRealName(profile.name) && (signedIn || !profile.hideFromSearch);
 }
 
 /** The most people one call returns to a member, however many pages they

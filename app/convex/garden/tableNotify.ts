@@ -17,7 +17,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 import { escapeHtml } from "../email/template";
 import { getUserEmail, scheduleNotificationEmail } from "../emailHelpers";
-import { getProfileByUserId } from "../helpers";
+import { displayNameOf } from "../helpers";
 import { insertNotification } from "../notify";
 import { hasTableCommunityMembership, normalizeTable } from "./tablePolicy";
 import { newGuestEmailToken, normalizeEmail } from "./eventRsvps";
@@ -592,8 +592,7 @@ export async function notifyHostsOfJoin(
     (id): id is Id<"users"> => !!id && id !== userId,
   );
   if (hosts.length === 0) return;
-  const profile = await getProfileByUserId(ctx, userId);
-  const note = hostNote(profile?.name?.trim() || "Someone", table.name, how);
+  const note = hostNote(await displayNameOf(ctx, userId), table.name, how);
   for (const host of hosts) await insertTableNote(ctx, table, host, note, userId);
   await emailTableAudience(ctx, { table, userIds: hosts, guests: [], build: () => noteEmail(table, note) });
 }

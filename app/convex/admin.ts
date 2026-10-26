@@ -4,6 +4,7 @@ import { requireAdminCtx, ensureAdminCode, getProfileByUserId } from "./helpers"
 import { fail } from "./errors";
 import { followEachOther, inviteFollowPairs } from "./follows";
 import { ADMIN_EMAILS } from "./adminEmails";
+import { hasRealName } from "./names";
 
 // Bootstrap admin - only works if no admins exist yet
 // Run from Convex dashboard: admin:bootstrapAdmin({ email: "rickmoy@gmail.com" })
@@ -72,7 +73,8 @@ export const getAllUsersWithInvites = query({
       }
     }
 
-    // Get all auth users to fetch emails
+    // Get all auth users to fetch emails and phones. A phone sign-up has a
+    // phone and no email, so without the phone the row has no contact at all.
     const users = await Promise.all(
       profiles.map(async (profile) => {
         const authUser = await ctx.db.get(profile.userId);
@@ -94,6 +96,10 @@ export const getAllUsersWithInvites = query({
           userId: profile.userId,
           name: profile.name,
           email: authUser && "email" in authUser ? authUser.email : undefined,
+          phone: authUser && "phone" in authUser ? authUser.phone : undefined,
+          // Signed in but never gave a name, so other members don't see
+          // them (convex/names.ts).
+          unfinished: !hasRealName(profile.name),
           inviteSlug: profile.inviteSlug,
           inviteUsageCount: profile.inviteUsageCount || 0,
           createdAt: profile.createdAt,

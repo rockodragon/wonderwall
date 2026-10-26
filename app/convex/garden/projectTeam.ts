@@ -24,6 +24,7 @@ import { assertCanPure, getGardenUser } from "./entitlements";
 import { insertNotification } from "../notify";
 import { toEmbedUrl } from "../videoEmbed";
 import { isHidden, isShownProject } from "../moderationRules";
+import { hasRealName } from "../names";
 import { communityVisibility } from "./communityVisibility";
 import { projectVisibleTo } from "./projectVisibility";
 import { pieceMediaUrl, profileImageUrl, projectPhotoUrl } from "../images";
@@ -1697,7 +1698,7 @@ export const searchPeopleForInvite = query({
     // Same full scan profiles.search does — small directory by design.
     const profiles = await ctx.db.query("profiles").collect();
     const hits = profiles
-      .filter((p) => p.userId !== userId && !excluded.has(p._id) && nameMatches(p.name, q))
+      .filter((p) => p.userId !== userId && !excluded.has(p._id) && hasRealName(p.name) && nameMatches(p.name, q))
       .sort((a, b) => a.name.localeCompare(b.name))
       .slice(0, SEARCH_LIMIT);
 

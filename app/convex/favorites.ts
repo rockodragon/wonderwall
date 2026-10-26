@@ -1,6 +1,7 @@
 import { ConvexError, v, type Infer } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { currentUserId, getProfileByUserId, requireUserId } from "./helpers";
+import { hasRealName } from "./names";
 import { insertNotification } from "./notify";
 import type { Id } from "./_generated/dataModel";
 import { communityVisibility } from "./garden/communityVisibility";
@@ -223,7 +224,8 @@ export const getMyFavorites = query({
       profileFavs.map(async (fav) => {
         const profileId = fav.targetId as Id<"profiles">;
         const profile = await ctx.db.get(profileId);
-        if (!profile) return null;
+        // Not until they've named themselves (convex/names.ts).
+        if (!profile || !hasRealName(profile.name)) return null;
 
         const imageUrl = await profileImageUrl(ctx, profile);
 

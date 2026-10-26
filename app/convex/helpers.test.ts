@@ -140,6 +140,9 @@ describe("getProfileByUserId / displayNameOf", () => {
       { _id: "profiles:a", userId: MEMBER, name: "Max", isAdmin: true },
       { _id: "profiles:b", userId: MEMBER, name: "Max again" },
       { _id: "profiles:blank", userId: OTHER, name: "" },
+      { _id: "profiles:new", userId: "users:new", name: "New User" },
+      { _id: "profiles:padded", userId: "users:padded", name: "  new user " },
+      { _id: "profiles:spaced", userId: "users:spaced", name: "  Max R  " },
     ],
   });
 
@@ -160,6 +163,16 @@ describe("getProfileByUserId / displayNameOf", () => {
     expect(await displayNameOf(ctx, MEMBER as any)).toBe("Max");
     expect(await displayNameOf(ctx, OTHER as any)).toBe("Someone");
     expect(await displayNameOf(ctx, "users:ghost" as any, "A member")).toBe("A member");
+  });
+
+  it("falls back for the placeholder name too, in any case or padding", async () => {
+    const ctx = makeCtx(twoProfiles(), null);
+    expect(await displayNameOf(ctx, "users:new" as any)).toBe("Someone");
+    expect(await displayNameOf(ctx, "users:padded" as any, "A member")).toBe("A member");
+  });
+
+  it("returns a real name trimmed", async () => {
+    expect(await displayNameOf(makeCtx(twoProfiles(), null), "users:spaced" as any)).toBe("Max R");
   });
 });
 

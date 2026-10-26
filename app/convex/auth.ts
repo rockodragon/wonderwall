@@ -10,6 +10,7 @@ import { internal } from "./_generated/api";
 import { internalMutation } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import { isAdminEmail } from "./adminEmails";
+import { PLACEHOLDER_NAME } from "./names";
 import { normalizePhone } from "./phone";
 import { sendSms } from "./smsSender";
 import { decideCreateOrUpdateUser } from "./authLinking";
@@ -106,7 +107,7 @@ async function afterUserCreatedOrUpdated(
 
   // Get the user to extract name
   const user = await ctx.db.get(userId);
-  const name = (user as { name?: string } | null)?.name || "New User";
+  const name = (user as { name?: string } | null)?.name || PLACEHOLDER_NAME;
   const email = (user as { email?: string } | null)?.email;
   // A phone-only signup has no email — email stays undefined here,
   // same as it always could for a partially-filled OAuth profile, and

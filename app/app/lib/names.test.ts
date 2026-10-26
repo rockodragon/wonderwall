@@ -14,5 +14,6 @@ describe("firstNameOf", () => {
     expect(firstNameOf("   ")).toBeNull();
     expect(firstNameOf("New User")).toBeNull();
     expect(firstNameOf("new user")).toBeNull();
+    expect(firstNameOf("  NEW USER  ")).toBeNull();
   });
 });

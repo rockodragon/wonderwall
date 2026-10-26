@@ -618,6 +618,29 @@ describe("Tables tell people", () => {
     expect(notes(ctx.store, USER)).toEqual([]);
   });
 
+  it("names an unnamed joiner 'Someone' in the host's note", async () => {
+    for (const name of ["New User", "  new user ", ""]) {
+      const data = world();
+      data.profiles[1].name = name;
+      const ctx = makeCtx(data, USER);
+      await run(joinTable, ctx, { tableId: "gardenTables:t" });
+      expect(notes(ctx.store, HOST)).toEqual([
+        expect.objectContaining({ type: "table_joined", title: "Someone joined Table", relatedUserId: USER }),
+      ]);
+    }
+  });
+
+  it("names an unnamed person 'Someone' when they ask to join, too", async () => {
+    const data = world();
+    data.gardenTables[0].access = "approval";
+    data.profiles[1].name = "New User";
+    const ctx = makeCtx(data, USER);
+    await run(joinTable, ctx, { tableId: "gardenTables:t" });
+    expect(notes(ctx.store, HOST).map((n) => [n.type, n.title])).toEqual([
+      ["table_join_request", "Someone asked to join Table"],
+    ]);
+  });
+
   it("tells the host once when someone asks, and the person when the host says yes", async () => {
     const data = world();
     data.gardenTables[0].access = "approval";

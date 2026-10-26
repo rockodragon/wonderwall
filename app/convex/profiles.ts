@@ -1,7 +1,8 @@
 import { v, ConvexError } from "convex/values";
 import { internalAction, internalMutation, internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
 import { api, internal } from "./_generated/api";
-import { currentUserId, getProfileByUserId, requireProfile, requireUserId } from "./helpers";
+import { currentUserId, getProfileByUserId, isOwnerOrAdmin, requireProfile, requireUserId } from "./helpers";
+import { hasRealName } from "./names";
 import type { Doc } from "./_generated/dataModel";
 import { profileForHandle } from "./handles";
 import { normalizeHandle, PAYOUT_KINDS, type PayoutHandles } from "./garden/gigRules";
@@ -180,11 +181,23 @@ export async function publicProfilePage(ctx: QueryCtx, profile: Doc<"profiles">)
     };
 }
 
+/**
+ * Whether the viewer may see this person's page. Someone who signed in but
+ * never gave a name (convex/names.ts) has no page for other members yet:
+ * only they and admins see it (/admin links to it).
+ */
+export async function canSeeProfile(ctx: QueryCtx, profile: Doc<"profiles">): Promise<boolean> {
+  if (hasRealName(profile.name)) return true;
+  const viewerId = await currentUserId(ctx);
+  if (!viewerId) return false;
+  return await isOwnerOrAdmin(ctx, profile.userId, viewerId);
+}
+
 export const getProfile = query({
   args: { profileId: v.id("profiles") },
   handler: async (ctx, args) => {
     const profile = await ctx.db.get(args.profileId);
-    if (!profile) return null;
+    if (!profile || !(await canSeeProfile(ctx, profile))) return null;
     return await publicProfilePage(ctx, profile);
   },
 });
@@ -201,13 +214,13 @@ export const getProfileByHandle = query({
   args: { handle: v.string() },
   handler: async (ctx, args) => {
     const profile = await profileForHandle(ctx, args.handle);
-    return profile ? await publicProfilePage(ctx, profile) : null;
+    return profile && (await canSeeProfile(ctx, profile)) ? await publicProfilePage(ctx, profile) : null;
   },
 });
 
 /**
  * Fills in a brand-new account's basics without touching anything else:
- * the name (only while it's blank or the "New User" placeholder) and the
+ * the name (only while it hasn't been given one, convex/names.ts) and the
  * email (only while the account has none). The event RSVP sign-up
  * (event.tsx) uses this instead of upsertProfile because upsertProfile
  * replaces bio/location/etc., which would wipe a returning member who
@@ -236,7 +249,7 @@ export const fillMissingBasics = mutation({
     const name = args.name?.trim();
     if (name) {
       const profile = await getProfileByUserId(ctx, userId);
-      if (profile && (!profile.name?.trim() || profile.name === "New User")) {
+      if (profile && !hasRealName(profile.name)) {
         await ctx.db.patch(profile._id, { name, updatedAt: Date.now() });
       }
     }

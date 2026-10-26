@@ -102,10 +102,17 @@ describe("byLatestActivity — newest activity first", () => {
 
 describe("listedFor and directoryLimit — what a visitor may see", () => {
   it("a profile hidden from search is listed for members only", () => {
-    expect(listedFor({ hideFromSearch: true }, true)).toBe(true);
-    expect(listedFor({ hideFromSearch: true }, false)).toBe(false);
-    expect(listedFor({}, false)).toBe(true);
-    expect(listedFor({ hideFromSearch: false }, false)).toBe(true);
+    expect(listedFor({ name: "Ada", hideFromSearch: true }, true)).toBe(true);
+    expect(listedFor({ name: "Ada", hideFromSearch: true }, false)).toBe(false);
+    expect(listedFor({ name: "Ada" }, false)).toBe(true);
+    expect(listedFor({ name: "Ada", hideFromSearch: false }, false)).toBe(true);
+  });
+
+  it("nobody who hasn't named themselves yet is listed, for anyone", () => {
+    for (const name of ["New User", "  new user ", "", undefined]) {
+      expect(listedFor({ name }, true)).toBe(false);
+      expect(listedFor({ name }, false)).toBe(false);
+    }
   });
 
   it("a member gets what they asked for, one page when they didn't say", () => {
@@ -390,6 +397,29 @@ describe("profiles.directory — visitors see one page", () => {
     const hiding = world(3, { profiles: [profile(9, { name: "Hidden Hana", hideFromSearch: true })] });
     expect(names((await call(search, hiding, null, { query: "hana" })).out)).toEqual([]);
     expect(names((await call(search, hiding, MEMBER, { query: "hana" })).out)).toEqual(["Hidden Hana"]);
+  });
+});
+
+describe("profiles.directory — unnamed accounts", () => {
+  // A sign-in creates a profile named with the placeholder; someone who
+  // closes the tab before onboarding's name field stays that way.
+  const withUnnamed = () =>
+    world(3, {
+      profiles: [profile(8, { name: "New User" }), profile(9, { name: "  new user " }), profile(10, { name: "" })],
+    });
+
+  it("leaves them out for members and visitors, and out of the total", async () => {
+    const member = (await call(directory, withUnnamed(), MEMBER)).out;
+    const visitor = (await call(directory, withUnnamed(), null)).out;
+    expect(names(member.people)).toEqual(["Person 3", "Person 2", "Person 1", "The Member"]);
+    expect(member.total).toBe(4);
+    expect(names(visitor.people)).toEqual(names(member.people));
+    expect(visitor.total).toBe(4);
+  });
+
+  it("search doesn't find them either", async () => {
+    expect((await call(search, withUnnamed(), MEMBER, { query: "new" })).out).toEqual([]);
+    expect((await call(directory, withUnnamed(), MEMBER, { query: "user" })).out.total).toBe(0);
   });
 });
 

@@ -180,6 +180,14 @@ const RULES: Rule[] = [
     use: "timeAgo in app/lib/dates.ts",
   },
   {
+    name: "placeholder name checked inline (one place)",
+    // The copies had drifted: some missed a blank name, some a different case.
+    pattern: /["'`]new user["'`]|\/\^?new user|[!=]==?\s*PLACEHOLDER_NAME\b|\bPLACEHOLDER_NAME\s*[!=]==?/gi,
+    limit: 0,
+    home: "convex/names.ts",
+    use: "hasRealName / PLACEHOLDER_NAME in convex/names.ts",
+  },
+  {
     name: "a community's members read inline",
     pattern: /query\(\s*"communityMembers"\s*\)\s*\.withIndex\(\s*"by_hostOrgId"/g,
     // Left on purpose: updates.ts deliverBatch reads them a page at a time

@@ -5,6 +5,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 import { auth } from "./auth";
 import { fail } from "./errors";
+import { hasRealName } from "./names";
 
 /**
  * The signed-in person's user id, or null when signed out. For a query that
@@ -57,13 +58,14 @@ export async function requireProfile(
 }
 
 /** A person's name for a line about them ("Ada joined …"), or `fallback`
- * when they have no profile or a blank name. */
+ * when they have no profile or haven't named themselves yet. */
 export async function displayNameOf(
   ctx: Pick<QueryCtx, "db">,
   userId: Id<"users">,
   fallback = "Someone",
 ): Promise<string> {
-  return (await getProfileByUserId(ctx, userId))?.name || fallback;
+  const name = (await getProfileByUserId(ctx, userId))?.name;
+  return name && hasRealName(name) ? name.trim() : fallback;
 }
 
 /**

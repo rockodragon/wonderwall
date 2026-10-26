@@ -47,3 +47,9 @@ export function normalizePhone(raw: string | undefined | null): NormalizePhoneRe
 
   return { ok: true, value: `+1${tenDigits}` };
 }
+
+/** "+16195550100" → "(619) 555-0100"; anything else as stored. */
+export function displayPhone(phone: string): string {
+  const match = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(phone);
+  return match ? `(${match[1]}) ${match[2]}-${match[3]}` : phone;
+}
