@@ -1,20 +1,9 @@
 import { useCallback, useRef, useState } from "react";
 
-// Great-circle distance in miles. Shared by every "Near me" filter (People,
-// Events, Learn) so the formula lives in exactly one place.
-export function haversineDistance(
-  lat1: number, lng1: number,
-  lat2: number, lng2: number,
-): number {
-  const R = 3958.8;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLng = (lng2 - lng1) * Math.PI / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
+// The distance formula lives with the pure Near me cut (browse/nearMe.ts),
+// which the server's People directory imports too; it's re-exported here for
+// the pages that already read it from this file.
+export { haversineDistance } from "./browse/nearMe";
 
 export const NEAR_ME_RADIUS_OPTIONS = [
   { label: "25 mi", value: 25 },
