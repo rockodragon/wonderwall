@@ -1,6 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, mutation, action } from "./_generated/server";
-import { api } from "./_generated/api";
+import { internalAction, internalMutation } from "./_generated/server";
 
 // ============================================
 // Seed Data Sources
@@ -338,7 +337,9 @@ export const seedTestOrganizations = internalMutation({
 // Sample URLs for Testing Classification
 // ============================================
 
-export const getTestUrls = action({
+// Operator-only (dashboard or `npx convex run`): internal, never callable
+// from a browser (it had no sign-in or admin check; found 2026-10-26).
+export const getTestUrls = internalAction({
   args: {},
   handler: async () => {
     // These are real websites that can be used to test the classifier

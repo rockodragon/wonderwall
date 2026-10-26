@@ -1,6 +1,6 @@
 import { v } from "convex/values";
-import { action, internalAction } from "./_generated/server";
-import { internal, api } from "./_generated/api";
+import { internalAction } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 // ============================================
 // Classification Types
@@ -654,7 +654,12 @@ function leadershipToMarkdown(
 // Main Classification Action
 // ============================================
 
-export const classifyUrl = action({
+// The classify actions are operator-only (the crawler queue, the dashboard
+// or `npx convex run`): internal, never callable from a browser. They were
+// public with no sign-in or admin check, so anyone could make the server
+// fetch any URL, spend the AI keys and write crawler rows (found
+// 2026-10-26). No page calls them.
+export const classifyUrl = internalAction({
   args: {
     url: v.string(),
     source: v.string(),
@@ -747,7 +752,7 @@ export const classifyUrl = action({
 });
 
 // Batch classification action
-export const classifyBatch = action({
+export const classifyBatch = internalAction({
   args: {
     urls: v.array(
       v.object({
@@ -764,7 +769,7 @@ export const classifyBatch = action({
 
     for (const item of args.urls) {
       try {
-        const result = await ctx.runAction(api.crawlerClassifier.classifyUrl, {
+        const result = await ctx.runAction(internal.crawlerClassifier.classifyUrl, {
           url: item.url,
           source: item.source,
         });
@@ -798,7 +803,7 @@ export const classifyBatch = action({
 });
 
 // Re-classify existing organization
-export const reclassifyOrganization = action({
+export const reclassifyOrganization = internalAction({
   args: {
     organizationId: v.id("crawledOrganizations"),
   },
@@ -806,7 +811,7 @@ export const reclassifyOrganization = action({
     ctx,
     args,
   ): Promise<{ success: boolean; organizationId?: string; error?: string }> => {
-    const org = await ctx.runQuery(api.crawler.getOrganization, {
+    const org = await ctx.runQuery(internal.crawler.getOrganizationInternal, {
       id: args.organizationId,
     });
 
@@ -815,7 +820,7 @@ export const reclassifyOrganization = action({
     }
 
     const url = org.website || org.sourceUrl;
-    const result = await ctx.runAction(api.crawlerClassifier.classifyUrl, {
+    const result = await ctx.runAction(internal.crawlerClassifier.classifyUrl, {
       url,
       source: org.source,
     });
@@ -824,7 +829,7 @@ export const reclassifyOrganization = action({
 });
 
 // Re-classify all existing organizations (batch)
-export const reclassifyAll = action({
+export const reclassifyAll = internalAction({
   args: {
     limit: v.optional(v.number()),
     delayMs: v.optional(v.number()),
@@ -841,20 +846,21 @@ export const reclassifyAll = action({
     const limit = args.limit ?? 50;
     const delay = args.delayMs ?? 3000; // 3 second delay between requests
 
-    // Get all organizations
-    const orgsResult = await ctx.runQuery(api.crawler.listOrganizations, {
-      limit,
-    });
+    // The newest organizations first
+    const orgs = await ctx.runQuery(
+      internal.crawler.listOrganizationsToReclassify,
+      { limit },
+    );
 
     const results: Array<{ name: string; success: boolean; error?: string }> =
       [];
 
-    for (const org of orgsResult.organizations) {
+    for (const org of orgs) {
       console.log(`[Reclassify] Processing: ${org.name} (${org.website})`);
 
       try {
         const result = await ctx.runAction(
-          api.crawlerClassifier.reclassifyOrganization,
+          internal.crawlerClassifier.reclassifyOrganization,
           {
             organizationId: org._id,
           },
