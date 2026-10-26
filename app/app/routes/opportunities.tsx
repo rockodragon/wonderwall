@@ -3,6 +3,7 @@ import { useConvexAuth, useQuery } from "convex/react";
 import { Link, useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { budgetKindLabel } from "../lib/budgetLabel";
+import { FF_BACKING } from "../lib/featureFlags";
 import { setPendingIntent } from "../lib/pendingIntent";
 import { resolveStage, stageLabel } from "../lib/stage";
 import { toEmbedUrl } from "../lib/videoEmbed";
@@ -102,7 +103,8 @@ function actionLabel(project: ProjectCard): string {
   if (project.kind === "paid") {
     return budgetKindLabel(project) === "Volunteer" ? "Volunteer" : "Apply";
   }
-  return "Back this";
+  // Backing waits for FF_BACKING; until then the card just opens the project.
+  return FF_BACKING ? "Back this" : "See it";
 }
 
 /** The card action. Signed in, it's a plain link to the project. Signed
@@ -332,8 +334,9 @@ export default function Opportunities() {
             Joining is free.
           </h2>
           <p className="text-[var(--garden-body)] leading-relaxed mb-6">
-            An account lets you apply for work, back a project, or post your
-            own.
+            An account lets you apply for work,{" "}
+            {FF_BACKING ? "back a project" : "cheer on a project"}, or post
+            your own.
           </p>
           <div className="flex flex-wrap items-center gap-4">
             <Link

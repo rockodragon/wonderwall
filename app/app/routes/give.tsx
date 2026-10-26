@@ -26,6 +26,7 @@ import { GardenPage, formatDate, formatMoney, formatPeriod } from "../garden/ui"
 import "../garden/garden.css";
 import { SOPHIA_FUND_SLUG } from "../lib/namedFunds";
 import { errorMessage } from "../lib/convexError";
+import { FF_BACKING } from "../lib/featureFlags";
 
 export function meta() {
   return [{ title: "Give — The Garden" }, { name: "robots", content: "noindex" }];
@@ -47,6 +48,14 @@ type Done = {
   /** The combined checkout failed to start after the decision landed. */
   checkoutError?: string;
 };
+
+/** Whether "give more of your own" is offered for this pick. Adding money to
+ * a project is a backing, so it waits for FF_BACKING (lib/featureFlags.ts);
+ * the monthly grant itself is not affected, and neither is a plus-up to a
+ * creative or to the grant fund. */
+export function plusUpOpen(target: Target): boolean {
+  return target !== "project" || FF_BACKING;
+}
 
 const PLUS_UP_AMOUNTS_CENTS = [1000, 2500, 5000] as const;
 const MIN_PLUS_UP_CENTS = 500;
@@ -396,7 +405,10 @@ function Chooser({
     (target === "creative" && creative !== null) ||
     (target === "project" && project !== null);
 
-  const extraAllowed = (target === "creative" && creative !== null) || (target === "project" && project !== null);
+  const extraAllowed =
+    target !== null &&
+    plusUpOpen(target) &&
+    ((target === "creative" && creative !== null) || (target === "project" && project !== null));
   const extraRaw =
     extraChoice === "custom" ? Math.round(parseFloat(extraCustom || "0") * 100) : extraChoice;
   const extraValid = extraRaw !== null && Number.isFinite(extraRaw) && extraRaw >= MIN_PLUS_UP_CENTS;
@@ -859,7 +871,7 @@ function PickerRow({
 
 // ————— Done + plus-up —————
 
-function DoneBlock({
+export function DoneBlock({
   done,
   userId,
   email,
@@ -885,7 +897,9 @@ function DoneBlock({
         ? (done.projectTitle ?? "the project")
         : "the Sophia Grant Fund";
   const tipLines =
-    done.target === "fund" ? GIVING_TIP_LINES : [...GIVING_TIP_LINES, "90% goes to them. Card processing is added at checkout."];
+    done.target === "fund" || !plusUpOpen(done.target)
+      ? GIVING_TIP_LINES
+      : [...GIVING_TIP_LINES, "90% goes to them. Card processing is added at checkout."];
 
   return (
     <section style={{ borderLeft: `2px solid ${CITRON}`, paddingLeft: 16, marginBottom: 48 }} aria-live="polite">
@@ -902,7 +916,7 @@ function DoneBlock({
         </p>
       )}
 
-      {!skipped && !done.plussedUp && (
+      {!skipped && !done.plussedUp && plusUpOpen(done.target) && (
         <div style={{ marginTop: 28 }}>
           <h3 className="g-h" style={{ fontSize: 22, lineHeight: 1.15 }}>
             Give more to {askName}?

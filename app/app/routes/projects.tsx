@@ -39,6 +39,7 @@ import { CoverFrame } from "../components/CoverFrame";
 import { EMPTY_COVER } from "../components/emptyCover";
 import { CreateCard } from "../components/CreateCard";
 import { errorMessage } from "../lib/convexError";
+import { FF_BACKING } from "../lib/featureFlags";
 import { ProjectModal } from "../components/ProjectModal";
 import { INTEREST_OPTIONS } from "../lib/browse/peopleFilter";
 import { PAGE_WIDTH } from "../lib/pageWidth";
@@ -918,8 +919,9 @@ export type SupportMode = "cheer" | "back";
  * icons: a heart to Cheer, a dollar to Back this (Rick, 2026-10-22).
  * Cheering is always there and costs nothing; backing only appears once the
  * owner has asked for support — a project that isn't raising has no money
- * button to press. `count` (everyone who cheered or backed it) sits beside
- * the heart once there is one. */
+ * button to press — and only while backing is open (FF_BACKING). `count`
+ * (everyone who cheered or backed it) sits beside the heart once there is
+ * one. */
 export function SupportButtons({
   raising,
   onSupport,
@@ -960,7 +962,7 @@ export function SupportButtons({
           <span className="sr-only"> {count === 1 ? "supporter" : "supporters"}</span>
         </span>
       )}
-      {raising && (
+      {raising && FF_BACKING && (
         <button
           type="button"
           onClick={click("back")}

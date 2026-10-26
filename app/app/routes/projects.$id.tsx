@@ -53,6 +53,7 @@ import { isWideCover, useImageAspect } from "../lib/useImageAspect";
 import { uploadToStorage } from "../lib/uploadFile";
 import { INTERESTS } from "../constants/interests";
 import { errorMessage } from "../lib/convexError";
+import { FF_BACKING } from "../lib/featureFlags";
 import { shortDay } from "../lib/dates";
 import {
   STATUS_LABELS,
@@ -575,10 +576,12 @@ export default function ProjectDetail() {
 
       {hasTab("support") && (
         <TabPanel base={TABS_BASE} id="support" selected={tab === "support"}>
-          {isOwner && (
+          {/* Asking for money, and the tiers people would pay, wait for
+              FF_BACKING: with no way to back, there is nothing to ask for. */}
+          {isOwner && FF_BACKING && (
             <AskForSupport project={project} raising={raising} editing={editingSupport} setEditing={setEditingSupport} />
           )}
-          {isOwner && raising && <TierManager projectId={project._id} />}
+          {isOwner && raising && FF_BACKING && <TierManager projectId={project._id} />}
           {project.supportCount > 0 || seesEverything ? (
             <p className="mb-3 text-sm" style={{ color: "var(--garden-dim)" }}>
               {project.supportCount > 0
@@ -587,10 +590,11 @@ export default function ProjectDetail() {
             </p>
           ) : (
             // A visitor only gets this tab once the owner has asked for
-            // support, so the way to give it is the one thing to show.
+            // support, so the way to give it is the one thing to show. While
+            // backing is closed (FF_BACKING) that is a cheer.
             <div className="mb-6 flex items-center justify-between gap-3">
               <p className="text-sm" style={{ color: "var(--garden-body)" }}>
-                Be the first to back this.
+                {FF_BACKING ? "Be the first to back this." : "Be the first to cheer this on."}
               </p>
               <SupportButtons raising={raising} onSupport={support} />
             </div>
@@ -709,12 +713,15 @@ function NextSteps({
 }) {
   const steps = [
     { label: "Find people", hint: "Post the roles you need, paid or volunteer.", onClick: onFindPeople },
-    { label: "Ask for support", hint: "Set a goal so people can back it.", onClick: onAskForSupport },
+    // Asking for money waits for FF_BACKING.
+    ...(FF_BACKING
+      ? [{ label: "Ask for support", hint: "Set a goal so people can back it.", onClick: onAskForSupport }]
+      : []),
   ];
   return (
     <DetailCard label="Next steps">
       <p className="text-sm mb-3" style={{ color: "var(--garden-body)" }}>
-        Your project is up. Both of these are optional.
+        Your project is up. {steps.length > 1 ? "Both of these are" : "This is"} optional.
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {steps.map((step) => (

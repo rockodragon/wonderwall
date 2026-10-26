@@ -12,7 +12,8 @@ import { hostedByWords, tableBadge, tablePrice } from "../tables/presentation";
 import { hostLabels } from "../lib/eventHosts";
 import { BackLink } from "../components/BackLink";
 import "../tables/tables.css";
-import { FF_TABLES, useFeatureGate } from "../lib/featureFlags";
+import { FF_TABLES } from "../lib/featureFlags";
+import { useFeatureGate } from "../lib/useFeatureGate";
 import { errorMessage } from "../lib/convexError";
 import { formatCents } from "../../convex/money";
 
