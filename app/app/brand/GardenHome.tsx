@@ -277,6 +277,7 @@ export function GardenHome() {
               About
             </a>
             {[
+              { to: "/promise", label: "Our promise" },
               { to: "/legal/terms", label: "Terms" },
               { to: "/legal/privacy", label: "Privacy" },
               { to: "/legal/credits", label: "Credits" },

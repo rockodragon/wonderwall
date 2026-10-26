@@ -84,6 +84,10 @@ export default [
     route("about", "routes/about.tsx"),
     route("about/agreements", "routes/about.agreements.tsx"),
     route("about/:audience", "routes/about.$audience.tsx"),
+    // Our promise to creatives: what the site promises every creative, each
+    // pinned to the code that keeps it (constants/promises.ts). Public;
+    // _app.tsx lists "/promise". functions/promise.ts gives it link-preview tags.
+    route("promise", "routes/promise.tsx"),
     // How-to for event hosts: tickets and payment links. Public; _app.tsx lists "/docs".
     route("docs/tickets", "routes/docs.tickets.tsx"),
     // People. /search was its address before it was called People; it

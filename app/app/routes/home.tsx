@@ -485,13 +485,19 @@ export default function Home() {
             TheCreative.exchange — creatives and the people who back them, in
             one place
           </p>
-          <div className="flex items-center gap-6">
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
             <a
               href="/about/"
               className="text-[var(--garden-dim)] hover:text-[var(--garden-paper)] transition-colors"
             >
               About
             </a>
+            <Link
+              to="/promise"
+              className="text-[var(--garden-dim)] hover:text-[var(--garden-paper)] transition-colors"
+            >
+              Our promise
+            </Link>
             <Link
               to="/legal/credits"
               className="text-[var(--garden-dim)] hover:text-[var(--garden-paper)] transition-colors"
