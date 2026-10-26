@@ -11,7 +11,7 @@ import { CommunityContextLine, useCommunityContext } from "../components/Communi
 import { NEAR_ME_RADIUS_OPTIONS, useNearMe } from "../lib/useNearMe";
 import { INTEREST_OPTIONS } from "../lib/browse/peopleFilter";
 import { distanceLabel } from "../lib/browse/nearMe";
-import { JOIN_TO_SEE_EVERYONE, moreCreativesLine } from "../lib/browse/directoryPage";
+import { JOIN_TO_SEE_EVERYONE, cappedLine, moreCreativesLine } from "../lib/browse/directoryPage";
 import { signupHref } from "../lib/pendingIntent";
 import { useDirectory, type DirectoryPerson } from "../lib/useDirectory";
 import { LocationIcon } from "../components/icons";
@@ -210,6 +210,13 @@ export default function Search() {
         <OrgDirectory query={debouncedQuery} />
       ) : (
         <>
+          {/* A visitor's one letter isn't a search: the list is everyone's first page. */}
+          {directory.hint && (
+            <p role="status" className="-mt-3 mb-4 text-sm" style={{ color: "var(--app-text-dim)" }}>
+              {directory.hint}
+            </p>
+          )}
+
           {/* Near me radius selector */}
           {nearMe && (
             <div className="mb-6 flex items-center gap-3 flex-wrap">
@@ -299,7 +306,8 @@ export default function Search() {
                       <ProfileCard key={profile._id} profile={profile} />
                     ))}
                   </div>
-                  {/* A member with more to see loads the next page; a visitor
+                  {/* A member with more to see loads the next page (or, at the
+                      most one call returns, is told to narrow it); a visitor
                       has seen what they may, and is shown the way to join. */}
                   {directory.end?.kind === "more" && (
                     <div className="mt-6 flex justify-center">
@@ -313,6 +321,11 @@ export default function Search() {
                         {directory.loading ? "Loading…" : "Load more"}
                       </button>
                     </div>
+                  )}
+                  {directory.end?.kind === "capped" && (
+                    <p className="mt-6 text-center text-sm" style={{ color: "var(--app-text-dim)" }}>
+                      {cappedLine(directory.end.remaining)}
+                    </p>
                   )}
                   {directory.end?.kind === "join" && (
                     <Link

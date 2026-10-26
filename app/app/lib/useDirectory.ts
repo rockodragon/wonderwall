@@ -13,7 +13,7 @@ import type { FunctionReturnType } from "convex/server";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { DIRECTORY_PAGE } from "../../convex/directoryRules";
-import { directoryEnd, directoryNear, type DirectoryEnd } from "./browse/directoryPage";
+import { directoryEnd, directoryNear, searchHint, type DirectoryEnd } from "./browse/directoryPage";
 import type { NearMe } from "./browse/nearMe";
 
 type DirectoryAnswer = FunctionReturnType<typeof api.profiles.directory>;
@@ -33,6 +33,8 @@ export type Directory = {
   /** How many match in all. */
   total: number | undefined;
   end: DirectoryEnd;
+  /** Shown by the search box when it isn't searching: a visitor's one letter. */
+  hint: string | null;
   /** Ask for one more page. */
   loadMore: () => void;
   /** A newer answer (another page, a new search) is on its way. */
@@ -68,11 +70,13 @@ export function useDirectory(filters: DirectoryFilters | "skip"): Directory {
     if (!loading) setPaging({ key, limit: limit + DIRECTORY_PAGE });
   }, [key, limit, loading]);
   const end = useMemo(() => directoryEnd(page), [page]);
+  const hint = searchHint(args?.query, page?.visitor);
 
   return {
     people: page?.people,
     total: page?.total,
     end,
+    hint,
     loadMore,
     loading,
   };

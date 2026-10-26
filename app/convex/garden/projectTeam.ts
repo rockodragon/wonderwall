@@ -1682,19 +1682,22 @@ export const listOrgProjects = query({
 
 /** People picker for on-platform invites: at most 10 name matches, a
  * narrow projection (profiles.search returns whole documents, adminCode
- * included). Excludes the caller. Empty when signed out or `q` is blank. */
+ * included). Excludes the caller, and anyone in `exclude` (people already
+ * listed), before the 10 are picked, so they can't crowd out the one sought.
+ * Empty when signed out or `q` is blank. */
 export const searchPeopleForInvite = query({
-  args: { q: v.string() },
+  args: { q: v.string(), exclude: v.optional(v.array(v.id("profiles"))) },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
     const q = args.q.trim().toLowerCase();
     if (!q) return [];
+    const excluded = new Set<string>(args.exclude ?? []);
 
     // Same full scan profiles.search does — small directory by design.
     const profiles = await ctx.db.query("profiles").collect();
     const hits = profiles
-      .filter((p) => p.userId !== userId && nameMatches(p.name, q))
+      .filter((p) => p.userId !== userId && !excluded.has(p._id) && nameMatches(p.name, q))
       .sort((a, b) => a.name.localeCompare(b.name))
       .slice(0, SEARCH_LIMIT);
 

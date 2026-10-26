@@ -449,13 +449,16 @@ export function useDeskBrowse(view: BrowseView, community: DeskCommunity, fallba
   }, [clearParams]);
 
   // People mixes organizations in, so its count and its empty line say both.
-  // Everyone counts every person who matches, not just the pages loaded.
+  // Everyone counts every person who matches, not just the pages loaded, and
+  // says so when a visitor's search is too short to run (lib/useDirectory).
   const peopleTotal = everyoneOn ? directory.total : undefined;
+  const hint = everyoneOn ? directory.hint : null;
   const count = useMemo(() => {
     if (view !== "people" || !cards) return null;
     const orgs = cards.filter((c) => c.kind === "org").length;
-    return peopleCountLabel(peopleTotal ?? cards.length - orgs, orgs, orgsOnly);
-  }, [view, cards, orgsOnly, peopleTotal]);
+    const label = peopleCountLabel(peopleTotal ?? cards.length - orgs, orgs, orgsOnly);
+    return hint ? `${label} · ${hint}` : label;
+  }, [view, cards, orgsOnly, peopleTotal, hint]);
   // How Everyone's list ends: Load more, or (signed out) the way to join.
   const end = everyoneOn && built ? directory.end : null;
   const { loadMore, loading: loadingMore } = directory;

@@ -27,7 +27,7 @@ import { buildDeskCards, cardsInView, opensAsSheet, type DeskCard } from "./desk
 import { DeskCardView, DeskCreateCell } from "./DeskCard";
 import { DeskCreate } from "./DeskCreate";
 import { isBrowseView, pillClass, useDeskBrowse, type BrowseView, type DeskBrowse } from "./deskBrowse";
-import { JOIN_TO_SEE_EVERYONE, moreCreativesLine, type DirectoryEnd } from "../lib/browse/directoryPage";
+import { JOIN_TO_SEE_EVERYONE, cappedLine, moreCreativesLine, type DirectoryEnd } from "../lib/browse/directoryPage";
 import { signupHref } from "../lib/pendingIntent";
 import { greetingFor, headerCount } from "./deskGreeting";
 import { DeskHeader, type HeaderParts, type HeaderSize } from "./DeskHeader";
@@ -607,6 +607,8 @@ function DeskListEnd({
         <button type="button" onClick={onMore} disabled={loading} className={pillClass(false)}>
           {loading ? "Loading…" : "Load more"}
         </button>
+      ) : end.kind === "capped" ? (
+        <p style={{ margin: 0, fontSize: 15, color: DESK.muted, textAlign: "center" }}>{cappedLine(end.remaining)}</p>
       ) : (
         <p style={{ margin: 0, fontSize: 15, color: DESK.muted, textAlign: "center" }}>
           {moreCreativesLine(end.remaining)}{" "}

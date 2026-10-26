@@ -498,7 +498,7 @@ export default function OrgEdit() {
 
         <AddPerson
           organizationId={org._id}
-          listed={new Set(everyone.map((p) => String(p.profileId)))}
+          listed={everyone.map((p) => p.profileId)}
           onError={setPeopleError}
         />
 
@@ -517,23 +517,27 @@ export default function OrgEdit() {
 // told and can change or remove it in Settings. The names come from the
 // projects' invite picker (garden/projectTeam.ts searchPeopleForInvite), a
 // name match over everyone, not a page of the People directory. It leaves
-// the editor out: an organization's admin is listed already, and anyone can
-// list themselves in Settings.
+// out who's listed already (on the server, before it picks its 10) and the
+// editor: an organization's admin is listed already, and anyone can list
+// themselves in Settings.
 function AddPerson({
   organizationId,
   listed,
   onError,
 }: {
   organizationId: Id<"organizations">;
-  listed: Set<string>;
+  listed: readonly Id<"profiles">[];
   onError: (msg: string) => void;
 }) {
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const addPerson = useMutation(api.organizations.addPerson);
   const typed = query.trim();
-  const results = useQuery(api.garden.projectTeam.searchPeopleForInvite, typed.length >= 2 ? { q: typed } : "skip");
-  const matches = (results ?? []).filter((r) => !listed.has(String(r.profileId))).slice(0, 6);
+  const results = useQuery(
+    api.garden.projectTeam.searchPeopleForInvite,
+    typed.length >= 2 ? { q: typed, exclude: [...listed] } : "skip",
+  );
+  const matches = (results ?? []).slice(0, 6);
 
   async function add(profileId: Id<"profiles">) {
     setBusy(true);

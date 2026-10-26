@@ -85,6 +85,14 @@ describe("useDirectory", () => {
     expect(lastAsked()).toBe("skip");
   });
 
+  it("tells a visitor whose one letter isn't a search, and no one else", () => {
+    mock.answer = (args) => ({ ...everyone(100)(args), visitor: true });
+    expect(renderHook(useDirectory, { query: "J" }).result.hint).toBe("Type 2 or more letters to search.");
+    expect(renderHook(useDirectory, { query: "Jo" }).result.hint).toBeNull();
+    mock.answer = everyone(100);
+    expect(renderHook(useDirectory, { query: "J" }).result.hint).toBeNull();
+  });
+
   it("sends Near me rounded, and no empty search or Discipline", () => {
     renderHook(useDirectory, { query: "", interests: [], near: { pos: { lat: 36.162712, lng: -86.781601 }, radius: 25 } });
     expect(lastAsked()).toEqual({
