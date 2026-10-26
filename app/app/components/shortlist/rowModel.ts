@@ -9,13 +9,15 @@
 // venueName).
 
 import { workKind } from "../../lib/shortlist/kind";
+import { shownInterests } from "../../constants/interests";
 import { timeLabel, venueName } from "../../desk/deskCards";
 import type { DeskCardId } from "../../desk/deskState";
 import { calendarDay, shortDay, timeAgo } from "../../lib/dates";
 import { addressName } from "../../lib/names";
 import { payText } from "../../lib/shortlist/model";
-import { closesAt } from "../../lib/shortlist/needsYou";
-import type { ClosedReason, PostMedia, ProjectKind, ShortlistEvent, ShortlistProject } from "../../lib/shortlist/types";
+import { closesAt, hasEnded } from "../../lib/shortlist/needsYou";
+import { shownTitle } from "../../lib/placeholderTitle";
+import type { ClosedReason, PostMedia, ProjectKind, ShortlistEvent, ShortlistPost, ShortlistProject } from "../../lib/shortlist/types";
 import { stageLabel } from "../../lib/stage";
 import { AREA_LABEL, cardIdOf, type ShortlistItem } from "./items";
 
@@ -77,8 +79,15 @@ function waiting(n: number): string {
   return `${n} ${n === 1 ? "request" : "requests"} waiting`;
 }
 
-/** The mono word beside a followed person's latest post. */
-const POST_LABEL = { project: "Project", event: "Event" } as const;
+/** What a person you follow last did, and when: "Started a project · 1w
+ *  ago", "Shared work · 3d ago"; for an event, its date, which says more
+ *  than when it was posted ("Hosting an event · Nov 6"). */
+export function postStatus(post: ShortlistPost, now = Date.now()): string {
+  if (post.when) {
+    return `${hasEnded(post.when, now) ? "Hosted" : "Hosting"} an event · ${shortDay(post.when.datetime)}`;
+  }
+  return `${post.share ? "Shared work" : "Started a project"} · ${timeAgo(post.at, now)}`;
+}
 
 const CLOSED: Record<ClosedReason, string> = {
   declined: "Declined",
@@ -210,18 +219,20 @@ export function rowModel(item: ShortlistItem, ctx: RowContext): RowModel {
     }
     case "person": {
       // What they last posted and when (Rick, 2026-10-25: when you followed
-      // them isn't interesting); with nothing posted, what they do.
+      // them isn't interesting). Its title, unless it's a placeholder
+      // ("Untitled image"); then, as with nothing posted, what they do.
       const { person } = item;
       const { latest } = person;
-      const interests = person.interests.filter((t) => !t.startsWith("other:")).slice(0, 2);
+      const title = latest && shownTitle(latest.title);
+      const interests = shownInterests(person.interests).slice(0, 2);
       return {
         id,
         hot,
         past,
         title: person.name,
-        sub: line(ctx.withArea && AREA_LABEL.people, ...(latest ? [latest.title] : interests)),
-        meta: latest && POST_LABEL[latest.type],
-        status: latest && `Posted ${timeAgo(latest.at)}`,
+        sub: line(ctx.withArea && AREA_LABEL.people, ...(title ? [title] : interests)),
+        meta: null,
+        status: latest && postStatus(latest),
         thumb: { kind: "face", name: person.name, url: person.imageUrl },
         post: latest?.media ? { url: latest.thumbUrl, media: latest.media } : undefined,
         action: null,

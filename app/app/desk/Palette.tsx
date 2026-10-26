@@ -79,6 +79,11 @@ const LABEL_OPACITY: Record<LabelMode, number> = { shown: 1, dimmed: 0.4, hidden
  *  tool's in the accent. It sits inside the button, so a click on the name
  *  is a click on the tool, and it's cut short with an ellipsis past
  *  PALETTE.labelMax. */
+/** The open fan's backing: out past the farthest name (the arc, a tool, its
+ *  gap and label), then a soft edge. */
+const SCRIM_SIZE = PALETTE.inset + PALETTE.button / 2 + PALETTE.radius + PALETTE.tool / 2 + PALETTE.labelGap + PALETTE.labelMax + 64;
+const SCRIM_MASK = "radial-gradient(circle at 0% 100%, #000 0, #000 70%, transparent 100%)";
+
 function labelStyle(angleDeg: number, active: boolean, mode: LabelMode, reduced: boolean): CSSProperties {
   const a = labelAnchor(angleDeg);
   const half = PALETTE.tool / 2;
@@ -199,6 +204,29 @@ function PaletteShell({
         style={{ position: "fixed", left: 0, bottom: 0, width: 0, height: 0, zIndex: 40 }}
       >
         <style>{paletteCss(reduced)}</style>
+
+        {/* Open, the fan sits on a dark, softly blurred corner, so its names
+            read over whatever card or text is behind them (Rick, 2026-10-26).
+            It fades out past the labels, takes no pointer events, and leaves
+            the rest of the page as it was. */}
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            left: 0,
+            bottom: 0,
+            width: SCRIM_SIZE,
+            height: SCRIM_SIZE,
+            pointerEvents: "none",
+            background: `radial-gradient(circle at 0% 100%, color-mix(in srgb, ${DESK.page} 92%, transparent) 0, color-mix(in srgb, ${DESK.page} 80%, transparent) 62%, transparent 100%)`,
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
+            maskImage: SCRIM_MASK,
+            WebkitMaskImage: SCRIM_MASK,
+            opacity: fanOpen ? 1 : 0,
+            transition: reduced ? "none" : `opacity ${PALETTE.fanMs}ms ${DESK.ease}`,
+          }}
+        />
 
         {/* The hover zone takes no pointer events until the fan is open, so it
             never blocks a click on the page underneath. */}

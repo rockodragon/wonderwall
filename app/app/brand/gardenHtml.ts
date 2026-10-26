@@ -8,6 +8,7 @@
 // are ours and regular. The body is left alone: React hydrates it.
 
 import { GARDEN, gardenText as swapName } from "./brandConfig";
+import { textParagraphs } from "../lib/textParagraphs";
 
 /** The icon addresses every page links to (root.tsx), and the ones browsers
  *  ask for on their own, answered with The Garden's files on its domains.
@@ -45,7 +46,7 @@ export function needsShareTags(html: string): boolean {
 export function shareDescription(
   community: { description?: string | null; tagline?: string | null } | null,
 ): string | undefined {
-  const first = community?.description?.trim().split(/\n\s*\n/)[0]?.trim();
+  const [first] = textParagraphs(community?.description);
   const words = first || community?.tagline?.trim();
   if (!words) return undefined;
   return words.length > 200 ? `${words.slice(0, 199).trimEnd()}…` : words;

@@ -178,7 +178,7 @@ describe("a piece's creator card", () => {
 describe("the inviter on the sign-up page", () => {
   it("is a 56px face in the Tailwind grays", async () => {
     answers = {
-      [name(api.invites.getInviterInfo)]: { name: "Sol Reyes", imageUrl: null, interests: [], recentInvitees: [] },
+      [name(api.invites.getInviterInfo)]: { name: "Sol Reyes", imageUrl: null, interests: [] },
       [name(api.garden.defaultCommunity.getSignupCommunity)]: { id: "c1", name: "The Garden", inviteOnly: false },
     };
     const html = await page("/signup/:inviteSlug", "/signup/sol", Signup);
@@ -188,21 +188,15 @@ describe("the inviter on the sign-up page", () => {
     expect(tag).toContain(GRAY);
   });
 
-  it("lists who they invited with small gray faces, not the purple-pink gradient", async () => {
+  it("names no one else who joined with the link", async () => {
     answers = {
-      [name(api.invites.getInviterInfo)]: {
-        name: "Sol Reyes",
-        imageUrl: null,
-        interests: [],
-        recentInvitees: [{ name: "Ivo Park", imageUrl: null, interests: [] }],
-      },
+      [name(api.invites.getInviterInfo)]: { name: "Sol Reyes", imageUrl: null, interests: [] },
       [name(api.garden.defaultCommunity.getSignupCommunity)]: { id: "c1", name: "The Garden", inviteOnly: false },
     };
     const html = await page("/signup/:inviteSlug", "/signup/sol", Signup);
     expect(html).not.toContain("from-purple-400");
-    const tag = oneFace(html, "I");
-    expect(tag).toContain("h-7 w-7 text-xs");
-    expect(tag).toContain(GRAY);
+    expect(html).not.toContain("Also connected here");
+    expect(faces(html)).toHaveLength(1);
   });
 });
 

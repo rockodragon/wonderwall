@@ -194,6 +194,20 @@ const RULES: Rule[] = [
     home: "convex/moderationRules.ts",
     use: "isShownProject in convex/moderationRules.ts",
   },
+  {
+    name: "custom interests filtered by hand (one place)",
+    pattern: /startsWith\(\s*["'`]other:/g,
+    limit: 0,
+    home: "app/constants/interests.ts",
+    use: "shownInterests in app/constants/interests.ts",
+  },
+  {
+    name: "paragraphs split by hand (one place)",
+    pattern: /split\(\/\\n\\s\*\\n\//g,
+    limit: 0,
+    home: "app/lib/textParagraphs.ts",
+    use: "textParagraphs in app/lib/textParagraphs.ts",
+  },
 ];
 
 describe("drift guard: no new copies of a shared rule", () => {

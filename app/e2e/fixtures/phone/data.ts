@@ -41,7 +41,19 @@ function shortlistWithPosts() {
   data.people = data.people.map((p) => {
     const post = posts[p.name];
     return post
-      ? { ...p, latest: { type: post.type, id: `${post.type}s:${p.profileId}`, title: post.title, at: now - post.ago, thumbUrl: post.thumbUrl, media: post.media } }
+      ? {
+          ...p,
+          latest: {
+            type: post.type,
+            id: `${post.type}s:${p.profileId}`,
+            title: post.title,
+            at: now - post.ago,
+            thumbUrl: post.thumbUrl,
+            media: post.media,
+            share: false,
+            when: post.type === "event" ? { datetime: now + 12 * DAY, endTime: null } : null,
+          },
+        }
       : p;
   });
   return data;
@@ -316,7 +328,11 @@ export const answers: Record<string, unknown | ((args: unknown) => unknown)> = {
   "garden/giving:getMyGiving": { open: [{ amountCents: 500 }] },
   "events:list": (args: unknown) => ((args as { past?: boolean } | undefined)?.past ? past : upcoming),
   "events:search": [],
-  "favorites:getMyFavorites": { profiles: [], events: [{ event: upcoming[0] }, { event: upcoming[2] }, { event: past[0] }] },
+  "favorites:getMyFavorites": {
+    // The people the sample Shortlist follows, so Following has them too.
+    profiles: shortlistWithPosts().people.map((p) => ({ profile: { _id: p.profileId, name: p.name, imageUrl: p.imageUrl, interests: p.interests } })),
+    events: [{ event: upcoming[0] }, { event: upcoming[2] }, { event: past[0] }],
+  },
   "favorites:isFavorited": false,
   "favorites:getFavoriteCount": 0,
   "updates:listMine": updates,

@@ -239,38 +239,12 @@ export const getInviterInfo = query({
 
     if (!profile) return null;
 
-    // Get the 2 most recent people who accepted this person's invite
-    const invites = await ctx.db
-      .query("invites")
-      .withIndex("by_inviterId", (q) => q.eq("inviterId", profile.userId))
-      .filter((q) => q.neq(q.field("usedBy"), undefined))
-      .collect();
-
-    // Sort by usedAt descending and take top 2
-    const recentInvites = invites
-      .sort((a, b) => (b.usedAt || 0) - (a.usedAt || 0))
-      .slice(0, 2);
-
-    // Get profiles for recent invitees
-    const recentInvitees = [];
-    for (const invite of recentInvites) {
-      if (!invite.usedBy) continue;
-      const inviteeProfile = await getProfileByUserId(ctx, invite.usedBy);
-      if (inviteeProfile) {
-        recentInvitees.push({
-          name: inviteeProfile.name,
-          imageUrl: await profileImageUrl(ctx, inviteeProfile),
-          interests: inviteeProfile.interests,
-        });
-      }
-    }
-
+    // The inviter alone. Anyone holding the link sees this, so nothing about
+    // who else joined with it (it used to show the two most recent).
     return {
       name: profile.name,
       imageUrl: await profileImageUrl(ctx, profile),
       interests: profile.interests,
-      usageCount: profile.inviteUsageCount || 0,
-      recentInvitees,
     };
   },
 });

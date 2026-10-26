@@ -54,7 +54,6 @@ const ERROR = "#fca5a5";
 const FOCUS = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#fee268]";
 const FIELD = `w-full px-3.5 py-2.5 rounded-lg border text-[15px] ${FOCUS}`;
 const PILL = `px-3 py-1.5 rounded-full border text-[13.5px] font-medium transition-colors ${FOCUS}`;
-const QUIET = `text-[13.5px] font-medium underline underline-offset-4 disabled:opacity-50 ${FOCUS}`;
 
 export default function Onboarding() {
   const navigate = useNavigate();
@@ -461,17 +460,17 @@ export default function Onboarding() {
             >
               {busy === "shared" ? "Sharing…" : "Share it"}
             </button>
-            <div className="mt-5">
-              <button
-                type="button"
-                onClick={() => void leave("not_yet")}
-                disabled={busy !== null}
-                className={QUIET}
-                style={{ color: PAPER }}
-              >
-                {returning ? "Save" : "Not yet"}
-              </button>
-            </div>
+            {/* A real button, not a faint link: on a phone it's the way past
+                a project you aren't ready to share. */}
+            <button
+              type="button"
+              onClick={() => void leave("not_yet")}
+              disabled={busy !== null}
+              className={`mt-3 w-full px-4 py-3 rounded-lg border text-[15px] font-medium disabled:opacity-50 ${FOCUS}`}
+              style={{ borderColor: LINE, color: PAPER }}
+            >
+              {returning ? "Save" : "Not yet"}
+            </button>
           </>
         )}
 
