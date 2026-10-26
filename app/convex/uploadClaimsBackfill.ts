@@ -37,7 +37,7 @@ import type { QueryCtx } from "./_generated/server";
 import { fail } from "./errors";
 import { collectStorageIds, type RichDoc } from "./garden/richText";
 import { positionsOfOrg } from "./organizations";
-import { recordUploadClaim, uploadClaimOf } from "./uploads";
+import { claimFor, uploadClaimOf } from "./uploads";
 
 /** Who controls a row that holds a file. Usually one person; an
  * organization's logo can be any of its admins. Empty: nobody on record.
@@ -203,10 +203,8 @@ export const insertClaims = internalMutation({
   handler: async (ctx, args): Promise<{ inserted: number }> => {
     let inserted = 0;
     for (const { storageId, userId } of args.claims) {
-      if (await uploadClaimOf(ctx, storageId)) continue;
       if (!(await ctx.db.system.get(storageId))) continue;
-      await recordUploadClaim(ctx, storageId, userId);
-      inserted++;
+      if (await claimFor(ctx, storageId, userId)) inserted++;
     }
     return { inserted };
   },

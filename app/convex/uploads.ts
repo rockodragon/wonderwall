@@ -66,6 +66,20 @@ export async function recordUploadClaim(
   await ctx.db.insert("uploadClaims", { storageId, userId, claimedAt: Date.now() });
 }
 
+/** Claims a file for `userId` unless someone already has. For a file the
+ * server stored on someone's behalf (a link preview's still): claim it in
+ * the mutation that attaches it, or anyone who reads the id could claim it
+ * first and then delete it by replacing it. True when it recorded a claim. */
+export async function claimFor(
+  ctx: MutationCtx,
+  storageId: Id<"_storage">,
+  userId: Id<"users">,
+): Promise<boolean> {
+  if (await uploadClaimOf(ctx, storageId)) return false;
+  await recordUploadClaim(ctx, storageId, userId);
+  return true;
+}
+
 /**
  * Lets `userId` attach `storageId` to a row, or refuses with a reason the
  * page shows. Call it after the row's own permission check (requireOwner,

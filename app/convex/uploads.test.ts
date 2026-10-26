@@ -10,6 +10,7 @@ import { makeCtx, run, type Row } from "../test-support/convexContext";
 import { checkIndexes } from "../test-support/indexChecks";
 import * as artifacts from "./artifacts";
 import * as files from "./files";
+import * as linkPreview from "./linkPreview";
 import * as projects from "./garden/projects";
 import * as stories from "./garden/stories";
 import * as tables from "./garden/tables";
@@ -526,6 +527,59 @@ describe("a class photo the date or Table migrated from it still shows is kept",
     expect(ctx.deletedFiles).toEqual([]);
     await run(files.deleteEventCoverImage, ctx, { eventId: "events:moved" });
     expect(ctx.deletedFiles).toEqual([CLASS_PHOTO]);
+  });
+});
+
+// ——————————————————————————————————————————————————————————————
+// A still the server stores for a pasted link is claimed (linkPreview.apply)
+// ——————————————————————————————————————————————————————————————
+
+describe("a link preview's still is claimed for the row's owner", () => {
+  const STILL = "_storage:still";
+  const REEL = "https://www.instagram.com/p/abc/";
+  const previewWorld = (): Record<string, Row[]> => {
+    const t = world();
+    t._storage.push(fresh(STILL));
+    for (const table of ["events", "projects", "artifacts"]) t[table] = t[table].map((r) => ({ ...r, mediaUrl: REEL }));
+    t.artifacts.push({ _id: "artifacts:victimReel", profileId: "profiles:victim", type: "video", mediaUrl: REEL, order: 1 });
+    return t;
+  };
+  const rows: [string, string, string, string][] = [
+    ["an event's", "event", "events:mine", ME],
+    ["a project's", "project", "projects:mine", ME],
+    ["a piece's cover", "artifact", "artifacts:mine", ME],
+    ["another person's piece cover", "artifact", "artifacts:victimReel", VICTIM],
+  ];
+
+  it.each(rows)("%s still", async (_name, target, id, owner) => {
+    const ctx = makeCtx(previewWorld(), ME);
+    await run(linkPreview.apply, ctx, {
+      target,
+      id,
+      sourceUrl: REEL,
+      canonicalUrl: REEL,
+      imageUrl: "https://test-123.convex.cloud/api/storage/still",
+      imageStorageId: STILL,
+    });
+    expect(claimsOf(ctx, STILL).map((c: Row) => c.userId)).toEqual([owner]);
+    // Someone else who reads the id can't take it, so can't delete it.
+    const other = makeCtx({ ...ctx.store }, owner === ME ? VICTIM : ME);
+    expect(await refused(run(files.saveProfileImage, other, { storageId: STILL }))).toEqual(BELONGS);
+    expect(other.deletedFiles).toEqual([]);
+  });
+
+  it("a still for a link that changed meanwhile is dropped, not claimed", async () => {
+    const ctx = makeCtx(previewWorld(), ME);
+    await run(linkPreview.apply, ctx, {
+      target: "event",
+      id: "events:mine",
+      sourceUrl: "https://www.instagram.com/p/old/",
+      canonicalUrl: "https://www.instagram.com/p/old/",
+      imageUrl: "https://test-123.convex.cloud/api/storage/still",
+      imageStorageId: STILL,
+    });
+    expect(claimsOf(ctx, STILL)).toEqual([]);
+    expect(ctx.deletedFiles).toEqual([STILL]);
   });
 });
 
