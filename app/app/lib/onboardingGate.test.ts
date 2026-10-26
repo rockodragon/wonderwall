@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { needsOnboarding } from "./onboardingGate";
+import { goesToOnboarding, needsOnboarding } from "./onboardingGate";
 
 describe("needsOnboarding", () => {
   it("sends a new Google account (real name, nothing else) to onboarding", () => {
@@ -22,5 +22,38 @@ describe("needsOnboarding", () => {
   it("waits while the profile is loading or missing", () => {
     expect(needsOnboarding(undefined)).toBe(false);
     expect(needsOnboarding(null)).toBe(false);
+  });
+});
+
+// What _app.tsx uses: a brand-new account, plus anyone still without a name
+// (convex/names.ts), so an onboarded member who never gave one comes back.
+describe("goesToOnboarding", () => {
+  const onboarded = { primaryRole: "creative", bio: "Painter", interests: ["Art"] };
+
+  it("sends an onboarded member who is still 'New User' to onboarding", () => {
+    expect(goesToOnboarding({ ...onboarded, name: "New User" })).toBe(true);
+    expect(goesToOnboarding({ ...onboarded, name: "  new user " })).toBe(true);
+  });
+
+  it("sends an onboarded member with a blank or missing name to onboarding", () => {
+    expect(goesToOnboarding({ ...onboarded, name: "" })).toBe(true);
+    expect(goesToOnboarding({ ...onboarded, name: "   " })).toBe(true);
+    expect(goesToOnboarding({ ...onboarded, name: null })).toBe(true);
+    expect(goesToOnboarding({ ...onboarded })).toBe(true);
+  });
+
+  it("leaves an onboarded member with a real name alone", () => {
+    expect(goesToOnboarding({ ...onboarded, name: "Dana Reyes" })).toBe(false);
+    // Role alone is enough to count as onboarded, whatever else they skipped.
+    expect(goesToOnboarding({ name: "Dana Reyes", primaryRole: "creative", bio: "", interests: [] })).toBe(false);
+  });
+
+  it("still sends a brand-new Google account (real name, nothing else)", () => {
+    expect(goesToOnboarding({ name: "Dana Reyes", primaryRole: undefined, bio: "", interests: [] })).toBe(true);
+  });
+
+  it("waits while the profile is loading or missing", () => {
+    expect(goesToOnboarding(undefined)).toBe(false);
+    expect(goesToOnboarding(null)).toBe(false);
   });
 });

@@ -7,7 +7,7 @@ import { api } from "../../convex/_generated/api";
 import { setPendingIntent, takePendingIntent } from "../lib/pendingIntent";
 import { loginHref } from "../lib/loginHref";
 import { inviteFromSearch, rememberInvite } from "../lib/carriedInvite";
-import { needsOnboarding } from "../lib/onboardingGate";
+import { goesToOnboarding } from "../lib/onboardingGate";
 import { claimPendingTickets } from "../lib/pendingTicket";
 import { useMarkNotificationsReadForPath } from "../lib/useMarkNotificationsReadForPath";
 import { InviteCTA } from "../components/InviteCTA";
@@ -203,11 +203,12 @@ export function AppShell({ children }: { children?: ReactNode }) {
     if (isAuthenticated) void claimPendingTickets(claimTicket);
   }, [isAuthenticated, claimTicket]);
 
-  // A brand-new account goes through onboarding before anything else
-  // (lib/onboardingGate.ts says who). Except on an event page: someone who
-  // just signed up through the RSVP form there (event.tsx) stays put to see
-  // "You're in". They go through onboarding on their next visit anywhere else.
-  const mustOnboard = needsOnboarding(profile);
+  // A brand-new account, or one with no name yet, goes through onboarding
+  // before anything else (lib/onboardingGate.ts says who). Except on an
+  // event page: someone who just signed up through the RSVP form there
+  // (event.tsx) stays put to see "You're in". They go through onboarding on
+  // their next visit anywhere else.
+  const mustOnboard = goesToOnboarding(profile);
   const onEventPage = location.pathname.startsWith("/events/");
   // Platform-wide Tables keep free hosting outside community invite/onboarding gates.
   const onTablePage = location.pathname === "/tables" || location.pathname.startsWith("/tables/");

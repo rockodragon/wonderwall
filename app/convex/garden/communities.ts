@@ -23,6 +23,7 @@ import { eventVisibilityChecker } from "./eventVisibility";
 import { slugifyTitle, resolveAvailableSlug } from "./stories";
 import { canSeeOffering } from "../offerings";
 import { isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
+import { hasRealName } from "../names";
 import { canSeeCommunity, isHiddenCommunity } from "./hiddenCommunity";
 import { communityVisibility } from "./communityVisibility";
 import { isEventListed } from "../eventWindow";
@@ -1075,6 +1076,13 @@ export const listMembers = query({
     const ownerId = org.ownerUserId ? String(org.ownerUserId) : undefined;
 
     return shown
+      // No member who hasn't named themselves yet (convex/names.ts). A
+      // pending request still shows, so its managers can answer it, and a
+      // row with no profile at all still reads "Someone", as before.
+      .filter((m) => {
+        const name = names.get(String(m.userId));
+        return m.status === "pending" || name === undefined || hasRealName(name);
+      })
       .map((m) => ({
         userId: m.userId,
         name: names.get(String(m.userId)) ?? "Someone",

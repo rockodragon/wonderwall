@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { eventHasStarted } from "../../convex/eventWindow";
+import { displayPhone } from "../../convex/phone";
 import { rosterStatusWords } from "./presentation";
 import { errorMessage } from "../lib/convexError";
 
@@ -79,12 +80,6 @@ function AttendancePanel({
       )}
     </div>
   );
-}
-
-/** "+16195550100" → "(619) 555-0100"; anything else as stored. */
-export function displayPhone(phone: string): string {
-  const match = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(phone);
-  return match ? `(${match[1]}) ${match[2]}-${match[3]}` : phone;
 }
 
 /** Guests who RSVP'd without an account, with the contact details they

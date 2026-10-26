@@ -28,6 +28,7 @@ import {
   isStage,
   nameMatches,
   nextStatusForRequest,
+  searchPeopleForInvite,
   resolveStage,
   shouldNotifyStageChange,
   stageLabel,
@@ -543,5 +544,39 @@ describe("getTeam and listRoles, now that the project page is public", () => {
   it("lists an ordinary project's roles to a signed-out visitor", async () => {
     const roles = await run(listRoles, as(null), { projectId: "projects:plain" });
     expect(roles.map((r: any) => [r.title, r.status])).toEqual([["Editor", "open"]]);
+  });
+});
+
+// The people picker for on-platform invites. Someone who signed in but never
+// named themselves (convex/names.ts) is not offered, even for a query their
+// placeholder name happens to match.
+describe("searchPeopleForInvite — unnamed accounts", () => {
+  const ME = "users:me";
+  const world = () => ({
+    profiles: [
+      { _id: "profiles:me", userId: ME, name: "Me Myself" },
+      { _id: "profiles:newman", userId: "users:newman", name: "Newman Okoro" },
+      { _id: "profiles:ghost", userId: "users:ghost", name: "New User" },
+      { _id: "profiles:padded", userId: "users:padded", name: "  new user " },
+      { _id: "profiles:blank", userId: "users:blank", name: "   " },
+      { _id: "profiles:dana", userId: "users:dana", name: "Dana Reyes" },
+    ],
+  });
+  const find = async (q: string) => await run(searchPeopleForInvite, makeCtx(world(), ME), { q });
+
+  it("never offers an unnamed profile, even when the query matches its placeholder name", async () => {
+    // "new" and "user" both match "New User"; only the named "Newman" is offered for "new".
+    expect((await find("new")).map((r: any) => r.name)).toEqual(["Newman Okoro"]);
+    expect(await find("user")).toEqual([]);
+  });
+
+  it("still offers named people, with the narrow projection", async () => {
+    expect(await find("dana")).toEqual([
+      { profileId: "profiles:dana", userId: "users:dana", name: "Dana Reyes", imageUrl: null },
+    ]);
+  });
+
+  it("offers nobody for a query that matches no named profile", async () => {
+    expect(await find("zzz")).toEqual([]);
   });
 });

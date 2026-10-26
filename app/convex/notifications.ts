@@ -8,6 +8,7 @@ import { insertNotification } from "./notify";
 import { AWARD_TYPES, isCelebrationType } from "./celebrationTypes";
 import { fundDisplayName } from "./garden/allocations";
 import { profileImageUrl } from "./images";
+import { hasRealName } from "./names";
 
 // Get notifications for the current user
 export const getNotifications = query({
@@ -32,6 +33,11 @@ export const getNotifications = query({
         let relatedUserProfile = null;
         if (n.relatedUserId) {
           relatedUserProfile = await getProfileByUserId(ctx, n.relatedUserId);
+          // Not shown until they've named themselves (convex/names.ts); the
+          // row's own text stands in ("Someone joined …").
+          if (relatedUserProfile && !hasRealName(relatedUserProfile.name)) {
+            relatedUserProfile = null;
+          }
         }
         return {
           ...n,

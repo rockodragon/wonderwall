@@ -180,6 +180,14 @@ const RULES: Rule[] = [
     use: "timeAgo in app/lib/dates.ts",
   },
   {
+    name: "placeholder name checked inline (one place)",
+    // The copies had drifted: some missed a blank name, some a different case.
+    pattern: /["'`]new user["'`]|\/\^?new user|[!=]==?\s*PLACEHOLDER_NAME\b|\bPLACEHOLDER_NAME\s*[!=]==?/gi,
+    limit: 0,
+    home: "convex/names.ts",
+    use: "hasRealName / PLACEHOLDER_NAME in convex/names.ts",
+  },
+  {
     name: "project shown-or-not checked inline (one place)",
     pattern: /status\s*!==\s*"archived"\s*&&\s*!isHidden\(/g,
     limit: 0,

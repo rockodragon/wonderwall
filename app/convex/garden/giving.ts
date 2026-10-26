@@ -38,6 +38,7 @@ import { getCommunityMember } from "./communities";
 import { communityVisibility } from "./communityVisibility";
 import { profileImageUrl, projectPhotoUrl } from "../images";
 import { formatCents } from "../money";
+import { hasRealName } from "../names";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
@@ -834,7 +835,7 @@ export const searchRecipients = query({
       followedSets(ctx, userId),
     ]);
     const page = profiles
-      .filter((p): p is Doc<"profiles"> => Boolean(p) && p!.name !== "New User")
+      .filter((p): p is Doc<"profiles"> => Boolean(p) && hasRealName(p!.name))
       .filter((p) => !needle || p.name.toLowerCase().includes(needle) || p.interests.some((i) => i.toLowerCase().includes(needle)))
       .map((p) => ({ p, following: followed.profileIds.has(String(p._id)) }))
       .sort((a, b) => Number(b.following) - Number(a.following) || a.p.name.localeCompare(b.p.name))

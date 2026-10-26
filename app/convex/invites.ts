@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { currentUserId, getProfileByUserId, requireProfile, requireUserId } from "./helpers";
+import { currentUserId, displayNameOf, getProfileByUserId, requireProfile, requireUserId } from "./helpers";
 import { fail } from "./errors";
 import { insertNotification } from "./notify";
 import { escapeHtml } from "./email/template";
@@ -17,6 +17,7 @@ import { findInviterProfile } from "./inviteLookup";
 import { getDefaultCommunity } from "./garden/defaultCommunity";
 import { resolveSenderCommunity } from "./email/senderCommunity";
 import { profileImageUrl } from "./images";
+import { hasRealName } from "./names";
 
 function generateCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -358,11 +359,14 @@ export const redeemBySlug = mutation({
     // about the inviter's next project or event (follows.ts).
     await followEachOther(ctx, inviterProfile.userId, userId);
 
-    // Get the new user's profile info for the notification
-    // Note: Profile may not exist yet at signup time, so we'll get it later or use user info
-    const newUserProfile = await getProfileByUserId(ctx, userId);
+    // Get the new user's profile info for the notification. If they haven't
+    // named themselves yet (convex/names.ts), the note says "Someone" and
+    // shows no picture or link: their page isn't shown to other members
+    // until they do.
+    const profile = await getProfileByUserId(ctx, userId);
+    const newUserProfile = profile && hasRealName(profile.name) ? profile : null;
 
-    const newUserName = newUserProfile?.name || "Someone";
+    const newUserName = await displayNameOf(ctx, userId);
     // The community they joined. Every signup joins The Garden today, so
     // that's the default community; when signups can join another community
     // (communityDomains.ts resolveEntryCommunity), use the one they joined

@@ -3,11 +3,13 @@
 
 import { describe, expect, it } from "vitest";
 import type { Id } from "./_generated/dataModel";
+import { makeCtx, run } from "../test-support/convexContext";
 import { CELEBRATION_TYPES } from "./celebrationTypes";
 import {
   CELEBRATION_DAYS,
   MAX_CELEBRATIONS,
   fundSlugFromLink,
+  getNotifications,
   pickCelebrations,
   projectHref,
   projectRefFromLink,
@@ -180,5 +182,73 @@ describe("projectHref", () => {
     expect(projectHref({ _id: "p1", storySlug: "small-acts" })).toBe("/story/small-acts");
     expect(projectHref({ _id: "p1" })).toBe("/projects/p1");
     expect(projectHref({ _id: "p1", storySlug: "" })).toBe("/projects/p1");
+  });
+});
+
+// The related person on a notification is their profile card. Someone who
+// never named themselves (convex/names.ts) has none; the row's own text
+// stands in.
+describe("getNotifications — relatedUserProfile", () => {
+  const ME = "users:me";
+  const note = (id: string, relatedUserId: string | undefined) => ({
+    _id: `notifications:${id}`,
+    userId: ME,
+    type: "invite_accepted",
+    title: "New member joined!",
+    message: "Someone joined using your invite link.",
+    read: false,
+    createdAt: 1,
+    relatedUserId,
+  });
+  const world = () => ({
+    profiles: [
+      { _id: "profiles:me", userId: ME, name: "Me Myself" },
+      { _id: "profiles:dana", userId: "users:dana", name: "Dana Reyes", inviteSlug: "DANA12" },
+      { _id: "profiles:ghost", userId: "users:ghost", name: "New User", imageUrl: "https://img.example/ghost.png" },
+      { _id: "profiles:padded", userId: "users:padded", name: "  new user " },
+    ],
+    notifications: [
+      note("named", "users:dana"),
+      note("unnamed", "users:ghost"),
+      note("padded", "users:padded"),
+      note("none", undefined),
+    ],
+  });
+  // The shared in-memory ctx has no .order(); the order doesn't matter here
+  // (rows are matched by id), so it is a no-op (as in drift.events.test.ts).
+  const ctxWithOrder = () => {
+    const ctx = makeCtx(world(), ME);
+    const query = ctx.db.query;
+    ctx.db.query = (table: string) => {
+      const api = query(table);
+      api.order = () => api;
+      return api;
+    };
+    return ctx;
+  };
+  const related = async () => {
+    const rows = await run(getNotifications, ctxWithOrder(), {});
+    return Object.fromEntries(rows.map((r: any) => [r._id.split(":")[1], r.relatedUserProfile]));
+  };
+
+  it("fills in the profile card for a named related user", async () => {
+    expect((await related()).named).toEqual({
+      profileId: "profiles:dana",
+      name: "Dana Reyes",
+      imageUrl: null,
+      inviteSlug: "DANA12",
+    });
+  });
+
+  it("is null for an unnamed related user, picture and all", async () => {
+    const got = await related();
+    expect(got.unnamed).toBeNull();
+    expect(got.padded).toBeNull();
+  });
+
+  it("is null when the row has no related user, and the rows still come back", async () => {
+    const got = await related();
+    expect(got.none).toBeNull();
+    expect(Object.keys(got).sort()).toEqual(["named", "none", "padded", "unnamed"]);
   });
 });

@@ -53,6 +53,7 @@ import { isGivenSupport, supportCadence, supportKind } from "./garden/support";
 import { isHidden, isPostedProject, isShownProject } from "./moderationRules";
 import { feedLocation } from "./eventAddress";
 import { getProfileByUserId } from "./helpers";
+import { hasRealName } from "./names";
 import { eventCoverUrl, pieceMediaUrl, profileImageUrl, projectPhotoUrl } from "./images";
 import { toEmbedUrl } from "./videoEmbed";
 
@@ -598,7 +599,10 @@ export const getMine = query({
     const people = follows.map(async (fav): Promise<ShortlistFollow | null> => {
       const id = ctx.db.normalizeId("profiles", fav.targetId);
       const profile = id && (await ctx.db.get(id));
-      if (!profile) return null;
+      // Accepting an invite follows the inviter both ways (follows.ts), so a
+      // follow can point at someone who hasn't named themselves yet
+      // (convex/names.ts). Not listed until they do.
+      if (!profile || !hasRealName(profile.name)) return null;
       const [person, project, event] = await Promise.all([
         toPerson(ctx, profile),
         latestProject(profile.userId),

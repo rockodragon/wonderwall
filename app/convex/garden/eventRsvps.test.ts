@@ -202,4 +202,14 @@ describe("pickRsvpName", () => {
     expect(pickRsvpName(undefined, "New User", undefined)).toBeUndefined();
     expect(pickRsvpName(undefined, "New User", "Diane R")).toBe("Diane R");
   });
+
+  it("catches the placeholder in any case and with padding", () => {
+    expect(pickRsvpName(undefined, "new user", undefined)).toBeUndefined();
+    expect(pickRsvpName(undefined, "  NEW USER  ", "Diane R")).toBe("Diane R");
+    expect(pickRsvpName("  new user ", undefined, "Diane R")).toBe("Diane R");
+  });
+
+  it("doesn't mistake a name that merely contains the placeholder for it", () => {
+    expect(pickRsvpName(undefined, "New Userton", "Diane R")).toBe("New Userton");
+  });
 });

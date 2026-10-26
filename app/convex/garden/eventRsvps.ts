@@ -35,6 +35,7 @@ import { scheduleNotificationEmail } from "../emailHelpers";
 import { insertNotification } from "../notify";
 import { escapeHtml } from "../email/template";
 import { getProfileByUserId, isAdmin } from "../helpers";
+import { hasRealName } from "../names";
 
 // ——— Pure core ———
 
@@ -232,16 +233,15 @@ export async function upsertEventRsvp(
 // ——— Convex wrappers ———
 
 /** Name for a new RSVP: what was typed wins, then the profile, then the
- * account. A brand-new account's profile is the placeholder "New User"
- * (auth.ts's afterUserCreatedOrUpdated), which is not a name. */
+ * account. A brand-new account's profile has the placeholder name
+ * (convex/names.ts), which is not a name. */
 export function pickRsvpName(
   typed: string | undefined,
   profileName: string | undefined,
   accountName: string | undefined,
 ): string | undefined {
   for (const candidate of [typed, profileName, accountName]) {
-    const trimmed = candidate?.trim();
-    if (trimmed && trimmed !== "New User") return trimmed;
+    if (candidate && hasRealName(candidate)) return candidate.trim();
   }
   return undefined;
 }

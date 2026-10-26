@@ -1,5 +1,5 @@
-// The member list on /admin: search, sortable columns, two filters, pages of
-// 50. Data is api.admin.getAllUsersWithInvites (newest first). The row action
+// The member list on /admin: search, sortable columns, three filters, pages
+// of 50. Data is api.admin.getAllUsersWithInvites (newest first). The row action
 // is Delete; the parent owns the confirm and the mutation so the table stays
 // a view. Linking an inviter lives in the section below the table on the
 // admin page, as it did before.
@@ -20,6 +20,7 @@ import {
 } from "@tanstack/react-table";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "../../../convex/_generated/api";
+import { displayPhone } from "../../../convex/phone";
 import { admin } from "./adminStyles";
 import { SortButton, ariaSortFor } from "./AdminUi";
 
@@ -60,8 +61,9 @@ function DeleteButton({ user }: { user: AdminUser }) {
 }
 
 // Search matches any text on the row, every word of the query: "maria
-// gmail" finds Maria with a gmail address. Runs once per row (see
-// getColumnCanGlobalFilter below), not once per column.
+// gmail" finds Maria with a gmail address, "619" a phone in that area
+// code. Runs once per row (see getColumnCanGlobalFilter below), not once
+// per column.
 const searchFilter: FilterFn<AdminUser> = (row, _columnId, value) => {
   const terms = String(value ?? "")
     .toLowerCase()
@@ -72,6 +74,8 @@ const searchFilter: FilterFn<AdminUser> = (row, _columnId, value) => {
   const haystack = [
     u.name,
     u.email,
+    u.phone,
+    u.phone && displayPhone(u.phone),
     u.inviteSlug,
     u.invitedBy?.name,
     u.invitedBy?.email,
@@ -82,6 +86,11 @@ const searchFilter: FilterFn<AdminUser> = (row, _columnId, value) => {
     .toLowerCase();
   return terms.every((term) => haystack.includes(term));
 };
+
+// "unfinished" = signed in but never gave a name (hidden from other
+// members, convex/names.ts); "finished" = everyone else.
+const signupFilter: FilterFn<AdminUser> = (row, _columnId, value) =>
+  value === "unfinished" ? row.original.unfinished : !row.original.unfinished;
 
 // "invited" = someone's invite link brought them in; "direct" = no inviter.
 const joinedViaFilter: FilterFn<AdminUser> = (row, _columnId, value) =>
@@ -99,26 +108,49 @@ const COLUMNS: ColumnDef<AdminUser>[] = [
     header: "Name",
     accessorKey: "name",
     sortingFn: "text",
+    filterFn: signupFilter,
     cell: ({ row }) => (
-      <Link
-        to={`/profile/${row.original._id}`}
-        className={`font-medium whitespace-nowrap ${admin.link}`}
-      >
-        {row.original.name}
-      </Link>
+      <div className="flex flex-col gap-1">
+        <Link
+          to={`/profile/${row.original._id}`}
+          className={`font-medium whitespace-nowrap ${admin.link}`}
+        >
+          {row.original.name}
+        </Link>
+        {row.original.unfinished && (
+          <span
+            className={admin.chip.amber}
+            title="Signed in but never gave a name. Other members don't see them until they do."
+          >
+            Unfinished signup
+          </span>
+        )}
+      </div>
     ),
   },
   {
-    id: "email",
-    header: "Email",
-    accessorFn: (u) => u.email,
+    // Email, phone, or both: a phone sign-up has only a phone.
+    id: "contact",
+    header: "Contact",
+    accessorFn: (u) => u.email ?? u.phone,
     sortUndefined: "last",
     sortingFn: "text",
-    cell: ({ row }) => (
-      <span className="whitespace-nowrap text-[color:var(--app-text-muted)]">
-        {row.original.email ?? "—"}
-      </span>
-    ),
+    cell: ({ row }) => {
+      const { email, phone } = row.original;
+      if (!email && !phone) {
+        return <span className="text-[color:var(--app-text-muted)]">—</span>;
+      }
+      return (
+        <div className="whitespace-nowrap text-[color:var(--app-text-muted)]">
+          {email && <div>{email}</div>}
+          {phone && (
+            <a href={`tel:${phone}`} className={`block w-fit ${admin.link}`}>
+              {displayPhone(phone)}
+            </a>
+          )}
+        </div>
+      );
+    },
   },
   {
     id: "invitedBy",
@@ -216,9 +248,10 @@ export function MembersTable({
     getPaginationRowModel: getPaginationRowModel(),
   });
 
+  const signup = (table.getColumn("name")?.getFilterValue() ?? "") as string;
   const joinedVia = (table.getColumn("invitedBy")?.getFilterValue() ?? "") as string;
   const invitesUsed = (table.getColumn("inviteUsageCount")?.getFilterValue() ?? "") as string;
-  const filtering = search.trim() !== "" || joinedVia !== "" || invitesUsed !== "";
+  const filtering = search.trim() !== "" || signup !== "" || joinedVia !== "" || invitesUsed !== "";
 
   const matching = table.getFilteredRowModel().rows.length;
   const { pageIndex, pageSize } = table.getState().pagination;
@@ -259,10 +292,27 @@ export function MembersTable({
                 type="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Name, email, inviter, or slug"
+                placeholder="Name, email, phone, inviter, or slug"
                 autoComplete="off"
                 className={admin.input}
               />
+            </div>
+            <div>
+              <label htmlFor="members-signup" className={admin.label}>
+                Signup
+              </label>
+              <select
+                id="members-signup"
+                value={signup}
+                onChange={(e) =>
+                  table.getColumn("name")?.setFilterValue(e.target.value || undefined)
+                }
+                className={admin.select}
+              >
+                <option value="">Any</option>
+                <option value="finished">Finished</option>
+                <option value="unfinished">Unfinished</option>
+              </select>
             </div>
             <div>
               <label htmlFor="members-joined-via" className={admin.label}>

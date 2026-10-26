@@ -3,6 +3,7 @@ import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
+import { hasRealName } from "../../convex/names";
 
 import { INTERESTS } from "../constants/interests";
 import { DOORS, PARTNER_OFFERINGS, type Role } from "../constants/roles";
@@ -91,8 +92,7 @@ export default function Onboarding() {
   // "onboarded", and the page must not bounce away from a failed share.
   const left = useRef(false);
 
-  const needsName =
-    profile !== null && profile !== undefined && (!profile.name?.trim() || profile.name === "New User");
+  const needsName = profile !== null && profile !== undefined && !hasRealName(profile.name);
   // Same order as the app shell (routes/_app.tsx): an invite-only Garden comes
   // before onboarding, and nobody posts into it without being in it.
   const mustInvite =
@@ -143,7 +143,8 @@ export default function Onboarding() {
     }
     if (needsName) {
       // A phone account has no name yet. The screen asks for it with the
-      // title filled in, so Share it is one tap, not a post by "New User".
+      // title filled in, so Share it is one tap, not a post by the
+      // placeholder name.
       setRole("creative");
       setTitle(stashed);
       setAutoShare("idle");

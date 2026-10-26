@@ -34,6 +34,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { COMMUNITY_KIND, isListedCommunity } from "./communities";
 import { isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
 import { isHiddenCommunity } from "./hiddenCommunity";
+import { hasRealName } from "../names";
 
 /** Mirrors seedPaidPostings.ts SEED_EMAIL_DOMAIN (not exported there). */
 const SEED_EMAIL_SUFFIX = "@seed.creatives.exchange";
@@ -153,7 +154,8 @@ export const publicCounts = query({
     const profiles = await ctx.db.query("profiles").collect();
     let creatives = 0;
     for (const p of profiles) {
-      if (!isCreativeProfile(p)) continue;
+      // Someone who never named themselves isn't a member yet (convex/names.ts).
+      if (!hasRealName(p.name) || !isCreativeProfile(p)) continue;
       if (await seedCheck.isSeed(p.userId)) continue;
       creatives++;
       locations.add(p, "creatives");

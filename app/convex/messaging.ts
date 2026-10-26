@@ -10,6 +10,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { isEventHost } from "./eventHosts";
 import { hasPaidMembership } from "./garden/entitlements";
 import { profileImageUrl } from "./images";
+import { hasRealName } from "./names";
 
 // The conversation between two people, if they have one. conversations has
 // no index on participants, so this reads the table.
@@ -741,13 +742,11 @@ export function normalizePeopleQuery(text: string): string {
   return text.trim().toLowerCase();
 }
 
-const PLACEHOLDER_NAME = "new user";
-
 /**
  * Who to offer, and in what order. Pure; searchPeopleToMessage loads the rows.
  *
- *  - Never offered: yourself, anyone in `blockedUserIds`, or a profile with no
- *    name or the "New User" placeholder.
+ *  - Never offered: yourself, anyone in `blockedUserIds`, or a profile that
+ *    hasn't been named yet (hasRealName, convex/names.ts).
  *  - Nothing typed: the people you follow, in the order `followed` comes
  *    (newest follow first). `members` is ignored.
  *  - One character: the same, narrowed to names containing it.
@@ -786,8 +785,7 @@ export function rankPeopleToMessage<T extends { userId: string; name: string }>(
     people.forEach((person, order) => {
       const name = person.name.trim();
       if (
-        !name ||
-        name.toLowerCase() === PLACEHOLDER_NAME ||
+        !hasRealName(name) ||
         person.userId === args.selfUserId ||
         args.blockedUserIds.has(person.userId) ||
         seen.has(person.userId)

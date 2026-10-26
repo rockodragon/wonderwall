@@ -3,10 +3,12 @@
 // No Convex, no network — same shape as tables.test.ts / operator.test.ts.
 
 import { describe, expect, it } from "vitest";
+import { makeCtx, run } from "../../test-support/convexContext";
 import {
   canManageCommunity,
   isLeaderRole,
   isListedCommunity,
+  listMembers,
   normalizeCommunity,
   orderLeaders,
   resolveCommunityJoin,
@@ -313,5 +315,66 @@ describe("resolveOwnershipTransfer", () => {
   it("the target must already be an active member", () => {
     const d = resolveOwnershipTransfer({ ...base, targetIsActiveMember: false });
     expect(d.allowed).toBe(false);
+  });
+});
+
+// The host's roster. A member who joined but never named themselves
+// (convex/names.ts) is left out; a pending request still shows, so a host can
+// answer it; a member row whose profile is missing altogether still reads
+// "Someone", as before.
+describe("listMembers — unnamed accounts", () => {
+  const COMMUNITY = "hostOrgs:garden";
+  const HOST = "users:host";
+  const member = (key: string, role = "member", status = "active") => ({
+    _id: `communityMembers:${key}`,
+    hostOrgId: COMMUNITY,
+    userId: `users:${key}`,
+    role,
+    status,
+    joinedAt: 1,
+  });
+  const world = () => ({
+    hostOrgs: [
+      { _id: COMMUNITY, kind: "community", status: "active", name: "The Garden", slug: "garden", ownerUserId: HOST },
+    ],
+    profiles: [
+      { _id: "profiles:host", userId: HOST, name: "Hana Host" },
+      { _id: "profiles:dana", userId: "users:dana", name: "Dana Reyes" },
+      { _id: "profiles:ghost", userId: "users:ghost", name: "New User" },
+      { _id: "profiles:padded", userId: "users:padded", name: "  new user " },
+      { _id: "profiles:blank", userId: "users:blank", name: "" },
+      { _id: "profiles:pending", userId: "users:pending", name: "New User" },
+    ],
+    communityMembers: [
+      member("host", "host"),
+      member("dana"),
+      member("ghost"),
+      member("padded"),
+      member("blank"),
+      member("pending", "member", "pending"),
+      member("noprofile"),
+    ],
+  });
+  const roster = async (viewer: string) =>
+    (await run(listMembers, makeCtx(world(), viewer), { hostOrgId: COMMUNITY })).map((r: any) => r.name).sort();
+
+  it("leaves unnamed active members out (placeholder, padded, blank) and keeps named ones", async () => {
+    const rows = await run(listMembers, makeCtx(world(), HOST), { hostOrgId: COMMUNITY });
+    const ids = rows.map((r: any) => r.userId).sort();
+    expect(ids).toEqual(["users:dana", "users:host", "users:noprofile", "users:pending"]);
+  });
+
+  it("still shows an unnamed pending request to the host, so it can be answered", async () => {
+    const rows = await run(listMembers, makeCtx(world(), HOST), { hostOrgId: COMMUNITY });
+    expect(rows.find((r: any) => r.userId === "users:pending")).toMatchObject({ status: "pending" });
+  });
+
+  it("still lists a member with no profile at all as Someone", async () => {
+    const rows = await run(listMembers, makeCtx(world(), HOST), { hostOrgId: COMMUNITY });
+    expect(rows.find((r: any) => r.userId === "users:noprofile")).toMatchObject({ name: "Someone", status: "active" });
+  });
+
+  it("shows an ordinary member only the named active members (pending requests are the host's)", async () => {
+    expect(await roster("users:dana")).toEqual(["Dana Reyes", "Hana Host", "Someone"]);
   });
 });

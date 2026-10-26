@@ -213,7 +213,7 @@ describe("profile lookups through getProfileByUserId keep their answers", () => 
 });
 
 describe("redeemBySlug: the invite-accepted notification", () => {
-  function world() {
+  function world(name = "Newcomer <b>", extra: Record<string, unknown> = {}) {
     const ctx = makeCtx(
       {
         users: [
@@ -221,7 +221,7 @@ describe("redeemBySlug: the invite-accepted notification", () => {
           { _id: OTHER, email: "inviter@member.co" },
         ],
         profiles: [
-          { _id: "profiles:me", userId: ME, name: "Newcomer <b>", interests: [], createdAt: 1 },
+          { _id: "profiles:me", userId: ME, name, interests: [], createdAt: 1, ...extra },
           { _id: "profiles:other", userId: OTHER, name: "Olu", inviteSlug: "OLU123", inviteUsageCount: 0, interests: [], createdAt: 1 },
         ],
         hostOrgs: [{ _id: "hostOrgs:garden", slug: "the-garden", name: "The Garden", status: "active" }],
@@ -263,6 +263,66 @@ describe("redeemBySlug: the invite-accepted notification", () => {
     expect(email.subject).toBe("Newcomer <b> joined The Garden using your invite");
     expect(email.previewText).toBe("Newcomer <b> joined The Garden using your invite link.");
     expect(email.communityId).toBe("hostOrgs:garden");
+  });
+
+  // Someone who hasn't named themselves (convex/names.ts) has no page for
+  // other members, so the inviter's note can't name, show or link them.
+  describe.each([
+    ["the placeholder name", "New User"],
+    ["a blank name", ""],
+  ])("when the new member is unnamed (%s)", (_label, name) => {
+    it("says Someone, with no link or picture, and no button in the email", async () => {
+      const ctx = world(name, { imageUrl: "https://img.example/me.png" });
+      expect(await run(redeemBySlug, ctx, { slug: "OLU123" })).toBe(true);
+
+      expect(ctx.store.notifications).toHaveLength(1);
+      const note = ctx.store.notifications[0];
+      expect(note).toMatchObject({ userId: OTHER, type: "invite_accepted", relatedUserId: ME });
+      expect(note.message).toMatch(/^Someone joined .+ using your invite link\.$/);
+      expect(note.linkUrl).toBeUndefined();
+      expect(note.imageUrl).toBeUndefined();
+
+      const [, , email] = (ctx.scheduler.runAfter as any).mock.calls[0];
+      expect(email).toMatchObject({ to: "inviter@member.co", heading: "Someone joined" });
+      expect(email.subject).toMatch(/^Someone joined .+ using your invite$/);
+      expect(email.ctaUrl).toBeUndefined();
+      expect(email.ctaText).toBeUndefined();
+    });
+
+    it("still follows each other and counts the invite", async () => {
+      const ctx = world(name);
+      await run(redeemBySlug, ctx, { slug: "OLU123" });
+
+      expect(ctx.store.invites).toHaveLength(1);
+      expect(ctx.store.invites[0]).toMatchObject({ inviterId: OTHER, usedBy: ME });
+      expect(ctx.store.profiles.find((p: any) => p._id === "profiles:other").inviteUsageCount).toBe(1);
+      expect(ctx.store.favorites.map((f: any) => [f.userId, f.targetId]).sort()).toEqual([
+        [ME, "profiles:other"],
+        [OTHER, "profiles:me"],
+      ]);
+    });
+  });
+
+  describe("when the new member is named", () => {
+    it("uses their name, picture and profile link", async () => {
+      const ctx = world("Dana Reyes", { imageUrl: "https://img.example/dana.png" });
+      await run(redeemBySlug, ctx, { slug: "OLU123" });
+
+      const note = ctx.store.notifications[0];
+      expect(note.message).toMatch(/^Dana Reyes joined /);
+      expect(note.linkUrl).toBe("/profile/profiles:me");
+      expect(note.imageUrl).toBe("https://img.example/dana.png");
+      const [, , email] = (ctx.scheduler.runAfter as any).mock.calls[0];
+      expect(email).toMatchObject({ heading: "Dana Reyes joined", ctaText: "See their profile", ctaUrl: "/profile/profiles:me" });
+    });
+
+    it("follows each other and counts the invite", async () => {
+      const ctx = world("Dana Reyes");
+      await run(redeemBySlug, ctx, { slug: "OLU123" });
+
+      expect(ctx.store.profiles.find((p: any) => p._id === "profiles:other").inviteUsageCount).toBe(1);
+      expect(ctx.store.favorites).toHaveLength(2);
+    });
   });
 });
 
