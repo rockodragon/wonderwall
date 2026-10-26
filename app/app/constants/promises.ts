@@ -107,7 +107,7 @@ export function creativePromises(site: PromiseSite, backing: boolean = FF_BACKIN
     {
       id: "cantChange",
       title: "These promises can't be changed on you.",
-      body: `We can't change them unless you agree. If another company buys ${site.name}, it has to keep them.`,
+      body: `We can't change them unless you agree. If another company ever buys us, it has to keep them.`,
     },
     {
       id: "findable",

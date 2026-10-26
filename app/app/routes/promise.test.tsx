@@ -39,7 +39,7 @@ const headings = (html: string) => [...html.matchAll(/<h2[^>]*>(.*?)<\/h2>/g)].m
 describe("/promise", () => {
   it("on TheCreative.exchange: its name and address, never The Garden's", () => {
     const html = page("exchange");
-    expect(html).toContain("If another company buys TheCreative.exchange, it has to keep them.");
+    expect(html).toContain("If another company ever buys us, it has to keep them.");
     expect(html).toContain("Your profile at thecreative.exchange/@yourname can be found by Google");
     expect(html).not.toContain("The Garden");
     expect(html).not.toContain("createthegarden.com");
@@ -47,7 +47,7 @@ describe("/promise", () => {
 
   it("on The Garden: its name and address, never the Exchange's", () => {
     const html = page("garden");
-    expect(html).toContain("If another company buys The Garden, it has to keep them.");
+    expect(html).toContain("If another company ever buys us, it has to keep them.");
     expect(html).toContain("Your profile at createthegarden.com/@yourname can be found by Google");
     expect(html).not.toContain("TheCreative.exchange");
     expect(html).not.toContain("thecreative.exchange");

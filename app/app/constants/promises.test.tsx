@@ -88,9 +88,9 @@ describe("the promises themselves", () => {
 
   it("name the site they're read on", () => {
     const garden = creativePromises(GARDEN);
-    expect(garden.find((p) => p.id === "cantChange")!.body).toContain("If another company buys The Garden, it has to keep them.");
+    expect(garden.find((p) => p.id === "cantChange")!.body).toContain("If another company ever buys us, it has to keep them.");
     expect(garden.find((p) => p.id === "findable")!.body).toContain("Your profile at createthegarden.com/@yourname");
-    expect(byId("cantChange").body).toContain("If another company buys TheCreative.exchange, it has to keep them.");
+    expect(byId("cantChange").body).toContain("If another company ever buys us, it has to keep them.");
     expect(byId("findable").body).toContain("Your profile at thecreative.exchange/@yourname");
     expect(promiseLede(GARDEN)).toContain("The Garden");
   });
