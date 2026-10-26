@@ -4,27 +4,16 @@
 // below for `posthog.isFeatureEnabled("ffJobs")` and delete this file —
 // same name on purpose so that's a one-line change, not a rename.
 //
+// Constants only, and no imports: the server reads FF_BACKING from here too
+// (convex/garden/backingGate.ts), and a file that pulls in React or the
+// router can't be bundled into a Convex function. The route-redirect hook
+// that goes with these lives in useFeatureGate.ts.
+//
 // ffJobs: the job board (ongoing-role postings) is a real, working
 // feature, deliberately held back from the V1 rollout — the strategy is
 // "let people ask for it" rather than presenting every option up front.
 // Not deleted, not broken — set to true to bring it back into nav/routes.
 export const FF_JOBS = false;
-
-// Hook, not just a constant, so the gate lives in one place: a route calls
-// this once at the top of its component and gets a redirect-away for free
-// if the flag is off, instead of every /jobs/* file reimplementing the
-// same useEffect+navigate.
-import { useEffect } from "react";
-import { useNavigate } from "react-router";
-
-export function useFeatureGate(enabled: boolean, redirectTo: string) {
-  const navigate = useNavigate();
-  useEffect(() => {
-    if (!enabled) navigate(redirectTo, { replace: true });
-  }, [enabled, redirectTo, navigate]);
-  return enabled;
-}
-
 
 // FF_V2 — the convention for anything held back from the current release:
 // build it, gate it here, ship the code dark. One flag rather than one per
@@ -48,3 +37,18 @@ export const FF_DESK = true;
 // first-visit note's mention; the /tables pages send people to Events. Set
 // to true to open it.
 export const FF_TABLES = false;
+
+// FF_BACKING — backing a project with money (the "Back this" button on a
+// project, "Support" on a public story, the /give plus-up on a project).
+// Held back, on the server as well as on the page, until two things are
+// true: Stripe Connect payouts have been proven end to end (a creative can
+// actually be paid their 90%), and Stripe has approved us as a crowdfunding
+// platform or the lawyer has said we may collect this way without it (beads
+// sc15 and fpmn; docs/features/backing-payouts.md, "The problem today").
+// Off, createBackingCheckout and a financial supportProject refuse with a
+// readable reason before any Stripe call or row is written, and the pages
+// hide every way to pay. A backing that was already paid still lands: the
+// webhook (stripeHandlers.ts) does not read this flag. Cheering, memberships,
+// tickets, gifts, pool contributions, products, classes and Tables are not
+// affected. Set to true to open it.
+export const FF_BACKING = false;

@@ -39,6 +39,14 @@ import {
   type BackingPaymentRow,
 } from "./stripeHandlers";
 import { deriveGardenUser } from "./entitlements";
+import { FF_BACKING } from "../../app/lib/featureFlags";
+
+// Backing is closed (FF_BACKING off) in these tests: a checkout paid before it
+// closed must still be recorded, so the webhook can't depend on the flag.
+vi.mock("../../app/lib/featureFlags", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../app/lib/featureFlags")>()),
+  FF_BACKING: false,
+}));
 
 // ——— In-memory fake Db ———
 
@@ -1304,6 +1312,18 @@ describe("checkout.session.completed — backing a project", () => {
     ]);
 
     await handleStripeEvent(evt, db); // idempotent replay — no second notification
+    expect(backingNotifications).toHaveLength(1);
+  });
+
+  it("records a backing paid before backing closed: confirmed, counted, owed to the creative, creator told", async () => {
+    expect(FF_BACKING).toBe(false);
+    const { db, projectSupport, backingPayments, backingNotifications } = createFakeDb();
+    seedPendingBacking(projectSupport);
+
+    await handleStripeEvent(event("checkout.session.completed", backingSessionFixture()), db);
+
+    expect(projectSupport.get("support_pending")?.status).toBe("confirmed");
+    expect(backingPayments.size).toBe(1);
     expect(backingNotifications).toHaveLength(1);
   });
 

@@ -31,6 +31,7 @@ import { setPendingIntent } from "../lib/pendingIntent";
 import { MIN_PASSWORD_LENGTH, needsAccount, supportFormProblem } from "../lib/storySupport";
 import "../garden/garden.css";
 import { errorMessage } from "../lib/convexError";
+import { FF_BACKING } from "../lib/featureFlags";
 
 export function meta() {
   return [
@@ -376,8 +377,9 @@ function SupportForm({ projectId, onCancel }: { projectId: Id<"projects">; onCan
 
 /** The money block near the top of the story: what's been raised, who
     backed it, and the Support button. Everything past the button opens only
-    when it's pressed. */
-function SupportCard({
+    when it's pressed. While backing is closed (FF_BACKING) there is no
+    button and no invitation, only what has already come in, if anything. */
+export function SupportCard({
   projectId,
   acceptingSupport,
   raisedCents,
@@ -395,8 +397,11 @@ function SupportCard({
   const [open, setOpen] = useState(false);
   const byLine = backedByLine(backers);
   const backerCount = `${backers.count} ${backers.count === 1 ? "backer" : "backers"}`;
+  const canBack = FF_BACKING && acceptingSupport;
 
-  if (!acceptingSupport && raisedCents === 0 && backers.count === 0) return null;
+  // Someone sent back from a payment they made before backing closed still
+  // gets their thank-you.
+  if (!canBack && !justBacked && raisedCents === 0 && backers.count === 0) return null;
 
   return (
     <section className="g-card" style={{ marginTop: 24, padding: "18px 16px" }} aria-label="Support this project">
@@ -439,15 +444,15 @@ function SupportCard({
           <span style={{ fontSize: 22, color: "var(--g-paper)", fontWeight: 600 }}>{formatMoney(raisedCents)}</span>{" "}
           raised{backers.count > 0 ? ` · ${backerCount}` : ""}
         </p>
-      ) : (
+      ) : canBack ? (
         <p style={{ fontSize: 15, color: "var(--g-body)" }}>Be the first to back this.</p>
-      )}
+      ) : null}
 
       {byLine && (
         <p style={{ marginTop: 6, fontSize: 14.5, lineHeight: 1.5, color: "var(--g-body)" }}>{byLine}</p>
       )}
 
-      {acceptingSupport &&
+      {canBack &&
         (open ? (
           <SupportForm projectId={projectId} onCancel={() => setOpen(false)} />
         ) : (

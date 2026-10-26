@@ -9,7 +9,8 @@ import { uploadToStorage } from "../lib/uploadFile";
 import { useCoverPick } from "../lib/useCoverPick";
 import { tableEventInput } from "../tables/eventInput";
 import "../tables/tables.css";
-import { FF_TABLES, useFeatureGate } from "../lib/featureFlags";
+import { FF_TABLES } from "../lib/featureFlags";
+import { useFeatureGate } from "../lib/useFeatureGate";
 import { tableErrorMessage } from "../tables/errors";
 
 export function meta() {

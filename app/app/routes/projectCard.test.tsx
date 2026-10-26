@@ -1,8 +1,21 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderToString } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 import { ProjectCard } from "./projects";
 import type { ProjectsLens } from "../lib/browse/projectsFilter";
+
+// Backing is off by default (FF_BACKING). These cards are drawn with it open
+// unless a test shuts it, so the Back this icon stays covered.
+const flags = vi.hoisted(() => ({ backing: true }));
+vi.mock("../lib/featureFlags", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../lib/featureFlags")>()),
+  get FF_BACKING() {
+    return flags.backing;
+  },
+}));
+afterEach(() => {
+  flags.backing = true;
+});
 
 function card(project: Record<string, unknown>, lens: ProjectsLens = "projects") {
   const full = {
@@ -117,6 +130,15 @@ describe("a project card's support", () => {
     // The icons are drawings, not words.
     expect(html).toMatch(/aria-label="Cheer"[^>]*>\s*<svg/);
     expect(html).toMatch(/aria-label="Back this"[^>]*>\s*<svg/);
+  });
+  it("has Cheer but no Back this on a funding card while backing is closed (FF_BACKING)", () => {
+    flags.backing = false;
+    const html = card({ goal: 500, raisedCents: 12_000 }, "funding");
+    expect(html).toContain('aria-label="Cheer"');
+    expect(html).not.toContain('aria-label="Back this"');
+    expect(html).not.toContain("Back this");
+    // How far it got is information, not a way to pay: it stays.
+    expect(html).toContain("$120");
   });
   it("has no Back this on a project that isn't raising", () => {
     const html = card({}, "projects");

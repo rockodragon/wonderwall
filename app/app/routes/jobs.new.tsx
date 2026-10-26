@@ -5,7 +5,8 @@ import { useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { INTERESTS } from "../constants/interests";
 import { errorMessage } from "../lib/convexError";
-import { FF_JOBS, useFeatureGate } from "../lib/featureFlags";
+import { FF_JOBS } from "../lib/featureFlags";
+import { useFeatureGate } from "../lib/useFeatureGate";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 
 type LocationType = "Remote" | "Hybrid" | "On-site";
