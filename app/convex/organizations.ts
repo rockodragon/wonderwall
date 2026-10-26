@@ -33,7 +33,9 @@ async function requireMe(ctx: MutationCtx) {
   return { userId, profile };
 }
 
-async function positionsOfOrg(ctx: Ctx, organizationId: Id<"organizations">) {
+/** Every position at an organization, current or past. Its admins are the
+ * ones with isAdmin. */
+export async function positionsOfOrg(ctx: Ctx, organizationId: Id<"organizations">) {
   return await ctx.db
     .query("orgPositions")
     .withIndex("by_organizationId", (q) => q.eq("organizationId", organizationId))

@@ -27,7 +27,7 @@
 // doesn't fail the call) and deleteEventCover (a Table's dates share one
 // picture).
 
-import type { MutationCtx } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { fail } from "./errors";
 
@@ -41,6 +41,27 @@ export const UPLOAD_CLAIM_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 /** Storage ids the row being edited already holds. */
 export type HeldIds = readonly (string | null | undefined)[];
+
+/** Who claimed a stored file, or null when nobody has yet. */
+export async function uploadClaimOf(
+  ctx: { db: QueryCtx["db"] },
+  storageId: Id<"_storage">,
+): Promise<Doc<"uploadClaims"> | null> {
+  return await ctx.db
+    .query("uploadClaims")
+    .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+    .first();
+}
+
+/** Records `userId` as the one who uploaded `storageId`. Callers check
+ * first that nobody has claimed it (uploadClaimOf). */
+export async function recordUploadClaim(
+  ctx: MutationCtx,
+  storageId: Id<"_storage">,
+  userId: Id<"users">,
+): Promise<void> {
+  await ctx.db.insert("uploadClaims", { storageId, userId, claimedAt: Date.now() });
+}
 
 /**
  * Lets `userId` attach `storageId` to a row, or refuses with a reason the
@@ -66,10 +87,7 @@ export async function claimUpload(
   const id = ctx.db.system.normalizeId("_storage", storageId);
   if (!id) fail("not_found", "That file isn't here anymore. Upload it again.");
 
-  const claim = await ctx.db
-    .query("uploadClaims")
-    .withIndex("by_storageId", (q) => q.eq("storageId", id))
-    .first();
+  const claim = await uploadClaimOf(ctx, id);
   if (claim) {
     if (claim.userId !== userId) fail("forbidden", "That file belongs to someone else.");
     return;
@@ -80,7 +98,7 @@ export async function claimUpload(
   if (Date.now() - file._creationTime > UPLOAD_CLAIM_WINDOW_MS) {
     fail("invalid_upload", "That upload is too old to use. Pick the file again.");
   }
-  await ctx.db.insert("uploadClaims", { storageId: id, userId, claimedAt: Date.now() });
+  await recordUploadClaim(ctx, id, userId);
 }
 
 /** claimUpload for each id, e.g. every picture in a rich-text body (pass the
