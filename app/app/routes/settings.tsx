@@ -2365,6 +2365,9 @@ function ArtifactsSection({
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
+  // The piece being edited already has its file or link, so a title change
+  // alone can be saved; the server keeps the media when none is sent.
+  const [editingHasMedia, setEditingHasMedia] = useState(false);
   const [saving, setSaving] = useState(false);
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
   const piece = useFileUpload({ kinds: ["image", "video", "audio"], generateUploadUrl, takesLinks: true });
@@ -2393,6 +2396,7 @@ function ArtifactsSection({
     setTitle("");
     setContent("");
     setMediaUrl("");
+    setEditingHasMedia(false);
     piece.reset();
     setShowAddForm(false);
     setEditingId(null);
@@ -2449,8 +2453,9 @@ function ArtifactsSection({
         artifactId: artifactId as any,
         title: title.trim() || undefined,
         content: type === "text" ? content.trim() : undefined,
+        // Blank keeps the piece's current file or link (artifacts.update).
         mediaUrl:
-          type !== "text" && !uploadedStorageId
+          type !== "text" && !uploadedStorageId && mediaUrl.trim()
             ? normalizeUrl(mediaUrl)
             : undefined,
         mediaStorageId,
@@ -2481,13 +2486,15 @@ function ArtifactsSection({
   function startEdit(artifact: any) {
     setEditingId(artifact._id);
     setType(artifact.type);
-    setTitle(artifact.title || "");
+    // A link needs a title to save; an old one may only have the site's.
+    setTitle(artifact.title || (artifact.type === "link" ? artifact.ogTitle : "") || "");
     setContent(artifact.content || "");
     setMediaUrl(artifact.mediaUrl || "");
+    setEditingHasMedia(!!(artifact.mediaUrl || artifact.mediaStorageId));
     piece.reset();
   }
 
-  const hasMedia = mediaUrl.trim().length > 0 || uploadedStorageId;
+  const hasMedia = mediaUrl.trim().length > 0 || !!uploadedStorageId || (!!editingId && editingHasMedia);
   const hasTitle = title.trim().length > 0;
 
   const canSubmit =
@@ -2529,7 +2536,12 @@ function ArtifactsSection({
             {ARTIFACT_TYPES.map((t) => (
               <button
                 key={t.value}
-                onClick={() => setType(t.value)}
+                onClick={() => {
+                  setType(t.value);
+                  // A link has no file: drop one picked under another type,
+                  // whose reset button the link form doesn't show.
+                  if (t.value === "link") piece.reset();
+                }}
                 className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
                 style={
                   type === t.value
@@ -2567,6 +2579,9 @@ function ArtifactsSection({
             />
           ) : (
             <div className="space-y-3 mb-3">
+              {/* A link is an address, never a file: no upload for it. */}
+              {type !== "link" && (
+              <>
               {/* File upload */}
               <input
                 ref={fileInputRef}
@@ -2640,13 +2655,18 @@ function ArtifactsSection({
                   </span>
                 </div>
               </div>
+              </>
+              )}
 
               <input
                 type="text"
                 value={mediaUrl}
                 onChange={(e) => setMediaUrl(e.target.value)}
+                aria-label={type === "link" ? "Link" : "Or paste a URL"}
                 placeholder={
-                  type === "image"
+                  editingId && editingHasMedia && !mediaUrl.trim()
+                    ? "Leave empty to keep the current one"
+                    : type === "image"
                     ? "example.com/image.jpg"
                     : type === "video"
                       ? "youtube.com/watch?v=..."
@@ -2697,8 +2717,10 @@ function ArtifactsSection({
             // is never an embed. The tile shows a still, never a player: this
             // grid used to render one live Instagram player per reel.
             const embed = toEmbedUrl(artifact.mediaUrl);
+            // A link's own title, else the site's (fetched with its picture).
+            const shownTitle = artifact.title || artifact.ogTitle;
             // What the card's buttons are for, said to a screen reader.
-            const cardName = artifact.title || typeInfo?.label || artifact.type;
+            const cardName = shownTitle || typeInfo?.label || artifact.type;
 
             return (
               <div
@@ -2737,6 +2759,9 @@ function ArtifactsSection({
                       <PlayBadge kind="vimeo" size="sm" />
                     </div>
                   )
+                ) : artifact.type === "link" && artifact.ogImageUrl ? (
+                  // The site's own picture (its og:image), as on your page.
+                  <img src={artifact.ogImageUrl} alt="" className="w-full h-full object-cover" />
                 ) : (
                   <div
                     className={`w-full h-full bg-gradient-to-br ${typeInfo?.gradient || "from-gray-400 to-gray-500"}`}
@@ -2746,13 +2771,26 @@ function ArtifactsSection({
                 {/* Overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
 
-                {/* Content */}
-                <div className="absolute inset-0 p-3 flex flex-col justify-between">
+                {/* A link's card opens the site, as it does on your page; the
+                    buttons above it still act on the piece. */}
+                {artifact.type === "link" && artifact.mediaUrl && (
+                  <a
+                    href={normalizeUrl(artifact.mediaUrl)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Open ${cardName}`}
+                    // Inset ring: the card clips anything drawn outside it.
+                    className="absolute inset-0 rounded-xl focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--app-accent)]"
+                  />
+                )}
+
+                {/* Content: lets taps through to the link, except its buttons */}
+                <div className="pointer-events-none absolute inset-0 p-3 flex flex-col justify-between">
                   <div className="flex justify-end">
                     {/* Actions: always there on a touch screen (no hover to
                         reveal them); a mouse sees them on hover, or when one
                         has keyboard focus. */}
-                    <div className="flex gap-1.5 opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:group-focus-within:opacity-100 transition-opacity">
+                    <div className="pointer-events-auto flex gap-1.5 opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:group-focus-within:opacity-100 transition-opacity">
                       {/* Refresh preview button for link-type artifacts */}
                       {artifact.type === "link" && artifact.mediaUrl && (
                         <button
@@ -2791,9 +2829,9 @@ function ArtifactsSection({
                   {/* Title/Content: a soft shadow keeps white words readable
                       on a pale picture, where the gradient is thin. */}
                   <div className="text-shadow-md text-shadow-black/60">
-                    {artifact.title && (
+                    {shownTitle && (
                       <p className="text-white font-medium text-sm line-clamp-2">
-                        {artifact.title}
+                        {shownTitle}
                       </p>
                     )}
                     {artifact.type === "text" && artifact.content && (
@@ -2801,7 +2839,7 @@ function ArtifactsSection({
                         {artifact.content}
                       </p>
                     )}
-                    {!artifact.title && artifact.type !== "text" && (
+                    {!shownTitle && artifact.type !== "text" && (
                       <p className="text-white/60 text-xs capitalize">
                         {artifact.type}
                       </p>
