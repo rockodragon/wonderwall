@@ -7,6 +7,7 @@
 import { ConvexError } from "convex/values";
 import { describe, expect, it } from "vitest";
 import { makeCtx, run, type Row } from "../test-support/convexContext";
+import { checkIndexes } from "../test-support/indexChecks";
 import * as artifacts from "./artifacts";
 import * as files from "./files";
 import * as projects from "./garden/projects";
@@ -423,6 +424,108 @@ describe("an event cover something else still shows is kept", () => {
     expect(row(ctx, "events", "events:d1")).toBeUndefined();
     expect(ctx.deletedFiles).toEqual([]);
     expect(fileExists(ctx, TABLE_PHOTO)).toBe(true);
+  });
+});
+
+// ——————————————————————————————————————————————————————————————
+// A class shares its photo with what was migrated from it (deleteClassPhoto)
+// ——————————————————————————————————————————————————————————————
+
+describe("a class photo the date or Table migrated from it still shows is kept", () => {
+  const CLASS_PHOTO = "_storage:class";
+  // Convex's address for a stored file, as storage.getUrl gives it.
+  const urlOf = (id: string) => `https://test-123.convex.cloud/api/storage/${id.split(":")[1]}`;
+  // The class was migrated (garden/tablesMigration.ts): the Table keeps the
+  // photo's address, the date wears the photo as its cover.
+  const classWorld = (
+    { date = true, tablePhotoUrl = urlOf(CLASS_PHOTO) }: { date?: boolean; tablePhotoUrl?: string } = {},
+  ): Record<string, Row[]> => {
+    const t = world();
+    t._storage.push(fresh(CLASS_PHOTO));
+    t.uploadClaims.push({ _id: "uploadClaims:class", storageId: CLASS_PHOTO, userId: ME, claimedAt: NOW });
+    t.offerings.push({ _id: "offerings:class", userId: ME, title: "Drawing", format: "class", status: "active", photoStorageId: CLASS_PHOTO });
+    t.gardenTables = [
+      { _id: "gardenTables:moved", name: "Drawing", hostUserId: ME, sourceOfferingId: "offerings:class", photoUrl: tablePhotoUrl },
+    ];
+    if (date) {
+      t.events.push({
+        _id: "events:moved",
+        organizerId: ME,
+        title: "Drawing",
+        tableId: "gardenTables:moved",
+        sourceOfferingId: "offerings:class",
+        coverImageStorageId: CLASS_PHOTO,
+      });
+    }
+    return t;
+  };
+  const setup = (t: Record<string, Row[]>) => {
+    const ctx = makeCtx(t, ME);
+    checkIndexes(ctx);
+    ctx.storage.getUrl = async (id: string) => (fileExists(ctx, id) ? urlOf(id) : null);
+    return ctx;
+  };
+  const edit = (photoStorageId?: string) => ({ offeringId: "offerings:class", title: "Drawing", format: "class", photoStorageId });
+  const replace = (ctx: unknown) => run(offerings.updateOffering, ctx, edit(MINE));
+  const remove = (ctx: unknown) => run(offerings.updateOffering, ctx, edit());
+  const deleteClass = (ctx: unknown) => run(offerings.deleteOffering, ctx, { offeringId: "offerings:class" });
+  const changes: [string, (ctx: unknown) => Promise<unknown>][] = [
+    ["replacing the photo", replace],
+    ["removing the photo", remove],
+    ["deleting the class", deleteClass],
+  ];
+
+  it.each(changes)("%s keeps it while the migrated date wears it", async (_name, change) => {
+    const ctx = setup(classWorld({ tablePhotoUrl: "https://example.com/elsewhere.jpg" }));
+    await change(ctx);
+    expect(ctx.deletedFiles).toEqual([]);
+    expect(fileExists(ctx, CLASS_PHOTO)).toBe(true);
+    expect(row(ctx, "events", "events:moved").coverImageStorageId).toBe(CLASS_PHOTO);
+  });
+
+  it.each(changes)("%s keeps it while the migrated Table shows its address", async (_name, change) => {
+    for (const address of [urlOf(CLASS_PHOTO), "https://thecreative.exchange/media/class"]) {
+      const ctx = setup(classWorld({ date: false, tablePhotoUrl: address }));
+      await change(ctx);
+      expect(ctx.deletedFiles, address).toEqual([]);
+    }
+  });
+
+  it.each(changes)("%s deletes it when nothing else shows it", async (_name, change) => {
+    const ctx = setup(classWorld({ date: false, tablePhotoUrl: "https://example.com/elsewhere.jpg" }));
+    await change(ctx);
+    expect(ctx.deletedFiles).toEqual([CLASS_PHOTO]);
+  });
+
+  it("a class never migrated still loses its old photo, as before", async () => {
+    const t = classWorld({ date: false });
+    t.gardenTables = [];
+    const ctx = setup(t);
+    await replace(ctx);
+    expect(ctx.deletedFiles).toEqual([CLASS_PHOTO]);
+    expect(row(ctx, "offerings", "offerings:class").photoStorageId).toBe(MINE);
+  });
+
+  it("sending the same photo back deletes nothing", async () => {
+    const ctx = setup(classWorld({ date: false, tablePhotoUrl: "https://example.com/elsewhere.jpg" }));
+    await run(offerings.updateOffering, ctx, edit(CLASS_PHOTO));
+    expect(ctx.deletedFiles).toEqual([]);
+  });
+
+  it("the migrated date's cover, once the class has a new photo, is kept while the Table shows it", async () => {
+    const ctx = setup(classWorld());
+    await replace(ctx);
+    await run(files.saveEventCoverImage, ctx, { eventId: "events:moved", storageId: MINE2 });
+    expect(ctx.deletedFiles).toEqual([]);
+    expect(fileExists(ctx, CLASS_PHOTO)).toBe(true);
+  });
+
+  it("the migrated date's cover goes once nothing else shows it", async () => {
+    const ctx = setup(classWorld({ tablePhotoUrl: "https://example.com/elsewhere.jpg" }));
+    await replace(ctx);
+    expect(ctx.deletedFiles).toEqual([]);
+    await run(files.deleteEventCoverImage, ctx, { eventId: "events:moved" });
+    expect(ctx.deletedFiles).toEqual([CLASS_PHOTO]);
   });
 });
 

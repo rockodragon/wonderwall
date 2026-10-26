@@ -148,6 +148,15 @@ const RULES: Rule[] = [
     use: "deleteStoredFile (a file already gone is fine) / deleteEventCover (keeps a Table's shared photo) in convex/uploads.ts",
   },
   {
+    name: "shared picture deleted without checking who else shows it (one place)",
+    // A Table's dates wear its photo, and a class shares its photo with the
+    // Table and date migrated from it.
+    pattern: /deleteStoredFile\([^)]*(?:coverImageStorageId|offering\w*\.photoStorageId)/g,
+    limit: 0,
+    home: "convex/uploads.ts",
+    use: "deleteEventCover / deleteClassPhoto in convex/uploads.ts (storageStillUsed keeps a picture another row still shows)",
+  },
+  {
     name: "upload size cap written inline",
     pattern: /\d+\s*\*\s*1024\s*\*\s*1024/g,
     // Left on purpose: useCoverPick takes bigger pictures because it shrinks

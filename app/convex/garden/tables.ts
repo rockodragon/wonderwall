@@ -24,6 +24,7 @@ import {
   canViewTable,
   hasTableCommunityMembership,
   isActiveEnrollment,
+  tableOfClass,
 } from "./tablePolicy";
 import { syncCoHosts } from "../eventHosts";
 import { eventHasStarted } from "../eventWindow";
@@ -983,12 +984,7 @@ export const getAttendance = query({
 export const getTableForOffering = query({
   args: { offeringId: v.id("offerings") },
   handler: async (ctx, args) => {
-    const table = await ctx.db
-      .query("gardenTables")
-      .withIndex("by_sourceOfferingId", (q) =>
-        q.eq("sourceOfferingId", args.offeringId),
-      )
-      .unique();
+    const table = await tableOfClass(ctx, args.offeringId);
     const userId = await getAuthUserId(ctx);
     return table && (await canViewTable(ctx, table, userId))
       ? { slug: table.slug }

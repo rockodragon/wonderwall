@@ -5,6 +5,7 @@ import type { Doc } from "../_generated/dataModel";
 import { getProfileByUserId, requireAdminCtx } from "../helpers";
 import { syncCoHosts } from "../eventHosts";
 import { isPayableClassPayment } from "./payouts";
+import { tableOfClass } from "./tablePolicy";
 
 export type MigrationResult = {
   sourceId: string;
@@ -86,12 +87,7 @@ async function migrateOffering(
   offering: Doc<"offerings">,
   dryRun: boolean,
 ): Promise<MigrationResult> {
-  const existing = await ctx.db
-    .query("gardenTables")
-    .withIndex("by_sourceOfferingId", (q) =>
-      q.eq("sourceOfferingId", offering._id),
-    )
-    .unique();
+  const existing = await tableOfClass(ctx, offering._id);
   const tableId =
     existing?._id ??
     (dryRun
@@ -224,12 +220,7 @@ async function migrateSignup(
   signup: Doc<"offeringSignups">,
   dryRun: boolean,
 ): Promise<MigrationResult> {
-  const table = await ctx.db
-    .query("gardenTables")
-    .withIndex("by_sourceOfferingId", (q) =>
-      q.eq("sourceOfferingId", signup.offeringId),
-    )
-    .unique();
+  const table = await tableOfClass(ctx, signup.offeringId);
   if (!table)
     return {
       sourceId: signup._id,

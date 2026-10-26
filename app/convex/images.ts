@@ -47,6 +47,23 @@ export async function storedFileUrl(ctx: StorageCtx, storageId: Id<"_storage">):
   }
 }
 
+/** Whether `url` is an address of the stored file `storageId`: Convex's own
+ *  or ours, whatever MEDIA_BASE_URL was when it was saved. A Table migrated
+ *  from a class keeps the class photo's address as its photoUrl
+ *  (garden/tablesMigration.ts). False when the file doesn't resolve. */
+export async function isStoredFileAddress(
+  ctx: StorageCtx,
+  url: string | null | undefined,
+  storageId: Id<"_storage">,
+): Promise<boolean> {
+  if (!url) return false;
+  const served = await storedFileUrl(ctx, storageId);
+  if (!served) return false;
+  // Both addresses end in the file's key.
+  const key = served.slice(served.lastIndexOf("/") + 1);
+  return url === served || (key.length > 0 && url.endsWith(`/${key}`));
+}
+
 /**
  * The stored file's URL when it resolves, else the pasted link, else null.
  * A file that was deleted, or a lookup that throws, falls back to the link

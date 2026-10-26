@@ -24,12 +24,15 @@
 // ids from the stored body, so only pictures new to the body are claimed.
 //
 // Deleting goes through here too: deleteStoredFile (a file already gone
-// doesn't fail the call) and deleteEventCover (a Table's dates share one
-// picture).
+// doesn't fail the call), and deleteEventCover and deleteClassPhoto (a
+// Table's dates share one picture, and a class shares its photo with the
+// Table and date migrated from it; storageStillUsed checks both).
 
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { fail } from "./errors";
+import { tableOfClass } from "./garden/tablePolicy";
+import { isStoredFileAddress } from "./images";
 
 /** How long after an upload its file can first be attached: 24 hours. The
  * composers upload a picture as soon as it's picked and attach it on Save
@@ -127,27 +130,72 @@ export async function deleteStoredFile(
   }
 }
 
-/** Deletes an event's cover, unless something else still shows the same
- * file. A Table's dates wear the Table's photo (insertTableOccurrence in
- * garden/tables.ts; runTableAgain gives the new Table the same photo), and a
- * date carried over from a class wears the class's photo
- * (garden/tablesMigration.ts). Changing one date's cover must not blank the
- * Table, its other dates or the class. */
+/** The rows that may share a picture with the one being changed: its Table,
+ * its class. `except` is that row itself. */
+export type SharedWith = {
+  tableId?: Id<"gardenTables">;
+  offeringId?: Id<"offerings">;
+  except: Id<"events"> | Id<"offerings">;
+};
+
+/**
+ * Whether a picture is still shown somewhere it is shared on purpose, other
+ * than `except`:
+ * - a Table's dates wear the Table's photo (insertTableOccurrence in
+ *   garden/tables.ts; runTableAgain gives the new Table the same photo);
+ * - a date migrated from a class wears the class's photo as its cover, and
+ *   the Table migrated from the class keeps the photo's address as its
+ *   photoUrl (garden/tablesMigration.ts).
+ * Looks at the Table (its photo and dates) and the class (its photo, the
+ * dates migrated from it, and its Table with that Table's dates).
+ */
+export async function storageStillUsed(
+  ctx: MutationCtx,
+  storageId: Id<"_storage">,
+  { tableId, offeringId, except }: SharedWith,
+): Promise<boolean> {
+  const tables: Doc<"gardenTables">[] = [];
+  const table = tableId ? await ctx.db.get(tableId) : null;
+  if (table) tables.push(table);
+  if (offeringId) {
+    const offering = await ctx.db.get(offeringId);
+    if (offering && offering._id !== except && offering.photoStorageId === storageId) return true;
+    const moved = await ctx.db
+      .query("events")
+      .withIndex("by_sourceOfferingId", (q) => q.eq("sourceOfferingId", offeringId))
+      .collect();
+    if (moved.some((e) => e._id !== except && e.coverImageStorageId === storageId)) return true;
+    const classTable = await tableOfClass(ctx, offeringId);
+    if (classTable && classTable._id !== table?._id) tables.push(classTable);
+  }
+  for (const t of tables) {
+    if (t.photoStorageId === storageId || (await isStoredFileAddress(ctx, t.photoUrl, storageId))) return true;
+    const dates = await ctx.db
+      .query("events")
+      .withIndex("by_tableId", (q) => q.eq("tableId", t._id))
+      .collect();
+    if (dates.some((d) => d._id !== except && d.coverImageStorageId === storageId)) return true;
+  }
+  return false;
+}
+
+/** Deletes an event's cover, unless its Table, the Table's other dates or
+ * the class it was migrated from still show the same file
+ * (storageStillUsed). Changing one date's cover must not blank them. */
 export async function deleteEventCover(ctx: MutationCtx, event: Doc<"events">): Promise<void> {
   const cover = event.coverImageStorageId;
   if (!cover) return;
-  if (event.tableId) {
-    const table = await ctx.db.get(event.tableId);
-    if (table?.photoStorageId === cover) return;
-    const dates = await ctx.db
-      .query("events")
-      .withIndex("by_tableId", (q) => q.eq("tableId", event.tableId))
-      .collect();
-    if (dates.some((d) => d._id !== event._id && d.coverImageStorageId === cover)) return;
-  }
-  if (event.sourceOfferingId) {
-    const offering = await ctx.db.get(event.sourceOfferingId);
-    if (offering?.photoStorageId === cover) return;
-  }
+  const shared = { tableId: event.tableId, offeringId: event.sourceOfferingId, except: event._id };
+  if (await storageStillUsed(ctx, cover, shared)) return;
   await deleteStoredFile(ctx, cover);
+}
+
+/** Deletes a class's photo, unless the date or Table migrated from the class
+ * still shows it (storageStillUsed). Replacing or removing the photo, or
+ * deleting the class, must not blank them. */
+export async function deleteClassPhoto(ctx: MutationCtx, offering: Doc<"offerings">): Promise<void> {
+  const photo = offering.photoStorageId;
+  if (!photo) return;
+  if (await storageStillUsed(ctx, photo, { offeringId: offering._id, except: offering._id })) return;
+  await deleteStoredFile(ctx, photo);
 }
