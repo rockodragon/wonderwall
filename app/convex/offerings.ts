@@ -22,7 +22,7 @@ import { classCheckoutRefusal, classPaymentPath, classPriceProblem } from "./gar
 import { getProfileByUserId, isAdmin, isAdminProfile, requireOwner } from "./helpers";
 import { communityVisibility } from "./garden/communityVisibility";
 import { profileImageUrl, projectPhotoUrl } from "./images";
-import { claimUpload, deleteStoredFile } from "./uploads";
+import { claimUpload, deleteClassPhoto } from "./uploads";
 
 const VALID_STATUSES = new Set(["active", "archived"]);
 
@@ -544,10 +544,10 @@ export const updateOffering = mutation({
     // (same convention as events.ts's `update`), so a photoStorageId that's
     // missing from args means the owner removed the photo, not "leave it
     // alone." Either way — replaced or removed — the old storage object is
-    // now orphaned and gets cleaned up, same as files.ts's
-    // saveProfileImage/saveEventCoverImage.
+    // cleaned up, same as files.ts's saveProfileImage/saveEventCoverImage,
+    // unless the date or Table migrated from this class still shows it.
     if (args.photoStorageId !== offering.photoStorageId) {
-      await deleteStoredFile(ctx, offering.photoStorageId);
+      await deleteClassPhoto(ctx, offering);
     }
 
     await ctx.db.patch(args.offeringId, {
@@ -582,8 +582,11 @@ export const deleteOffering = mutation({
   args: { offeringId: v.id("offerings") },
   handler: async (ctx, args) => {
 
-    const { userId, row: offering } = await requireOwner(ctx, "offerings", args.offeringId, { orAdmin: true });
+    const { row: offering } = await requireOwner(ctx, "offerings", args.offeringId, { orAdmin: true });
 
+    // Its photo goes with it, unless the date or Table migrated from it
+    // still shows it.
+    await deleteClassPhoto(ctx, offering);
     await ctx.db.delete(args.offeringId);
     return { ok: true };
   },

@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { internalMutation, internalQuery } from "../_generated/server";
 import type { MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
-import { getTableParticipation, normalizeTable } from "./tablePolicy";
+import { getTableParticipation, normalizeTable, tableOfClass } from "./tablePolicy";
 import { transitionMembership } from "./tables";
 import { notifyHostsOfJoin } from "./tableNotify";
 import { requireAdmin } from "../helpers";
@@ -20,12 +20,7 @@ export const TABLE_CHECKOUT_HOLD_MS = 31 * 60 * 1000;
 export const resolveOfferingTable = internalQuery({
   args: { offeringId: v.id("offerings") },
   handler: async (ctx, args): Promise<Id<"gardenTables"> | null> => {
-    const table = await ctx.db
-      .query("gardenTables")
-      .withIndex("by_sourceOfferingId", (q) =>
-        q.eq("sourceOfferingId", args.offeringId),
-      )
-      .unique();
+    const table = await tableOfClass(ctx, args.offeringId);
     return table?._id ?? null;
   },
 });
@@ -271,12 +266,7 @@ export async function reconcileLegacyOfferingEnrollment(
   offeringId: Id<"offerings">,
   userId: Id<"users">,
 ): Promise<void> {
-  const table = await ctx.db
-    .query("gardenTables")
-    .withIndex("by_sourceOfferingId", (q) =>
-      q.eq("sourceOfferingId", offeringId),
-    )
-    .unique();
+  const table = await tableOfClass(ctx, offeringId);
   if (!table) return;
   const payments = await ctx.db
     .query("classPayments")

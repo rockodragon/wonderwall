@@ -33,7 +33,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { isSafeHttpUrl, normalizeUrl } from "./garden/richText";
 import { isTikTokShortLink, toEmbedUrl } from "./videoEmbed";
 import { storedFileUrl } from "./images";
-import { deleteStoredFile } from "./uploads";
+import { claimFor, deleteStoredFile } from "./uploads";
 
 export type PreviewTarget = "artifact" | "event" | "project";
 
@@ -302,12 +302,15 @@ export const apply = internalMutation({
       if (!id || !artifact || linkChanged(artifact.mediaUrl)) return dropImage();
       const patch: Partial<Doc<"artifacts">> = {};
       if (artifact.mediaUrl !== args.canonicalUrl) patch.mediaUrl = args.canonicalUrl;
-      if (hasImage) {
+      if (hasImage && args.imageStorageId) {
         if (artifact.coverStorageId !== args.imageStorageId) {
           await deleteStoredFile(ctx, artifact.coverStorageId);
         }
         patch.ogImageUrl = args.imageUrl;
         patch.coverStorageId = args.imageStorageId;
+        // We stored it for the piece's owner: theirs, like an upload.
+        const owner = await ctx.db.get(artifact.profileId);
+        if (owner) await claimFor(ctx, args.imageStorageId, owner.userId);
       }
       const fillTitle = !!args.title && !artifact.title?.trim();
       if (fillTitle) patch.title = args.title;
@@ -335,12 +338,15 @@ export const apply = internalMutation({
       Pick<Doc<"events">, "mediaUrl" | "mediaPreviewUrl" | "mediaPreviewStorageId">
     > = {};
     if (row.mediaUrl !== args.canonicalUrl) patch.mediaUrl = args.canonicalUrl;
-    if (hasImage) {
+    if (hasImage && args.imageStorageId) {
       if (row.mediaPreviewStorageId !== args.imageStorageId) {
         await deleteStoredFile(ctx, row.mediaPreviewStorageId);
       }
       patch.mediaPreviewUrl = args.imageUrl;
       patch.mediaPreviewStorageId = args.imageStorageId;
+      // We stored it for the row's owner: theirs, like an upload.
+      const owner = "organizerId" in row ? row.organizerId : row.userId;
+      await claimFor(ctx, args.imageStorageId, owner);
     }
     await ctx.db.patch(id, patch);
   },

@@ -4,6 +4,18 @@ import { getGardenUser } from "./entitlements";
 import { communityVisibility } from "./communityVisibility";
 import { getCommunityMember, isActiveCommunityOrg } from "./communityLookup";
 
+/** The Table a class (offering) was migrated into
+ * (garden/tablesMigration.ts), or null. */
+export async function tableOfClass(
+  ctx: { db: QueryCtx["db"] },
+  offeringId: Id<"offerings">,
+): Promise<Doc<"gardenTables"> | null> {
+  return await ctx.db
+    .query("gardenTables")
+    .withIndex("by_sourceOfferingId", (q) => q.eq("sourceOfferingId", offeringId))
+    .unique();
+}
+
 export function normalizeTable(table: Doc<"gardenTables">) {
   return {
     scheduleType: table.scheduleType ?? (table.cadence ? "series" : "one_time"),

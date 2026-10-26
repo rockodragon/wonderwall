@@ -161,6 +161,7 @@ import type * as smsSender from "../smsSender.js";
 import type * as sourceParsers from "../sourceParsers.js";
 import type * as supportDigest from "../supportDigest.js";
 import type * as updates from "../updates.js";
+import type * as uploadClaimsBackfill from "../uploadClaimsBackfill.js";
 import type * as uploads from "../uploads.js";
 import type * as videoEmbed from "../videoEmbed.js";
 import type * as waitlist from "../waitlist.js";
@@ -326,6 +327,7 @@ declare const fullApi: ApiFromModules<{
   sourceParsers: typeof sourceParsers;
   supportDigest: typeof supportDigest;
   updates: typeof updates;
+  uploadClaimsBackfill: typeof uploadClaimsBackfill;
   uploads: typeof uploads;
   videoEmbed: typeof videoEmbed;
   waitlist: typeof waitlist;

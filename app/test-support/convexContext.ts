@@ -3,7 +3,8 @@ export type Row = Record<string, any> & { _id: string };
 /** Just enough of Convex's ctx: get / insert / patch / delete, and
  * query().withIndex(name, q => q.eq(..).gte(..)) or .filter(...), optionally
  * .order("desc") (newest inserted first), followed by collect / first /
- * unique / take. Index names aren't checked — the schema does that for real.
+ * unique / take / paginate. Index names aren't checked — the schema does
+ * that for real.
  *
  * Stored files are rows of a `_storage` table ({ _id: "_storage:a",
  * _creationTime }), read by db.system.get. storage.delete removes the row
@@ -73,6 +74,16 @@ export function makeCtx(
       },
       async first() {
         return rows[0] ? { ...rows[0] } : null;
+      },
+      // The cursor is the offset of the next row.
+      async paginate({ cursor, numItems }: { cursor: string | null; numItems: number }) {
+        const start = cursor ? Number(cursor) : 0;
+        const end = Math.min(start + numItems, rows.length);
+        return {
+          page: rows.slice(start, end).map((r) => ({ ...r })),
+          continueCursor: String(end),
+          isDone: end >= rows.length,
+        };
       },
     };
     return api;
