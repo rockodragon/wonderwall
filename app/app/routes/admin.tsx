@@ -66,6 +66,12 @@ const DESTINATIONS: readonly Destination[] = [
     blurb: "The emails PostHog asks us to send, and what they did.",
   },
   {
+    to: "/admin/attention",
+    title: "Needs attention",
+    icon: PaperPlaneTilt,
+    blurb: "Review unanswered messages, new members and accepted invites.",
+  },
+  {
     to: "/admin/showcase",
     title: "Showcase jury",
     icon: Trophy,

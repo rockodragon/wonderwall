@@ -41,6 +41,7 @@ import type * as emailHelpers from "../emailHelpers.js";
 import type * as emailPreferences from "../emailPreferences.js";
 import type * as emails from "../emails.js";
 import type * as embeddings from "../embeddings.js";
+import type * as engagement_attention from "../engagement/attention.js";
 import type * as engagement_conversations from "../engagement/conversations.js";
 import type * as engagement_firstCheer from "../engagement/firstCheer.js";
 import type * as engagement_loops from "../engagement/loops.js";
@@ -49,6 +50,7 @@ import type * as engagement_reminderSettings from "../engagement/reminderSetting
 import type * as engagement_rules from "../engagement/rules.js";
 import type * as engagement_schedule from "../engagement/schedule.js";
 import type * as engagement_settings from "../engagement/settings.js";
+import type * as engagement_unreadReminder from "../engagement/unreadReminder.js";
 import type * as errors from "../errors.js";
 import type * as eventAccess from "../eventAccess.js";
 import type * as eventAddress from "../eventAddress.js";
@@ -213,6 +215,7 @@ declare const fullApi: ApiFromModules<{
   emailPreferences: typeof emailPreferences;
   emails: typeof emails;
   embeddings: typeof embeddings;
+  "engagement/attention": typeof engagement_attention;
   "engagement/conversations": typeof engagement_conversations;
   "engagement/firstCheer": typeof engagement_firstCheer;
   "engagement/loops": typeof engagement_loops;
@@ -221,6 +224,7 @@ declare const fullApi: ApiFromModules<{
   "engagement/rules": typeof engagement_rules;
   "engagement/schedule": typeof engagement_schedule;
   "engagement/settings": typeof engagement_settings;
+  "engagement/unreadReminder": typeof engagement_unreadReminder;
   errors: typeof errors;
   eventAccess: typeof eventAccess;
   eventAddress: typeof eventAddress;

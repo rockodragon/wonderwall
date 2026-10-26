@@ -143,6 +143,7 @@ export default [
     // Who joined and what people made, newest first. People and content
     // only — money activity is /admin/ledger's.
     route("admin/activity", "routes/admin.activity.tsx"),
+    route("admin/attention", "routes/admin.attention.tsx"),
     route("admin/crawler", "routes/admin.crawler.tsx"),
     // The emails PostHog asks the app to send (docs/features/engagement-loops.md).
     route("admin/engagement-loops", "routes/admin.engagement-loops.tsx"),
