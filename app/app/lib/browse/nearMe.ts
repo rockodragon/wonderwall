@@ -1,10 +1,25 @@
 // The "Near me" cut, shared by People and Events (and the desk's browse views):
-// keep what's within a radius of the visitor, nearest first. Pure; the browser
-// location request itself lives in lib/useNearMe.ts.
-
-import { haversineDistance } from "../useNearMe";
+// keep what's within a radius of the visitor, nearest first. Pure, with no
+// React, so the server's People directory (convex/profiles.ts directory) runs
+// the same cut; the browser location request itself lives in lib/useNearMe.ts.
 
 export type LatLng = { lat: number; lng: number };
+
+// Great-circle distance in miles. Shared by every "Near me" filter (People,
+// Events, Learn) so the formula lives in exactly one place.
+export function haversineDistance(
+  lat1: number, lng1: number,
+  lat2: number, lng2: number,
+): number {
+  const R = 3958.8;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 /** Where the visitor is and how far they'll go, in miles. */
 export type NearMe = {

@@ -498,7 +498,7 @@ export default function OrgEdit() {
 
         <AddPerson
           organizationId={org._id}
-          listed={new Set(everyone.map((p) => String(p.profileId)))}
+          listed={everyone.map((p) => p.profileId)}
           onError={setPeopleError}
         />
 
@@ -513,23 +513,31 @@ export default function OrgEdit() {
 }
 
 // Admins list people themselves (docs/features/organizations.md): search
-// the directory, pick someone, and they show right away — the person is
-// told and can change or remove it in Settings.
+// everyone by name, pick someone, and they show right away — the person is
+// told and can change or remove it in Settings. The names come from the
+// projects' invite picker (garden/projectTeam.ts searchPeopleForInvite), a
+// name match over everyone, not a page of the People directory. It leaves
+// out who's listed already (on the server, before it picks its 10) and the
+// editor: an organization's admin is listed already, and anyone can list
+// themselves in Settings.
 function AddPerson({
   organizationId,
   listed,
   onError,
 }: {
   organizationId: Id<"organizations">;
-  listed: Set<string>;
+  listed: readonly Id<"profiles">[];
   onError: (msg: string) => void;
 }) {
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const addPerson = useMutation(api.organizations.addPerson);
   const typed = query.trim();
-  const results = useQuery(api.profiles.search, typed.length >= 2 ? { query: typed } : "skip");
-  const matches = (results ?? []).filter((r) => !listed.has(String(r._id))).slice(0, 6);
+  const results = useQuery(
+    api.garden.projectTeam.searchPeopleForInvite,
+    typed.length >= 2 ? { q: typed, exclude: [...listed] } : "skip",
+  );
+  const matches = (results ?? []).slice(0, 6);
 
   async function add(profileId: Id<"profiles">) {
     setBusy(true);
@@ -566,14 +574,14 @@ function AddPerson({
             </li>
           ) : (
             matches.map((r) => (
-              <li key={r._id}>
+              <li key={r.profileId}>
                 <button
                   type="button"
                   disabled={busy}
-                  onClick={() => add(r._id as Id<"profiles">)}
+                  onClick={() => add(r.profileId)}
                   className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-[var(--app-hairline)]"
                 >
-                  <PersonAvatar name={r.name} imageUrl={r.imageUrl ?? null} size="md" tone="muted" />
+                  <PersonAvatar name={r.name} imageUrl={r.imageUrl} size="md" tone="muted" />
                   <span className="text-sm font-medium truncate" style={{ color: "var(--app-text)" }}>
                     {r.name}
                   </span>

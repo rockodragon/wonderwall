@@ -3,6 +3,7 @@
 // deskCards' builders. Pure; deskBrowse.tsx runs the queries and hands the
 // rows here.
 
+import { DIRECTORY_PAGE } from "../../convex/directoryRules";
 import { filterEvents, onlyFavorites, parseEventsTab } from "../lib/browse/eventsFilter";
 import { distanceLabel, type LatLng, type NearMe } from "../lib/browse/nearMe";
 import { filterOrgs } from "../lib/browse/orgFilter";
@@ -32,20 +33,22 @@ import type { ShortlistFollow } from "../lib/shortlist/types";
 // People
 // ——————————————————————————————————————————————————————————————
 
-/** A person as api.profiles.search and api.favorites.getMyFavorites return
- * them. Only the search carries coordinates. */
+/** A person as api.profiles.directory and api.favorites.getMyFavorites
+ * return them. Only the directory carries coordinates, and how far away they
+ * are under Near me. */
 export type ProfileRow = {
   _id: string;
   name: string;
   imageUrl?: string | null;
   interests: string[];
   coordinates?: LatLng | null;
+  _distance?: number;
 };
 
 /** A person card for the directory. personCard says FOLLOWING, which is only
  * true of people the member follows; everyone else carries no label (the
  * view already says People), and the opened card leads with their discipline. */
-export function directoryCard(p: ProfileRow & { _distance?: number }, followed: boolean): DeskCard {
+export function directoryCard(p: ProfileRow, followed: boolean): DeskCard {
   const card = personCard({ _id: String(p._id), name: p.name, imageUrl: p.imageUrl ?? null, interests: p.interests });
   const kicker = followed ? card.face.kicker : "";
   const meta = followed ? card.face.kicker : (p.interests[0] ?? "").toUpperCase();
@@ -83,12 +86,13 @@ export function activityCard(card: DeskCard, follow: ShortlistFollow | undefined
 }
 
 /**
- * Everyone: the server's search result (already scoped to the community and
- * the text), then the Discipline filter and Near me, as /people does.
- * Following: the people the member follows, searched by name and interest,
- * then the Discipline filter. (Following carries no coordinates, so no Near me.)
- * With `activity` (the Shortlist's follows, by profile id), Following is by
- * latest activity (byLatestPost) and each card says what they last did.
+ * Everyone: the directory's page as the server returned it (scoped to the
+ * community, searched, and cut by Discipline and Near me there, as on
+ * /people). Following: the people the member follows, searched by name and
+ * interest, then the Discipline filter. (Following carries no coordinates,
+ * so no Near me.) With `activity` (the Shortlist's follows, by profile id),
+ * Following is by latest activity (byLatestPost) and each card says what
+ * they last did.
  */
 export function peopleCards(opts: {
   rows: readonly ProfileRow[];
@@ -96,15 +100,13 @@ export function peopleCards(opts: {
   following: boolean;
   query: string;
   interests: readonly string[];
-  near: NearMe | null;
   activity?: ReadonlyMap<string, ShortlistFollow>;
 }): DeskCard[] {
-  const base = opts.following ? opts.rows.filter((p) => matchesPersonQuery(p, opts.query)) : opts.rows;
-  const shown = filterProfiles(base, { interests: opts.interests, near: opts.following ? null : opts.near });
+  if (!opts.following) return opts.rows.map((p) => directoryCard(p, opts.followedIds.has(String(p._id))));
+  const searched = opts.rows.filter((p) => matchesPersonQuery(p, opts.query));
+  const shown = filterProfiles(searched, { interests: opts.interests });
   const { activity } = opts;
-  if (!opts.following || !activity) {
-    return shown.map((p) => directoryCard(p, opts.following || opts.followedIds.has(String(p._id))));
-  }
+  if (!activity) return shown.map((p) => directoryCard(p, true));
   const of = (p: ProfileRow) => activity.get(String(p._id));
   // Someone the Shortlist doesn't have yet (just followed) goes last; the sort keeps their order.
   const ranked = [...shown].sort((a, b) => {
@@ -144,12 +146,14 @@ export function spreadEvenly<T>(main: readonly T[], extra: readonly T[]): T[] {
 
 /**
  * Everyone: the people cards with the organizations that match the search
- * spread through them. Discipline and Near me are about people, an
- * organization carries neither, so with either on (`peopleOnly`) the
- * organizations step aside.
+ * spread through the first page of them (DIRECTORY_PAGE), so Load more only
+ * adds people below and nothing already on show moves. Discipline and Near
+ * me are about people, an organization carries neither, so with either on
+ * (`peopleOnly`) the organizations step aside.
  */
 export function everyoneCards(people: DeskCard[], orgs: readonly DeskOrgInput[], opts: { query: string; peopleOnly: boolean }): DeskCard[] {
-  return opts.peopleOnly ? people : spreadEvenly(people, orgsCards(orgs, opts.query));
+  if (opts.peopleOnly) return people;
+  return [...spreadEvenly(people.slice(0, DIRECTORY_PAGE), orgsCards(orgs, opts.query)), ...people.slice(DIRECTORY_PAGE)];
 }
 
 /** What an empty People view calls its things: "No people or organizations

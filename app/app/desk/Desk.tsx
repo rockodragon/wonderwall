@@ -18,7 +18,7 @@
 // before.
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 import { useReducedMotion } from "../hooks/useMediaQuery";
 import { cardIdOf, openInScope, todayNeedsEventIds, type ShortlistScope } from "../components/shortlist/items";
 import type { RowModel } from "../components/shortlist/rowModel";
@@ -26,7 +26,9 @@ import { useShortlist } from "../lib/shortlist/useShortlist";
 import { buildDeskCards, cardsInView, opensAsSheet, type DeskCard } from "./deskCards";
 import { DeskCardView, DeskCreateCell } from "./DeskCard";
 import { DeskCreate } from "./DeskCreate";
-import { isBrowseView, useDeskBrowse, type BrowseView, type DeskBrowse } from "./deskBrowse";
+import { isBrowseView, pillClass, useDeskBrowse, type BrowseView, type DeskBrowse } from "./deskBrowse";
+import { JOIN_TO_SEE_EVERYONE, cappedLine, moreCreativesLine, type DirectoryEnd } from "../lib/browse/directoryPage";
+import { signupHref } from "../lib/pendingIntent";
 import { greetingFor, headerCount } from "./deskGreeting";
 import { DeskHeader, type HeaderParts, type HeaderSize } from "./DeskHeader";
 import { DeskToast } from "./DeskToast";
@@ -279,6 +281,18 @@ export function Desk() {
   );
   const places = layout.places;
 
+  // Where the list's last row ends. What follows the list (People's Load
+  // more, or a visitor's way to join) sits under it, in the grid's bottom air.
+  const listBottom = useMemo(() => {
+    let bottom = 0;
+    for (const id of shownIds ?? []) {
+      const p = places.get(id);
+      if (id !== openId && p && p.opacity > 0) bottom = Math.max(bottom, p.y + p.h);
+    }
+    return bottom;
+  }, [shownIds, places, openId]);
+  const listEnd = browsing && listBottom > 0 ? browse.end : null;
+
   // The cards that are drawn. On a long grid, only those near the window; a
   // card waiting offscreen is kept up to a limit so it can fall and return.
   const mounted = useMemo(() => {
@@ -530,6 +544,10 @@ export function Desk() {
               stepper={card.id === openId ? stepper : undefined}
             />
           ))}
+
+          {listEnd && (
+            <DeskListEnd end={listEnd} top={listBottom + LIST_END_GAP} onMore={browse.loadMore} loading={browse.loadingMore} inert={!!openId} />
+          )}
         </div>
         {FF_TABLES && view === "all" && <DeskTables inert={!!openId} />}
       </div>
@@ -556,6 +574,53 @@ export function Desk() {
 
 const OFFSCREEN: Place = { x: 0, y: 0, w: 230, h: 310, r: 0, opacity: 0, z: 0 };
 
+/** A text link on the desk: the accent, underlined on hover. */
+const LINK_CLASS = `text-[15px] text-[#FFE066] underline-offset-4 hover:underline ${FOCUS_RING_CLASS}`;
+
+// ——————————————————————————————————————————————————————————————
+// The end of the list
+// ——————————————————————————————————————————————————————————————
+
+/** Air between the last row of cards and what follows it. */
+const LIST_END_GAP = 40;
+
+/** Under People › Everyone's last row: Load more while a member has more to
+ *  see, or, signed out, how many more there are and the way to join. */
+function DeskListEnd({
+  end,
+  top,
+  onMore,
+  loading,
+  inert,
+}: {
+  end: NonNullable<DirectoryEnd>;
+  top: number;
+  onMore: () => void;
+  loading: boolean;
+  /** A card is open: this can't be reached. */
+  inert: boolean;
+}) {
+  const here = useLocation();
+  return (
+    <div inert={inert} style={{ position: "absolute", left: 0, right: 0, top, display: "flex", justifyContent: "center", padding: "0 48px" }}>
+      {end.kind === "more" ? (
+        <button type="button" onClick={onMore} disabled={loading} className={pillClass(false)}>
+          {loading ? "Loading…" : "Load more"}
+        </button>
+      ) : end.kind === "capped" ? (
+        <p style={{ margin: 0, fontSize: 15, color: DESK.muted, textAlign: "center" }}>{cappedLine(end.remaining)}</p>
+      ) : (
+        <p style={{ margin: 0, fontSize: 15, color: DESK.muted, textAlign: "center" }}>
+          {moreCreativesLine(end.remaining)}{" "}
+          <Link to={signupHref(here.pathname + here.search)} className={LINK_CLASS}>
+            {JOIN_TO_SEE_EVERYONE}
+          </Link>
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ——————————————————————————————————————————————————————————————
 // Empty view
 // ——————————————————————————————————————————————————————————————
@@ -581,7 +646,7 @@ function EmptyDesk({
   // The "+" card says all there is to say to a list nothing narrowed: make the first one.
   if (lane && !noMatch) return null;
   const findPeople = view === "people";
-  const linkClass = `pointer-events-auto text-[15px] text-[#FFE066] underline-offset-4 hover:underline ${FOCUS_RING_CLASS}`;
+  const linkClass = `pointer-events-auto ${LINK_CLASS}`;
   return (
     <div
       style={{
