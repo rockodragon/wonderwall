@@ -238,6 +238,26 @@ export const getSources = query({
   },
 });
 
+// Internal: the reads behind the operator-only reclassify actions
+// (crawlerClassifier.ts). They run from the dashboard or `npx convex run`
+// with no caller identity, so they can't go through the requireAdminCtx-gated
+// getOrganization / listOrganizations above.
+export const getOrganizationInternal = internalQuery({
+  args: { id: v.id("crawledOrganizations") },
+  handler: async (ctx, args) => ctx.db.get(args.id),
+});
+
+export const listOrganizationsToReclassify = internalQuery({
+  args: { limit: v.number() },
+  handler: async (ctx, args) => {
+    const orgs = await ctx.db
+      .query("crawledOrganizations")
+      .order("desc")
+      .take(args.limit);
+    return orgs.map((o) => ({ _id: o._id, name: o.name, website: o.website }));
+  },
+});
+
 // ============================================
 // Mutations
 // ============================================
@@ -803,7 +823,7 @@ export const processQueueItem = internalAction({
       });
 
       // Call the classifier
-      const result = await ctx.runAction(api.crawlerClassifier.classifyUrl, {
+      const result = await ctx.runAction(internal.crawlerClassifier.classifyUrl, {
         url: args.url,
         source: args.source,
       });

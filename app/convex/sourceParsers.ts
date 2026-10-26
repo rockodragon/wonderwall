@@ -1,6 +1,6 @@
 import { v } from "convex/values";
-import { action, internalAction } from "./_generated/server";
-import { api, internal } from "./_generated/api";
+import { internalAction } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 // ============================================
 // Types
@@ -327,7 +327,11 @@ export const parseKingdomAdvisors = internalAction({
 // Main Crawler Actions
 // ============================================
 
-export const crawlPublicSquare = action({
+// The crawl actions are operator-only (the hourly scheduled crawl, the
+// dashboard or `npx convex run`): internal, never callable from a browser.
+// They were public with no sign-in or admin check, so anyone could start a
+// crawl and fill the queue (found 2026-10-26). No page calls them.
+export const crawlPublicSquare = internalAction({
   args: {
     maxPages: v.optional(v.number()),
   },
@@ -382,7 +386,7 @@ export const crawlPublicSquare = action({
   },
 });
 
-export const crawlChurches = action({
+export const crawlChurches = internalAction({
   args: {
     states: v.optional(v.array(v.string())),
     maxPagesPerState: v.optional(v.number()),
@@ -444,7 +448,7 @@ export const crawlChurches = action({
   },
 });
 
-export const crawlKingdomAdvisors = action({
+export const crawlKingdomAdvisors = internalAction({
   args: {
     maxPages: v.optional(v.number()),
   },
@@ -494,7 +498,7 @@ export const crawlKingdomAdvisors = action({
 });
 
 // Crawl all sources
-export const crawlAllSources = action({
+export const crawlAllSources = internalAction({
   args: {},
   handler: async (
     ctx,
@@ -507,7 +511,7 @@ export const crawlAllSources = action({
     console.log("[Crawler] Starting full crawl of all sources...");
 
     // Crawl PublicSquare (limit to 2 pages per category for initial run)
-    const psResult = await ctx.runAction(api.sourceParsers.crawlPublicSquare, {
+    const psResult = await ctx.runAction(internal.sourceParsers.crawlPublicSquare, {
       maxPages: 2,
     });
     console.log(
@@ -515,7 +519,7 @@ export const crawlAllSources = action({
     );
 
     // Crawl churches (limit to 5 states for initial run)
-    const churchResult = await ctx.runAction(api.sourceParsers.crawlChurches, {
+    const churchResult = await ctx.runAction(internal.sourceParsers.crawlChurches, {
       states: ["CA", "TX", "FL", "NY", "GA"],
       maxPagesPerState: 2,
     });
@@ -525,7 +529,7 @@ export const crawlAllSources = action({
 
     // Crawl Kingdom Advisors
     const kaResult = await ctx.runAction(
-      api.sourceParsers.crawlKingdomAdvisors,
+      internal.sourceParsers.crawlKingdomAdvisors,
       {
         maxPages: 5,
       },
