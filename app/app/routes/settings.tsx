@@ -6,6 +6,7 @@ import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
+import { MyPageLinks } from "../components/MyShareActions";
 import { EmbedStill, PlayBadge } from "../components/EmbedStill";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
@@ -132,10 +133,13 @@ export default function Settings() {
         <>
           <div className="mb-8">
             {hasProfile && profile && !isEditingProfile ? (
-              <ProfileSummary
-                profile={profile}
-                onEdit={() => setShowProfileEdit(true)}
-              />
+              <>
+                <ProfileSummary
+                  profile={profile}
+                  onEdit={() => setShowProfileEdit(true)}
+                />
+                <MyPageLinks profileId={profile._id} handle={profile.handle} />
+              </>
             ) : (
               <ProfileEditForm
                 profile={profile}
