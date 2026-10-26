@@ -59,16 +59,25 @@ export function directoryCard(p: ProfileRow & { _distance?: number }, followed: 
   };
 }
 
-/** A followed person's card, saying what they last did (rowModel postStatus,
- *  as the Shortlist says it) in place of FOLLOWING, and its title, unless a
- *  placeholder, in place of their discipline. */
+/** A card on Following, where FOLLOWING goes without saying: their
+ *  discipline up top, and under their name, what they last posted (rowModel
+ *  postStatus, as the Shortlist says it) with its picture and its title,
+ *  unless a placeholder. With nothing posted, the name alone. */
 export function activityCard(card: DeskCard, follow: ShortlistFollow | undefined): DeskCard {
   const latest = follow?.latest;
-  if (!latest) return card;
+  const face = { ...card.face, kicker: card.face.foot ?? "", foot: null };
+  if (!latest) return { ...card, face };
   const status = postStatus(latest);
   return {
     ...card,
-    face: { ...card.face, kicker: status, foot: shownTitle(latest.title) ?? card.face.foot },
+    face: {
+      ...face,
+      post: {
+        title: shownTitle(latest.title) ?? null,
+        status,
+        thumb: latest.media ? { url: latest.thumbUrl, media: latest.media } : null,
+      },
+    },
     detail: { ...card.detail, meta: status.toUpperCase() },
   };
 }

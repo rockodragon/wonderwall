@@ -98,10 +98,23 @@ describe("peopleCards", () => {
     const cards = peopleCards({ ...base, following: true, activity });
     // u3 posted 2 days ago, u2 8 days ago; u1 has posted nothing.
     expect(ids(cards)).toEqual(["person:u3", "person:u2", "person:u1"]);
-    expect(cards.map((c) => c.face.kicker)).toEqual(["Shared work · 2d ago", "Started a project · 1w ago", "FOLLOWING"]);
-    // A placeholder title leaves their discipline in the foot.
-    expect(cards.map((c) => c.face.foot)).toEqual(["Visual Art", "Night Shift", "Music"]);
+    // Their discipline up top (FOLLOWING goes without saying here), the name
+    // alone underneath, and what they last posted beneath it.
+    expect(cards.map((c) => c.face.kicker)).toEqual(["Visual Art", "Film", "Music"]);
+    expect(cards.every((c) => c.face.foot === null)).toBe(true);
+    expect(cards.map((c) => c.face.post)).toEqual([
+      // A placeholder title says nothing; the status does.
+      { title: null, status: "Shared work · 2d ago", thumb: null },
+      { title: "Night Shift", status: "Started a project · 1w ago", thumb: null },
+      undefined,
+    ]);
     expect(cards[1].detail.meta).toBe("STARTED A PROJECT · 1W AGO");
+    const withPicture = peopleCards({
+      ...base,
+      following: true,
+      activity: new Map([["u1", follow("u1", 1, post("Reel", 1, { thumbUrl: "https://p/r.jpg", media: "video" }))]]),
+    });
+    expect(withPicture[0].face.post?.thumb).toEqual({ url: "https://p/r.jpg", media: "video" });
     // Someone the Shortlist doesn't have yet keeps their place at the end.
     expect(ids(peopleCards({ ...base, following: true, activity: new Map([["u2", follow("u2", 1, post("x", 1))]]) }))).toEqual([
       "person:u2",
