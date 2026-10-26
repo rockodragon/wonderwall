@@ -94,8 +94,9 @@ export default function Signup() {
   const [code, setCode] = useState("");
   const [phoneStep, setPhoneStep] = useState<"phone" | "code">("phone");
   // Phone code or password. Both ask for the name first, so the account is
-  // never "New User" when the invite is credited and its sender is told who
-  // joined (invites.ts redeemBySlug); the password path also asks for email.
+  // never unnamed (convex/names.ts) when the invite is credited and its
+  // sender is told who joined (invites.ts redeemBySlug); the password path
+  // also asks for email.
   // (login.tsx's phone box makes accounts with no name; onboarding asks then.)
   const [method, setMethod] = useState<"phone" | "password">("phone");
   const [phoneError, setPhoneError] = useState("");
