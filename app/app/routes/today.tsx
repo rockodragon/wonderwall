@@ -37,6 +37,7 @@ import { TodayActions } from "../components/phone/TodayActions";
 import { useShortlist } from "../lib/shortlist/useShortlist";
 import { GardenLockup } from "../brand/GardenMark";
 import { useDeskCommunity } from "../desk/deskState";
+import { shownInterests } from "../constants/interests";
 import { bylineOf } from "../lib/byline";
 
 export function meta() {
@@ -857,7 +858,7 @@ function PlayGlyph() {
 // ——————————————————————————————————————————————————————————————
 
 function topicsOf(p: Project): string[] {
-  return (p.interests?.length ? p.interests : (p.creator?.interests ?? [])).filter((t) => !t.startsWith("other:"));
+  return shownInterests(p.interests?.length ? p.interests : p.creator?.interests);
 }
 
 /** "All 12 projects" / "All gigs" while loading or empty. */

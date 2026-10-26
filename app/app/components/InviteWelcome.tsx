@@ -8,21 +8,17 @@
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { GARDEN_NAME, PLATFORM_NAME } from "../../convex/garden/brandHosts";
-import { stripInlineMarks } from "../../convex/garden/richText";
 import { useBrand } from "../brand/brands";
 import { GardenLockupThemed } from "../brand/GardenMark";
 import { CLAIMS } from "../constants/claims";
+import { shownInterests } from "../constants/interests";
 import { GARDEN_SLUG } from "../lib/communitySlugs";
+import { stripInlineMarks } from "../lib/richText";
+import { textParagraphs } from "../lib/textParagraphs";
 import { PersonAvatar } from "./PersonAvatar";
 
 /** The inviter's interests shown: a few, not their whole list. */
 export const INVITER_INTERESTS = 3;
-
-/** A description's first paragraph, plain. */
-export function firstParagraph(description: string | null | undefined): string | null {
-  const first = (description ?? "").split(/\n\s*\n/).map((p) => stripInlineMarks(p).trim()).find(Boolean);
-  return first ?? null;
-}
 
 export function InviteWelcome({
   inviter,
@@ -33,8 +29,8 @@ export function InviteWelcome({
   const landing = useQuery(api.garden.communityDomains.getCommunityLanding, garden ? { slug: GARDEN_SLUG } : "skip");
   const place = garden ? GARDEN_NAME : PLATFORM_NAME;
   const tagline = landing?.tagline ? stripInlineMarks(landing.tagline).trim() : null;
-  const lead = firstParagraph(landing?.description);
-  const interests = (inviter.interests ?? []).filter((t) => !t.startsWith("other:")).slice(0, INVITER_INTERESTS);
+  const [lead] = textParagraphs(landing?.description, stripInlineMarks);
+  const interests = shownInterests(inviter.interests).slice(0, INVITER_INTERESTS);
 
   return (
     <section className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
@@ -46,7 +42,7 @@ export function InviteWelcome({
       <div className="flex items-center gap-4">
         <PersonAvatar name={inviter.name} imageUrl={inviter.imageUrl} size="lg" tone="gray" />
         <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-semibold leading-snug text-gray-900 dark:text-white">
+          <h1 className="text-2xl font-bold leading-tight text-gray-900 dark:text-white">
             {inviter.name} invited you to {place}
           </h1>
           {interests.length > 0 && (
