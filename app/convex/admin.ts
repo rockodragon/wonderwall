@@ -1,6 +1,6 @@
 import { internalMutation, query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { requireAdminCtx, ensureAdminCode, getProfileByUserId } from "./helpers";
+import { contactOf, requireAdminCtx, ensureAdminCode, getProfileByUserId } from "./helpers";
 import { fail } from "./errors";
 import { followEachOther, inviteFollowPairs } from "./follows";
 import { ADMIN_EMAILS } from "./adminEmails";
@@ -95,8 +95,7 @@ export const getAllUsersWithInvites = query({
           _id: profile._id,
           userId: profile.userId,
           name: profile.name,
-          email: authUser && "email" in authUser ? authUser.email : undefined,
-          phone: authUser && "phone" in authUser ? authUser.phone : undefined,
+          ...contactOf(authUser),
           // Signed in but never gave a name, so other members don't see
           // them (convex/names.ts).
           unfinished: !hasRealName(profile.name),

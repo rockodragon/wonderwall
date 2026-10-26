@@ -16,7 +16,8 @@ import { ConvexError } from "convex/values";
 import { query } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Id } from "../_generated/dataModel";
-import { getProfileByUserId, requireOperator } from "../helpers";
+import { contactOf, getProfileByUserId, requireOperator } from "../helpers";
+import { hasRealName } from "../names";
 import {
   computePoolBalance,
   computePoolInflows,
@@ -329,6 +330,15 @@ export type RecentSource =
   | "event_ticket"
   | "host_payout";
 
+/** Who a money row came from, as the row keeps it: their account when they
+ * paid signed in, else whatever checkout or the operator typed (a name, an
+ * email). Money going out (an allocation, a payout) has none. */
+export interface PayerRef {
+  userId?: string;
+  name?: string;
+  email?: string;
+}
+
 export interface RecentItem {
   at: number;
   source: RecentSource;
@@ -337,12 +347,56 @@ export interface RecentItem {
   grossCents: number; // signed — allocations and payouts are negative (money out)
   platformCents: number;
   ref?: string;
+  payer?: PayerRef;
 }
 
 /** Newest-first, capped at 60 — the report's activity feed across every
  * money table. Pure sort/slice; callers build the RecentItem[] up front. */
 export function buildRecent(events: RecentItem[], cap = 60): RecentItem[] {
   return [...events].sort((a, b) => b.at - a.at).slice(0, cap);
+}
+
+/** A payer's account as the ledger reads it: profile plus sign-in contact. */
+export interface PayerAccount {
+  profileId: string;
+  name: string;
+  handle?: string;
+  email?: string;
+  phone?: string;
+}
+
+/**
+ * Who paid, as a Recent row shows it:
+ *  - member: their account. `name` is null while they've never given one
+ *    (convex/names.ts), so the page shows how to reach them instead. The
+ *    email is the account's, else the one checkout kept.
+ *  - deleted: the row points at an account that's gone; whatever the row
+ *    itself kept.
+ *  - guest: paid signed out; whatever checkout kept, which may be nothing.
+ * None for money going out.
+ */
+export type RecentPayer =
+  | { kind: "member"; profileId: string; name: string | null; handle?: string; email?: string; phone?: string }
+  | { kind: "deleted" | "guest"; name?: string; email?: string };
+
+export function resolvePayer(
+  ref: PayerRef | undefined,
+  account: (userId: string) => PayerAccount | undefined,
+): RecentPayer | undefined {
+  if (!ref) return undefined;
+  const found = ref.userId ? account(ref.userId) : undefined;
+  const email = found?.email ?? (ref.email?.trim() || undefined);
+  if (found) {
+    return {
+      kind: "member",
+      profileId: found.profileId,
+      name: hasRealName(found.name) ? found.name.trim() : null,
+      handle: found.handle,
+      email,
+      phone: found.phone,
+    };
+  }
+  return { kind: ref.userId ? "deleted" : "guest", name: ref.name?.trim() || undefined, email };
 }
 
 export function duesDescription(level?: string): string {
@@ -685,16 +739,20 @@ export const getPlatformReport = query({
     // ——— Recent: last 60 money events across tables ———
     const recentEvents: RecentItem[] = [
       ...grantContributions.map((c): RecentItem => {
+        // The payer, when known (signed-in checkout), else a typed name.
+        const payer: PayerRef = { userId: c.userId ? String(c.userId) : undefined, name: c.payerName };
         if (c.type === "dues_share") {
-          const level = c.membershipId ? membershipById.get(String(c.membershipId))?.level : undefined;
+          const membership = c.membershipId ? membershipById.get(String(c.membershipId)) : undefined;
           return {
             at: c.createdAt,
             source: "dues",
-            description: duesDescription(level),
+            description: duesDescription(membership?.level),
             hostOrgName: hostOrgName(c.hostOrgId),
             grossCents: c.grossCents,
             platformCents: c.platformCents,
             ref: c.stripeRef,
+            // Dues are always a member's: their membership says whose.
+            payer: { ...payer, userId: payer.userId ?? (membership ? String(membership.userId) : undefined) },
           };
         }
         if (c.type === "contribution_in") {
@@ -706,6 +764,7 @@ export const getPlatformReport = query({
             grossCents: c.grossCents,
             platformCents: c.platformCents,
             ref: c.stripeRef,
+            payer,
           };
         }
         return {
@@ -716,6 +775,7 @@ export const getPlatformReport = query({
           grossCents: c.grossCents,
           platformCents: c.platformCents,
           ref: c.stripeRef,
+          payer,
         };
       }),
       ...allocations.map(
@@ -740,6 +800,7 @@ export const getPlatformReport = query({
           grossCents: p.grossCents,
           platformCents: p.platformCents,
           ref: p.stripeRef,
+          payer: { userId: p.userId ? String(p.userId) : undefined, email: p.buyerEmail },
         };
       }),
       ...paidTickets.map((t): RecentItem => {
@@ -753,6 +814,7 @@ export const getPlatformReport = query({
           grossCents: t.amountCents,
           platformCents: 0,
           ref: t.stripeSessionId,
+          payer: { userId: t.userId ? String(t.userId) : undefined, email: t.buyerEmail },
         };
       }),
       ...hostPayouts.map(
@@ -768,6 +830,17 @@ export const getPlatformReport = query({
       ),
     ];
     const recent = buildRecent(recentEvents, 60);
+    // Who paid: looked up only for the rows shown, not every account.
+    const payerIds = [...new Set(recent.flatMap((r) => (r.payer?.userId ? [r.payer.userId] : [])))];
+    const payerAccounts = new Map<string, PayerAccount>();
+    await Promise.all(
+      payerIds.map(async (id) => {
+        const userId = id as Id<"users">;
+        const [profile, user] = await Promise.all([getProfileByUserId(ctx, userId), ctx.db.get(userId)]);
+        if (!profile) return;
+        payerAccounts.set(id, { profileId: String(profile._id), name: profile.name, handle: profile.handle, ...contactOf(user) });
+      }),
+    );
 
     return {
       generatedAt: Date.now(),
@@ -795,7 +868,7 @@ export const getPlatformReport = query({
       })),
       communities,
       memberships: { ...membershipsSummary, coverageCodes: coverageCodesOut },
-      recent,
+      recent: recent.map(({ payer, ...row }) => ({ ...row, payer: resolvePayer(payer, (id) => payerAccounts.get(id)) })),
     };
   },
 });

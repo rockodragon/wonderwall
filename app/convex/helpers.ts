@@ -68,6 +68,13 @@ export async function displayNameOf(
   return name && hasRealName(name) ? name.trim() : fallback;
 }
 
+/** How to reach a person, off their sign-in (users) row: the email and the
+ * phone, either of which may be missing (a phone sign-up has no email).
+ * For admin views only. */
+export function contactOf(user: Doc<"users"> | null): { email?: string; phone?: string } {
+  return { email: user?.email || undefined, phone: user?.phone || undefined };
+}
+
 /**
  * Check if a user is an admin by their user ID
  * Checks the isAdmin field on their profile

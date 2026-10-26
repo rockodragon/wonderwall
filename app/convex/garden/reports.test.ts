@@ -2,7 +2,7 @@
 // fixtures shaped like the rows each pure function takes, mirroring
 // allocations.test.ts's style.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   allocationDescription,
   buildHostEarningsRow,
@@ -16,6 +16,7 @@ import {
   hostSaleDescription,
   payoutDescription,
   periodOf,
+  resolvePayer,
   sortPools,
   summarizeCommunityMembers,
   summarizePlatformMemberships,
@@ -23,6 +24,8 @@ import {
   type CommunityMemberForSummary,
   type FeeEvent,
   type MembershipLevelRow,
+  type PayerAccount,
+  type PayerRef,
   type PlatformMembershipRow,
   type RecentItem,
 } from "./reports";
@@ -415,5 +418,156 @@ describe("Table sale fee reporting", () => {
     expect(result.totalPlatformCents).toBe(250);
     expect(result.bySource.find(row => row.source === "table_sales")).toMatchObject({grossCents: 2500, platformCents: 250, count: 1, splitRecorded: true});
     expect(result.byPeriod).toEqual([{period: "2026-10", grossCents: 2500, platformCents: 250}]);
+  });
+});
+
+// Who paid, as a Recent row shows it (the ledger's "Recent money events").
+// The account lookup is a function, so the pure core never touches Convex.
+describe("resolvePayer", () => {
+  const ADA = "users:ada";
+  const account = (over: Partial<PayerAccount> = {}): PayerAccount => ({
+    profileId: "profiles:ada",
+    name: "Ada Admin",
+    handle: "ada",
+    email: "ada@account.example",
+    phone: "+16195550100",
+    ...over,
+  });
+  const only = (a: PayerAccount | undefined) => (id: string) => (id === ADA ? a : undefined);
+
+  it("money out has no payer: no ref gives undefined, and nothing is looked up", () => {
+    const lookup = vi.fn();
+    expect(resolvePayer(undefined, lookup)).toBeUndefined();
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
+  describe("a signed-in member", () => {
+    it("shows their account: trimmed real name, profile, handle, email and phone", () => {
+      const ref: PayerRef = { userId: ADA, name: "typed at checkout", email: "checkout@example.com" };
+      expect(resolvePayer(ref, only(account({ name: "  Ada Admin " })))).toEqual({
+        kind: "member",
+        profileId: "profiles:ada",
+        name: "Ada Admin",
+        handle: "ada",
+        email: "ada@account.example",
+        phone: "+16195550100",
+      });
+    });
+
+    it("looks the account up by the ref's userId", () => {
+      const lookup = vi.fn().mockReturnValue(account());
+      resolvePayer({ userId: ADA }, lookup);
+      expect(lookup).toHaveBeenCalledExactlyOnceWith(ADA);
+    });
+
+    it("prefers the account's email over the one checkout kept", () => {
+      const got = resolvePayer({ userId: ADA, email: "checkout@example.com" }, only(account()));
+      expect(got).toMatchObject({ kind: "member", email: "ada@account.example" });
+    });
+
+    it("falls back to the checkout email when the account has none (a phone sign-up), trimmed", () => {
+      const got = resolvePayer(
+        { userId: ADA, email: "  checkout@example.com " },
+        only(account({ email: undefined })),
+      );
+      expect(got).toMatchObject({ kind: "member", email: "checkout@example.com", phone: "+16195550100" });
+    });
+
+    it("has no email at all when neither the account nor checkout has one", () => {
+      const got = resolvePayer({ userId: ADA, email: "   " }, only(account({ email: undefined })));
+      expect(got).toEqual({
+        kind: "member",
+        profileId: "profiles:ada",
+        name: "Ada Admin",
+        handle: "ada",
+        email: undefined,
+        phone: "+16195550100",
+      });
+    });
+
+    it("keeps the account's handle and phone when it has them, drops them when it doesn't", () => {
+      const got = resolvePayer({ userId: ADA }, only(account({ handle: undefined, phone: undefined })));
+      expect(got).toEqual({
+        kind: "member",
+        profileId: "profiles:ada",
+        name: "Ada Admin",
+        handle: undefined,
+        email: "ada@account.example",
+        phone: undefined,
+      });
+    });
+
+    it.each([
+      ["the placeholder", "New User"],
+      ["the placeholder in lowercase", "new user"],
+      ["the placeholder with padding and odd case", "  NEW user  "],
+      ["blank", ""],
+      ["only spaces", "   "],
+    ])("a member whose name is %s has name null, with their email and phone kept", (_label, name) => {
+      expect(resolvePayer({ userId: ADA, name: "typed at checkout" }, only(account({ name })))).toEqual({
+        kind: "member",
+        profileId: "profiles:ada",
+        name: null,
+        handle: "ada",
+        email: "ada@account.example",
+        phone: "+16195550100",
+      });
+    });
+
+    it("an unnamed member never shows the name typed at checkout in its place", () => {
+      const got = resolvePayer({ userId: ADA, name: "Typed Name" }, only(account({ name: "New User" })));
+      expect(got).toMatchObject({ kind: "member", name: null });
+    });
+  });
+
+  describe("an account that's gone", () => {
+    it("is kind deleted, keeping the typed name and email", () => {
+      expect(resolvePayer({ userId: "users:gone", name: " Gone Gary ", email: " gary@example.com " }, only(account()))).toEqual({
+        kind: "deleted",
+        name: "Gone Gary",
+        email: "gary@example.com",
+      });
+    });
+
+    it("keeps whatever the row has, which may be nothing", () => {
+      const got = resolvePayer({ userId: "users:gone" }, only(undefined));
+      expect(got).toEqual({ kind: "deleted", name: undefined, email: undefined });
+    });
+  });
+
+  describe("a guest (paid signed out)", () => {
+    it("is kind guest with the typed name and email, trimmed", () => {
+      expect(resolvePayer({ name: "  Pat Guest ", email: " pat@example.com " }, only(account()))).toEqual({
+        kind: "guest",
+        name: "Pat Guest",
+        email: "pat@example.com",
+      });
+    });
+
+    it("works with just a name", () => {
+      const got = resolvePayer({ name: "Pat Guest" }, only(account()));
+      expect(got).toEqual({ kind: "guest", name: "Pat Guest", email: undefined });
+    });
+
+    it("works with just an email", () => {
+      const got = resolvePayer({ email: "pat@example.com" }, only(account()));
+      expect(got).toEqual({ kind: "guest", name: undefined, email: "pat@example.com" });
+    });
+
+    it("drops empty and blank strings", () => {
+      const got = resolvePayer({ name: "", email: "   " }, only(account()));
+      expect(got).toEqual({ kind: "guest", name: undefined, email: undefined });
+    });
+
+    it("with nothing at all is still a guest, both fields undefined", () => {
+      const got = resolvePayer({}, only(account()));
+      expect(got).toEqual({ kind: "guest", name: undefined, email: undefined });
+    });
+
+    it("looks nobody up", () => {
+      const lookup = vi.fn().mockReturnValue(account());
+      resolvePayer({ name: "Pat" }, lookup);
+      expect(lookup).not.toHaveBeenCalled();
+    });
   });
 });

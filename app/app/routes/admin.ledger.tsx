@@ -12,6 +12,9 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import type { RecentPayer } from "../../convex/garden/reports";
+import { profilePath } from "../../convex/handleRules";
+import { displayPhone } from "../../convex/phone";
 import {
   GardenLoading,
   GardenPage,
@@ -160,6 +163,8 @@ type PlatformReport = {
     grossCents: number;
     platformCents: number;
     ref?: string;
+    /** Who paid; none for money going out. */
+    payer?: RecentPayer;
   }[];
 };
 
@@ -621,6 +626,38 @@ function MembershipsSection({ memberships }: { memberships: PlatformReport["memb
 
 // ————— 6. Recent money events —————
 
+const PAYER_LINK = { fontSize: 14, fontWeight: 600, color: "var(--g-paper)", textDecoration: "none" } as const;
+
+/** Who paid, on a Recent row: a member by name (their page), or, before
+ * they've given one, by email or phone; a guest by what checkout kept. */
+function PayerCell({ payer }: { payer: RecentPayer }) {
+  if (payer.kind === "member") {
+    const contact = payer.email ?? (payer.phone ? displayPhone(payer.phone) : undefined);
+    const to = payer.handle ? profilePath(payer.handle) : `/profile/${payer.profileId}`;
+    return (
+      <>
+        <Link to={to} style={PAYER_LINK}>
+          {payer.name ?? contact ?? "No name or contact"}
+        </Link>
+        {payer.name ? (
+          contact && <span className="g-hint">{contact}</span>
+        ) : (
+          <span className="g-badge g-badge-line">Unfinished signup</span>
+        )}
+      </>
+    );
+  }
+  const kept = [payer.name, payer.email].filter(Boolean).join(" · ");
+  return (
+    <>
+      <span style={{ fontSize: 14, fontWeight: 600, color: "var(--g-paper)" }}>
+        {payer.kind === "guest" ? "Guest" : "Deleted account"}
+      </span>
+      <span className="g-hint">{kept || "no name or email"}</span>
+    </>
+  );
+}
+
 function RecentSection({ recent }: { recent: PlatformReport["recent"] }) {
   return (
     <section style={{ marginTop: 40 }}>
@@ -647,6 +684,7 @@ function RecentSection({ recent }: { recent: PlatformReport["recent"] }) {
                 >
                   {formatSignedMoney(r.grossCents)}
                 </span>
+                {r.payer && <PayerCell payer={r.payer} />}
                 <span className="g-hint">platform {formatSignedMoney(r.platformCents)}</span>
                 <span className="g-badge g-badge-line">{r.source}</span>
                 <span style={{ fontSize: 14, color: "var(--g-body)" }}>{r.description}</span>

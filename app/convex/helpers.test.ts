@@ -6,6 +6,7 @@ import { ConvexError } from "convex/values";
 import { describe, expect, it } from "vitest";
 import { makeCtx } from "../test-support/convexContext";
 import {
+  contactOf,
   currentUserId,
   displayNameOf,
   getProfileByUserId,
@@ -210,5 +211,53 @@ describe("requireProfile", () => {
   it("refuses someone with no profile yet, readably", async () => {
     const err = await thrown(requireProfile(makeCtx(world(), null), "users:ghost" as any));
     expect(err.data).toEqual({ code: "no_profile", reason: "Finish your profile first." });
+  });
+});
+
+describe("contactOf", () => {
+  // Doc<"users"> is wider than what a sign-in row carries; these are the
+  // shapes the two sign-in routes actually write.
+  const user = (fields: Record<string, unknown>) => ({ _id: "users:u", ...fields }) as any;
+
+  it("is empty for no user at all (a deleted account)", () => {
+    const got = contactOf(null);
+    expect(got).toEqual({});
+    expect(got.email).toBeUndefined();
+    expect(got.phone).toBeUndefined();
+  });
+
+  it("gives just the email for an email sign-up", () => {
+    const got = contactOf(user({ email: "dana@example.com" }));
+    expect(got).toEqual({ email: "dana@example.com" });
+    expect(got.phone).toBeUndefined();
+  });
+
+  it("gives just the phone for a phone sign-up", () => {
+    const got = contactOf(user({ phone: "+16195550100" }));
+    expect(got).toEqual({ phone: "+16195550100" });
+    expect(got.email).toBeUndefined();
+  });
+
+  it("reads a blank email or phone as missing", () => {
+    const got = contactOf(user({ email: "", phone: "" }));
+    expect(got).toEqual({});
+    expect(got.email).toBeUndefined();
+    expect(got.phone).toBeUndefined();
+  });
+
+  it("gives both for someone with both", () => {
+    expect(contactOf(user({ email: "max@example.com", phone: "+16195550101" }))).toEqual({
+      email: "max@example.com",
+      phone: "+16195550101",
+    });
+  });
+
+  it("is empty for a sign-in row with neither", () => {
+    expect(contactOf(user({}))).toEqual({});
+  });
+
+  it("hands over only the contact, not the rest of the row", () => {
+    const got = contactOf(user({ email: "a@example.com", name: "Ada", emailVerificationTime: 1 }));
+    expect(got).toEqual({ email: "a@example.com" });
   });
 });
