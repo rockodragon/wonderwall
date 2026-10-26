@@ -468,6 +468,21 @@ describe("following a profile", () => {
     expect(await run(toggle, ctx, { targetType: "event", targetId: EVENT })).toEqual({ favorited: true });
     expect(ctx.store.notifications).toEqual([]);
   });
+
+  it("refuses following yourself, and saves nothing", async () => {
+    const ctx = makeCtx(world(), MEMBER);
+    expect(await thrown(run(toggle, ctx, { targetType: "profile", targetId: "profiles:member" }))).toEqual({
+      code: "own_profile",
+      reason: "That's your own profile.",
+    });
+    expect(ctx.store.favorites).toEqual([]);
+  });
+
+  it("still lets someone who followed themselves before unfollow", async () => {
+    const ctx = makeCtx(world({ favorites: [fav("profile", "profiles:member")] }), MEMBER);
+    expect(await run(toggle, ctx, { targetType: "profile", targetId: "profiles:member" })).toEqual({ favorited: false });
+    expect(ctx.store.favorites).toEqual([]);
+  });
 });
 
 describe("getMyFavorites", () => {

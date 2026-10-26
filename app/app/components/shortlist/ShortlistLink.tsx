@@ -12,6 +12,7 @@ export function ShortlistLink({ className = "", look = "pill" }: { className?: s
   return (
     <Link
       to={favoritesHref()}
+      title={look === "icon" ? OWN_PAGE_LABELS.shortlist.plain : undefined}
       className={`${OWN_PAGE_LOOK[look]} ${className}`}
       style={OWN_PAGE_BUTTON_STYLE}
     >

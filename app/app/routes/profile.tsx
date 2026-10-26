@@ -338,14 +338,16 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
             )}
           </div>
 
-          {/* Action cluster — Follow/Share always available (including on
-              your own profile, matching prior behavior); Message and the
-              Block kebab only make sense on someone else's. */}
+          {/* Action cluster — Share always available; Follow, Message and
+              the Block kebab only on someone else's (nobody follows
+              themselves: favorites.toggle refuses it). */}
           <div className={`flex flex-col items-start sm:items-end gap-2 shrink-0${isOwnProfile ? " w-full sm:w-auto" : ""}`}>
             <div className="flex items-center gap-2">
               {/* Signed out, Follow and Message go to sign in and come back
                   here (lib/loginHref.ts); signed in, they act. */}
-              {isAuthenticated ? (
+              {/* Not until we know whose page this is, so Follow never
+                  flashes on your own while that loads. */}
+              {isOwnProfile || (isAuthenticated && myProfile === undefined) ? null : isAuthenticated ? (
                 <FavoriteButton targetType="profile" targetId={profile._id} />
               ) : (
                 <SignInTo label="Follow" returnTo={here} />

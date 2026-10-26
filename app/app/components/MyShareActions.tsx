@@ -1,11 +1,11 @@
 // Your own "Share your profile" (the share kit), "Show my code"
 // (routes/code.tsx) and Shortlist, as one set of buttons in one row.
-// At the top of Settings (MyProfileTiles) they're tiles, since that's where
-// a phone's Profile tab lands (routes/_app.tsx): without them there, a phone
-// never saw either. On your profile page (MyShareActions) they're tiles on a
-// phone and the pills from `sm` up.
+// In the Settings header (MyProfileIcons) they're round icons beside Edit,
+// since that's where a phone's Profile tab lands (routes/_app.tsx): without
+// them there, a phone never saw either. On your profile page they're tiles
+// on a phone and the pills from `sm` up.
 
-import { Scan } from "@phosphor-icons/react";
+import { QrCode } from "@phosphor-icons/react";
 import { useQuery } from "convex/react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
@@ -20,8 +20,13 @@ import type { ProjectRow } from "../lib/profileShare";
 
 function MyCodeLink({ look }: { look: OwnPageLook }) {
   return (
-    <Link to="/code" className={OWN_PAGE_LOOK[look]} style={OWN_PAGE_BUTTON_STYLE}>
-      <OwnPageFace look={look} icon={Scan} label={OWN_PAGE_LABELS.code} />
+    <Link
+      to="/code"
+      title={look === "icon" ? OWN_PAGE_LABELS.code.plain : undefined}
+      className={OWN_PAGE_LOOK[look]}
+      style={OWN_PAGE_BUTTON_STYLE}
+    >
+      <OwnPageFace look={look} icon={QrCode} label={OWN_PAGE_LABELS.code} />
     </Link>
   );
 }
@@ -40,7 +45,7 @@ export function MyShareActions({
 }: {
   profile: ShareKitProfile;
   projects: readonly ProjectRow[] | undefined;
-  look: "tile" | "phoneTile";
+  look: "icon" | "phoneTile";
   /** The share kit opened (ShareHint). */
   onOpen?: () => void;
   className?: string;
@@ -59,11 +64,12 @@ export function MyShareActions({
   );
 }
 
-/** Settings' top: the three as tiles, once your page has loaded. */
-export function MyProfileTiles({ profileId }: { profileId: Id<"profiles"> }) {
+/** Settings' header: the three as round icons beside Edit, once your page
+ *  has loaded (the share kit is built from it). */
+export function MyProfileIcons({ profileId }: { profileId: Id<"profiles"> }) {
   const page = useQuery(api.profiles.getProfile, { profileId });
   const projects = useQuery(api.garden.projectTeam.listAffiliations, { profileId });
-  // Hold the row's height so the sections below don't jump when it lands.
-  if (!page) return <div className="mt-5 h-[68px]" />;
-  return <MyShareActions profile={page} projects={projects} look="tile" className="mt-5 max-w-md" />;
+  // Hold the row's width so Edit doesn't jump when the three land.
+  if (!page) return <div className="h-11 w-[140px]" />;
+  return <MyShareActions profile={page} projects={projects} look="icon" />;
 }

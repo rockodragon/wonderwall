@@ -3,11 +3,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 import { MyShareActions } from "./MyShareActions";
 
-// Your own page's three buttons: Settings keeps them as tiles at every
-// width; your profile page turns them into pills from `sm` up.
+// Your own page's three buttons: Settings keeps them as round icons at
+// every width; your profile page turns them into pills from `sm` up.
 const profile = { name: "Ana Reyes", handle: "ana", imageUrl: null, artifacts: [] };
 
-function row(look: "tile" | "phoneTile", note?: string) {
+function row(look: "icon" | "phoneTile", note?: string) {
   return renderToStaticMarkup(
     <MemoryRouter>
       <MyShareActions profile={profile} projects={[]} look={look}>
@@ -18,12 +18,15 @@ function row(look: "tile" | "phoneTile", note?: string) {
 }
 
 describe("MyShareActions", () => {
-  it("as tiles (Settings): three to a row, never pills", () => {
-    const html = row("tile");
-    expect(html).toContain("grid-cols-3");
-    for (const label of ["Share profile", "My code", "Shortlist"]) expect(html).toContain(label);
-    for (const label of ["Share your profile", "Show my code", "Your shortlist"]) expect(html).not.toContain(label);
-    // Nothing that changes at a wider width.
+  it("as icons (Settings): named for screen readers and on hover, never tiles", () => {
+    const html = row("icon");
+    expect(html).not.toContain("grid-cols-3");
+    for (const name of ["Share your profile", "Show my code", "Your shortlist"]) {
+      expect(html).toContain(`title="${name}"`);
+      expect(html).toContain(`<span class="sr-only">${name}</span>`);
+    }
+    // No arrow read aloud, and nothing that changes at a wider width.
+    expect(html).not.toContain("→");
     expect(html).not.toContain("sm:");
   });
 

@@ -60,6 +60,13 @@ describe("a profile page", () => {
     expect(html.match(/aria-haspopup="dialog"/g)).toHaveLength(1);
   });
 
+  it("offers Follow on someone else's page, never on your own", async () => {
+    scene.me = "ana";
+    expect(await profilePage()).not.toContain('title="Follow"');
+    scene.me = "someone-else";
+    expect(await profilePage()).toContain('title="Follow"');
+  });
+
   it("keeps it off everyone else's", async () => {
     scene.me = "someone-else";
     const html = await profilePage();

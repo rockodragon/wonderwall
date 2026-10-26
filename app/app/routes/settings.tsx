@@ -1,20 +1,21 @@
 import { usePostHog } from "@posthog/react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { Link, useLocation, useSearchParams } from "react-router";
 import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
-import { ArrowUpRight, PencilSimple } from "@phosphor-icons/react";
-import { MyProfileTiles } from "../components/MyShareActions";
+import { ArrowClockwise, ArrowUpRight, PencilSimple, X } from "@phosphor-icons/react";
+import { MyProfileIcons } from "../components/MyShareActions";
+import { OWN_PAGE_BUTTON_STYLE, OWN_PAGE_ICON } from "../components/ownPageButton";
 import { InfoTip } from "../components/InfoTip";
 import { SwitchRow } from "../components/SwitchRow";
 import { EmbedStill, PlayBadge } from "../components/EmbedStill";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
 import { useSignOut } from "../lib/useSignOut";
-import { INTERESTS } from "../constants/interests";
+import { INTERESTS, shownInterests } from "../constants/interests";
 import { LEVEL_LABEL } from "../garden/capabilities";
 import { normalizeHandle, type PayoutKind } from "../../convex/garden/gigRules";
 import {
@@ -34,6 +35,7 @@ import { OrganizationsEditor } from "../components/OrganizationsEditor";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { maxSize, useFileUpload } from "../lib/useFileUpload";
 import { AVATAR_PX } from "../lib/shrinkImage";
+import { COVER_ASPECT } from "../lib/coverCrop";
 import { isGardenHost } from "../../convex/garden/brandHosts";
 import { formatCents } from "../../convex/money";
 
@@ -79,6 +81,26 @@ export default function Settings() {
       !profile?.location?.trim());
   const isEditingProfile = showProfileEdit || profileNeedsSetup;
 
+  // /settings#address ("Claim your address", the share kit, your code)
+  // opens the editor, where the address lives, before it paints, then
+  // brings the address into view and puts the cursor in it. Once per visit
+  // to that link (its location key), so a later Edit doesn't jump down to
+  // it again. The hash stays: dropping it would add a history entry or let
+  // scroll restoration put the page back at the top.
+  const location = useLocation();
+  const wantsAddress = location.hash === "#address";
+  const addressShownFor = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    if (wantsAddress && profile?._id && addressShownFor.current !== location.key) setShowProfileEdit(true);
+  }, [wantsAddress, profile?._id, location.key]);
+  useEffect(() => {
+    if (!wantsAddress || !isEditingProfile || !profile?._id || addressShownFor.current === location.key) return;
+    addressShownFor.current = location.key;
+    const address = document.getElementById("address");
+    address?.scrollIntoView({ block: "start" });
+    address?.querySelector("input")?.focus({ preventScroll: true });
+  }, [wantsAddress, isEditingProfile, profile?._id, location.key]);
+
   const activeTab: SettingsTab = editArtifactId
     ? "profile"
     : (SETTINGS_TABS.find((t) => t.id === searchParams.get("tab"))?.id ??
@@ -101,34 +123,34 @@ export default function Settings() {
         <>
           <div className="mb-8">
             {hasProfile && profile && !isEditingProfile ? (
-              <>
-                <ProfileSummary
-                  profile={profile}
-                  onEdit={() => setShowProfileEdit(true)}
-                />
-                {/* The phone's Profile tab lands here, so sharing, your
-                    code and the Shortlist are a tap away. */}
-                <MyProfileTiles profileId={profile._id} />
-              </>
-            ) : (
-              <ProfileEditForm
+              // The phone's Profile tab lands here, so sharing, your code
+              // and the Shortlist are a tap away in the header.
+              <ProfileSummary
                 profile={profile}
-                onDone={() => setShowProfileEdit(false)}
-                isNewProfile={profileNeedsSetup}
+                onEdit={() => setShowProfileEdit(true)}
               />
+            ) : (
+              <>
+                <ProfileEditForm
+                  profile={profile}
+                  onDone={() => setShowProfileEdit(false)}
+                  isNewProfile={profileNeedsSetup}
+                />
+                {/* Your address — thecreative.exchange/@handle — and the
+                    search switch are profile settings, so they sit behind
+                    Edit with the rest. Each change saves on its own. Needs
+                    the profile row. */}
+                {profile?._id && (
+                  <div id="address" className="mt-8 pt-6 border-t scroll-mt-4" style={{ borderColor: "var(--app-hairline)" }}>
+                    <AddressSection profile={profile} />
+                  </div>
+                )}
+              </>
             )}
           </div>
 
-          {/* Your address — thecreative.exchange/@handle — and the one
-              search switch. Always open like Organizations; each
-              change saves on its own. Needs the profile row. */}
-          {profile?._id && (
-            <div id="address" className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
-              <AddressSection profile={profile} />
-            </div>
-          )}
-
-          {/* Work & Portfolio, above Organizations as on the profile page */}
+          {/* Work & Portfolio right under who you are, above Organizations
+              as on the profile page */}
           <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
             <ArtifactsSection
               editArtifactId={editArtifactId}
@@ -1363,8 +1385,9 @@ function SettingsTabBar({
   );
 }
 
-/** Your face, name and roles. The @address under the name is the one way
- *  to your page from here; the pencil opens the profile editor. */
+/** Who you are, first: your photo, with Share, your code, Shortlist and
+ *  Edit beside it as small icons; then your name, your @address (the one
+ *  way to your page from here), what you do and your bio. */
 function ProfileSummary({
   profile,
   onEdit,
@@ -1374,36 +1397,45 @@ function ProfileSummary({
   >;
   onEdit: () => void;
 }) {
+  const disciplines = shownInterests(profile.interests);
   return (
-    <div className="flex items-start gap-4">
-      <PersonAvatar name={profile.name} imageUrl={profile.imageUrl} size="xl" tone="strong" />
-      <div className="min-w-0 flex-1">
-        <h3 className="font-semibold" style={{ color: "var(--app-text)" }}>
-          {profile.name}
-        </h3>
-        <Link
-          to={profile.handle ? profilePath(profile.handle) : `/profile/${profile._id}`}
-          className="inline-flex max-w-full items-center gap-1 text-sm font-medium hover:underline"
-          style={{ color: "var(--app-accent-ink)" }}
-        >
-          {/* A 30-letter handle is wider than a phone leaves beside the pencil. */}
-          <span className="truncate">{profile.handle ? `@${profile.handle}` : "See your page"}</span>
-          <ArrowUpRight size={14} className="shrink-0" aria-hidden />
-        </Link>
-        <p className="mt-1 text-sm line-clamp-2" style={{ color: "var(--app-text-dim)" }}>
-          {profile.interests?.join(", ") || "No roles set"}
-        </p>
+    <div>
+      <div className="flex items-start justify-between gap-4">
+        <PersonAvatar name={profile.name} imageUrl={profile.imageUrl} size="xl" shape="tile" tone="strong" />
+        <div className="flex items-center gap-1">
+          <MyProfileIcons profileId={profile._id} />
+          <button
+            type="button"
+            onClick={onEdit}
+            aria-label="Edit profile"
+            title="Edit profile"
+            className={OWN_PAGE_ICON}
+            style={OWN_PAGE_BUTTON_STYLE}
+          >
+            <PencilSimple size={18} aria-hidden />
+          </button>
+        </div>
       </div>
-      <button
-        type="button"
-        onClick={onEdit}
-        aria-label="Edit profile"
-        title="Edit profile"
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-colors hover:border-[var(--app-accent)]"
-        style={{ backgroundColor: "var(--app-surface-raised)", borderColor: "var(--app-hairline)", color: "var(--app-text)" }}
+      <h3 className="mt-4 text-xl font-semibold" style={{ color: "var(--app-text)" }}>
+        {profile.name}
+      </h3>
+      <Link
+        to={profile.handle ? profilePath(profile.handle) : `/profile/${profile._id}`}
+        className="inline-flex max-w-full items-center gap-1 text-sm font-medium hover:underline"
+        style={{ color: "var(--app-accent-ink)" }}
       >
-        <PencilSimple size={18} aria-hidden />
-      </button>
+        {/* A 30-letter handle is wider than a narrow phone. */}
+        <span className="truncate">{profile.handle ? `@${profile.handle}` : "See your page"}</span>
+        <ArrowUpRight size={14} className="shrink-0" aria-hidden />
+      </Link>
+      <p className="mt-2 text-sm line-clamp-2" style={{ color: "var(--app-text-dim)" }}>
+        {disciplines.join(" · ") || "No roles set"}
+      </p>
+      {profile.bio?.trim() && (
+        <p className="mt-2 text-[15px] leading-relaxed whitespace-pre-line line-clamp-4" style={{ color: "var(--app-text)" }}>
+          {profile.bio}
+        </p>
+      )}
     </div>
   );
 }
@@ -2268,6 +2300,10 @@ function ArtifactsSection({
   const uploadedStorageId = piece.storageId;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sectionRef = useRef<HTMLDivElement>(null);
+  // A card's round icon button: 36px, white on a dark glass circle, so it
+  // stays visible on a pale picture.
+  const iconButton =
+    "w-9 h-9 shrink-0 bg-black/45 backdrop-blur-sm rounded-full flex items-center justify-center text-white";
 
   // Auto-start editing if editArtifactId is provided
   useEffect(() => {
@@ -2578,7 +2614,8 @@ function ArtifactsSection({
 
       {/* Artifacts Grid */}
       {artifacts && artifacts.length > 0 ? (
-        <div className="grid grid-cols-2 gap-3">
+        // Two across on a phone, three from `sm` so 4:5 cards don't tower.
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {artifacts.map((artifact) => {
             const typeInfo = ARTIFACT_TYPES.find(
               (t) => t.value === artifact.type,
@@ -2589,11 +2626,14 @@ function ArtifactsSection({
             // is never an embed. The tile shows a still, never a player: this
             // grid used to render one live Instagram player per reel.
             const embed = toEmbedUrl(artifact.mediaUrl);
+            // What the card's buttons are for, said to a screen reader.
+            const cardName = artifact.title || typeInfo?.label || artifact.type;
 
             return (
               <div
                 key={artifact._id}
-                className="relative group aspect-square rounded-xl overflow-hidden"
+                className="relative group rounded-xl overflow-hidden"
+                style={{ aspectRatio: COVER_ASPECT }}
               >
                 {/* Background */}
                 {artifact.type === "image" && mediaUrl ? (
@@ -2638,76 +2678,48 @@ function ArtifactsSection({
                 {/* Content */}
                 <div className="absolute inset-0 p-3 flex flex-col justify-between">
                   <div className="flex justify-end">
-                    {/* Actions (show on hover) */}
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {/* Actions: always there on a touch screen (no hover to
+                        reveal them); a mouse sees them on hover, or when one
+                        has keyboard focus. */}
+                    <div className="flex gap-1.5 opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:group-focus-within:opacity-100 transition-opacity">
                       {/* Refresh preview button for link-type artifacts */}
                       {artifact.type === "link" && artifact.mediaUrl && (
                         <button
                           onClick={() => handleRefreshPreview(artifact._id)}
                           disabled={refreshingId === artifact._id}
-                          className="w-7 h-7 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-[var(--app-accent)] hover:text-[var(--garden-ink)] disabled:opacity-50"
-                          title="Refresh preview image"
+                          className={`${iconButton} hover:bg-[var(--app-accent)] hover:text-[var(--garden-ink)] disabled:opacity-50`}
+                          aria-label={`Refresh preview of ${cardName}`}
+                          title="Refresh preview"
                         >
                           {refreshingId === artifact._id ? (
-                            <div className="w-3.5 h-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                            <div className="w-4 h-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                           ) : (
-                            <svg
-                              className="w-3.5 h-3.5"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                              />
-                            </svg>
+                            <ArrowClockwise size={18} aria-hidden />
                           )}
                         </button>
                       )}
                       <button
                         onClick={() => startEdit(artifact)}
-                        className="w-7 h-7 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-white/30"
+                        className={`${iconButton} hover:bg-black/65`}
+                        aria-label={`Edit ${cardName}`}
+                        title="Edit"
                       >
-                        <svg
-                          className="w-3.5 h-3.5"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                          />
-                        </svg>
+                        <PencilSimple size={18} aria-hidden />
                       </button>
                       <button
                         onClick={() => handleDelete(artifact._id)}
-                        className="w-7 h-7 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-red-500/80"
+                        className={`${iconButton} hover:bg-red-500/80`}
+                        aria-label={`Delete ${cardName}`}
+                        title="Delete"
                       >
-                        <svg
-                          className="w-3.5 h-3.5"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
+                        <X size={18} aria-hidden />
                       </button>
                     </div>
                   </div>
 
-                  {/* Title/Content */}
-                  <div>
+                  {/* Title/Content: a soft shadow keeps white words readable
+                      on a pale picture, where the gradient is thin. */}
+                  <div className="text-shadow-md text-shadow-black/60">
                     {artifact.title && (
                       <p className="text-white font-medium text-sm line-clamp-2">
                         {artifact.title}

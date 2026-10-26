@@ -2,7 +2,7 @@
 // share kit (ProfileShareKit), which is fetched on the first press: it
 // carries the QR code library, which the page itself never needs.
 
-import { QrCode } from "@phosphor-icons/react";
+import { Export } from "@phosphor-icons/react";
 import { lazy, Suspense, useState, type ComponentProps } from "react";
 import type { ProfileShareKit as Kit, ShareKitProfile } from "./ProfileShareKit";
 import type { ProjectRow } from "../lib/profileShare";
@@ -26,7 +26,7 @@ export function ShareProfileButton({
   projects: readonly ProjectRow[] | undefined;
   /** The panel opened: the one-time hint has done its job (ShareHint). */
   onOpen?: () => void;
-  /** The profile page's pill, or Settings' tile (ownPageButton.ts). */
+  /** The profile page's pill or phone tile, or Settings' icon (ownPageButton.ts). */
   look?: OwnPageLook;
 }) {
   const [open, setOpen] = useState(false);
@@ -39,10 +39,11 @@ export function ShareProfileButton({
           onOpen?.();
         }}
         aria-haspopup="dialog"
+        title={look === "icon" ? OWN_PAGE_LABELS.share.plain : undefined}
         className={OWN_PAGE_LOOK[look]}
         style={OWN_PAGE_BUTTON_STYLE}
       >
-        <OwnPageFace look={look} icon={QrCode} label={OWN_PAGE_LABELS.share} />
+        <OwnPageFace look={look} icon={Export} label={OWN_PAGE_LABELS.share} />
       </button>
       {open && (
         <Suspense fallback={null}>

@@ -88,6 +88,16 @@ export const toggle = mutation({
       if (args.targetType === "project" || args.targetType === "role") {
         await assertSaveable(ctx, userId, args.targetType, args.targetId);
       }
+      // `targetId` here is a PROFILE id, so hop through the profile row to
+      // reach its owner's users id; `userId` (the actor) is already one.
+      // normalizeId, so another table's id never passes for a profile.
+      const followedId = args.targetType === "profile" ? ctx.db.normalizeId("profiles", args.targetId) : null;
+      const followedProfile = followedId ? await ctx.db.get(followedId) : null;
+      // Nobody follows themselves (Rick, 2026-10-26). An old self-follow
+      // can still be unfollowed above.
+      if (followedProfile && followedProfile.userId === userId) {
+        throw new ConvexError({ code: "own_profile", reason: "That's your own profile." });
+      }
       const now = Date.now();
       await ctx.db.insert("favorites", {
         userId,
@@ -97,28 +107,21 @@ export const toggle = mutation({
       });
 
       // A profile favorite is a follow (docs/features/following.md). Tell
-      // the followed person once, on create. `targetId` here is a PROFILE
-      // id, so hop through the profile row to reach the recipient's users
-      // id; `userId` (the actor) is already a users id. The link points at
-      // the follower's profile, so we need the actor's profile id too.
+      // the followed person once, on create. The link points at the
+      // follower's profile, so we need the actor's profile id too.
       // Hearts and Shortlist saves tell nobody.
-      if (args.targetType === "profile") {
-        const followedProfile = await ctx.db.get(
-          args.targetId as Id<"profiles">,
-        );
-        if (followedProfile && followedProfile.userId !== userId) {
-          const actorProfile = await getProfileByUserId(ctx, userId);
-          const followerName = actorProfile?.name || "Someone";
-          await insertNotification(ctx, {
-            userId: followedProfile.userId,
-            type: "new_follower",
-            title: `${followerName} is following your work`,
-            message: "",
-            linkUrl: actorProfile ? `/profile/${actorProfile._id}` : undefined,
-            relatedUserId: userId,
-            createdAt: now,
-          });
-        }
+      if (followedProfile) {
+        const actorProfile = await getProfileByUserId(ctx, userId);
+        const followerName = actorProfile?.name || "Someone";
+        await insertNotification(ctx, {
+          userId: followedProfile.userId,
+          type: "new_follower",
+          title: `${followerName} is following your work`,
+          message: "",
+          linkUrl: actorProfile ? `/profile/${actorProfile._id}` : undefined,
+          relatedUserId: userId,
+          createdAt: now,
+        });
       }
       return { favorited: true };
     }
