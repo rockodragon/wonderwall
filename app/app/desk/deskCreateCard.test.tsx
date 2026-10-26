@@ -6,9 +6,14 @@ import { getFunctionName } from "convex/server";
 // The desk with convex/react stubbed: queries answer from `answers` by function
 // name, as the real ones answer by the signed-in member's data. A skipped query
 // stays undefined, as it does for real.
-const mock = vi.hoisted(() => ({ answers: {} as Record<string, unknown> }));
+// `asked` keeps the arguments each query was last called with.
+const mock = vi.hoisted(() => ({ answers: {} as Record<string, unknown>, asked: {} as Record<string, unknown> }));
 vi.mock("convex/react", () => ({
-  useQuery: (fn: Parameters<typeof getFunctionName>[0], args?: unknown) => (args === "skip" ? undefined : mock.answers[getFunctionName(fn)]),
+  useQuery: (fn: Parameters<typeof getFunctionName>[0], args?: unknown) => {
+    if (args === "skip") return undefined;
+    mock.asked[getFunctionName(fn)] = args;
+    return mock.answers[getFunctionName(fn)];
+  },
   useMutation: () => async () => ({ ok: true }),
   useAction: () => async () => ({ ok: true }),
   useConvexAuth: () => ({ isAuthenticated: true, isLoading: false }),
@@ -43,10 +48,12 @@ const event = (i: number) => ({
 
 const FUND = { org: { slug: "abiding-practice", name: "Abiding Practice" }, balanceCents: 250000 };
 
-type World = { projects?: unknown[]; events?: unknown[]; fund?: unknown };
+type World = { projects?: unknown[]; events?: unknown[]; fund?: unknown; directory?: unknown };
+
+const NOBODY = { people: [], total: 0, visitor: false };
 
 /** The desk at `url`, as the page it renders. */
-function desk(url: string, { projects = [], events = [], fund = null }: World = {}) {
+function desk(url: string, { projects = [], events = [], fund = null, directory = NOBODY }: World = {}) {
   mock.answers = {
     "updates:listMine": [],
     "events:list": events,
@@ -55,7 +62,7 @@ function desk(url: string, { projects = [], events = [], fund = null }: World = 
     "favorites:getMyFavorites": { events: [], profiles: [] },
     "garden/giving:getMyGiving": { open: [] },
     "profiles:getMyProfile": { _id: "me", name: "Rick Moy", isAdmin: false },
-    "profiles:search": [],
+    "profiles:directory": directory,
     "organizations:list": [],
   };
   return renderToString(
@@ -231,5 +238,43 @@ describe("where the card is not", () => {
 
   it.each(["/today", "/today?view=today", "/today?view=people", "/today?view=shortlist", "/today?view=shortlist&area=projects"])("%s", (url) => {
     expect(createCards(desk(url, world))).toEqual([]);
+  });
+});
+
+// ——— People › Everyone, a page at a time (convex/directoryRules.ts) ———
+
+describe("the desk's People › Everyone pages", () => {
+  const people = (n: number) => Array.from({ length: n }, (_, i) => ({ _id: `p${i}`, name: `Person ${i}`, imageUrl: null, interests: ["Music"] }));
+
+  it("asks the directory for one page, with the search and Discipline it is under", () => {
+    desk("/today?view=people&q=maya&interests=Film,Music");
+    expect(mock.asked["profiles:directory"]).toMatchObject({ query: "maya", interests: ["Film", "Music"], limit: 24 });
+  });
+
+  it("ends with Load more while a member has more to see, and counts everyone", () => {
+    const html = desk("/today?view=people", { directory: { people: people(24), total: 30, visitor: false } });
+    expect(html).toMatch(/<button[^>]*>Load more<\/button>/);
+    expect(words(html)).toContain("30 people");
+    expect(words(html)).not.toContain("Join free");
+  });
+
+  it("ends with the way to join for a visitor, coming back to the desk", () => {
+    const html = desk("/today?view=people", { directory: { people: people(24), total: 30, visitor: true } });
+    expect(words(html)).toContain("6 more creatives here. Join free to see everyone.");
+    expect(html).toContain(`href="/signup?redirect=${encodeURIComponent("/today?view=people")}"`);
+    expect(html).not.toContain(">Load more<");
+  });
+
+  it("ends with nothing once everyone is on show", () => {
+    const html = desk("/today?view=people", { directory: { people: people(5), total: 5, visitor: true } });
+    expect(html).not.toContain(">Load more<");
+    expect(words(html)).not.toContain("more creatives here");
+  });
+
+  it("Following is the member's own list: no directory, no Load more", () => {
+    mock.asked = {};
+    const html = desk("/today?view=people&tab=following", { directory: { people: people(24), total: 30, visitor: false } });
+    expect(mock.asked["profiles:directory"]).toBeUndefined();
+    expect(html).not.toContain(">Load more<");
   });
 });

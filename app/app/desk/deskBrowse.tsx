@@ -42,6 +42,7 @@ import { api } from "../../convex/_generated/api";
 import { ChevronDownIcon, LocationIcon } from "../components/icons";
 import { filterButtonLabel } from "../components/FilterMenu";
 import { formatMoney } from "../garden/ui";
+import type { DirectoryEnd } from "../lib/browse/directoryPage";
 import { visibleChips } from "../lib/browse/foldChips";
 import { INTEREST_OPTIONS } from "../lib/browse/peopleFilter";
 import {
@@ -56,6 +57,7 @@ import {
 } from "../lib/browse/projectsFilter";
 import { GARDEN_SLUG } from "../lib/communitySlugs";
 import { SOPHIA_FUND_SLUG } from "../lib/namedFunds";
+import { useDirectory } from "../lib/useDirectory";
 import { useFilterState } from "../lib/useFilterState";
 import { NEAR_ME_RADIUS_OPTIONS, useNearMe } from "../lib/useNearMe";
 import type { DeskCard, DeskEventInput, DeskOrgInput, DeskProjectInput } from "./deskCards";
@@ -87,6 +89,14 @@ export type DeskBrowse = {
   /** The "+" card that leads the view's grid, or null when the view has none
    * (People, Today, and Events outside Upcoming). */
   create: DeskCreateLink | null;
+  /** What follows People › Everyone's last card: Load more for a member, the
+   * way to join for a visitor. null when everyone who matches is on show,
+   * and on every other list (lib/browse/directoryPage.ts). */
+  end: DirectoryEnd;
+  /** Load more's tap: one more page of people. */
+  loadMore: () => void;
+  /** The next page is on its way. */
+  loadingMore: boolean;
 };
 
 // ——————————————————————————————————————————————————————————————
@@ -293,14 +303,6 @@ function useNearControls(): NearControls | null {
 // The cards
 // ——————————————————————————————————————————————————————————————
 
-/** What the last answer was while the next one loads, so typing in the search
- * doesn't blank the grid. A different key (another community) starts clean. */
-function useStale<T>(key: string, value: T | undefined): T | undefined {
-  const last = useRef<{ key: string; value: T } | null>(null);
-  if (value !== undefined) last.current = { key, value };
-  return value ?? (last.current?.key === key ? last.current.value : undefined);
-}
-
 /** Cards for a browse view under its current URL filters. */
 export function useDeskBrowse(view: BrowseView, community: DeskCommunity, fallback: DeskCard[] | undefined): DeskBrowse {
   const url = useBrowseUrl(view);
@@ -353,19 +355,17 @@ export function useDeskBrowse(view: BrowseView, community: DeskCommunity, fallba
     [geo.nearMe, geo.userPos, geo.radius],
   );
 
-  // People. Everyone is the same query /people runs (the Garden's members, or
-  // everyone in The Exchange) with the organizations mixed in; Following is
-  // the member's own list; Organizations is the /people Organizations tab.
+  // People. Everyone is the directory /people shows (the Garden's members, or
+  // everyone in The Exchange), a page at a time and already searched, cut by
+  // Discipline and Near me on the server, with the organizations mixed in;
+  // Following is the member's own list; Organizations is the /people
+  // Organizations tab.
   const following = view === "people" && tab === "following";
   const orgsOnly = view === "people" && tab === "orgs";
   const communitySlug = community === "garden" ? GARDEN_SLUG : undefined;
-  const directory = useStale(
-    `people:${communitySlug}`,
-    useQuery(
-      api.profiles.search,
-      peopleOn && !following && !orgsOnly ? { query: searched || undefined, communitySlug } : "skip",
-    ) as ProfileRow[] | undefined,
-  );
+  const everyoneOn = peopleOn && !following && !orgsOnly;
+  const directory = useDirectory(everyoneOn ? { query: searched, interests, communitySlug, near } : "skip");
+  const directoryRows: ProfileRow[] | undefined = directory.people;
   // Every organization, as the /people Organizations tab asks for them. They
   // belong to no community, so the desk's community switch doesn't scope them.
   const orgRows = useQuery(api.organizations.list, peopleOn && !following ? {} : "skip") as DeskOrgInput[] | undefined;
@@ -392,10 +392,10 @@ export function useDeskBrowse(view: BrowseView, community: DeskCommunity, fallba
       const followed: ProfileRow[] | undefined = favorites
         ? favorites.profiles.flatMap((f) => (f ? [{ ...f.profile, _id: String(f.profile._id), interests: [...f.profile.interests] }] : []))
         : undefined;
-      const rows = following ? followed : directory;
+      const rows = following ? followed : directoryRows;
       if (!rows || !favorites) return undefined;
       const followedIds = new Set(favorites.profiles.flatMap((f) => (f ? [String(f.profile._id)] : [])));
-      const people = peopleCards({ rows, followedIds, following, query: searched, interests, near });
+      const people = peopleCards({ rows, followedIds, following, query: searched, interests });
       if (following) return people;
       if (!orgRows) return undefined;
       // Discipline and Near me are about people: an organization has neither.
@@ -420,7 +420,7 @@ export function useDeskBrowse(view: BrowseView, community: DeskCommunity, fallba
       return eventsCards({ rows, tab, query: searched, community, near, favoriteIds, now: Date.now() });
     }
     return undefined;
-  }, [peopleOn, projectsOn, eventsOn, favorites, following, orgsOnly, directory, orgRows, searched, interests, near, projectRows, fundPage, community, lens, stage, past, pastRows, upcomingRows, tab]);
+  }, [peopleOn, projectsOn, eventsOn, favorites, following, orgsOnly, directoryRows, orgRows, searched, interests, near, projectRows, fundPage, community, lens, stage, past, pastRows, upcomingRows, tab]);
 
   const filtered =
     !!searched ||
@@ -441,11 +441,16 @@ export function useDeskBrowse(view: BrowseView, community: DeskCommunity, fallba
   }, [clearParams]);
 
   // People mixes organizations in, so its count and its empty line say both.
+  // Everyone counts every person who matches, not just the pages loaded.
+  const peopleTotal = everyoneOn ? directory.total : undefined;
   const count = useMemo(() => {
     if (view !== "people" || !cards) return null;
     const orgs = cards.filter((c) => c.kind === "org").length;
-    return peopleCountLabel(cards.length - orgs, orgs, orgsOnly);
-  }, [view, cards, orgsOnly]);
+    return peopleCountLabel(peopleTotal ?? cards.length - orgs, orgs, orgsOnly);
+  }, [view, cards, orgsOnly, peopleTotal]);
+  // How Everyone's list ends: Load more, or (signed out) the way to join.
+  const end = everyoneOn && built ? directory.end : null;
+  const { loadMore, loading: loadingMore } = directory;
   const noun = view === "people" ? peopleNoun(tab, interests.length > 0 || !!near) : null;
 
   // Only while this view is on the desk: the hook is pointed at Events on any
@@ -453,7 +458,10 @@ export function useDeskBrowse(view: BrowseView, community: DeskCommunity, fallba
   const { searchParams } = url;
   const create = useMemo(() => (onDesk ? browseCreateCard(view, searchParams) : null), [onDesk, view, searchParams]);
 
-  return useMemo(() => ({ cards, filtered, clear, count, noun, create }), [cards, filtered, clear, count, noun, create]);
+  return useMemo(
+    () => ({ cards, filtered, clear, count, noun, create, end, loadMore, loadingMore }),
+    [cards, filtered, clear, count, noun, create, end, loadMore, loadingMore],
+  );
 }
 
 // ——————————————————————————————————————————————————————————————

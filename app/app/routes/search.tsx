@@ -1,6 +1,6 @@
 import { useConvexAuth, useQuery } from "convex/react";
-import { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { EventCard } from "../components/EventCard";
 import { SearchInput } from "../components/SearchInput";
@@ -9,24 +9,16 @@ import { FilterButton, FilterPanel, filterButtonLabel } from "../components/Filt
 import { useFilterState } from "../lib/useFilterState";
 import { CommunityContextLine, useCommunityContext } from "../components/CommunityFilter";
 import { NEAR_ME_RADIUS_OPTIONS, useNearMe } from "../lib/useNearMe";
-import { INTEREST_OPTIONS, filterProfiles } from "../lib/browse/peopleFilter";
+import { INTEREST_OPTIONS } from "../lib/browse/peopleFilter";
 import { distanceLabel } from "../lib/browse/nearMe";
+import { JOIN_TO_SEE_EVERYONE, moreCreativesLine } from "../lib/browse/directoryPage";
+import { signupHref } from "../lib/pendingIntent";
+import { useDirectory, type DirectoryPerson } from "../lib/useDirectory";
 import { LocationIcon } from "../components/icons";
 import { InviteButton } from "../components/InviteCTA";
 import { OrgDirectory } from "../components/OrgDirectory";
 import { PersonAvatar } from "../components/PersonAvatar";
 import { PAGE_WIDTH } from "../lib/pageWidth";
-
-type ProfileResult = {
-  _id: string;
-  name: string;
-  orgName?: string;
-  imageUrl?: string;
-  interests: string[];
-  location?: string;
-  coordinates?: { lat: number; lng: number };
-  wondering: { prompt: string; _id: string; imageUrl: string | null } | null;
-};
 
 // People has two tabs (docs/features/organizations.md): people, and the
 // organizations they belong to. Same ?tab= pattern as Events; People is the
@@ -96,26 +88,28 @@ export default function Search() {
   // Get filter label for button
   const filterLabel = filterButtonLabel(INTEREST_OPTIONS, activeFilters);
 
-  // Text-based search for profiles (includes name, bio, interests).
-  // No interest is passed server-side — at friend-group scale the whole
-  // multi-select filter runs client-side below, same as Events/Projects.
-  // Community context (community-ux.md §2): People is segmented like every
-  // other browse page — the switcher's community scopes who shows up here.
+  // The directory (convex/profiles.ts directory), a page at a time: the text
+  // search (name, bio, interests, place, organization, what they wonder),
+  // Discipline and Near me all run on the server, so each page is cut from
+  // everyone who matches. Members load more; a visitor sees one page and how
+  // many more there are. Community context (community-ux.md §2): People is
+  // segmented like every other browse page — the switcher's community
+  // scopes who shows up here.
   const community = useCommunityContext();
   const communitySlug = community.selected === "all" ? undefined : community.selected;
 
-  const profiles = useQuery(
-    api.profiles.search,
-    orgsTab ? "skip" : { query: debouncedQuery || undefined, communitySlug },
-  ) as ProfileResult[] | undefined;
-
-  const filteredProfiles = useMemo(() => {
-    if (!profiles) return profiles;
-    return filterProfiles(profiles, {
-      interests: activeFilters,
-      near: nearMe && userPos ? { pos: userPos, radius } : null,
-    });
-  }, [profiles, activeFilters, nearMe, userPos, radius]);
+  const directory = useDirectory(
+    orgsTab
+      ? "skip"
+      : {
+          query: debouncedQuery,
+          interests: activeFilters,
+          communitySlug,
+          near: nearMe && userPos ? { pos: userPos, radius } : null,
+        },
+  );
+  const filteredProfiles = directory.people;
+  const here = useLocation();
 
   // Search events when there's a query
   const events = useQuery(
@@ -123,7 +117,7 @@ export default function Search() {
     debouncedQuery && !orgsTab ? { query: debouncedQuery, communitySlug } : "skip",
   );
 
-  const loading = profiles === undefined;
+  const loading = filteredProfiles === undefined;
 
   return (
     <div className={`${PAGE_WIDTH.list} mx-auto p-4 sm:p-6`}>
@@ -305,6 +299,33 @@ export default function Search() {
                       <ProfileCard key={profile._id} profile={profile} />
                     ))}
                   </div>
+                  {/* A member with more to see loads the next page; a visitor
+                      has seen what they may, and is shown the way to join. */}
+                  {directory.end?.kind === "more" && (
+                    <div className="mt-6 flex justify-center">
+                      <button
+                        type="button"
+                        onClick={directory.loadMore}
+                        disabled={directory.loading}
+                        className="px-5 py-3 rounded-xl border font-medium transition-colors hover:border-[var(--app-accent)] disabled:opacity-60"
+                        style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)", color: "var(--app-text)" }}
+                      >
+                        {directory.loading ? "Loading…" : "Load more"}
+                      </button>
+                    </div>
+                  )}
+                  {directory.end?.kind === "join" && (
+                    <Link
+                      to={signupHref(here.pathname + here.search)}
+                      className="mt-6 block p-4 rounded-xl border text-center text-sm transition-colors hover:border-[var(--app-accent)]"
+                      style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)", color: "var(--app-text)" }}
+                    >
+                      {moreCreativesLine(directory.end.remaining)}{" "}
+                      <span className="font-medium" style={{ color: "var(--app-accent-ink)" }}>
+                        {JOIN_TO_SEE_EVERYONE}
+                      </span>
+                    </Link>
+                  )}
                 </section>
               )}
 
@@ -316,7 +337,7 @@ export default function Search() {
   );
 }
 
-function ProfileCard({ profile }: { profile: ProfileResult & { _distance?: number } }) {
+function ProfileCard({ profile }: { profile: DirectoryPerson }) {
   const distLabel = distanceLabel(profile._distance);
 
   return (

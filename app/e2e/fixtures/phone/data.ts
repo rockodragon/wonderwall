@@ -295,9 +295,10 @@ export const answers: Record<string, unknown | ((args: unknown) => unknown)> = {
   "garden/projectTeam:listAffiliations": myProjects,
   "invites:getInviteStats": null,
   "profiles:getMyProfile": me,
-  "profiles:search": (args: unknown) => {
+  "profiles:directory": (args: unknown) => {
     const q = String((args as { query?: string } | undefined)?.query ?? "").toLowerCase();
-    return q ? people.filter((p) => p.name.toLowerCase().includes(q)) : people;
+    const found = q ? people.filter((p) => p.name.toLowerCase().includes(q)) : people;
+    return { people: found, total: found.length, visitor: false };
   },
   "messaging:getUnreadCount": 1,
   "notifications:getUnreadCount": 1,

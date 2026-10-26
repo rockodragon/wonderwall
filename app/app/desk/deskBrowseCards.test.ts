@@ -49,19 +49,23 @@ describe("peopleCards", () => {
     person(2, { interests: ["Film"], coordinates: { lat: 40.7, lng: -74 } }),
     person(3, { name: "Maya Lin", interests: ["Visual Art"] }),
   ];
-  const base = { rows, followedIds: new Set(["u3"]), following: false, query: "", interests: [] as string[], near: null };
+  const base = { rows, followedIds: new Set(["u3"]), following: false, query: "", interests: [] as string[] };
 
   it("shows everyone the server returned, marking the ones the member follows", () => {
     const cards = peopleCards(base);
     expect(ids(cards)).toEqual(["person:u1", "person:u2", "person:u3"]);
     expect(cards.map((c) => c.face.kicker)).toEqual(["", "", "FOLLOWING"]);
   });
-  it("takes the Discipline filter and Near me the way /people does", () => {
-    expect(ids(peopleCards({ ...base, interests: ["Film", "Visual Art"] }))).toEqual(["person:u2", "person:u3"]);
-    expect(ids(peopleCards({ ...base, near: { pos: here, radius: 25 } }))).toEqual(["person:u1"]);
+  it("leaves Everyone's page as the server cut it: Discipline and Near me ran there, over everyone", () => {
+    expect(ids(peopleCards({ ...base, interests: ["Film"], query: "nobody" }))).toEqual(["person:u1", "person:u2", "person:u3"]);
+    const measured = peopleCards({ ...base, rows: [{ ...rows[0], _distance: 3.2 }] });
+    expect(measured[0].face.foot).toBe("3 mi · Music");
+  });
+  it("takes the Discipline filter on the people you follow", () => {
+    expect(ids(peopleCards({ ...base, following: true, interests: ["Film", "Visual Art"] }))).toEqual(["person:u2", "person:u3"]);
   });
   it("searches the people you follow by name and interest, with no Near me", () => {
-    const followed = { ...base, following: true, near: { pos: here, radius: 1 } };
+    const followed = { ...base, following: true };
     expect(ids(peopleCards({ ...followed, query: "maya" }))).toEqual(["person:u3"]);
     expect(ids(peopleCards({ ...followed, query: "film" }))).toEqual(["person:u2"]);
     expect(ids(peopleCards(followed))).toEqual(["person:u1", "person:u2", "person:u3"]);
@@ -128,7 +132,7 @@ describe("spreadEvenly", () => {
 
 describe("everyoneCards", () => {
   const rows = [person(1), person(2, { interests: ["Film"] }), person(3), person(4)];
-  const people = peopleCards({ rows, followedIds: new Set<string>(), following: false, query: "", interests: [], near: null });
+  const people = peopleCards({ rows, followedIds: new Set<string>(), following: false, query: "", interests: [] });
   const orgs = [org(1, { name: "Reveal Brand" }), org(2, { name: "Grove" })];
 
   it("mixes the organizations in among the people", () => {
@@ -148,6 +152,21 @@ describe("everyoneCards", () => {
   it("does not change the people's own cards", () => {
     const cards = everyoneCards(people, orgs, { query: "", peopleOnly: false });
     expect(cards.filter((c) => c.kind === "person")).toEqual(people);
+  });
+  it("keeps the organizations in the first page, so Load more only adds people below", () => {
+    const many = peopleCards({
+      rows: Array.from({ length: 72 }, (_, i) => person(i + 1)),
+      followedIds: new Set<string>(),
+      following: false,
+      query: "",
+      interests: [],
+    });
+    const firstPage = everyoneCards(many.slice(0, 24), orgs, { query: "", peopleOnly: false });
+    const threePages = everyoneCards(many, orgs, { query: "", peopleOnly: false });
+    expect(ids(threePages.slice(0, firstPage.length))).toEqual(ids(firstPage));
+    expect(ids(threePages.slice(firstPage.length))).toEqual(ids(many.slice(24)));
+    expect(ids(firstPage)).toContain("org:o1");
+    expect(ids(firstPage)).toContain("org:o2");
   });
 });
 
