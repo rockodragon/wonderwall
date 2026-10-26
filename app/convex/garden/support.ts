@@ -11,6 +11,11 @@
 // resource offers — no money, real the moment they're posted — and keeps its
 // original financial branch for the operator/manual lane (confirmSupport).
 //
+// FF_BACKING (app/lib/featureFlags.ts) holds every financial path closed
+// until payouts and Stripe's crowdfunding approval are settled: startBacking
+// and supportProject's financial types refuse through backingGate.ts.
+// Cheers and offers of help are not money and are never gated.
+//
 // STATUS VOCABULARY (a real, pre-existing inconsistency, named here rather
 // than papered over): schema.ts documents projectSupport.status as
 // "pending" | "confirmed", supportProject writes "pledged" for financial
@@ -32,6 +37,7 @@ import { guestBackingThrottled } from "./stripeHandlers";
 import { isHidden } from "../moderationRules";
 import { projectVisibleTo } from "./projectVisibility";
 import { emailFirstCheer, isFirstCheerReceived } from "../engagement/firstCheer";
+import { requireBackingOpen } from "./backingGate";
 
 const FINANCIAL_TYPES = new Set(["financial_one_time", "financial_recurring", "financial_annual"]);
 const VALID_TYPES = new Set([...FINANCIAL_TYPES, "encouragement", "resource"]);
@@ -112,6 +118,9 @@ export const supportProject = mutation({
     if (!VALID_TYPES.has(args.type)) {
       throw new ConvexError({ code: "invalid_type", reason: "Not a real support type." });
     }
+    // A money type is a backing, however it got here (FF_BACKING). Cheers and
+    // offers of help are not, and stay open.
+    if (FINANCIAL_TYPES.has(args.type)) requireBackingOpen();
 
     const project = await ctx.db.get(args.projectId);
     if (!project) throw new ConvexError({ code: "not_found", reason: "No such project." });
@@ -219,6 +228,10 @@ export const startBacking = internalMutation({
     interval: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // The action refuses first; this keeps the row from being written by any
+    // other caller while backing is off (FF_BACKING).
+    requireBackingOpen();
+
     const project = await ctx.db.get(args.projectId);
     if (!project || project.status === "archived" || isHidden(project)) return null;
 

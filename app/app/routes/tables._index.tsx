@@ -9,7 +9,8 @@ import {
 import { TableCard } from "../tables/TableCard";
 import { filterTables } from "../tables/presentation";
 import "../tables/tables.css";
-import { FF_TABLES, useFeatureGate } from "../lib/featureFlags";
+import { FF_TABLES } from "../lib/featureFlags";
+import { useFeatureGate } from "../lib/useFeatureGate";
 
 export function meta() {
   return [{ title: "Tables — Creative Exchange" }];

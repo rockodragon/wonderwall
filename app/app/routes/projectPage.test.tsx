@@ -11,6 +11,16 @@ import ProjectDetail from "./projects.$id";
 
 const scene = vi.hoisted(() => ({ signedIn: false, answers: {} as Record<string, unknown> }));
 
+// Backing is off by default (FF_BACKING). The page is drawn with it open
+// unless a test shuts it, so the Back this path stays covered.
+const flags = vi.hoisted(() => ({ backing: true }));
+vi.mock("../lib/featureFlags", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../lib/featureFlags")>()),
+  get FF_BACKING() {
+    return flags.backing;
+  },
+}));
+
 vi.mock("convex/react", () => ({
   useQuery: (ref: unknown, args?: unknown) =>
     args === "skip" ? undefined : scene.answers[getFunctionName(ref as never)],
@@ -53,6 +63,7 @@ function page({
   roles = [],
   accepting = false,
   url = "/projects/p1",
+  answers = {},
 }: {
   viewer: "visitor" | "owner" | "member" | "admin";
   project?: Record<string, unknown>;
@@ -63,6 +74,8 @@ function page({
    * finished project, which with only its lead has no Team tab. */
   accepting?: boolean;
   url?: string;
+  /** More answers, by function name. */
+  answers?: Record<string, unknown>;
 }): string {
   scene.signedIn = viewer !== "visitor";
   const me =
@@ -84,6 +97,7 @@ function page({
     "garden/stories:listProjectUpdates": updates,
     "garden/support:listSupportForProject": [],
     "favorites:isFavorited": false,
+    ...answers,
   };
   return renderToString(
     <MemoryRouter initialEntries={[url]}>
@@ -100,6 +114,7 @@ const tabs = (html: string) => [...html.matchAll(/role="tab"[^>]*>([^<]+)</g)].m
 afterEach(() => {
   scene.answers = {};
   scene.signedIn = false;
+  flags.backing = true;
 });
 
 describe("the project page, for a signed-out visitor", () => {
@@ -229,5 +244,67 @@ describe("the project page, for a signed-in member", () => {
     const html = page({ viewer: "member" });
     expect(html).toContain('href="/profile/profiles:lead"');
     expect(html).not.toContain("/signup?redirect=");
+  });
+});
+
+describe("the project page while backing is closed (FF_BACKING)", () => {
+  const raising = () => bareProject({ raising: true, goal: 1000, raisedCents: 25_000 });
+
+  it("gives a visitor Cheer and the goal's progress, but nothing to pay with", () => {
+    flags.backing = false;
+    const html = page({ viewer: "visitor", project: raising(), url: "/projects/p1?tab=support" });
+    expect(html).toContain('aria-label="Cheer"');
+    expect(html).not.toContain('aria-label="Back this"');
+    expect(html).not.toContain("back this");
+    expect(html).toContain("Be the first to cheer this on.");
+    // How far it got is information, not a way to pay: it stays.
+    expect(html).toContain(">$250</span> of $1,000<");
+  });
+
+  it("gives a signed-in member the same: Cheer, no Back this", () => {
+    flags.backing = false;
+    const html = page({ viewer: "member", project: raising() });
+    expect(html).toContain('aria-label="Cheer"');
+    expect(html).not.toContain('aria-label="Back this"');
+  });
+
+  it("stops the owner asking for money: no Ask for support step, no goal form, no tiers", () => {
+    flags.backing = false;
+    const next = page({ viewer: "owner" });
+    expect(next).toContain("Next steps");
+    expect(next).toContain("Find people");
+    expect(next).not.toContain("Ask for support");
+    expect(next).not.toContain("people can back it");
+    expect(next).toContain("This is optional.");
+
+    const tab = page({ viewer: "owner", url: "/projects/p1?tab=support" });
+    expect(tab).toContain("No supporters yet");
+    expect(tab).not.toContain("Want money toward this?");
+    expect(tab).not.toContain("Start asking");
+
+    const tiers = page({
+      viewer: "owner",
+      project: raising(),
+      url: "/projects/p1?tab=support",
+      answers: { "garden/patronTiers:listAllTiers": [] },
+    });
+    expect(tiers).not.toContain("Stop asking");
+    expect(tiers).not.toContain("patron tiers");
+  });
+
+  it("still lets the owner ask for money when backing is open", () => {
+    const next = page({ viewer: "owner" });
+    expect(next).toContain("Ask for support");
+    expect(next).toContain("Both of these are optional.");
+    const tab = page({ viewer: "owner", url: "/projects/p1?tab=support" });
+    expect(tab).toContain("Want money toward this?");
+    const tiers = page({
+      viewer: "owner",
+      project: raising(),
+      url: "/projects/p1?tab=support",
+      answers: { "garden/patronTiers:listAllTiers": [] },
+    });
+    expect(tiers).toContain("Stop asking");
+    expect(tiers).toContain("patron tiers");
   });
 });

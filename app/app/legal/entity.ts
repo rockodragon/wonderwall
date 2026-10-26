@@ -49,8 +49,8 @@ export const LEGAL_ENTITY = {
   privacyEmail: "hello@thecreative.exchange",
 
   /** Bump both when either document changes materially. */
-  termsUpdated: "September 2026",
-  termsEffective: "September 1, 2026",
+  termsUpdated: "October 2026",
+  termsEffective: "October 26, 2026",
   privacyUpdated: "October 2026",
   privacyEffective: "October 22, 2026",
   /** The naming policy (routes/legal.names.tsx). */
