@@ -31,9 +31,26 @@ jobs:
       - name: Build
         run: VITE_CONVEX_URL=https://courteous-rabbit-750.convex.cloud npm run build
 
+      # The browser is cached per Playwright version, so most runs download
+      # nothing. No --with-deps: ubuntu-latest already has Chromium's system
+      # libraries (it ships Chrome), and --with-deps spent minutes pulling
+      # CJK fonts and library upgrades from a slow apt mirror (2026-10-26: the
+      # step timed out at 8 minutes on PR #122 before any test ran).
+      - name: Playwright version
+        id: playwright
+        run: echo "version=$(npx playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
       - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         timeout-minutes: 8
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
 
       - name: E2E tests (playwright)
         run: npm run test:e2e
