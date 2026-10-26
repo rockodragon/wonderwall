@@ -10,9 +10,32 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { currentUserId, getProfileByUserId } from "./helpers";
 import { insertNotification } from "./notify";
+import { trackEvent } from "./posthog";
+
+/** One successful follow transition, including its origin. Invite follows
+ * are useful connections but are never evidence of an intentional Follow click. */
+export async function recordFollowChange(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  favorite: Pick<Doc<"favorites">, "targetType" | "targetId" | "origin">,
+  event: "follow_created" | "follow_removed",
+  source: string,
+): Promise<void> {
+  if (favorite.targetType !== "profile") return;
+  const profileId = ctx.db.normalizeId("profiles", favorite.targetId);
+  if (!profileId) return;
+  const profile = await ctx.db.get(profileId);
+  if (profile?.userId === userId) return;
+  await trackEvent(ctx, event, userId, {
+    target_profile_id: profileId,
+    target_user_id: profile?.userId ?? null,
+    origin: favorite.origin ?? "unknown",
+    interaction_source: source,
+  });
+}
 
 /** Short date for "is hosting <title>, <date>" copy (spec §1 #6). Pure so
  * it can be unit-tested; Convex's runtime formats in UTC. */
@@ -149,12 +172,15 @@ export async function followEachOther(
       )
       .first();
     if (existing) continue;
-    await ctx.db.insert("favorites", {
+    const favorite = {
       userId: followerId,
-      targetType: "profile",
+      targetType: "profile" as const,
       targetId: followed._id,
+      origin: "invite" as const,
       createdAt: now,
-    });
+    };
+    await ctx.db.insert("favorites", favorite);
+    await recordFollowChange(ctx, followerId, favorite, "follow_created", "invite");
     created++;
   }
   return created;

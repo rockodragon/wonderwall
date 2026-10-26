@@ -208,7 +208,7 @@ http.route({
 // Configure in the Resend dashboard: Webhooks → add endpoint
 //   URL:    <this deployment's .convex.site origin>/resend/webhook
 //   Events: email.sent, email.delivered, email.delivery_delayed,
-//           email.bounced, email.complained
+//           email.bounced, email.complained, email.failed, email.suppressed
 // Copy the endpoint's signing secret into this deployment's
 // RESEND_WEBHOOK_SECRET env var (starts with "whsec_").
 //
@@ -250,6 +250,9 @@ http.route({
     }
 
     const db: ResendWebhookDb = {
+      async recordEvent(event) {
+        return ctx.runMutation(internal.emailDeliveries.recordProviderEvent, event);
+      },
       async getDelivery(providerId) {
         return await ctx.runQuery(internal.emailDeliveries.getDeliveryByProviderId, { providerId });
       },
@@ -264,7 +267,7 @@ http.route({
       },
     };
 
-    const result = await handleResendEvent(event, db, Date.now());
+    const result = await handleResendEvent(event, db, Date.now(), svixHeaders.svixId ?? undefined);
     if ("unknown" in result && result.unknown) {
       console.log("[resend webhook] unknown email_id — send predates delivery tracking", event.data.email_id);
     }

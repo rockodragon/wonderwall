@@ -6,6 +6,7 @@ import { internal } from "./_generated/api";
 import { getEmailProvider } from "./email/index";
 import { renderNotificationEmail } from "./email/template";
 import { chooseFromName, defaultSenderFor } from "./email/sender";
+import { CONTACT_LEASE_MS, emailSendValidators } from "./emailContactPolicy";
 
 const emailCategoryValidator = v.union(
   v.literal("activity"),
@@ -31,31 +32,18 @@ const emailSenderValidator = v.union(v.literal("platform"), v.literal("community
  * pickSenderCommunity. The sending address is the same either way.
  */
 export const sendNotificationEmail = internalAction({
-  args: {
-    to: v.string(),
-    subject: v.string(),
-    previewText: v.string(),
-    heading: v.string(),
-    body: v.string(),
-    ctaText: v.optional(v.string()),
-    ctaUrl: v.optional(v.string()),
-    category: v.optional(emailCategoryValidator),
-    unsubscribeToken: v.optional(v.string()),
-    sender: v.optional(emailSenderValidator),
-    // The community this email is about; the From name is that community's.
-    communityId: v.optional(v.id("hostOrgs")),
-    // The recipient, when they have an account: with no communityId (or one
-    // that isn't active), the From name is the recipient's own community.
-    recipientUserId: v.optional(v.id("users")),
-  },
+  args: emailSendValidators,
   handler: async (ctx, args) => {
-    const to = args.to.trim().toLowerCase();
-
-    const suppressed = await ctx.runQuery(internal.emailDeliveries.isSuppressed, { email: to });
-    if (suppressed) {
-      console.log(`[email] skipping send to suppressed address: ${to}`);
+    if (!args.contactId) {
+      await ctx.runMutation(internal.emailDeliveries.queueLegacySend, args);
       return;
     }
+    const claim = await ctx.runMutation(internal.emailDeliveries.claimForDispatch, { contactId: args.contactId });
+    if (!claim.claimed) return;
+    // A crashed action leaves a lease, not a permanent sending state. This
+    // replay uses the same provider idempotency key and the next claim rechecks eligibility.
+    await ctx.scheduler.runAfter(CONTACT_LEASE_MS + 1000, internal.emails.sendNotificationEmail, args);
+    const to = claim.to;
 
     // Read the community's name from its row so a rename carries over; when
     // there's no community to name this is null and the default sender name
@@ -72,8 +60,9 @@ export const sendNotificationEmail = internalAction({
 
     const baseUrl = process.env.SITE_URL || "https://thecreative.exchange";
 
-    const unsubscribeUrl = args.unsubscribeToken
-      ? `${baseUrl}/unsubscribe/${args.unsubscribeToken}`
+    const unsubscribeToken = claim.unsubscribeToken ?? args.unsubscribeToken;
+    const unsubscribeUrl = unsubscribeToken
+      ? `${baseUrl}/unsubscribe/${unsubscribeToken}`
       : undefined;
 
     const { html, text } = renderNotificationEmail({
@@ -93,39 +82,37 @@ export const sendNotificationEmail = internalAction({
     // runtime. The frontend can't answer a bodiless POST.
     const httpBase = process.env.CONVEX_SITE_URL;
     const headers: Record<string, string> | undefined =
-      args.unsubscribeToken && httpBase
+      unsubscribeToken && httpBase
         ? {
-            "List-Unsubscribe": `<${httpBase}/unsubscribe/${args.unsubscribeToken}>`,
+            "List-Unsubscribe": `<${httpBase}/unsubscribe/${unsubscribeToken}>`,
             "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
           }
         : undefined;
 
     const provider = getEmailProvider();
-
-    const result = await provider.send({
-      to,
-      subject: args.subject,
-      html,
-      text,
-      headers,
-      fromName,
-    });
-
-    if (!result.ok) {
-      console.error(`Failed to send email via ${provider.name}:`, result.error);
+    if (provider.name === "console") {
+      await ctx.runMutation(internal.emailDeliveries.finishDispatch, {
+        contactId: args.contactId, attempt: claim.attempts, provider: provider.name,
+        error: "email_provider_not_configured", retryable: false,
+      });
       return;
     }
-
-    // The console provider returns no id — nothing to track delivery events
-    // against, so skip recording it.
-    if (result.id) {
-      await ctx.runMutation(internal.emailDeliveries.recordSend, {
-        providerId: result.id,
-        provider: provider.name,
-        to,
-        subject: args.subject,
-        category: args.category,
+    try {
+      const result = await provider.send({
+        to, subject: args.subject, html, text, headers, fromName,
+        idempotencyKey: `contact/${args.contactId}`,
       });
+      const finished = await ctx.runMutation(internal.emailDeliveries.finishDispatch, {
+        contactId: args.contactId, attempt: claim.attempts, provider: provider.name,
+        ...(result.ok ? { providerId: result.id } : { error: result.error, retryable: result.retryable }),
+      });
+      if (finished.retryAt !== null) await ctx.scheduler.runAt(finished.retryAt, internal.emails.sendNotificationEmail, args);
+    } catch {
+      const finished = await ctx.runMutation(internal.emailDeliveries.finishDispatch, {
+        contactId: args.contactId, attempt: claim.attempts, provider: provider.name,
+        error: "email_provider_request_failed", retryable: true,
+      });
+      if (finished.retryAt !== null) await ctx.scheduler.runAt(finished.retryAt, internal.emails.sendNotificationEmail, args);
     }
   },
 });

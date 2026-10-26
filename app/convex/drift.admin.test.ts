@@ -9,6 +9,7 @@
 // What must not change: signed-out reads still answer null / [] / empty.
 
 import { ConvexError } from "convex/values";
+import { getFunctionName } from "convex/server";
 import { describe, expect, it, vi } from "vitest";
 import { makeCtx, run } from "../test-support/convexContext";
 import { expectSignedOutRefusal } from "../test-support/signedOut";
@@ -24,6 +25,10 @@ import { adminList } from "./showcase";
 const ME = "users:me";
 const ADMIN = "users:admin";
 const OTHER = "users:other";
+
+const emailCalls = (ctx: any) => (ctx.scheduler.runAfter as any).mock.calls.filter(
+  ([, ref]: any[]) => getFunctionName(ref) === "emails:sendNotificationEmail",
+);
 
 async function refusal(call: Promise<unknown>): Promise<{ code: string; reason: string }> {
   try {
@@ -248,8 +253,8 @@ describe("redeemBySlug: the invite-accepted notification", () => {
     expect(note.message).toMatch(/^Newcomer <b> joined .+ using your invite link\.$/);
     expect(typeof note.createdAt).toBe("number");
 
-    expect(ctx.scheduler.runAfter).toHaveBeenCalledTimes(1);
-    const [delay, , email] = (ctx.scheduler.runAfter as any).mock.calls[0];
+    expect(emailCalls(ctx)).toHaveLength(1);
+    const [delay, , email] = emailCalls(ctx)[0];
     expect(delay).toBe(0);
     expect(email).toMatchObject({
       to: "inviter@member.co",
@@ -282,7 +287,7 @@ describe("redeemBySlug: the invite-accepted notification", () => {
       expect(note.linkUrl).toBeUndefined();
       expect(note.imageUrl).toBeUndefined();
 
-      const [, , email] = (ctx.scheduler.runAfter as any).mock.calls[0];
+      const [, , email] = emailCalls(ctx)[0];
       expect(email).toMatchObject({ to: "inviter@member.co", heading: "Someone joined" });
       expect(email.subject).toMatch(/^Someone joined .+ using your invite$/);
       expect(email.ctaUrl).toBeUndefined();
@@ -312,7 +317,7 @@ describe("redeemBySlug: the invite-accepted notification", () => {
       expect(note.message).toMatch(/^Dana Reyes joined /);
       expect(note.linkUrl).toBe("/profile/profiles:me");
       expect(note.imageUrl).toBe("https://img.example/dana.png");
-      const [, , email] = (ctx.scheduler.runAfter as any).mock.calls[0];
+      const [, , email] = emailCalls(ctx)[0];
       expect(email).toMatchObject({ heading: "Dana Reyes joined", ctaText: "See their profile", ctaUrl: "/profile/profiles:me" });
     });
 

@@ -11,6 +11,9 @@ import { isEventHost } from "./eventHosts";
 import { hasPaidMembership } from "./garden/entitlements";
 import { profileImageUrl } from "./images";
 import { hasRealName } from "./names";
+import { fail } from "./errors";
+import { trackEvent } from "./posthog";
+import { ensureConversationSummaries, firstUnansweredUnread, getParticipantSummary, recordMessageSummary } from "./engagement/conversations";
 
 // The conversation between two people, if they have one. conversations has
 // no index on participants, so this reads the table.
@@ -201,7 +204,8 @@ export const sendMessage = mutation({
       }
     }
 
-    const now = Date.now();
+    // A strict per-thread order also handles two sends in one millisecond.
+    const now = Math.max(Date.now(), (conversation?.lastMessageAt ?? 0) + 1);
 
     let conversationId: Id<"conversations">;
 
@@ -215,24 +219,17 @@ export const sendMessage = mutation({
     } else {
       conversationId = conversation._id;
     }
+    const currentConversation = await ctx.db.get(conversationId);
+    if (!currentConversation) fail("not_found", "That conversation isn't available.");
+    const summaries = await ensureConversationSummaries(ctx, currentConversation);
 
-    // One email per unread burst, not one per message: check (before
-    // inserting this message, so the check naturally excludes it) whether
-    // the recipient already has another unread message from this sender in
-    // this conversation. If so, they already got an email for this burst —
-    // this message still gets the in-app notification below, just no
-    // second email. No index covers (conversationId, senderId, readAt)
-    // together, so this filters on the by_conversationId index.
-    const earlierUnreadFromSender = await ctx.db
-      .query("messages")
-      .withIndex("by_conversationId", (q) => q.eq("conversationId", conversationId))
-      .filter((q) =>
-        q.and(q.eq(q.field("senderId"), userId), q.eq(q.field("readAt"), undefined)),
-      )
-      .first();
+    // One email per unanswered unread burst. Older unread messages that the
+    // recipient already answered must not suppress a later conversation.
+    const recipientSummary = summaries.find(summary => summary.userId === args.recipientId);
+    const earlierUnreadFromSender = await firstUnansweredUnread(ctx, conversationId, userId, recipientSummary?.lastOutboundAt);
 
     // Create the message
-    await ctx.db.insert("messages", {
+    const messageId = await ctx.db.insert("messages", {
       conversationId,
       senderId: userId,
       content: trimmedContent,
@@ -243,6 +240,9 @@ export const sendMessage = mutation({
     await ctx.db.patch(conversationId, {
       lastMessageAt: now,
     });
+    const firstReply = await recordMessageSummary(ctx, summaries, userId, now);
+    await trackEvent(ctx, "message_sent", userId, { conversationId, messageId, recipientId: args.recipientId });
+    if (firstReply) await trackEvent(ctx, "first_reply", userId, { conversationId, messageId, recipientId: args.recipientId });
 
     // Notify the recipient (reuse senderProfile from rate limit check)
     const senderName = senderProfile?.name || "Someone";
@@ -273,6 +273,7 @@ export const sendMessage = mutation({
         ctaText: "View Message",
         ctaUrl: `/messages/${conversationId}`,
         category: "activity",
+        contact: { dedupeKey: `message:${messageId}`, sourceType: "message", sourceId: messageId, conversationId, messageId, blockedUserId: userId },
       });
     }
 
@@ -281,12 +282,14 @@ export const sendMessage = mutation({
 });
 
 /**
- * Mark all messages in a conversation as read.
- * Only marks messages where the current user is not the sender and readAt is null.
+ * Acknowledge observed inbound messages, never an unopened thread's contents.
+ * Older clients without an observed boundary receive the same result shape,
+ * conservatively marking nothing until they refresh.
  */
 export const markConversationRead = mutation({
   args: {
     conversationId: v.id("conversations"),
+    visibleMessageIds: v.optional(v.array(v.id("messages"))),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
@@ -294,35 +297,38 @@ export const markConversationRead = mutation({
     // Verify user is a participant in the conversation
     const conversation = await ctx.db.get(args.conversationId);
     if (!conversation) {
-      throw new Error("Conversation not found");
+      fail("not_found", "That conversation isn't available.");
     }
 
     if (!conversation.participants.includes(userId)) {
-      throw new Error("You are not a participant in this conversation");
+      fail("forbidden", "That conversation isn't available.");
     }
-
-    // Get all unread messages sent by the other user
-    const unreadMessages = await ctx.db
-      .query("messages")
-      .withIndex("by_conversationId", (q) =>
-        q.eq("conversationId", args.conversationId),
-      )
-      .filter((q) =>
-        q.and(
-          q.neq(q.field("senderId"), userId),
-          q.eq(q.field("readAt"), undefined),
-        ),
-      )
-      .collect();
-
-    // Mark each message as read
+    const ids = [...new Set(args.visibleMessageIds ?? [])];
+    if (ids.length > 100) fail("invalid_input", "Read at most 100 messages at a time.");
+    if (ids.length === 0) return { markedCount: 0 };
+    const otherUserId = conversation.participants.find(id => id !== userId);
+    if (!otherUserId) return { markedCount: 0 };
+    if (await blockBetween(ctx, userId, otherUserId)) return { markedCount: 0 };
+    const observed = await Promise.all(ids.map(id => ctx.db.get(id)));
+    if (observed.some(message => !message || message.conversationId !== args.conversationId || message.senderId === userId))
+      fail("invalid_input", "Only messages received in this conversation can be marked read.");
+    await ensureConversationSummaries(ctx, conversation);
+    const unreadMessages = observed.filter(message => message && message.readAt === undefined);
     const now = Date.now();
     for (const message of unreadMessages) {
-      await ctx.db.patch(message._id, {
-        readAt: now,
-      });
+      if (message) await ctx.db.patch(message._id, { readAt: now });
     }
-
+    const summary = await getParticipantSummary(ctx, args.conversationId, userId);
+    if (summary && unreadMessages.length) {
+      const remaining = await firstUnansweredUnread(ctx, args.conversationId, otherUserId, summary.lastOutboundAt);
+      const boundary = Math.max(...unreadMessages.map(message => message!.createdAt));
+      await ctx.db.patch(summary._id, {
+        readThroughAt: Math.max(summary.readThroughAt ?? 0, boundary),
+        lastReadAt: now,
+        unreadSince: remaining?.createdAt,
+      });
+      await trackEvent(ctx, "conversation_read", userId, { conversationId: args.conversationId, markedCount: unreadMessages.length, readThroughAt: boundary });
+    }
     return { markedCount: unreadMessages.length };
   },
 });

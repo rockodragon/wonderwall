@@ -8,6 +8,7 @@
 // getMyFavorites' { profiles, events } never see a project or role row.
 
 import { describe, expect, it } from "vitest";
+import { makeCtx, run, type Row } from "../test-support/convexContext";
 import {
   REMOVE_MANY_LIMIT,
   favoriteTargetTypeValidator,
@@ -21,89 +22,6 @@ import {
 
 const OWNER = "users:owner";
 const MEMBER = "users:member";
-
-type Row = Record<string, any> & { _id: string };
-
-/** Just enough of Convex's ctx for favorites.ts: db get / normalizeId /
- * insert / delete, and query().withIndex(name, q => q.eq(..)) or
- * .filter(q => q.eq(q.field(f), v)) followed by collect / first. Index names
- * aren't checked — the schema does that for real; what's under test is which
- * rows the handlers ask for and what they do with them. */
-function makeCtx(tables: Record<string, Row[]>, viewerId: string | null) {
-  const store: Record<string, Row[]> = {};
-  for (const [name, rows] of Object.entries(tables)) store[name] = rows.map((r) => ({ ...r }));
-  const rowsOf = (table: string) => (store[table] ??= []);
-  let counter = 100;
-
-  const find = (id: string) => rowsOf(id.split(":")[0]).find((r) => r._id === id) ?? null;
-
-  function query(table: string) {
-    let rows = rowsOf(table).slice();
-    const api = {
-      withIndex(_name: string, build: (q: any) => any) {
-        const conds: [string, unknown][] = [];
-        const q = {
-          eq(field: string, value: unknown) {
-            conds.push([field, value]);
-            return q;
-          },
-        };
-        build(q);
-        rows = rows.filter((r) => conds.every(([f, v]) => r[f] === v));
-        return api;
-      },
-      filter(build: (q: any) => any) {
-        const q = {
-          field: (name: string) => (r: Row) => r[name],
-          eq: (a: any, b: any) => (r: Row) =>
-            (typeof a === "function" ? a(r) : a) === (typeof b === "function" ? b(r) : b),
-        };
-        const pred = build(q);
-        rows = rows.filter((r) => pred(r));
-        return api;
-      },
-      async collect() {
-        return rows.map((r) => ({ ...r }));
-      },
-      async first() {
-        return rows[0] ? { ...rows[0] } : null;
-      },
-    };
-    return api;
-  }
-
-  const db = {
-    query,
-    async get(id: string) {
-      const r = find(id);
-      return r ? { ...r } : null;
-    },
-    normalizeId(table: string, id: string) {
-      return id.startsWith(`${table}:`) && find(id) ? id : null;
-    },
-    async insert(table: string, doc: Record<string, unknown>) {
-      const _id = `${table}:${++counter}`;
-      rowsOf(table).push({ _id, _creationTime: Date.now(), ...doc });
-      return _id;
-    },
-    async delete(id: string) {
-      const table = id.split(":")[0];
-      store[table] = rowsOf(table).filter((r) => r._id !== id);
-    },
-  };
-
-  const ctx = {
-    db,
-    auth: { getUserIdentity: async () => (viewerId ? { subject: `${viewerId}|session` } : null) },
-    storage: { getUrl: async () => null },
-    store,
-  };
-  return ctx as any;
-}
-
-// A Convex-registered function keeps the handler you wrote on `_handler`.
-const run = (fn: unknown, ctx: unknown, args: Record<string, unknown> = {}) =>
-  (fn as { _handler: (c: unknown, a: unknown) => Promise<any> })._handler(ctx, args);
 
 /** The error a handler throws: its {code, reason} payload, or the Error. */
 async function thrown(p: Promise<unknown>): Promise<any> {
@@ -179,6 +97,42 @@ describe("favoriteTargetTypeValidator", () => {
       "project",
       "role",
     ]);
+  });
+});
+
+describe("authoritative follow transitions", () => {
+  it("records explicit user intent and target identifiers without private content", async () => {
+    const ctx = makeCtx(world(), MEMBER);
+    await run(toggle, ctx, { targetType: "profile", targetId: "profiles:owner" });
+    expect(ctx.store.favorites[0]).toMatchObject({ userId: MEMBER, origin: "user" });
+    expect(ctx.store.productEvents).toMatchObject([{
+      event: "follow_created", userId: MEMBER,
+      properties: { target_profile_id: "profiles:owner", target_user_id: OWNER, origin: "user", interaction_source: "favorite_toggle" },
+    }]);
+    await run(toggle, ctx, { targetType: "profile", targetId: "profiles:owner" });
+    expect(ctx.store.productEvents[1]).toMatchObject({ event: "follow_removed", userId: MEMBER, properties: { origin: "user" } });
+    expect(ctx.store.favorites).toEqual([]);
+  });
+
+  it("does not invent deliberate intent for legacy follow removal and does not count repeated removals", async () => {
+    const ctx = makeCtx(world({ favorites: [fav("profile", "profiles:owner")] }), MEMBER);
+    await run(remove, ctx, { targetType: "profile", targetId: "profiles:owner" });
+    await run(remove, ctx, { targetType: "profile", targetId: "profiles:owner" });
+    expect(ctx.store.productEvents).toMatchObject([{ event: "follow_removed", properties: { origin: "unknown" } }]);
+    expect(ctx.store.productEvents).toHaveLength(1);
+  });
+
+  it("refuses missing, self and blocked targets before writing or measuring a follow", async () => {
+    for (const targetId of ["profiles:missing", "profiles:member"]) {
+      const ctx = makeCtx(world(), MEMBER);
+      await expect(run(toggle, ctx, { targetType: "profile", targetId })).rejects.toThrow();
+      expect(ctx.store.favorites).toEqual([]);
+      expect(ctx.store.productEvents ?? []).toEqual([]);
+    }
+    const ctx = makeCtx({ ...world(), blocks: [{ _id: "blocks:one", blockerId: OWNER, blockedId: MEMBER }] }, MEMBER);
+    expect(await thrown(run(toggle, ctx, { targetType: "profile", targetId: "profiles:owner" }))).toMatchObject({ code: "blocked" });
+    expect(ctx.store.favorites).toEqual([]);
+    expect(ctx.store.productEvents ?? []).toEqual([]);
   });
 });
 

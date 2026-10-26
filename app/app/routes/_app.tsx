@@ -1,7 +1,6 @@
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Link, Navigate, Outlet, useLocation, useNavigate } from "react-router";
 import { useEffect, useId, useState, type CSSProperties, type ReactNode } from "react";
-import { usePostHog } from "@posthog/react";
 import { BookmarkSimple, CalendarBlank, GraduationCap, PaintBrush, SquaresFour, Sun, UserCircle, Users, UsersThree, type Icon } from "@phosphor-icons/react";
 import { api } from "../../convex/_generated/api";
 import { setPendingIntent, takePendingIntent } from "../lib/pendingIntent";
@@ -141,7 +140,6 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const isDesktop = useIsDesktop();
-  const posthog = usePostHog();
   const profile = useQuery(api.profiles.getMyProfile);
   const unreadCount = useQuery(api.messaging.getUnreadCount) ?? 0;
   const notificationCount = useQuery(api.notifications.getUnreadCount) ?? 0;
@@ -245,18 +243,6 @@ export function AppShell({ children }: { children?: ReactNode }) {
       navigate("/onboarding", { replace: true });
     }
   }, [isAuthenticated, mustOnboard, onEventPage, onTablePage, mustInvite, navigate, location.pathname, location.search]);
-
-  // Identify user in PostHog when authenticated and profile loaded
-  useEffect(() => {
-    if (isAuthenticated && profile && posthog) {
-      posthog.identify(profile.userId, {
-        email: profile.attributes?.email,
-        name: profile.name,
-        plan: profile.plan,
-        interests: profile.interests,
-      });
-    }
-  }, [isAuthenticated, profile, posthog]);
 
   if (isLoading) {
     return (

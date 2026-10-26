@@ -1,22 +1,12 @@
 import { v } from "convex/values";
-import { action, httpAction, internalAction, type MutationCtx } from "./_generated/server";
+import { action, httpAction, internalAction, internalMutation, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Doc } from "./_generated/dataModel";
+import { requireUserId } from "./helpers";
+import { EVENT_ATTEMPTS, EVENT_LEASE_MS, eventProperties, eventRetryDelay, isServerEvent, type EventProperties, type ServerEvent } from "./productEventPolicy";
 
 const POSTHOG_HOST = "https://us.i.posthog.com";
-const POSTHOG_API_KEY = process.env.POSTHOG_API_KEY;
 
-// Transform property keys: _ prefix -> $ prefix (Convex doesn't allow $ in keys)
-function transformProperties(
-  props: Record<string, unknown> | undefined,
-): Record<string, unknown> {
-  if (!props) return {};
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(props)) {
-    const newKey = key.startsWith("_") ? `$${key.slice(1)}` : key;
-    result[newKey] = value;
-  }
-  return result;
-}
 
 /** A product event from the server, under the member's user id: the same id
  *  the browser identifies them by (components/PostHogIdentify.tsx), so it
@@ -26,176 +16,127 @@ function transformProperties(
  *  mutation never waits on PostHog or fails because of it. */
 export async function trackEvent(
   ctx: MutationCtx,
-  event: string,
+  event: ServerEvent,
   userId: string,
-  properties?: Record<string, string | number | boolean | null>,
+  properties?: EventProperties,
 ): Promise<void> {
-  await ctx.scheduler.runAfter(0, internal.posthog.captureServerEvent, { event, distinctId: userId, properties });
+  const id = await ctx.db.insert("productEvents", {
+    eventId: crypto.randomUUID(), event, userId, properties: eventProperties(properties),
+    occurredAt: Date.now(), status: "queued", attempts: 0,
+  });
+  await ctx.scheduler.runAfter(0, internal.posthog.captureServerEvent, { id });
 }
 
-export const captureServerEvent = internalAction({
+export const claimProductEvent = internalMutation({
+  args: { id: v.id("productEvents") },
+  handler: async (ctx, { id }): Promise<Doc<"productEvents"> | null> => {
+    const row = await ctx.db.get(id);
+    const now = Date.now();
+    if (!row || row.status === "accepted" || row.attempts >= EVENT_ATTEMPTS) return null;
+    if (row.status === "sending" && (row.leaseUntil ?? 0) > now) return null;
+    if ((row.nextAttemptAt ?? 0) > now) return null;
+    const attempts = row.attempts + 1;
+    const leaseUntil = now + EVENT_LEASE_MS;
+    await ctx.db.patch(id, { status: "sending", attempts, leaseUntil, nextAttemptAt: undefined });
+    await ctx.scheduler.runAfter(EVENT_LEASE_MS, internal.posthog.recoverProductEvent, { id, attempt: attempts });
+    return { ...row, status: "sending", attempts, leaseUntil };
+  },
+});
+
+export const recoverProductEvent = internalMutation({
+  args: { id: v.id("productEvents"), attempt: v.number() },
+  handler: async (ctx, { id, attempt }) => {
+    const row = await ctx.db.get(id);
+    if (!row || row.status !== "sending" || row.attempts !== attempt || (row.leaseUntil ?? 0) > Date.now()) return;
+    await ctx.db.patch(id, { status: row.attempts >= EVENT_ATTEMPTS ? "failed" : "queued", leaseUntil: undefined, lastError: "capture_timeout" });
+    if (row.attempts < EVENT_ATTEMPTS) await ctx.scheduler.runAfter(0, internal.posthog.captureServerEvent, { id });
+  },
+});
+
+export const finishProductEvent = internalMutation({
+  args: { id: v.id("productEvents"), attempt: v.number(), accepted: v.boolean(), error: v.optional(v.string()), retryable: v.optional(v.boolean()) },
+  handler: async (ctx, { id, attempt, accepted, error, retryable }) => {
+    const row = await ctx.db.get(id);
+    if (!row || row.status !== "sending" || row.attempts !== attempt) return;
+    const retry = !accepted && retryable && attempt < EVENT_ATTEMPTS;
+    const delay = eventRetryDelay(attempt);
+    await ctx.db.patch(id, {
+      status: accepted ? "accepted" : retry ? "queued" : "failed", leaseUntil: undefined,
+      acceptedAt: accepted ? Date.now() : undefined, lastError: accepted ? undefined : error,
+      nextAttemptAt: retry ? Date.now() + delay : undefined,
+    });
+    if (retry) await ctx.scheduler.runAfter(delay, internal.posthog.captureServerEvent, { id });
+  },
+});
+
+// Compatibility for jobs queued before the outbox was deployed.
+export const enqueueLegacyServerEvent = internalMutation({
   args: { event: v.string(), distinctId: v.string(), properties: v.optional(v.any()) },
-  handler: async (_ctx, args) => {
-    if (!POSTHOG_API_KEY) return;
-    try {
-      const response = await fetch(`${POSTHOG_HOST}/capture/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          api_key: POSTHOG_API_KEY,
-          event: args.event,
-          distinct_id: args.distinctId,
-          properties: { ...(args.properties ?? {}), source: "server" },
-          timestamp: new Date().toISOString(),
-        }),
-      });
-      if (!response.ok) console.error(`[PostHog] Server event failed: ${response.status}`);
-    } catch (error) {
-      console.error("[PostHog] Server event error:", error);
-    }
+  handler: async (ctx, args) => {
+    if (isServerEvent(args.event)) await trackEvent(ctx, args.event, args.distinctId, args.properties);
   },
 });
 
-// Server-side event capture - frontend calls this action directly
+export const captureServerEvent = internalAction({
+  args: { id: v.optional(v.id("productEvents")), event: v.optional(v.string()), distinctId: v.optional(v.string()), properties: v.optional(v.any()) },
+  handler: async (ctx, args): Promise<void> => {
+    if (!args.id) {
+      if (args.event && args.distinctId) await ctx.runMutation(internal.posthog.enqueueLegacyServerEvent, { event: args.event, distinctId: args.distinctId, properties: args.properties });
+      return;
+    }
+    const row = await ctx.runMutation(internal.posthog.claimProductEvent, { id: args.id });
+    if (!row) return;
+    const key = process.env.POSTHOG_API_KEY;
+    let accepted = false;
+    let error = "missing_configuration";
+    let retryable = false;
+    try {
+      if (key) {
+      const response = await fetch(`${POSTHOG_HOST}/i/v0/e/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          api_key: key, uuid: row.eventId, event: row.event, distinct_id: row.userId,
+          properties: { ...(row.properties ?? {}), source: "server", platform: "server", schema_version: 1, event_id: row.eventId },
+          timestamp: new Date(row.occurredAt).toISOString(),
+        }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      accepted = response.ok;
+      error = `http_${response.status}`;
+      retryable = response.status === 429 || response.status >= 500;
+      }
+    } catch {
+      error = "network_error";
+      retryable = true;
+    }
+    await ctx.runMutation(internal.posthog.finishProductEvent, { id: args.id, attempt: row.attempts, accepted, error, retryable });
+  },
+});
+
+// Old browser clients used these endpoints with caller-selected identities.
+// Browser SDK capture now owns UI telemetry; only trusted mutations emit facts.
 export const capture = action({
-  args: {
-    event: v.string(),
-    distinctId: v.string(),
-    properties: v.optional(v.any()),
-  },
-  handler: async (ctx, args) => {
-    if (!POSTHOG_API_KEY) {
-      console.warn("[PostHog] No API key configured");
-      return { status: "no_api_key" };
-    }
-
-    try {
-      const props = args.properties as Record<string, unknown> | undefined;
-      const transformedProps = transformProperties(props);
-
-      // Extract IP from properties for PostHog's geolocation
-      const ip = props?._ip as string | undefined;
-      delete transformedProps.$ip; // Don't send in properties, use top-level
-
-      const body: Record<string, unknown> = {
-        api_key: POSTHOG_API_KEY,
-        event: args.event,
-        distinct_id: args.distinctId,
-        properties: transformedProps,
-        timestamp: new Date().toISOString(),
-      };
-
-      // Add IP at top level if provided (PostHog uses this for geo)
-      if (ip) {
-        body.ip = ip;
-      }
-
-      const response = await fetch(`${POSTHOG_HOST}/capture/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (!response.ok) {
-        console.error(`[PostHog] Capture failed: ${response.status}`);
-        return { status: "error", code: response.status };
-      }
-
-      return { status: "ok" };
-    } catch (error) {
-      console.error("[PostHog] Capture error:", error);
-      return { status: "error" };
-    }
+  args: { event: v.string(), distinctId: v.string(), properties: v.optional(v.any()) },
+  handler: async (ctx) => {
+    await requireUserId(ctx);
+    return { status: "retired" as const };
   },
 });
 
-// Server-side identify - links anonymous user to identified user
 export const identify = action({
-  args: {
-    distinctId: v.string(),
-    properties: v.optional(v.any()),
-  },
-  handler: async (ctx, args) => {
-    if (!POSTHOG_API_KEY) {
-      console.warn("[PostHog] No API key configured");
-      return { status: "no_api_key" };
-    }
-
-    try {
-      const response = await fetch(`${POSTHOG_HOST}/capture/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          api_key: POSTHOG_API_KEY,
-          event: "$identify",
-          distinct_id: args.distinctId,
-          properties: {
-            $set: args.properties || {},
-          },
-          timestamp: new Date().toISOString(),
-        }),
-      });
-
-      if (!response.ok) {
-        console.error(`[PostHog] Identify failed: ${response.status}`);
-        return { status: "error", code: response.status };
-      }
-
-      return { status: "ok" };
-    } catch (error) {
-      console.error("[PostHog] Identify error:", error);
-      return { status: "error" };
-    }
+  args: { distinctId: v.string(), properties: v.optional(v.any()) },
+  handler: async (ctx) => {
+    await requireUserId(ctx);
+    return { status: "retired" as const };
   },
 });
 
-// Batch capture multiple events at once
 export const batch = action({
-  args: {
-    events: v.array(
-      v.object({
-        event: v.string(),
-        distinctId: v.string(),
-        properties: v.optional(v.any()),
-        timestamp: v.optional(v.string()),
-      }),
-    ),
-  },
-  handler: async (ctx, args) => {
-    if (!POSTHOG_API_KEY) {
-      console.warn("[PostHog] No API key configured");
-      return { status: "no_api_key" };
-    }
-
-    try {
-      const batch = args.events.map((e) => ({
-        event: e.event,
-        distinct_id: e.distinctId,
-        properties: transformProperties(
-          e.properties as Record<string, unknown>,
-        ),
-        timestamp: e.timestamp || new Date().toISOString(),
-      }));
-
-      const response = await fetch(`${POSTHOG_HOST}/batch/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          api_key: POSTHOG_API_KEY,
-          batch,
-        }),
-      });
-
-      if (!response.ok) {
-        console.error(`[PostHog] Batch failed: ${response.status}`);
-        return { status: "error", code: response.status };
-      }
-
-      return { status: "ok" };
-    } catch (error) {
-      console.error("[PostHog] Batch error:", error);
-      return { status: "error" };
-    }
+  args: { events: v.array(v.object({ event: v.string(), distinctId: v.string(), properties: v.optional(v.any()), timestamp: v.optional(v.string()) })) },
+  handler: async (ctx) => {
+    await requireUserId(ctx);
+    return { status: "retired" as const };
   },
 });
 

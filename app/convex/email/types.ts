@@ -11,9 +11,10 @@ export interface EmailMessage {
   /** Display name for the From header. The address stays the provider's
    * configured one. Unset = the provider's default name. */
   fromName?: string;
+  idempotencyKey?: string;
 }
 
-export type EmailSendResult = { ok: true; id?: string } | { ok: false; error: string };
+export type EmailSendResult = { ok: true; id?: string } | { ok: false; error: string; retryable?: boolean };
 
 export interface EmailProvider {
   name: string;

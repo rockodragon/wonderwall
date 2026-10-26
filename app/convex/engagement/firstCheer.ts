@@ -55,6 +55,7 @@ export async function emailFirstCheer(ctx: MutationCtx, notificationId: Id<"noti
   await scheduleNotificationEmail(ctx, {
     userId: notification.userId,
     category: "activity",
+    contact: { dedupeKey: `first-cheer:${notificationId}`, policy: "first_cheer", sourceType: "notification", sourceId: notificationId },
     ...buildSupportDigestEmail([
       { type: notification.type, title: notification.title, message: notification.message, links },
     ]),

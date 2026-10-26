@@ -4,6 +4,8 @@ import { internal } from "./_generated/api";
 import { getOrCreatePreferences, type EmailCategory } from "./emailPreferences";
 import type { EmailSender } from "./email/sender";
 import { getProfileByUserId } from "./helpers";
+import { queueEmailContact } from "./emailDeliveries";
+import type { EmailContactMetadata } from "./emailContactPolicy";
 
 /**
  * Look up a user's email — first from the users table (OAuth),
@@ -60,19 +62,25 @@ export async function scheduleNotificationEmail(
     category: EmailCategory | "transactional";
     sender?: EmailSender;
     communityId?: Id<"hostOrgs">;
+    contact?: EmailContactMetadata;
   },
 ) {
   const email = await getUserEmail(ctx, opts.userId);
-  if (!email) return;
+  if (!email) return { status: "skipped" as const, reason: "no_email" };
 
   let unsubscribeToken: string | undefined;
   if (opts.category !== "transactional") {
     const prefs = await getOrCreatePreferences(ctx, opts.userId);
-    if (!prefs[opts.category]) return;
+    if (!prefs[opts.category]) return { status: "skipped" as const, reason: "email_off" };
     unsubscribeToken = prefs.unsubscribeToken;
   }
 
+  const queued = await queueEmailContact(ctx, {
+    to: email, subject: opts.subject, category: opts.category, recipientUserId: opts.userId, contact: opts.contact,
+  });
+  if (!queued.created) return { status: "queued" as const, contactId: queued.contactId };
   await ctx.scheduler.runAfter(0, internal.emails.sendNotificationEmail, {
+    contactId: queued.contactId,
     to: email,
     subject: opts.subject,
     previewText: opts.previewText,
@@ -86,4 +94,5 @@ export async function scheduleNotificationEmail(
     communityId: opts.communityId,
     recipientUserId: opts.userId,
   });
+  return { status: "queued" as const, contactId: queued.contactId };
 }

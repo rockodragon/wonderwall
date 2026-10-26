@@ -10,6 +10,8 @@ import { isAcceptingPeople } from "./garden/projectTeam";
 import { VISIBLE_PROJECT_STATUSES } from "./moderationRules";
 import { feedLocation } from "./eventAddress";
 import { eventCoverUrl, profileImageUrl, storedFileUrl } from "./images";
+import { recordFollowChange } from "./follows";
+import { assertNotBlocked } from "./blocks";
 
 /** What a favorite points at. A profile is a follow and an event is a heart
  * (docs/features/following.md); a project, or one role on it, is a save for
@@ -84,7 +86,7 @@ export const toggle = mutation({
 
     if (existing) {
       // Unfollow / unsave is silent — no notification (following.md §1 #3).
-      await ctx.db.delete(existing._id);
+      await unsave(ctx, userId, args, "favorite_toggle");
       return { favorited: false };
     } else {
       if (args.targetType === "project" || args.targetType === "role") {
@@ -97,19 +99,23 @@ export const toggle = mutation({
       const followedProfile = followedId ? await ctx.db.get(followedId) : null;
       // A follow is of a profile that's there; anything else was saved as
       // a row pointing nowhere.
-      if (args.targetType === "profile" && !followedProfile) throw notFound();
+      if (args.targetType === "profile" && (!followedProfile || !hasRealName(followedProfile.name))) throw notFound();
       // Nobody follows themselves (Rick, 2026-10-26). An old self-follow
       // can still be unfollowed above.
       if (followedProfile && followedProfile.userId === userId) {
         throw new ConvexError({ code: "own_profile", reason: "That's your own profile." });
       }
+      if (followedProfile) await assertNotBlocked(ctx, userId, followedProfile.userId);
       const now = Date.now();
-      await ctx.db.insert("favorites", {
+      const favorite = {
         userId,
         targetType: args.targetType,
         targetId: args.targetId,
+        origin: "user" as const,
         createdAt: now,
-      });
+      };
+      await ctx.db.insert("favorites", favorite);
+      await recordFollowChange(ctx, userId, favorite, "follow_created", "favorite_toggle");
 
       // A profile favorite is a follow (docs/features/following.md). Tell
       // the followed person once, on create. The link points at the
@@ -140,9 +146,13 @@ async function unsave(
   ctx: MutationCtx,
   userId: Id<"users">,
   target: { targetType: FavoriteTargetType; targetId: string },
+  source = "favorite_remove",
 ): Promise<boolean> {
   const existing = await findFavorite(ctx, userId, target);
-  if (existing) await ctx.db.delete(existing._id);
+  if (existing) {
+    await ctx.db.delete(existing._id);
+    await recordFollowChange(ctx, userId, existing, "follow_removed", source);
+  }
   return existing !== null;
 }
 
