@@ -45,12 +45,15 @@ export function OrgDirectory({ query }: { query: string }) {
           <Link
             key={o._id}
             to={`/orgs/${o.slug}`}
-            className="flex items-center gap-3 p-4 rounded-xl border transition-colors min-w-0 hover:border-[var(--app-accent)]"
+            className={`flex ${ORG_CARD_MIN_H} items-start gap-3 p-4 rounded-xl border transition-colors min-w-0 hover:border-[var(--app-accent)]`}
             style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)" }}
           >
+            {/* Top-aligned with the name: a card taller than its words (the
+                grid gives every card in a row the row's height) used to leave
+                the logo floating halfway down. */}
             <OrgLogo name={o.name} logoUrl={o.logoUrl} size="sm" />
             <div className="min-w-0 flex-1">
-              <h3 className="font-medium text-sm leading-snug break-words" style={{ color: "var(--app-text)" }}>
+              <h3 className="font-medium text-sm leading-snug break-words line-clamp-2" title={o.name} style={{ color: "var(--app-text)" }}>
                 {o.name}
               </h3>
               {line && (
@@ -58,7 +61,9 @@ export function OrgDirectory({ query }: { query: string }) {
                   {line}
                 </p>
               )}
-              <PeopleFaces faces={o.faces} count={o.peopleCount} />
+              <div className={FACES_IN_A_CARD}>
+                <PeopleFaces faces={o.faces} count={o.peopleCount} />
+              </div>
             </div>
           </Link>
         );
@@ -66,3 +71,14 @@ export function OrgDirectory({ query }: { query: string }) {
     </div>
   );
 }
+
+/** As short as a person card (routes/search.tsx), so a row of organizations
+ * with nobody listed yet still reads as cards. */
+const ORG_CARD_MIN_H = "min-h-[5.625rem]";
+
+/** PeopleFaces in a narrow card. It is shared with the desk's opened card,
+ * where its faces and "N people" flow along one wide line; here the faces
+ * take the full width, so the count always starts a line of its own instead
+ * of sitting beside a name, and a face can be no wider than the card, so a
+ * long name ends in an ellipsis inside it. */
+const FACES_IN_A_CARD = "[&_ul]:w-full [&_li]:max-w-full";

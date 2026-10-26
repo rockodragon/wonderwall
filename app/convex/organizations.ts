@@ -23,6 +23,7 @@ import {
 import { currentUserId, getProfileByUserId, isAdminProfile, requireProfile, requireUserId } from "./helpers";
 import { insertNotification } from "./notify";
 import { fail } from "./errors";
+import { hasRealName } from "./names";
 import { claimUpload, deleteStoredFile } from "./uploads";
 
 type Ctx = QueryCtx | MutationCtx;
@@ -447,7 +448,9 @@ export const search = query({
 });
 
 /** The Organizations tab on People (/people?tab=orgs): every organization,
- * most people first, with the first few faces of its people. */
+ * most people first, with the first few faces of its people. Someone who
+ * never gave a name (convex/names.ts) has no page yet, so they are neither
+ * shown nor counted: the count is the people a visitor could find. */
 export const list = query({
   args: {},
   handler: async (ctx) => {
@@ -457,10 +460,14 @@ export const list = query({
         const current = (await positionsOfOrg(ctx, o._id))
           .filter(isCurrent)
           .sort((a, b) => (a.startYear ?? 9999) - (b.startYear ?? 9999) || a.createdAt - b.createdAt);
-        const faces = [];
-        for (const p of current.slice(0, 3)) {
+        const named: Doc<"profiles">[] = [];
+        for (const p of current) {
           const profile = await ctx.db.get(p.profileId);
-          if (profile) faces.push({ name: profile.name, imageUrl: await profileImageUrl(ctx, profile) });
+          if (profile && hasRealName(profile.name)) named.push(profile);
+        }
+        const faces = [];
+        for (const profile of named.slice(0, 3)) {
+          faces.push({ name: profile.name, imageUrl: await profileImageUrl(ctx, profile) });
         }
         return {
           _id: o._id,
@@ -470,7 +477,7 @@ export const list = query({
           tagline: o.tagline ?? null,
           location: o.location ?? null,
           logoUrl: await orgLogoUrl(ctx, o),
-          peopleCount: current.length,
+          peopleCount: named.length,
           faces,
         };
       }),

@@ -350,20 +350,26 @@ export default function Search() {
   );
 }
 
+/** Every person card is this tall: room for its three one-line rows (name,
+ * organization, what they do) beside the 48px face, so a row of four never
+ * has one card taller than the rest. */
+const PROFILE_CARD_MIN_H = "min-h-[5.625rem]";
+
 function ProfileCard({ profile }: { profile: DirectoryPerson }) {
   const distLabel = distanceLabel(profile._distance);
 
   return (
     <Link
       to={`/profile/${profile._id}`}
-      className="group flex items-center gap-3 p-4 rounded-xl border transition-colors hover:border-[var(--app-accent)]"
+      className={`group flex ${PROFILE_CARD_MIN_H} items-center gap-3 p-4 rounded-xl border transition-colors hover:border-[var(--app-accent)]`}
       style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)" }}
     >
       <PersonAvatar name={profile.name} imageUrl={profile.imageUrl} size="card" tone="strong" />
-      {/* Name never truncates — Follow moved to the profile page itself
-          (profile.tsx), which freed the width this used to fight for. */}
+      {/* One line each, cut short with an ellipsis: a long name wrapping to
+          a second line made its whole row of cards taller. The full name is
+          on the profile, and in the tooltip. */}
       <div className="min-w-0 flex-1">
-        <h3 className="font-medium text-sm leading-snug" style={{ color: "var(--app-text)" }}>
+        <h3 className="font-medium text-sm leading-snug truncate" title={profile.name} style={{ color: "var(--app-text)" }}>
           {profile.name}
         </h3>
         {profile.orgName && (
