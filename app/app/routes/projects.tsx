@@ -278,7 +278,7 @@ export default function Projects() {
             <div
               role="group"
               aria-label="Show"
-              className="flex items-center gap-2 overflow-x-auto px-4 py-1 -mx-4 sm:-mx-6 sm:px-6 md:mx-0 md:flex-wrap md:overflow-visible md:px-0 md:py-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              className="flex items-center gap-2 overflow-x-auto px-4 py-1 -mx-4 sm:-mx-6 sm:px-6 md:mx-0 md:flex-wrap md:overflow-visible md:px-0 md:py-0 no-scrollbar"
             >
               {PROJECT_LENSES.map((l) => (
                 <FilterChip

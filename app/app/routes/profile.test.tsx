@@ -39,7 +39,32 @@ describe("a profile page", () => {
   it("gives its owner a clear way to their Shortlist", async () => {
     scene.me = "ana";
     const html = await profilePage();
-    expect(html).toMatch(/<a [^>]*href="\/favorites"[^>]*>.*?Your shortlist →<\/a>/);
+    // The wide name sits in a span beside the phone tile's (OwnPageFace).
+    expect(html).toMatch(/<a [^>]*href="\/favorites"[^>]*>.*?Your shortlist →<\/span><\/a>/);
+  });
+
+  // One set of buttons, worded for the width: tiles in a row on a phone,
+  // the pills from `sm` up (components/ownPageButton.ts).
+  it("gives its owner Share, code and Shortlist: a row of tiles on a phone, pills from sm up", async () => {
+    scene.me = "ana";
+    const html = await profilePage();
+    expect(html).toContain("grid-cols-3");
+    for (const [tile, pill] of [
+      ["Share profile", "Share your profile"],
+      ["My code", "Show my code"],
+      ["Shortlist", "Your shortlist →"],
+    ]) {
+      expect(html).toContain(`<span class="text-center leading-tight sm:hidden">${tile}</span><span class="hidden sm:inline">${pill}</span>`);
+    }
+    // Not one share button per width: that would be two share kits.
+    expect(html.match(/aria-haspopup="dialog"/g)).toHaveLength(1);
+  });
+
+  it("offers Follow on someone else's page, never on your own", async () => {
+    scene.me = "ana";
+    expect(await profilePage()).not.toContain('title="Follow"');
+    scene.me = "someone-else";
+    expect(await profilePage()).toContain('title="Follow"');
   });
 
   it("keeps it off everyone else's", async () => {
@@ -47,6 +72,8 @@ describe("a profile page", () => {
     const html = await profilePage();
     expect(html).not.toContain("Your shortlist");
     expect(html).not.toContain('href="/favorites"');
+    expect(html).not.toContain("My code");
+    expect(html).not.toContain("grid-cols-3");
   });
 
   it("offers a universal back link on a person profile", async () => {

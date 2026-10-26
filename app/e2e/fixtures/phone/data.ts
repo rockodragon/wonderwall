@@ -307,6 +307,12 @@ export const answers: Record<string, unknown | ((args: unknown) => unknown)> = {
   "garden/projectTeam:listAffiliations": myProjects,
   "invites:getInviteStats": null,
   "profiles:getMyProfile": me,
+  "profiles:getProfile": myPage,
+  // Settings → Profile's Work & Portfolio: the same work your page shows.
+  "artifacts:getMyArtifacts": [
+    ...myPage.artifacts.map((a) => ({ ...a, title: "Cafe opening" })),
+    { _id: "a-film", type: "link", title: "Short film", mediaUrl: "https://example.com/film", ogImageUrl: "/campaign/pair.jpg", order: 1, createdAt: now - 20 * DAY },
+  ],
   "profiles:directory": (args: unknown) => {
     const q = String((args as { query?: string } | undefined)?.query ?? "").toLowerCase();
     const found = q ? people.filter((p) => p.name.toLowerCase().includes(q)) : people;

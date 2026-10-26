@@ -468,6 +468,30 @@ describe("following a profile", () => {
     expect(await run(toggle, ctx, { targetType: "event", targetId: EVENT })).toEqual({ favorited: true });
     expect(ctx.store.notifications).toEqual([]);
   });
+
+  it("refuses following yourself, and saves nothing", async () => {
+    const ctx = makeCtx(world(), MEMBER);
+    expect(await thrown(run(toggle, ctx, { targetType: "profile", targetId: "profiles:member" }))).toEqual({
+      code: "own_profile",
+      reason: "That's your own profile.",
+    });
+    expect(ctx.store.favorites).toEqual([]);
+  });
+
+  it("refuses a follow of something that isn't a profile, or is gone, and saves nothing", async () => {
+    const ctx = makeCtx(world(), MEMBER);
+    const NOT_FOUND = { code: "not_found", reason: "That isn't here anymore." };
+    // A users id where a profile id belongs (once saved as a junk row).
+    expect(await thrown(run(toggle, ctx, { targetType: "profile", targetId: MEMBER }))).toEqual(NOT_FOUND);
+    expect(await thrown(run(toggle, ctx, { targetType: "profile", targetId: "profiles:gone" }))).toEqual(NOT_FOUND);
+    expect(ctx.store.favorites).toEqual([]);
+  });
+
+  it("still lets someone who followed themselves before unfollow", async () => {
+    const ctx = makeCtx(world({ favorites: [fav("profile", "profiles:member")] }), MEMBER);
+    expect(await run(toggle, ctx, { targetType: "profile", targetId: "profiles:member" })).toEqual({ favorited: false });
+    expect(ctx.store.favorites).toEqual([]);
+  });
 });
 
 describe("getMyFavorites", () => {

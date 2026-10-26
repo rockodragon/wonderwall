@@ -1,17 +1,21 @@
 import { usePostHog } from "@posthog/react";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from "react";
+import { Link, useLocation, useSearchParams } from "react-router";
 import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
-import { MyPageLinks } from "../components/MyShareActions";
+import { ArrowClockwise, ArrowUpRight, PencilSimple, X } from "@phosphor-icons/react";
+import { MyProfileIcons } from "../components/MyShareActions";
+import { OWN_PAGE_BUTTON_STYLE, OWN_PAGE_ICON } from "../components/ownPageButton";
+import { InfoTip } from "../components/InfoTip";
+import { SwitchRow } from "../components/SwitchRow";
 import { EmbedStill, PlayBadge } from "../components/EmbedStill";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
 import { useSignOut } from "../lib/useSignOut";
-import { INTERESTS } from "../constants/interests";
+import { INTERESTS, shownInterests } from "../constants/interests";
 import { LEVEL_LABEL } from "../garden/capabilities";
 import { normalizeHandle, type PayoutKind } from "../../convex/garden/gigRules";
 import {
@@ -31,7 +35,7 @@ import { OrganizationsEditor } from "../components/OrganizationsEditor";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { maxSize, useFileUpload } from "../lib/useFileUpload";
 import { AVATAR_PX } from "../lib/shrinkImage";
-import { ShortlistLink } from "../components/shortlist/ShortlistLink";
+import { COVER_ASPECT } from "../lib/coverCrop";
 import { isGardenHost } from "../../convex/garden/brandHosts";
 import { formatCents } from "../../convex/money";
 
@@ -77,6 +81,34 @@ export default function Settings() {
       !profile?.location?.trim());
   const isEditingProfile = showProfileEdit || profileNeedsSetup;
 
+  // /settings#address ("Claim your address", the share kit, your code)
+  // opens the editor, where the address lives, before it paints, then
+  // brings the address into view and puts the cursor in it. Once per visit
+  // to that link (its location key), so a later Edit doesn't jump down to
+  // it again. The hash stays: dropping it would add a history entry or let
+  // scroll restoration put the page back at the top.
+  const location = useLocation();
+  const wantsAddress = location.hash === "#address";
+  const addressShownFor = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    if (wantsAddress && profile?._id && addressShownFor.current !== location.key) setShowProfileEdit(true);
+  }, [wantsAddress, profile?._id, location.key]);
+  useEffect(() => {
+    if (!wantsAddress || !isEditingProfile || !profile?._id || addressShownFor.current === location.key) return;
+    addressShownFor.current = location.key;
+    // #address is the field itself: on a fresh page load the browser also
+    // focuses the #address target, and a box around the field would take
+    // the cursor back out of it.
+    const field = document.getElementById("address");
+    field?.scrollIntoView({ block: "start" });
+    field?.focus({ preventScroll: true });
+  }, [wantsAddress, isEditingProfile, profile?._id, location.key]);
+
+  // Save Profile saves a changed address too, first, so leaving the editor
+  // never quietly drops one; a refused address keeps the editor open with
+  // why, and nothing else is saved.
+  const address = useRef<AddressHandle>(null);
+
   const activeTab: SettingsTab = editArtifactId
     ? "profile"
     : (SETTINGS_TABS.find((t) => t.id === searchParams.get("tab"))?.id ??
@@ -93,79 +125,41 @@ export default function Settings() {
     <div className={`p-4 sm:p-6 ${PAGE_WIDTH.reading} mx-auto text-base sm:text-sm`}>
       {/* Tabs across the top: the page had grown to ten stacked sections.
           ?tab= deep-links (the sidebar invite card opens ?tab=network). */}
-      <div
-        role="tablist"
-        aria-label="Settings"
-        className="flex gap-1 mb-8 border-b overflow-x-auto"
-        style={{ borderColor: "var(--app-hairline)" }}
-      >
-        {SETTINGS_TABS.map((tab) => {
-          const active = tab.id === activeTab;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => selectTab(tab.id)}
-              className="px-4 py-2.5 -mb-px text-sm font-medium whitespace-nowrap border-b-2 transition-colors"
-              style={{
-                borderColor: active ? "var(--app-accent-ink)" : "transparent",
-                color: active ? "var(--app-text)" : "var(--app-text-dim)",
-              }}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
-        {profile?.isAdmin && (
-          <Link
-            to="/admin"
-            className="px-4 py-2.5 -mb-px text-sm font-medium whitespace-nowrap border-b-2 border-transparent transition-colors hover:opacity-80"
-            style={{ color: "var(--app-text-dim)" }}
-          >
-            Admin
-          </Link>
-        )}
-      </div>
+      <SettingsTabBar active={activeTab} isAdmin={Boolean(profile?.isAdmin)} onSelect={selectTab} />
 
       {activeTab === "profile" && (
         <>
           <div className="mb-8">
             {hasProfile && profile && !isEditingProfile ? (
-              <>
-                <ProfileSummary
-                  profile={profile}
-                  onEdit={() => setShowProfileEdit(true)}
-                />
-                <MyPageLinks profileId={profile._id} handle={profile.handle} />
-              </>
-            ) : (
-              <ProfileEditForm
+              // The phone's Profile tab lands here, so sharing, your code
+              // and the Shortlist are a tap away in the header.
+              <ProfileSummary
                 profile={profile}
-                onDone={() => setShowProfileEdit(false)}
-                isNewProfile={profileNeedsSetup}
+                onEdit={() => setShowProfileEdit(true)}
               />
-            )}
-            {/* The phone's Profile tab lands here, so the Shortlist is a
-                tap away (components/shortlist/ShortlistLink.tsx). */}
-            {hasProfile && profile && !isEditingProfile && (
-              <div className="mt-5">
-                <ShortlistLink />
-              </div>
+            ) : (
+              <>
+                <ProfileEditForm
+                  profile={profile}
+                  onDone={() => setShowProfileEdit(false)}
+                  beforeSave={() => address.current?.savePending() ?? Promise.resolve(true)}
+                  isNewProfile={profileNeedsSetup}
+                />
+                {/* Your address — thecreative.exchange/@handle — and the
+                    search switch are profile settings, so they sit behind
+                    Edit with the rest. Each saves on its own too. Needs the
+                    profile row. */}
+                {profile?._id && (
+                  <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+                    <AddressSection ref={address} profile={profile} />
+                  </div>
+                )}
+              </>
             )}
           </div>
 
-          {/* Your address — thecreative.exchange/@handle — and the one
-              search switch. Always open like Organizations; each
-              change saves on its own. Needs the profile row. */}
-          {profile?._id && (
-            <div id="address" className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
-              <AddressSection profile={profile} />
-            </div>
-          )}
-
-          {/* Work & Portfolio, above Organizations as on the profile page */}
+          {/* Work & Portfolio right under who you are, above Organizations
+              as on the profile page */}
           <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
             <ArtifactsSection
               editArtifactId={editArtifactId}
@@ -1307,6 +1301,102 @@ function BlockedSection() {
   );
 }
 
+/** The row of tabs. On a phone it scrolls sideways with no scrollbar; a fade
+ *  at the right edge says there are more, and the chosen tab (from a tap or
+ *  from ?tab=) is scrolled into view. */
+function SettingsTabBar({
+  active,
+  isAdmin,
+  onSelect,
+}: {
+  active: SettingsTab;
+  isAdmin: boolean;
+  onSelect: (tab: SettingsTab) => void;
+}) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [moreRight, setMoreRight] = useState(false);
+
+  // The fade shows only while something is hidden on the right, so it never
+  // sits over the last tab once the row is scrolled to the end.
+  function measure() {
+    const row = rowRef.current;
+    if (row) setMoreRight(row.scrollLeft + row.clientWidth < row.scrollWidth - 1);
+  }
+
+  useLayoutEffect(() => {
+    const row = rowRef.current;
+    if (!row) return;
+    // Center the selected tab by scrolling the row alone: scrollIntoView
+    // would scroll the page too, and jump it when Admin arrives late.
+    const tab = row.querySelector('[aria-selected="true"]');
+    if (tab) {
+      const t = tab.getBoundingClientRect();
+      const r = row.getBoundingClientRect();
+      row.scrollLeft += t.left - r.left - (row.clientWidth - t.width) / 2;
+    }
+    measure();
+    const watch = new ResizeObserver(measure);
+    watch.observe(row);
+    return () => watch.disconnect();
+    // Admin joins the row once the profile loads, which widens what scrolls.
+  }, [active, isAdmin]);
+
+  return (
+    <div className="relative mb-8">
+      <div
+        ref={rowRef}
+        role="tablist"
+        aria-label="Settings"
+        className="no-scrollbar flex gap-1 overflow-x-auto"
+        onScroll={measure}
+        // The hairline is a shadow inside the row, not a border: a border plus
+        // the tabs' -mb-px pokes 1px past the row and makes it scroll up and down.
+        style={{ boxShadow: "inset 0 -1px 0 var(--app-hairline)" }}
+      >
+        {SETTINGS_TABS.map((tab) => {
+          const on = tab.id === active;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              onClick={() => onSelect(tab.id)}
+              className="shrink-0 px-4 py-2.5 text-[15px] font-medium whitespace-nowrap border-b-2 transition-colors"
+              style={{
+                borderColor: on ? "var(--app-accent-ink)" : "transparent",
+                color: on ? "var(--app-text)" : "var(--app-text-dim)",
+              }}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+        {isAdmin && (
+          <Link
+            to="/admin"
+            className="shrink-0 px-4 py-2.5 text-[15px] font-medium whitespace-nowrap border-b-2 border-transparent transition-colors hover:opacity-80"
+            style={{ color: "var(--app-text-dim)" }}
+          >
+            Admin
+          </Link>
+        )}
+      </div>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 right-0 w-12 transition-opacity"
+        style={{
+          background: "linear-gradient(to right, transparent, var(--app-surface))",
+          opacity: moreRight ? 1 : 0,
+        }}
+      />
+    </div>
+  );
+}
+
+/** Who you are, first: your photo, with Share, your code, Shortlist and
+ *  Edit beside it as small icons; then your name, your @address (the one
+ *  way to your page from here), what you do and your bio. */
 function ProfileSummary({
   profile,
   onEdit,
@@ -1316,39 +1406,45 @@ function ProfileSummary({
   >;
   onEdit: () => void;
 }) {
+  const disciplines = shownInterests(profile.interests);
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-4">
-        {profile.imageUrl ? (
-          <img
-            src={profile.imageUrl}
-            alt={profile.name}
-            className="w-16 h-16 rounded-full object-cover"
-          />
-        ) : (
-          <div
-            className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold"
-            style={{ backgroundColor: "var(--app-hairline-raised)", color: "var(--app-text)" }}
+    <div>
+      <div className="flex items-start justify-between gap-4">
+        <PersonAvatar name={profile.name} imageUrl={profile.imageUrl} size="xl" shape="tile" tone="strong" />
+        <div className="flex items-center gap-1">
+          <MyProfileIcons profileId={profile._id} />
+          <button
+            type="button"
+            onClick={onEdit}
+            aria-label="Edit profile"
+            title="Edit profile"
+            className={OWN_PAGE_ICON}
+            style={OWN_PAGE_BUTTON_STYLE}
           >
-            {profile.name.charAt(0).toUpperCase()}
-          </div>
-        )}
-        <div>
-          <h3 className="font-semibold" style={{ color: "var(--app-text)" }}>
-            {profile.name}
-          </h3>
-          <p className="text-sm" style={{ color: "var(--app-text-dim)" }}>
-            {profile.interests?.join(", ") || "No roles set"}
-          </p>
+            <PencilSimple size={18} aria-hidden />
+          </button>
         </div>
       </div>
-      <button
-        onClick={onEdit}
-        className="px-4 py-2 text-sm font-medium hover:opacity-80"
+      <h3 className="mt-4 text-xl font-semibold" style={{ color: "var(--app-text)" }}>
+        {profile.name}
+      </h3>
+      <Link
+        to={profile.handle ? profilePath(profile.handle) : `/profile/${profile._id}`}
+        className="inline-flex max-w-full items-center gap-1 text-sm font-medium hover:underline"
         style={{ color: "var(--app-accent-ink)" }}
       >
-        Edit Profile
-      </button>
+        {/* A 30-letter handle is wider than a narrow phone. */}
+        <span className="truncate">{profile.handle ? `@${profile.handle}` : "See your page"}</span>
+        <ArrowUpRight size={14} className="shrink-0" aria-hidden />
+      </Link>
+      <p className="mt-2 text-sm line-clamp-2" style={{ color: "var(--app-text-dim)" }}>
+        {disciplines.join(" · ") || "No roles set"}
+      </p>
+      {profile.bio?.trim() && (
+        <p className="mt-2 text-[15px] leading-relaxed whitespace-pre-line line-clamp-4" style={{ color: "var(--app-text)" }}>
+          {profile.bio}
+        </p>
+      )}
     </div>
   );
 }
@@ -1356,10 +1452,15 @@ function ProfileSummary({
 function ProfileEditForm({
   profile,
   onDone,
+  beforeSave,
   isNewProfile,
 }: {
   profile: ReturnType<typeof useQuery<typeof api.profiles.getMyProfile>>;
   onDone: () => void;
+  /** Before the save: false keeps the editor open and saves nothing. It
+   *  runs first because saving can close the editor (a new profile is
+   *  complete once it has interests) while it's still at work. */
+  beforeSave?: () => Promise<boolean>;
   isNewProfile: boolean;
 }) {
   const posthog = usePostHog();
@@ -1446,6 +1547,7 @@ function ProfileEditForm({
 
     setSaving(true);
     try {
+      if (beforeSave && !(await beforeSave())) return;
       await upsertProfile({
         name: name.trim(),
         bio: bio.trim() || undefined,
@@ -1698,11 +1800,37 @@ const CONTACT_LINK = [{ text: LEGAL_ENTITY.contactEmail, href: `mailto:${LEGAL_E
  * Your address: thecreative.exchange/@handle (convex/handleRules.ts has the
  * rules — Instagram's). Checks as you type: the rules here; taken, held
  * (convex/heldHandles.ts) or a community's name on the server
- * (handles.checkHandle). Saves on its own; a change keeps the old address
- * forwarding for HANDLE_FORWARD_DAYS. "How names work" is /legal/names.
- * Under it, "Hide my profile from search engines" (handles.setHideFromSearch).
+ * (handles.checkHandle). Save shows once the name changes; a change keeps
+ * the old address forwarding for HANDLE_FORWARD_DAYS. The "i" holds the
+ * explanation and "How names work" (/legal/names). Under it, a switch for
+ * "Hide my profile from search engines" (handles.setHideFromSearch).
+ * The field is the #address target (Settings' #address effect).
  */
-function AddressSection({ profile }: { profile: { handle?: string; hideFromSearch?: boolean } }) {
+/** What Save Profile does with the address field: nothing (blank or
+ *  unchanged), stop (already refused: its reason is showing, so no second
+ *  ask), or claim it and let the server decide. */
+export function pendingAddressStep(field: {
+  handle: string;
+  unchanged: boolean;
+  refused: boolean;
+}): "none" | "refused" | "claim" {
+  if (!field.handle || field.unchanged) return "none";
+  return field.refused ? "refused" : "claim";
+}
+
+type AddressHandle = {
+  /** Claims a changed address, if there is one. False when it was refused:
+   *  the reason is showing and the field has the cursor. */
+  savePending: () => Promise<boolean>;
+};
+
+function AddressSection({
+  profile,
+  ref,
+}: {
+  profile: { handle?: string; hideFromSearch?: boolean };
+  ref?: Ref<AddressHandle>;
+}) {
   const claimHandle = useMutation(api.handles.claimHandle);
   const setHideFromSearch = useMutation(api.handles.setHideFromSearch);
   const current = profile.handle ?? "";
@@ -1710,6 +1838,7 @@ function AddressSection({ profile }: { profile: { handle?: string; hideFromSearc
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const handle = cleanHandle(typed);
   // A blank field isn't a problem yet; the rules speak once there's something.
@@ -1749,12 +1878,42 @@ function AddressSection({ profile }: { profile: { handle?: string; hideFromSearc
     try {
       await claimHandle({ handle });
       setSaved(true);
+      // Save goes away once the name is saved; don't leave focus nowhere.
+      inputRef.current?.focus();
     } catch (err) {
       setError(errorMessage(err));
     } finally {
       setSaving(false);
     }
   }
+
+  // Save Profile's turn (Settings, before it saves anything): a name the
+  // rules or the check already refused keeps the editor open with the
+  // reason that's showing; one the server then refuses does the same.
+  useImperativeHandle(ref, () => ({
+    async savePending() {
+      const step = pendingAddressStep({ handle, unchanged, refused });
+      if (step === "none") return true;
+      const showWhy = () => {
+        inputRef.current?.scrollIntoView({ block: "center" });
+        inputRef.current?.focus({ preventScroll: true });
+      };
+      if (step === "refused") {
+        showWhy();
+        return false;
+      }
+      setError(null);
+      try {
+        await claimHandle({ handle });
+        setSaved(true);
+        return true;
+      } catch (err) {
+        setError(errorMessage(err));
+        showWhy();
+        return false;
+      }
+    },
+  }));
 
   async function toggleHide(hide: boolean) {
     setError(null);
@@ -1767,25 +1926,34 @@ function AddressSection({ profile }: { profile: { handle?: string; hideFromSearc
 
   return (
     <div>
-      <h2 className="text-lg font-semibold mb-2" style={{ color: "var(--app-text)" }}>
-        Your address
-      </h2>
-      <p className="text-sm mb-4" style={{ color: "var(--app-text-dim)" }}>
-        Your public page. Bring the name you use on Instagram.{" "}
-        <Link to="/legal/names" className="hover:underline" style={{ color: "var(--app-accent-ink)" }}>
-          How names work
-        </Link>
-      </p>
+      <div className="mb-3 flex items-center gap-2">
+        <h2 className="text-lg font-semibold" style={{ color: "var(--app-text)" }}>
+          Your public address
+        </h2>
+        <InfoTip
+          label="About your public address"
+          lines={[
+            "Your public page. Bring the name you use on Instagram.",
+            <Link key="names" to="/legal/names" className="hover:underline" style={{ color: "var(--app-accent-ink)" }}>
+              How names work →
+            </Link>,
+          ]}
+        />
+      </div>
       <form onSubmit={save} className="flex flex-col sm:flex-row sm:items-center gap-2">
         <label
-          className="flex flex-1 items-center border rounded-lg focus-within:ring-2 focus-within:ring-[var(--app-accent)]"
+          className="flex min-h-11 flex-1 items-center border rounded-lg focus-within:ring-2 focus-within:ring-[var(--app-accent)]"
           style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)" }}
         >
           <span className="pl-4 text-sm whitespace-nowrap select-none" style={{ color: "var(--app-text-dim)" }}>
             thecreative.exchange/@
           </span>
           <input
+            ref={inputRef}
+            id="address"
             type="text"
+            // A handle, not a street address: keep browser autofill out.
+            autoComplete="off"
             value={typed}
             onChange={(e) => {
               setTyped(e.target.value);
@@ -1793,24 +1961,26 @@ function AddressSection({ profile }: { profile: { handle?: string; hideFromSearc
               setError(null);
             }}
             placeholder="yourname"
-            aria-label="Your address"
+            aria-label="Your public address"
             aria-invalid={refused || undefined}
             maxLength={HANDLE_MAX_LENGTH + 1}
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck={false}
-            className="min-w-0 flex-1 bg-transparent py-2 pr-4 outline-none"
+            className="min-w-0 flex-1 scroll-mt-24 bg-transparent py-2 pr-4 text-base outline-none"
             style={{ color: "var(--app-text)" }}
           />
         </label>
-        <button
-          type="submit"
-          disabled={!canSave}
-          className="px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50"
-          style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
-        >
-          {saving ? "Saving…" : "Save"}
-        </button>
+        {!unchanged && (
+          <button
+            type="submit"
+            disabled={!canSave}
+            className="min-h-11 px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50"
+            style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+        )}
       </form>
       {status && (
         <p
@@ -1831,22 +2001,17 @@ function AddressSection({ profile }: { profile: { handle?: string; hideFromSearc
           Your old address, @{current}, forwards here for {HANDLE_FORWARD_DAYS} days.
         </p>
       )}
-      {current && unchanged && (
-        <p className="mt-2 text-sm">
-          <Link to={profilePath(current)} className="hover:underline" style={{ color: "var(--app-accent-ink)" }}>
-            {saved ? "Saved. " : ""}See your page →
-          </Link>
+      {saved && unchanged && (
+        <p role="status" className="mt-2 text-sm" style={{ color: "var(--app-text-muted)" }}>
+          Saved.
         </p>
       )}
-      <label className="mt-5 flex items-center gap-3 text-sm" style={{ color: "var(--app-text)" }}>
-        <input
-          type="checkbox"
-          checked={!!profile.hideFromSearch}
-          onChange={(e) => void toggleHide(e.target.checked)}
-          className="h-4 w-4"
-        />
-        Hide my profile from search engines
-      </label>
+      <SwitchRow
+        label="Hide my profile from search engines"
+        on={!!profile.hideFromSearch}
+        onChange={(hide) => void toggleHide(hide)}
+        className="mt-3 min-h-14"
+      />
     </div>
   );
 }
@@ -2206,6 +2371,10 @@ function ArtifactsSection({
   const uploadedStorageId = piece.storageId;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sectionRef = useRef<HTMLDivElement>(null);
+  // A card's round icon button: 36px, white on a dark glass circle, so it
+  // stays visible on a pale picture.
+  const iconButton =
+    "w-9 h-9 shrink-0 bg-black/45 backdrop-blur-sm rounded-full flex items-center justify-center text-white";
 
   // Auto-start editing if editArtifactId is provided
   useEffect(() => {
@@ -2331,9 +2500,18 @@ function ArtifactsSection({
   return (
     <div ref={sectionRef}>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold" style={{ color: "var(--app-text)" }}>
-          Work & Portfolio
-        </h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-semibold" style={{ color: "var(--app-text)" }}>
+            Work & Portfolio
+          </h2>
+          <InfoTip
+            label="About work and portfolio"
+            lines={[
+              "Add text, pictures, video, audio or links.",
+              `Pictures up to ${maxSize("image")}. Video and audio up to ${maxSize("video")}.`,
+            ]}
+          />
+        </div>
         {!showAddForm && !editingId && (
           <button
             onClick={() => setShowAddForm(true)}
@@ -2344,11 +2522,6 @@ function ArtifactsSection({
           </button>
         )}
       </div>
-      <p className="text-sm mb-4" style={{ color: "var(--app-text-dim)" }}>
-        Showcase your work with text, images, videos, audio, or links.
-        Pictures up to {maxSize("image")}; video and audio up to {maxSize("video")}.
-      </p>
-
       {/* Add/Edit Form */}
       {(showAddForm || editingId) && (
         <div className="mb-6 p-4 rounded-xl" style={{ backgroundColor: "var(--app-surface-raised)" }}>
@@ -2512,7 +2685,8 @@ function ArtifactsSection({
 
       {/* Artifacts Grid */}
       {artifacts && artifacts.length > 0 ? (
-        <div className="grid grid-cols-2 gap-3">
+        // Two across on a phone, three from `sm` so 4:5 cards don't tower.
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {artifacts.map((artifact) => {
             const typeInfo = ARTIFACT_TYPES.find(
               (t) => t.value === artifact.type,
@@ -2523,11 +2697,14 @@ function ArtifactsSection({
             // is never an embed. The tile shows a still, never a player: this
             // grid used to render one live Instagram player per reel.
             const embed = toEmbedUrl(artifact.mediaUrl);
+            // What the card's buttons are for, said to a screen reader.
+            const cardName = artifact.title || typeInfo?.label || artifact.type;
 
             return (
               <div
                 key={artifact._id}
-                className="relative group aspect-square rounded-xl overflow-hidden"
+                className="relative group rounded-xl overflow-hidden"
+                style={{ aspectRatio: COVER_ASPECT }}
               >
                 {/* Background */}
                 {artifact.type === "image" && mediaUrl ? (
@@ -2572,76 +2749,48 @@ function ArtifactsSection({
                 {/* Content */}
                 <div className="absolute inset-0 p-3 flex flex-col justify-between">
                   <div className="flex justify-end">
-                    {/* Actions (show on hover) */}
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {/* Actions: always there on a touch screen (no hover to
+                        reveal them); a mouse sees them on hover, or when one
+                        has keyboard focus. */}
+                    <div className="flex gap-1.5 opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:group-focus-within:opacity-100 transition-opacity">
                       {/* Refresh preview button for link-type artifacts */}
                       {artifact.type === "link" && artifact.mediaUrl && (
                         <button
                           onClick={() => handleRefreshPreview(artifact._id)}
                           disabled={refreshingId === artifact._id}
-                          className="w-7 h-7 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-[var(--app-accent)] hover:text-[var(--garden-ink)] disabled:opacity-50"
-                          title="Refresh preview image"
+                          className={`${iconButton} hover:bg-[var(--app-accent)] hover:text-[var(--garden-ink)] disabled:opacity-50`}
+                          aria-label={`Refresh preview of ${cardName}`}
+                          title="Refresh preview"
                         >
                           {refreshingId === artifact._id ? (
-                            <div className="w-3.5 h-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                            <div className="w-4 h-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                           ) : (
-                            <svg
-                              className="w-3.5 h-3.5"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                              />
-                            </svg>
+                            <ArrowClockwise size={18} aria-hidden />
                           )}
                         </button>
                       )}
                       <button
                         onClick={() => startEdit(artifact)}
-                        className="w-7 h-7 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-white/30"
+                        className={`${iconButton} hover:bg-black/65`}
+                        aria-label={`Edit ${cardName}`}
+                        title="Edit"
                       >
-                        <svg
-                          className="w-3.5 h-3.5"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                          />
-                        </svg>
+                        <PencilSimple size={18} aria-hidden />
                       </button>
                       <button
                         onClick={() => handleDelete(artifact._id)}
-                        className="w-7 h-7 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-red-500/80"
+                        className={`${iconButton} hover:bg-red-500/80`}
+                        aria-label={`Delete ${cardName}`}
+                        title="Delete"
                       >
-                        <svg
-                          className="w-3.5 h-3.5"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
+                        <X size={18} aria-hidden />
                       </button>
                     </div>
                   </div>
 
-                  {/* Title/Content */}
-                  <div>
+                  {/* Title/Content: a soft shadow keeps white words readable
+                      on a pale picture, where the gradient is thin. */}
+                  <div className="text-shadow-md text-shadow-black/60">
                     {artifact.title && (
                       <p className="text-white font-medium text-sm line-clamp-2">
                         {artifact.title}
@@ -2672,7 +2821,7 @@ function ArtifactsSection({
             <span className="text-3xl">✨</span>
           </div>
           <p className="text-sm" style={{ color: "var(--app-text-dim)" }}>
-            No work added yet. Click "+ Add" to showcase your portfolio.
+            No work added yet.
           </p>
         </div>
       ) : null}

@@ -16,6 +16,8 @@ const SIZES = {
   // 40px with a 16px initial (the blocked list), and 48px (search results).
   mdBase: "h-10 w-10 text-base",
   card: "h-12 w-12 text-base",
+  // 80px: your own photo at the top of Settings.
+  xl: "h-20 w-20 text-3xl",
 } as const;
 
 const TONES = {
@@ -62,11 +64,12 @@ export function PersonAvatar({
   imageUrl?: string | null;
   size?: keyof typeof SIZES;
   tone?: keyof typeof TONES;
-  shape?: "round" | "square";
+  /** `tile` is a rounded square, like the photos on the Canvas's cards. */
+  shape?: "round" | "square" | "tile";
   className?: string;
 }) {
   const dimensions = SIZES[size];
-  const rounded = shape === "square" ? "rounded" : "rounded-full";
+  const rounded = shape === "square" ? "rounded" : shape === "tile" ? "rounded-2xl" : "rounded-full";
   const initial = name.trim().charAt(0).toUpperCase() || "·";
   const { className: toneClass, style } = TONES[tone] as { className: string; style?: CSSProperties };
   // The tone's background sits behind a picture too, so a transparent logo

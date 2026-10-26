@@ -39,6 +39,9 @@ function findFavorite(
     .first();
 }
 
+/** A save or follow of something gone, hidden, or not what it says it is. */
+const notFound = () => new ConvexError({ code: "not_found", reason: "That isn't here anymore." });
+
 /** Throws unless a member may newly save this project or role. A project
  * they can't browse to (VISIBLE_PROJECT_STATUSES), or one posted into a
  * hidden (test) community they can't see (communityVisibility, as on the
@@ -53,7 +56,6 @@ async function assertSaveable(
   targetType: "project" | "role",
   targetId: string,
 ): Promise<void> {
-  const notFound = () => new ConvexError({ code: "not_found", reason: "That isn't here anymore." });
   const roleId = targetType === "role" ? ctx.db.normalizeId("projectRoles", targetId) : null;
   const role = roleId ? await ctx.db.get(roleId) : null;
   if (targetType === "role" && !role) throw notFound();
@@ -88,6 +90,19 @@ export const toggle = mutation({
       if (args.targetType === "project" || args.targetType === "role") {
         await assertSaveable(ctx, userId, args.targetType, args.targetId);
       }
+      // `targetId` here is a PROFILE id, so hop through the profile row to
+      // reach its owner's users id; `userId` (the actor) is already one.
+      // normalizeId, so another table's id never passes for a profile.
+      const followedId = args.targetType === "profile" ? ctx.db.normalizeId("profiles", args.targetId) : null;
+      const followedProfile = followedId ? await ctx.db.get(followedId) : null;
+      // A follow is of a profile that's there; anything else was saved as
+      // a row pointing nowhere.
+      if (args.targetType === "profile" && !followedProfile) throw notFound();
+      // Nobody follows themselves (Rick, 2026-10-26). An old self-follow
+      // can still be unfollowed above.
+      if (followedProfile && followedProfile.userId === userId) {
+        throw new ConvexError({ code: "own_profile", reason: "That's your own profile." });
+      }
       const now = Date.now();
       await ctx.db.insert("favorites", {
         userId,
@@ -97,28 +112,21 @@ export const toggle = mutation({
       });
 
       // A profile favorite is a follow (docs/features/following.md). Tell
-      // the followed person once, on create. `targetId` here is a PROFILE
-      // id, so hop through the profile row to reach the recipient's users
-      // id; `userId` (the actor) is already a users id. The link points at
-      // the follower's profile, so we need the actor's profile id too.
+      // the followed person once, on create. The link points at the
+      // follower's profile, so we need the actor's profile id too.
       // Hearts and Shortlist saves tell nobody.
-      if (args.targetType === "profile") {
-        const followedProfile = await ctx.db.get(
-          args.targetId as Id<"profiles">,
-        );
-        if (followedProfile && followedProfile.userId !== userId) {
-          const actorProfile = await getProfileByUserId(ctx, userId);
-          const followerName = actorProfile?.name || "Someone";
-          await insertNotification(ctx, {
-            userId: followedProfile.userId,
-            type: "new_follower",
-            title: `${followerName} is following your work`,
-            message: "",
-            linkUrl: actorProfile ? `/profile/${actorProfile._id}` : undefined,
-            relatedUserId: userId,
-            createdAt: now,
-          });
-        }
+      if (followedProfile) {
+        const actorProfile = await getProfileByUserId(ctx, userId);
+        const followerName = actorProfile?.name || "Someone";
+        await insertNotification(ctx, {
+          userId: followedProfile.userId,
+          type: "new_follower",
+          title: `${followerName} is following your work`,
+          message: "",
+          linkUrl: actorProfile ? `/profile/${actorProfile._id}` : undefined,
+          relatedUserId: userId,
+          createdAt: now,
+        });
       }
       return { favorited: true };
     }

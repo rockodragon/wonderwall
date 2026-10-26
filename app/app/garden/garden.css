@@ -11,6 +11,7 @@
   --g-muted: var(--garden-muted, #acaca4);
   --g-body: var(--garden-body, #c6c6be);
   --g-citron: var(--garden-citron, #fee268);
+  --g-raised: #232321; /* a note over the page (components/InfoTip.tsx) */
 
   background: var(--g-ink);
   color: var(--g-body);

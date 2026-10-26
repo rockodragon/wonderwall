@@ -13,7 +13,7 @@
 // before. Every field the backend adds is read with optional chaining so the
 // deploy window between frontend and backend cannot crash the page.
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { Link, useSearchParams } from "react-router";
@@ -27,6 +27,7 @@ import "../garden/garden.css";
 import { SOPHIA_FUND_SLUG } from "../lib/namedFunds";
 import { errorMessage } from "../lib/convexError";
 import { FF_BACKING } from "../lib/featureFlags";
+import { InfoTip } from "../components/InfoTip";
 
 export function meta() {
   return [{ title: "Give — The Garden" }, { name: "robots", content: "noindex" }];
@@ -75,101 +76,6 @@ function initials(name: string): string {
       .slice(0, 2)
       .map((w) => w[0]?.toUpperCase() ?? "")
       .join("") || "?"
-  );
-}
-
-/** The small "i" next to a heading. Hover on desktop, tap toggles; Escape or an outside click closes. */
-function InfoTip({ lines }: { lines: string[] }) {
-  const [open, setOpen] = useState(false);
-  const [pinned, setPinned] = useState(false);
-  const ref = useRef<HTMLSpanElement>(null);
-  const id = useId();
-  const shown = open || pinned;
-
-  useEffect(() => {
-    if (!shown) return;
-    const onDown = (e: MouseEvent | TouchEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-        setPinned(false);
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setOpen(false);
-        setPinned(false);
-      }
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("touchstart", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("touchstart", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [shown]);
-
-  return (
-    <span
-      ref={ref}
-      style={{ position: "relative", display: "inline-flex" }}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-    >
-      <button
-        type="button"
-        aria-label="How this works"
-        aria-expanded={shown}
-        aria-controls={id}
-        onClick={() => setPinned((p) => !p)}
-        style={{
-          width: 28,
-          height: 28,
-          borderRadius: 9999,
-          border: `1px solid ${HAIR}`,
-          background: "transparent",
-          color: PAPER,
-          fontFamily: "var(--g-mono, monospace)",
-          fontSize: 14,
-          fontStyle: "italic",
-          cursor: "pointer",
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        i
-      </button>
-      {shown && (
-        <span
-          id={id}
-          role="note"
-          style={{
-            position: "absolute",
-            top: 34,
-            left: 0,
-            zIndex: 20,
-            width: "min(320px, 80vw)",
-            padding: "12px 14px",
-            borderRadius: 10,
-            border: `1px solid ${HAIR}`,
-            background: "var(--garden-raised, #232321)",
-            color: BODY,
-            fontSize: 14.5,
-            lineHeight: 1.5,
-            fontWeight: 400,
-            letterSpacing: "normal",
-            display: "grid",
-            gap: 6,
-          }}
-        >
-          {lines.map((l) => (
-            <span key={l}>{l}</span>
-          ))}
-        </span>
-      )}
-    </span>
   );
 }
 
