@@ -90,6 +90,14 @@ import {
   updateMyPosition,
 } from "../organizations";
 
+// These are about shared helpers, not the gate, and backing is off by default
+// (FF_BACKING). Open, so the guest-checkout rule and startBacking still run
+// their own code; backingGate.test.ts covers it shut.
+vi.mock("../../app/lib/featureFlags", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../app/lib/featureFlags")>()),
+  FF_BACKING: true,
+}));
+
 const ADA = "users:ada";
 const BO = "users:bo";
 const ADMIN = "users:admin";

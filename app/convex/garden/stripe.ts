@@ -19,6 +19,7 @@ import { api, internal } from "../_generated/api";
 import { currentUserId } from "../helpers";
 import { routeTicketMoney } from "./ticketRouting";
 import { COMMUNITY_KIND, isActiveCommunityOrg } from "./communityLookup";
+import { requireBackingOpen } from "./backingGate";
 // Pure money logic lives in the dependency-free handler file so the checkout
 // action and the webhook share one authority (and so it's unit-testable
 // without this file's node runtime / Stripe SDK).
@@ -570,6 +571,10 @@ export const createPoolContributionCheckout = action({
 // them but that display name is stored here. A guest is returned to the
 // public story page afterwards, since /projects/:id is behind login.
 //
+// Held back by FF_BACKING (app/lib/featureFlags.ts) until payouts and
+// Stripe's crowdfunding approval are settled: requireBackingOpen refuses
+// before the first line below runs.
+//
 // The projectSupport row is written FIRST (support.ts's startBacking,
 // status "pending") and its id rides on the metadata, because
 // projectSupport has no stripeRef column to converge on — see that
@@ -595,6 +600,10 @@ export const createBackingCheckout = action({
     memberGiftId: v.optional(v.id("memberGifts")),
   },
   handler: async (ctx, args) => {
+    // First, before anything is read, written or sent to Stripe: while
+    // backing is off (FF_BACKING) this refuses and nothing happens.
+    requireBackingOpen();
+
     const userId = await currentUserId(ctx);
 
     let guestName: string | undefined;

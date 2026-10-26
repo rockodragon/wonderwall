@@ -4,7 +4,8 @@ import { Link } from "react-router";
 import { usePostHog } from "@posthog/react";
 import { api } from "../../convex/_generated/api";
 import { timeAgo } from "../lib/dates";
-import { FF_JOBS, useFeatureGate } from "../lib/featureFlags";
+import { FF_JOBS } from "../lib/featureFlags";
+import { useFeatureGate } from "../lib/useFeatureGate";
 import { INTERESTS } from "../constants/interests";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 
