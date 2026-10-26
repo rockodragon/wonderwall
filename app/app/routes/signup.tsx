@@ -120,6 +120,10 @@ export default function Signup() {
   // up. While the lookup loads (undefined) the slug is kept and the server
   // checks it when it's redeemed.
   const inviteNotFound = !!inviteSlug && !ticketSession && inviterInfo === null;
+  // An invite link: laid out as one from the first paint, while the lookup
+  // loads, so the Sign in tab and the form's heading don't jump. Only a
+  // link that turns out not to work falls back to the plain page.
+  const inviteLink = !!inviteSlug && !ticketSession && !inviteNotFound;
   const creditSlug = inviteSlug && !inviteNotFound ? inviteSlug : null;
   // The optional code field shows until a code has been accepted.
   const showCodeEntry = !ticketSession && (!inviteSlug || inviteNotFound);
@@ -287,7 +291,7 @@ export default function Signup() {
     }
 
     if (!name.trim()) {
-      setError("Name is required");
+      setError("Add your name.");
       return;
     }
 
@@ -390,7 +394,7 @@ export default function Signup() {
   }
 
   // The invite's line is the page's heading when there is one.
-  const FormHeading = inviterInfo ? "h2" : "h1";
+  const FormHeading = inviteLink ? "h2" : "h1";
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 px-4 py-8">
@@ -398,7 +402,7 @@ export default function Signup() {
         {/* One clear choice up top: sign in or sign up (the same toggle as
             routes/login.tsx). On an invite, the invite leads instead, and
             Sign in is a line under the form. */}
-        {!inviterInfo && (
+        {!inviteLink && (
         <div
           role="tablist"
           aria-label="Sign in or sign up"
@@ -455,14 +459,19 @@ export default function Signup() {
         {(signupCommunity === undefined || (inviteOnly && inviteChecking)) && <div className="h-64" />}
         {needsCode && signupCommunity && <InviteGate community={signupCommunity} signedIn={false} />}
 
-        {/* Who invited you, to what, and that it's free (InviteWelcome). */}
-        {inviterInfo && <InviteWelcome inviter={inviterInfo} />}
+        {/* Who invited you, to what, and that it's free (InviteWelcome);
+            its room is held while the lookup loads. */}
+        {inviterInfo ? (
+          <InviteWelcome inviter={inviterInfo} />
+        ) : (
+          inviteLink && <div aria-hidden className="h-72 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700" />
+        )}
 
         {/* Signup Form */}
         {signupCommunity !== undefined && !(inviteOnly && inviteChecking) && !needsCode && (
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8">
           <FormHeading
-            className={`text-2xl font-bold text-gray-900 dark:text-white ${
+            className={`${inviteLink ? "text-xl" : "text-2xl"} font-bold text-gray-900 dark:text-white ${
               showCodeEntry ? "mb-2" : "mb-6"
             }`}
           >
@@ -710,7 +719,7 @@ export default function Signup() {
           <AgreementsConsent lead="By creating an account" className="mt-6" />
 
           <p className="mt-4 text-center text-[13.5px] text-gray-500 dark:text-gray-400">
-            {inviterInfo && (
+            {inviteLink && (
               <>
                 Already a member?{" "}
                 <Link to="/login" className="font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500">
@@ -719,7 +728,11 @@ export default function Signup() {
                 {garden ? ". " : null}
               </>
             )}
-            {garden ? "Your TheCreative.exchange account works here too." : !inviterInfo && "TheCreative.exchange"}
+            {inviteLink
+              ? garden && "Your TheCreative.exchange account works here too."
+              : garden
+                ? "The Garden · same account as TheCreative.exchange"
+                : "TheCreative.exchange"}
           </p>
 
         </div>

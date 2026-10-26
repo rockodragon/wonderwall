@@ -96,12 +96,40 @@ describe("an invite link on The Garden", () => {
 });
 
 describe("the sign-up page without an invite", () => {
-  it("keeps the Sign in / Sign up toggle and has no invite at the top", async () => {
+  it("keeps the Sign in / Sign up toggle, has no invite at the top, and still names The Garden", async () => {
     answers[name(api.invites.getInviterInfo)] = undefined;
     const html = await page("/signup");
     expect(html).toContain('role="tablist"');
     expect(html).toMatch(/<h1[^>]*>Create your account<\/h1>/);
     expect(text(html)).not.toContain("invited you");
+    expect(text(html)).toContain("The Garden · same account as TheCreative.exchange");
+  });
+
+  it("falls back to the plain page when the invite link doesn't work", async () => {
+    answers[name(api.invites.getInviterInfo)] = null;
+    const html = await page("/signup/nobody");
+    expect(text(html)).toContain("That invite link didn't work. You can still sign up.");
+    expect(html).toContain('role="tablist"');
+    expect(html).toMatch(/<h1[^>]*>Create your account<\/h1>/);
+  });
+
+  it("keeps the plain page for a ticket's link, with no invite lookup", async () => {
+    answers[name(api.invites.getInviterInfo)] = SOL; // never asked for
+    answers[name(api.garden.eventRsvps.ticketSessionOpensSignup)] = true;
+    const html = await page("/signup/cs_test_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6");
+    expect(text(html)).toContain("Your ticket is saved.");
+    expect(html).toContain('role="tablist"');
+    expect(text(html)).not.toContain("invited you");
+  });
+});
+
+describe("an invite link while its lookup loads", () => {
+  it("is already laid out as an invite: no Sign in tab, the form's heading an h2, the invite's room held", async () => {
+    answers[name(api.invites.getInviterInfo)] = undefined;
+    const html = await page("/signup/sol");
+    expect(html).not.toContain('role="tablist"');
+    expect(html).toMatch(/<h2[^>]*>Create your account<\/h2>/);
+    expect(html).toMatch(/<div aria-hidden="true" class="h-72 /);
   });
 });
 

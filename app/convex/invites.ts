@@ -244,7 +244,6 @@ export const getInviterInfo = query({
       name: profile.name,
       imageUrl: await profileImageUrl(ctx, profile),
       interests: profile.interests,
-      usageCount: profile.inviteUsageCount || 0,
     };
   },
 });
