@@ -1312,6 +1312,8 @@ describe("getMine — people", () => {
           at: 100,
           thumbUrl: "https://files/_storage:art-img",
           media: "image",
+          share: false,
+          when: null,
         },
       },
       {
@@ -1347,7 +1349,7 @@ describe("postMedia — what a post's picture is of", () => {
 
 describe("newestPost", () => {
   const post = (id: string, at: number) =>
-    ({ type: "project", id, title: id, at, thumbUrl: null, media: null }) as const;
+    ({ type: "project", id, title: id, at, thumbUrl: null, media: null, share: false, when: null }) as const;
   it("the later of the two; either may be missing", () => {
     expect(newestPost(post("a", 1), post("b", 2))?.id).toBe("b");
     expect(newestPost(post("a", 3), post("b", 2))?.id).toBe("a");
@@ -1402,6 +1404,8 @@ describe("getMine — what people you follow last posted", () => {
       at: 200,
       thumbUrl: "https://still/reel.jpg",
       media: "video",
+      share: false,
+      when: { datetime: 5000, endTime: null },
     });
   });
 
@@ -1425,7 +1429,12 @@ describe("getMine — what people you follow last posted", () => {
 
   it("a post with no picture and no recording still shows, with nothing to draw", async () => {
     const latest = await latestOf(world({ projects: [project("words", { userId: ANA, createdAt: 100 })] }));
-    expect(latest).toMatchObject({ id: "projects:words", thumbUrl: null, media: null });
+    expect(latest).toMatchObject({ id: "projects:words", thumbUrl: null, media: null, share: false, when: null });
+  });
+
+  it("a quick share of one piece is marked as shared work", async () => {
+    const latest = await latestOf(world({ projects: [project("piece", { userId: ANA, createdAt: 100, origin: "portfolio" })] }));
+    expect(latest).toMatchObject({ id: "projects:piece", share: true });
   });
 
   it("a ticketed event you can't open isn't theirs to show you; nothing posted is null", async () => {

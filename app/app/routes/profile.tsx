@@ -1,4 +1,3 @@
-import { Scan } from "@phosphor-icons/react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { Link, Navigate, useLocation, useParams } from "react-router";
@@ -13,7 +12,7 @@ import { EmbedStill, PlayBadge } from "../components/EmbedStill";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { ShortlistLink } from "../components/shortlist/ShortlistLink";
 import { ShareButton } from "../components/ShareButton";
-import { ShareProfileButton } from "../components/ShareProfileButton";
+import { MyShareActions } from "../components/MyShareActions";
 import { ShareHint, useShareHint } from "../components/ShareHint";
 import { ScanCard } from "../components/ScanCard";
 import { shownTitle } from "../lib/placeholderTitle";
@@ -399,23 +398,7 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
             {/* Your link, a QR code, a story picture, and a badge and a card
                 for your own website (components/ProfileShareKit.tsx); and
                 your code to hold up face to face (routes/code.tsx). */}
-            {isOwnProfile && (
-              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                <ShareProfileButton profile={profile} projects={affiliations} onOpen={shareHint.dismiss} />
-                <Link
-                  to="/code"
-                  className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-colors hover:border-[var(--app-accent)]"
-                  style={{
-                    backgroundColor: "var(--app-surface-raised)",
-                    color: "var(--app-text)",
-                    borderColor: "var(--app-hairline)",
-                  }}
-                >
-                  <Scan size={16} aria-hidden />
-                  Show my code
-                </Link>
-              </div>
-            )}
+            {isOwnProfile && <MyShareActions profile={profile} onOpen={shareHint.dismiss} className="sm:justify-end" />}
             {isOwnProfile && shareHint.show && <ShareHint hasHandle={!!profile.handle} onClose={shareHint.dismiss} />}
             {/* Your own profile is one place a phone finds the Shortlist
                 (the other is Today's corner), in the place Message sits on

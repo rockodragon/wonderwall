@@ -575,6 +575,8 @@ export const getMine = query({
         at: project.createdAt,
         thumbUrl,
         media: postMedia(thumbUrl, project.mediaUrl, pieces.map((piece) => piece.type)),
+        share: !isPostedProject(project),
+        when: null,
       };
     }
     async function latestEvent(organizerId: Id<"users">): Promise<ShortlistPost | null> {
@@ -593,6 +595,8 @@ export const getMine = query({
         at: event.createdAt,
         thumbUrl,
         media: postMedia(thumbUrl, event.mediaUrl, []),
+        share: false,
+        when: { datetime: event.datetime, endTime: event.endTime ?? null },
       };
     }
     const people = follows.map(async (fav): Promise<ShortlistFollow | null> => {
