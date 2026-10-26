@@ -606,9 +606,9 @@ export default function EventDetail() {
             )}
 
             {/* Phone: a long description pushes the ticket card far down, so a
-                paid event gets a jump to it up here too. */}
+                paid event gets a Buy up here too. */}
             {cta.kind === "external" && !!cta.priceCents && (
-              <JumpToTicket eventId={event._id} priceCents={cta.priceCents} />
+              <JumpToTicket eventId={event._id} priceCents={cta.priceCents} stripeUrl={cta.stripe ? cta.href : undefined} />
             )}
 
             {/* Description — optional since 2026-10-13; nothing renders without one */}
@@ -2119,20 +2119,39 @@ function TicketSessionClaimer() {
   return null;
 }
 
-/** Phone: the jump to the ticket card, up top. Gone once there is nothing to
- * buy: someone who already paid sees "You're in" in the card, not a Buy. */
-function JumpToTicket({ eventId, priceCents }: { eventId: Id<"events">; priceCents: number }) {
+/** The Stripe Payment Link with who's buying on it, so the ticket lands on
+ * their account (buildTicketLink). Null without a link. */
+function useStripeTicketHref(eventId: Id<"events">, url: string | undefined): string | null {
+  const profile = useQuery(api.profiles.getMyProfile);
+  if (!url) return null;
+  return buildTicketLink(url, eventId, {
+    userId: profile?.userId ? String(profile.userId) : undefined,
+    email: profile?.email ?? undefined,
+  });
+}
+
+/** Phone: Buy, up top. A Stripe ticket goes straight to checkout, with the
+ * line about joining the event's community under it, as on the ticket card:
+ * the buyer sees it before paying. Anything else (PayPal saves the buyer
+ * first; another site's page) jumps to the ticket card. Gone once there is
+ * nothing to buy: someone who already paid sees "You're in" in the card. */
+function JumpToTicket({ eventId, priceCents, stripeUrl }: { eventId: Id<"events">; priceCents: number; stripeUrl?: string }) {
   const myRsvp = useQuery(api.garden.eventRsvps.getMyRsvpStatus, { eventId });
+  const join = useQuery(api.garden.eventRsvps.ticketCommunityJoin, stripeUrl ? { eventId } : "skip");
+  const checkout = useStripeTicketHref(eventId, stripeUrl);
   const [searchParams] = useSearchParams();
   if (myRsvp?.paidCents || searchParams.get("paid") === "1") return null;
   return (
-    <a
-      href="#event-ticket"
-      className="md:hidden mb-4 flex items-center justify-center rounded-lg px-4 py-3 text-[15px] font-semibold"
-      style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
-    >
-      Buy tickets · {formatCents(priceCents)}
-    </a>
+    <div className="md:hidden mb-4">
+      <a
+        href={checkout ?? "#event-ticket"}
+        className="flex items-center justify-center rounded-lg px-4 py-3 text-[15px] font-semibold"
+        style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
+      >
+        Buy tickets · {formatCents(priceCents)}
+      </a>
+      {checkout && join && <TicketJoinLine join={join} light />}
+    </div>
   );
 }
 
@@ -2215,7 +2234,7 @@ function StripeTicketCard({
   url: string;
   priceCents: number | null;
 }) {
-  const profile = useQuery(api.profiles.getMyProfile);
+  const checkout = useStripeTicketHref(eventId, url);
   const myRsvp = useQuery(api.garden.eventRsvps.getMyRsvpStatus, { eventId });
   const { isAuthenticated } = useConvexAuth();
   const navigate = useNavigate();
@@ -2284,10 +2303,7 @@ function StripeTicketCard({
     <LinkOutCard
       kicker="Admission"
       priceCents={priceCents}
-      href={buildTicketLink(url, eventId, {
-        userId: profile?.userId ? String(profile.userId) : undefined,
-        email: profile?.email ?? undefined,
-      })}
+      href={checkout ?? url}
       label="Buy tickets"
       note="Secure checkout with Stripe."
       extra={join ? <TicketJoinLine join={join} /> : null}
