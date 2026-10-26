@@ -17,7 +17,7 @@ import { setPendingIntent } from "../lib/pendingIntent";
 import { isCheckoutSessionId } from "../../convex/garden/ticketLink";
 import { useBrand } from "../brand/brands";
 import { PersonNameHint } from "../components/PersonNameHint";
-import { PersonAvatar } from "../components/PersonAvatar";
+import { InviteWelcome } from "../components/InviteWelcome";
 
 export function meta() {
   return [
@@ -93,9 +93,10 @@ export default function Signup() {
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [phoneStep, setPhoneStep] = useState<"phone" | "code">("phone");
-  // Phone code or password. The password path asks for name and email; the
-  // phone path asks only for the number and the code (login.tsx's phone box
-  // makes accounts the same way; onboarding asks for the name if it is blank).
+  // Phone code or password. Both ask for the name first, so the account is
+  // never "New User" when the invite is credited and its sender is told who
+  // joined (invites.ts redeemBySlug); the password path also asks for email.
+  // (login.tsx's phone box makes accounts with no name; onboarding asks then.)
   const [method, setMethod] = useState<"phone" | "password">("phone");
   const [phoneError, setPhoneError] = useState("");
   const [phoneLoading, setPhoneLoading] = useState(false);
@@ -196,6 +197,11 @@ export default function Signup() {
     const gateError = inviteGateError();
     if (gateError) {
       setPhoneError(gateError);
+      return;
+    }
+
+    if (!name.trim()) {
+      setPhoneError("Add your name.");
       return;
     }
 
@@ -383,11 +389,16 @@ export default function Signup() {
     }
   }
 
+  // The invite's line is the page's heading when there is one.
+  const FormHeading = inviterInfo ? "h2" : "h1";
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 px-4 py-8">
       <div className="max-w-md w-full space-y-6">
         {/* One clear choice up top: sign in or sign up (the same toggle as
-            routes/login.tsx). The product's name sits at the foot. */}
+            routes/login.tsx). On an invite, the invite leads instead, and
+            Sign in is a line under the form. */}
+        {!inviterInfo && (
         <div
           role="tablist"
           aria-label="Sign in or sign up"
@@ -409,6 +420,7 @@ export default function Signup() {
             Sign up
           </span>
         </div>
+        )}
 
         {ticketSession && (
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
@@ -443,86 +455,24 @@ export default function Signup() {
         {(signupCommunity === undefined || (inviteOnly && inviteChecking)) && <div className="h-64" />}
         {needsCode && signupCommunity && <InviteGate community={signupCommunity} signedIn={false} />}
 
-        {/* Inviter Card */}
-        {inviterInfo && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center gap-4 mb-4">
-              <PersonAvatar
-                name={inviterInfo.name}
-                imageUrl={inviterInfo.imageUrl}
-                size="lg"
-                tone="gray"
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-0.5">
-                  You're invited by
-                </p>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
-                  {inviterInfo.name}
-                </h2>
-                {inviterInfo.interests &&
-                  inviterInfo.interests.length > 0 && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {inviterInfo.interests.join(", ")}
-                    </p>
-                  )}
-              </div>
-            </div>
-
-            {inviterInfo.recentInvitees &&
-            inviterInfo.recentInvitees.length > 0 ? (
-              <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                  Also connected here:
-                </p>
-                <div className="space-y-2">
-                  {inviterInfo.recentInvitees.map((invitee, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <PersonAvatar name={invitee.name} imageUrl={invitee.imageUrl} size="sm" tone="gray" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                          {invitee.name}
-                        </div>
-                        {invitee.interests &&
-                          invitee.interests.length > 0 && (
-                            <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                              {invitee.interests.join(", ")}
-                            </div>
-                          )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Be one of the first to join{" "}
-                  <span className="font-semibold">{inviterInfo.name}</span>'s
-                  network
-                </p>
-              </div>
-            )}
-          </div>
-        )}
+        {/* Who invited you, to what, and that it's free (InviteWelcome). */}
+        {inviterInfo && <InviteWelcome inviter={inviterInfo} />}
 
         {/* Signup Form */}
         {signupCommunity !== undefined && !(inviteOnly && inviteChecking) && !needsCode && (
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8">
-          <h1
+          <FormHeading
             className={`text-2xl font-bold text-gray-900 dark:text-white ${
               showCodeEntry ? "mb-2" : "mb-6"
             }`}
           >
             Create your account
-          </h1>
+          </FormHeading>
 
           {showCodeEntry && <InviteCodeEntry />}
 
           {phoneStep === "phone" && (
             <div className="space-y-4 mb-5">
-              {method === "password" && (
-              <>
               <div>
                 <label htmlFor="name" className="block text-[13.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Name
@@ -539,6 +489,7 @@ export default function Signup() {
                 />
                 <PersonNameHint name={name} />
               </div>
+              {method === "password" && (
               <div>
                 <label htmlFor="email" className="block text-[13.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Email
@@ -554,7 +505,6 @@ export default function Signup() {
                   required
                 />
               </div>
-              </>
               )}
               <div
                 className="grid grid-cols-2 gap-1 rounded-lg p-1 bg-gray-100 dark:bg-gray-900"
@@ -669,7 +619,7 @@ export default function Signup() {
                 disabled={phoneLoading || code.length !== 6}
                 className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium text-[13.5px] hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {phoneLoading ? "Signing in..." : "Sign in"}
+                {phoneLoading ? "Creating account..." : "Create account"}
               </button>
             </form>
           )}
@@ -760,7 +710,16 @@ export default function Signup() {
           <AgreementsConsent lead="By creating an account" className="mt-6" />
 
           <p className="mt-4 text-center text-[13.5px] text-gray-500 dark:text-gray-400">
-            {garden ? "The Garden · same account as TheCreative.exchange" : "TheCreative.exchange"}
+            {inviterInfo && (
+              <>
+                Already a member?{" "}
+                <Link to="/login" className="font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500">
+                  Sign in
+                </Link>
+                {garden ? ". " : null}
+              </>
+            )}
+            {garden ? "Your TheCreative.exchange account works here too." : !inviterInfo && "TheCreative.exchange"}
           </p>
 
         </div>
