@@ -16,6 +16,7 @@ import { ShareHint, useShareHint } from "../components/ShareHint";
 import { ScanCard } from "../components/ScanCard";
 import { shownTitle } from "../lib/placeholderTitle";
 import { OrgLogo } from "../components/OrgLogo";
+import { PersonAvatar } from "../components/PersonAvatar";
 import { ProjectTile } from "../components/ProjectTile";
 import { yearsLabel } from "../../convex/organizationRules";
 import { PAGE_WIDTH } from "../lib/pageWidth";
@@ -151,7 +152,7 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
         <BackLink fallback="/people" className="mb-6" />
         <div className="animate-pulse">
           <div className="flex items-start gap-6 mb-8">
-            <div className="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-full" />
+            <div className="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-2xl" />
             <div className="flex-1">
               <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-48 mb-2" />
               <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32" />
@@ -197,25 +198,15 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
           — Follow/Message/Share stay one click away, Block moves into the
           kebab since it's rare and destructive, not a peer of the others. */}
       <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-6 mb-8">
-        <div
-          className="w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center overflow-hidden shrink-0"
-          style={{ backgroundColor: "var(--app-hairline-raised)" }}
-        >
-          {profile.imageUrl ? (
-            <img
-              src={profile.imageUrl}
-              alt={profile.name}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <span
-              className="text-2xl sm:text-3xl font-medium"
-              style={{ color: "var(--app-text-dim)" }}
-            >
-              {profile.name.charAt(0)}
-            </span>
-          )}
-        </div>
+        {/* A rounded square, like Settings and the Canvas's people cards. */}
+        <PersonAvatar
+          name={profile.name}
+          imageUrl={profile.imageUrl}
+          size="xl"
+          shape="tile"
+          tone="dim"
+          className="sm:h-24 sm:w-24"
+        />
 
         <div className="flex-1 min-w-0 flex flex-wrap items-start justify-between gap-4">
           {/* Identity column */}

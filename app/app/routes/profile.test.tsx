@@ -67,6 +67,16 @@ describe("a profile page", () => {
     expect(await profilePage()).toContain('title="Follow"');
   });
 
+  // The same rounded square as Settings and the Canvas's people cards.
+  it("shows the photo as a rounded square, not a circle, to everyone", async () => {
+    for (const me of ["ana", "someone-else"]) {
+      scene.me = me;
+      const photo = (await profilePage()).match(/<img[^>]*src="\/ana.jpg"[^>]*>/)?.[0] ?? "";
+      expect(photo, me).toContain("rounded-2xl");
+      expect(photo, me).not.toContain("rounded-full");
+    }
+  });
+
   it("keeps it off everyone else's", async () => {
     scene.me = "someone-else";
     const html = await profilePage();
