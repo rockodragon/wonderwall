@@ -60,7 +60,13 @@ export function useDirectory(filters: DirectoryFilters | "skip"): Directory {
   if (answer !== undefined) last.current = { community, answer };
   const page = answer ?? (args && last.current?.community === community ? last.current.answer : undefined);
 
-  const loadMore = useCallback(() => setPaging({ key, limit: limit + DIRECTORY_PAGE }), [key, limit]);
+  // Load more does nothing until the answer for these filters is in: a tap
+  // while a new search loads (the old list still up) would otherwise ask
+  // for its second page before its first was ever shown.
+  const loading = !!args && answer === undefined;
+  const loadMore = useCallback(() => {
+    if (!loading) setPaging({ key, limit: limit + DIRECTORY_PAGE });
+  }, [key, limit, loading]);
   const end = useMemo(() => directoryEnd(page), [page]);
 
   return {
@@ -68,6 +74,6 @@ export function useDirectory(filters: DirectoryFilters | "skip"): Directory {
     total: page?.total,
     end,
     loadMore,
-    loading: !!args && answer === undefined,
+    loading,
   };
 }

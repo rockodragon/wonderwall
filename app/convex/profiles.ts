@@ -10,7 +10,7 @@ import { normalizeOrgUrl } from "./organizationRules";
 import { communityVisibility } from "./garden/communityVisibility";
 import { isGardenMember } from "./garden/defaultCommunity";
 import { pieceMediaUrl, profileImageUrl, storedFileUrl } from "./images";
-import { byLatestActivity, directoryLimit, latestPostAt, listedFor } from "./directoryRules";
+import { byLatestActivity, directoryLimit, latestPostAt, listedFor, searchedText } from "./directoryRules";
 import { activeMembersOfCommunity } from "./garden/communityLookup";
 import { filterProfiles } from "../app/lib/browse/peopleFilter";
 
@@ -457,14 +457,17 @@ async function directoryPeople(ctx: QueryCtx, filter: DirectoryFilter, signedIn:
     profiles = profiles.filter((p) => p.location?.toLowerCase().includes(place));
   }
 
-  if (filter.query) {
+  // A visitor's one-letter search is no search (searchedText), so a sweep
+  // through the alphabet can't page the directory 24 at a time.
+  const text = searchedText(filter.query, signedIn);
+  if (text) {
     // What each person is wondering is searched too.
     const wonderings = await ctx.db
       .query("wonderings")
       .filter((q) => q.eq(q.field("isActive"), true))
       .collect();
     const wonderingOf = new Map(wonderings.map((w) => [String(w.profileId), w.prompt]));
-    const q = filter.query.toLowerCase();
+    const q = text.toLowerCase();
     profiles = profiles.filter(
       (p) =>
         p.name.toLowerCase().includes(q) ||

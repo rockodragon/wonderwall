@@ -4,16 +4,19 @@
 // itself is lib/useDirectory.ts, and /people and the desk draw the end in
 // their own styles.
 
+import { DIRECTORY_MAX } from "../../../convex/directoryRules";
 import type { NearMe } from "./nearMe";
 
-/** What follows the last card. null: nothing, everyone who matches is shown. */
+/** What follows the last card. null: nothing, everyone who matches is shown
+ * (or a member has as many as one call returns, DIRECTORY_MAX). */
 export type DirectoryEnd = { kind: "more"; remaining: number } | { kind: "join"; remaining: number } | null;
 
 export function directoryEnd(page: { people: readonly unknown[]; total: number; visitor: boolean } | undefined): DirectoryEnd {
   if (!page) return null;
   const remaining = page.total - page.people.length;
   if (remaining <= 0) return null;
-  return { kind: page.visitor ? "join" : "more", remaining };
+  if (page.visitor) return { kind: "join", remaining };
+  return page.people.length >= DIRECTORY_MAX ? null : { kind: "more", remaining };
 }
 
 /** "12 more creatives here." */

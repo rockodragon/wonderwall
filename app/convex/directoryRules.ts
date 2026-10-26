@@ -4,8 +4,9 @@
 // Work stays public: a person's page (/@handle) opens for anyone. The
 // directory is like Instagram's: open to look at, but browsing it at scale
 // takes an account. A member sees DIRECTORY_PAGE people at a time and loads
-// more. A visitor (signed out) gets one page at most, however they page or
-// search, and never sees anyone who turned on "Hide my profile from search
+// more (up to DIRECTORY_MAX). A visitor (signed out) gets one page at most,
+// however they page or search, a search of one letter counts as none, and
+// they never see anyone who turned on "Hide my profile from search
 // engines". The server applies the cap, because the query can be called
 // over HTTP without the page.
 //
@@ -61,10 +62,28 @@ export function listedFor(profile: { hideFromSearch?: boolean }, signedIn: boole
   return signedIn || !profile.hideFromSearch;
 }
 
+/** The most people one call returns to a member, however many pages they
+ * have loaded: past it, a call would cost more than a person can scroll. */
+export const DIRECTORY_MAX = 1000;
+
 /** How many people one call returns: as many as a member asked for (one
- * page when they didn't say), and never more than one page for a visitor. */
+ * page when they didn't say), up to DIRECTORY_MAX, and never more than one
+ * page for a visitor. */
 export function directoryLimit(requested: number | undefined, signedIn: boolean): number {
   const asked =
     requested !== undefined && Number.isFinite(requested) ? Math.max(1, Math.floor(requested)) : DIRECTORY_PAGE;
-  return signedIn ? asked : Math.min(asked, DIRECTORY_PAGE);
+  return Math.min(asked, signedIn ? DIRECTORY_MAX : DIRECTORY_PAGE);
+}
+
+/** The shortest search a visitor's is taken as one, trimmed. */
+export const VISITOR_MIN_QUERY = 2;
+
+/** The text a caller's search is run with. A visitor's one-letter search is
+ * no search at all (the first page, as with none), so a sweep through the
+ * alphabet can't page the directory 24 at a time. A member's runs as typed,
+ * however short. */
+export function searchedText(query: string | undefined, signedIn: boolean): string | undefined {
+  if (!query) return undefined;
+  if (!signedIn && query.trim().length < VISITOR_MIN_QUERY) return undefined;
+  return query;
 }

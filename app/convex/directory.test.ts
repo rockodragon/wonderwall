@@ -11,11 +11,14 @@ import { describe, expect, it } from "vitest";
 import { makeCtx, run, type Row } from "../test-support/convexContext";
 import { checkIndexes } from "../test-support/indexChecks";
 import {
+  DIRECTORY_MAX,
   DIRECTORY_PAGE,
+  VISITOR_MIN_QUERY,
   byLatestActivity,
   directoryLimit,
   latestPostAt,
   listedFor,
+  searchedText,
 } from "./directoryRules";
 import { directory, search } from "./profiles";
 
@@ -111,6 +114,15 @@ describe("listedFor and directoryLimit — what a visitor may see", () => {
     expect(directoryLimit(500, true)).toBe(500);
   });
 
+  it("a member never gets more than DIRECTORY_MAX, however much they ask for", () => {
+    expect(DIRECTORY_MAX).toBe(1000);
+    expect(directoryLimit(1000, true)).toBe(1000);
+    expect(directoryLimit(1001, true)).toBe(1000);
+    expect(directoryLimit(1e9, true)).toBe(1000);
+    expect(directoryLimit(Number.MAX_SAFE_INTEGER, true)).toBe(1000);
+    expect(directoryLimit(Number.MAX_VALUE, true)).toBe(1000);
+  });
+
   it("a visitor never gets more than one page", () => {
     expect(DIRECTORY_PAGE).toBe(24);
     expect(directoryLimit(undefined, false)).toBe(24);
@@ -122,10 +134,33 @@ describe("listedFor and directoryLimit — what a visitor may see", () => {
 
   it("a nonsense limit reads as one page, and never as nothing", () => {
     expect(directoryLimit(NaN, true)).toBe(24);
+    expect(directoryLimit(NaN, false)).toBe(24);
     expect(directoryLimit(Infinity, true)).toBe(24);
+    expect(directoryLimit(-Infinity, true)).toBe(24);
     expect(directoryLimit(0, true)).toBe(1);
     expect(directoryLimit(-5, false)).toBe(1);
     expect(directoryLimit(30.7, true)).toBe(30);
+  });
+});
+
+describe("searchedText — a visitor's one-letter search is no search", () => {
+  it("a visitor's search runs from two characters, trimmed", () => {
+    expect(VISITOR_MIN_QUERY).toBe(2);
+    expect(searchedText("a", false)).toBeUndefined();
+    expect(searchedText("  a  ", false)).toBeUndefined();
+    expect(searchedText(" ", false)).toBeUndefined();
+    expect(searchedText("an", false)).toBe("an");
+    expect(searchedText(" an ", false)).toBe(" an ");
+  });
+
+  it("a member's runs as typed, however short", () => {
+    expect(searchedText("a", true)).toBe("a");
+    expect(searchedText(" ", true)).toBe(" ");
+  });
+
+  it("no search is no search for anyone", () => {
+    expect(searchedText(undefined, true)).toBeUndefined();
+    expect(searchedText("", false)).toBeUndefined();
   });
 });
 
@@ -224,6 +259,20 @@ describe("profiles.directory — order", () => {
     const insider = (await call(directory, tables, MEMBER)).out;
     expect(names(insider.people).slice(0, 3)).toEqual(["Person 1", "Person 3", "Person 2"]);
   });
+
+  it("an event in a hidden (test) community doesn't move its organizer up for someone who can't see it", async () => {
+    const tables = world(3, {
+      hostOrgs: [{ _id: HID, name: "_TeamTest", slug: "teamtest", kind: "community", status: "active" }],
+      events: [event("secret-show", "users:u1", 100, { hostOrgId: HID })],
+    });
+    for (const outsider of [MEMBER, null]) {
+      const { out } = await call(directory, tables, outsider);
+      expect(names(out.people).slice(0, 3)).toEqual(["Person 3", "Person 2", "Person 1"]);
+    }
+    tables.communityMembers = [{ _id: "communityMembers:m", hostOrgId: HID, userId: MEMBER, role: "member", status: "active" }];
+    const insider = (await call(directory, tables, MEMBER)).out;
+    expect(names(insider.people).slice(0, 3)).toEqual(["Person 1", "Person 3", "Person 2"]);
+  });
 });
 
 describe("profiles.directory — members load more", () => {
@@ -245,6 +294,16 @@ describe("profiles.directory — members load more", () => {
   it("one page when the page doesn't say", async () => {
     expect((await call(directory, tables, MEMBER)).out.people).toHaveLength(24);
   });
+
+  it("never more than DIRECTORY_MAX in one call, however far they page", async () => {
+    const crowd = world(1100);
+    for (const limit of [1e9, Number.MAX_VALUE, 5000]) {
+      const { out } = await call(directory, crowd, MEMBER, { limit });
+      expect(out.people).toHaveLength(1000);
+      expect(out.total).toBe(1101);
+    }
+    expect((await call(directory, crowd, MEMBER, { limit: NaN })).out.people).toHaveLength(24);
+  });
 });
 
 describe("profiles.directory — visitors see one page", () => {
@@ -257,6 +316,47 @@ describe("profiles.directory — visitors see one page", () => {
       expect(out.total).toBe(61);
       expect(out.visitor).toBe(true);
     }
+  });
+
+  it("24 at most under Discipline, Near me or a community too, each with its own total", async () => {
+    // 60 people who play music, live in Nashville and belong to Public
+    // Circle; the member reading plays music too, but lives nowhere and
+    // belongs to nothing.
+    const crowd = world(60);
+    crowd.profiles = crowd.profiles.map((p) =>
+      p.userId === MEMBER ? p : { ...p, coordinates: { lat: 36.16, lng: -86.78 } },
+    );
+    crowd.hostOrgs = [{ _id: PUB, name: "Public Circle", slug: "public-circle", kind: "community", status: "active" }];
+    crowd.communityMembers = crowd.profiles
+      .filter((p) => p.userId !== MEMBER)
+      .map((p, i) => ({ _id: `communityMembers:${i}`, hostOrgId: PUB, userId: p.userId, role: "member", status: "active" }));
+    const cases: [string, Record<string, unknown>, number][] = [
+      ["Discipline", { interests: ["Music"] }, 61],
+      ["Near me", { near: { lat: 36.17, lng: -86.79, radius: 25 } }, 60],
+      ["a community", { communitySlug: "public-circle" }, 60],
+    ];
+    for (const [label, args, total] of cases) {
+      for (const limit of [undefined, 48, 1000]) {
+        const { out } = await call(directory, crowd, null, limit === undefined ? args : { ...args, limit });
+        expect(out.people, `${label}, limit ${limit}`).toHaveLength(24);
+        expect(out.total, `${label}, limit ${limit}`).toBe(total);
+        expect(out.visitor).toBe(true);
+      }
+    }
+  });
+
+  it("a one-letter search is no search for a visitor; a member's still runs", async () => {
+    // Nobody's name, bio or anything else has an "x" in it.
+    for (const query of ["x", " x ", "X"]) {
+      const visitor = (await call(directory, tables, null, { query })).out;
+      expect(visitor.people, query).toHaveLength(24);
+      expect(visitor.total, query).toBe(61);
+      expect((await call(directory, tables, MEMBER, { query })).out.total, query).toBe(0);
+    }
+    // Two letters is a search, for anyone.
+    expect((await call(directory, tables, null, { query: "xq" })).out.total).toBe(0);
+    // The name picker follows the same rule.
+    expect(await call(search, tables, null, { query: "x" }).then((r) => r.out)).toHaveLength(24);
   });
 
   it("the same first page a member gets", async () => {

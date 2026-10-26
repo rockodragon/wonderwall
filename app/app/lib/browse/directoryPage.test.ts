@@ -22,6 +22,11 @@ describe("directoryEnd — what follows the last card", () => {
   it("nothing while the first answer loads", () => {
     expect(directoryEnd(undefined)).toBeNull();
   });
+
+  it("no Load more once a member has as many as one call returns (DIRECTORY_MAX)", () => {
+    expect(directoryEnd(page(999, 1500, false))).toEqual({ kind: "more", remaining: 501 });
+    expect(directoryEnd(page(1000, 1500, false))).toBeNull();
+  });
 });
 
 describe("the join line", () => {
