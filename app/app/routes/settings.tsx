@@ -1,12 +1,15 @@
 import { usePostHog } from "@posthog/react";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
-import { MyPageLinks } from "../components/MyShareActions";
+import { ArrowUpRight, PencilSimple } from "@phosphor-icons/react";
+import { MyProfileTiles } from "../components/MyShareActions";
+import { InfoTip } from "../components/InfoTip";
+import { SwitchRow } from "../components/SwitchRow";
 import { EmbedStill, PlayBadge } from "../components/EmbedStill";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
@@ -31,7 +34,6 @@ import { OrganizationsEditor } from "../components/OrganizationsEditor";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { maxSize, useFileUpload } from "../lib/useFileUpload";
 import { AVATAR_PX } from "../lib/shrinkImage";
-import { ShortlistLink } from "../components/shortlist/ShortlistLink";
 import { isGardenHost } from "../../convex/garden/brandHosts";
 import { formatCents } from "../../convex/money";
 
@@ -93,41 +95,7 @@ export default function Settings() {
     <div className={`p-4 sm:p-6 ${PAGE_WIDTH.reading} mx-auto text-base sm:text-sm`}>
       {/* Tabs across the top: the page had grown to ten stacked sections.
           ?tab= deep-links (the sidebar invite card opens ?tab=network). */}
-      <div
-        role="tablist"
-        aria-label="Settings"
-        className="flex gap-1 mb-8 border-b overflow-x-auto"
-        style={{ borderColor: "var(--app-hairline)" }}
-      >
-        {SETTINGS_TABS.map((tab) => {
-          const active = tab.id === activeTab;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => selectTab(tab.id)}
-              className="px-4 py-2.5 -mb-px text-sm font-medium whitespace-nowrap border-b-2 transition-colors"
-              style={{
-                borderColor: active ? "var(--app-accent-ink)" : "transparent",
-                color: active ? "var(--app-text)" : "var(--app-text-dim)",
-              }}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
-        {profile?.isAdmin && (
-          <Link
-            to="/admin"
-            className="px-4 py-2.5 -mb-px text-sm font-medium whitespace-nowrap border-b-2 border-transparent transition-colors hover:opacity-80"
-            style={{ color: "var(--app-text-dim)" }}
-          >
-            Admin
-          </Link>
-        )}
-      </div>
+      <SettingsTabBar active={activeTab} isAdmin={Boolean(profile?.isAdmin)} onSelect={selectTab} />
 
       {activeTab === "profile" && (
         <>
@@ -138,7 +106,9 @@ export default function Settings() {
                   profile={profile}
                   onEdit={() => setShowProfileEdit(true)}
                 />
-                <MyPageLinks profileId={profile._id} handle={profile.handle} />
+                {/* The phone's Profile tab lands here, so sharing, your
+                    code and the Shortlist are a tap away. */}
+                <MyProfileTiles profileId={profile._id} />
               </>
             ) : (
               <ProfileEditForm
@@ -146,13 +116,6 @@ export default function Settings() {
                 onDone={() => setShowProfileEdit(false)}
                 isNewProfile={profileNeedsSetup}
               />
-            )}
-            {/* The phone's Profile tab lands here, so the Shortlist is a
-                tap away (components/shortlist/ShortlistLink.tsx). */}
-            {hasProfile && profile && !isEditingProfile && (
-              <div className="mt-5">
-                <ShortlistLink />
-              </div>
             )}
           </div>
 
@@ -1307,6 +1270,101 @@ function BlockedSection() {
   );
 }
 
+/** The row of tabs. On a phone it scrolls sideways with no scrollbar; a fade
+ *  at the right edge says there are more, and the chosen tab (from a tap or
+ *  from ?tab=) is scrolled into view. */
+function SettingsTabBar({
+  active,
+  isAdmin,
+  onSelect,
+}: {
+  active: SettingsTab;
+  isAdmin: boolean;
+  onSelect: (tab: SettingsTab) => void;
+}) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [moreRight, setMoreRight] = useState(false);
+
+  // The fade shows only while something is hidden on the right, so it never
+  // sits over the last tab once the row is scrolled to the end.
+  function measure() {
+    const row = rowRef.current;
+    if (row) setMoreRight(row.scrollLeft + row.clientWidth < row.scrollWidth - 1);
+  }
+
+  useLayoutEffect(() => {
+    const row = rowRef.current;
+    if (!row) return;
+    // Center the selected tab by scrolling the row alone: scrollIntoView
+    // would scroll the page too, and jump it when Admin arrives late.
+    const tab = row.querySelector('[aria-selected="true"]');
+    if (tab) {
+      const t = tab.getBoundingClientRect();
+      const r = row.getBoundingClientRect();
+      row.scrollLeft += t.left - r.left - (row.clientWidth - t.width) / 2;
+    }
+    measure();
+    const watch = new ResizeObserver(measure);
+    watch.observe(row);
+    return () => watch.disconnect();
+    // Admin joins the row once the profile loads, which widens what scrolls.
+  }, [active, isAdmin]);
+
+  return (
+    <div className="relative mb-8">
+      <div
+        ref={rowRef}
+        role="tablist"
+        aria-label="Settings"
+        className="no-scrollbar flex gap-1 overflow-x-auto"
+        onScroll={measure}
+        // The hairline is a shadow inside the row, not a border: a border plus
+        // the tabs' -mb-px pokes 1px past the row and makes it scroll up and down.
+        style={{ boxShadow: "inset 0 -1px 0 var(--app-hairline)" }}
+      >
+        {SETTINGS_TABS.map((tab) => {
+          const on = tab.id === active;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              onClick={() => onSelect(tab.id)}
+              className="shrink-0 px-4 py-2.5 text-[15px] font-medium whitespace-nowrap border-b-2 transition-colors"
+              style={{
+                borderColor: on ? "var(--app-accent-ink)" : "transparent",
+                color: on ? "var(--app-text)" : "var(--app-text-dim)",
+              }}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+        {isAdmin && (
+          <Link
+            to="/admin"
+            className="shrink-0 px-4 py-2.5 text-[15px] font-medium whitespace-nowrap border-b-2 border-transparent transition-colors hover:opacity-80"
+            style={{ color: "var(--app-text-dim)" }}
+          >
+            Admin
+          </Link>
+        )}
+      </div>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 right-0 w-12 transition-opacity"
+        style={{
+          background: "linear-gradient(to right, transparent, var(--app-surface))",
+          opacity: moreRight ? 1 : 0,
+        }}
+      />
+    </div>
+  );
+}
+
+/** Your face, name and roles. The @address under the name is the one way
+ *  to your page from here; the pencil opens the profile editor. */
 function ProfileSummary({
   profile,
   onEdit,
@@ -1317,37 +1375,34 @@ function ProfileSummary({
   onEdit: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-4">
-        {profile.imageUrl ? (
-          <img
-            src={profile.imageUrl}
-            alt={profile.name}
-            className="w-16 h-16 rounded-full object-cover"
-          />
-        ) : (
-          <div
-            className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold"
-            style={{ backgroundColor: "var(--app-hairline-raised)", color: "var(--app-text)" }}
-          >
-            {profile.name.charAt(0).toUpperCase()}
-          </div>
-        )}
-        <div>
-          <h3 className="font-semibold" style={{ color: "var(--app-text)" }}>
-            {profile.name}
-          </h3>
-          <p className="text-sm" style={{ color: "var(--app-text-dim)" }}>
-            {profile.interests?.join(", ") || "No roles set"}
-          </p>
-        </div>
+    <div className="flex items-start gap-4">
+      <PersonAvatar name={profile.name} imageUrl={profile.imageUrl} size="xl" tone="strong" />
+      <div className="min-w-0 flex-1">
+        <h3 className="font-semibold" style={{ color: "var(--app-text)" }}>
+          {profile.name}
+        </h3>
+        <Link
+          to={profile.handle ? profilePath(profile.handle) : `/profile/${profile._id}`}
+          className="inline-flex max-w-full items-center gap-1 text-sm font-medium hover:underline"
+          style={{ color: "var(--app-accent-ink)" }}
+        >
+          {/* A 30-letter handle is wider than a phone leaves beside the pencil. */}
+          <span className="truncate">{profile.handle ? `@${profile.handle}` : "See your page"}</span>
+          <ArrowUpRight size={14} className="shrink-0" aria-hidden />
+        </Link>
+        <p className="mt-1 text-sm line-clamp-2" style={{ color: "var(--app-text-dim)" }}>
+          {profile.interests?.join(", ") || "No roles set"}
+        </p>
       </div>
       <button
+        type="button"
         onClick={onEdit}
-        className="px-4 py-2 text-sm font-medium hover:opacity-80"
-        style={{ color: "var(--app-accent-ink)" }}
+        aria-label="Edit profile"
+        title="Edit profile"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-colors hover:border-[var(--app-accent)]"
+        style={{ backgroundColor: "var(--app-surface-raised)", borderColor: "var(--app-hairline)", color: "var(--app-text)" }}
       >
-        Edit Profile
+        <PencilSimple size={18} aria-hidden />
       </button>
     </div>
   );
@@ -1698,9 +1753,10 @@ const CONTACT_LINK = [{ text: LEGAL_ENTITY.contactEmail, href: `mailto:${LEGAL_E
  * Your address: thecreative.exchange/@handle (convex/handleRules.ts has the
  * rules — Instagram's). Checks as you type: the rules here; taken, held
  * (convex/heldHandles.ts) or a community's name on the server
- * (handles.checkHandle). Saves on its own; a change keeps the old address
- * forwarding for HANDLE_FORWARD_DAYS. "How names work" is /legal/names.
- * Under it, "Hide my profile from search engines" (handles.setHideFromSearch).
+ * (handles.checkHandle). Save shows once the name changes; a change keeps
+ * the old address forwarding for HANDLE_FORWARD_DAYS. The "i" holds the
+ * explanation and "How names work" (/legal/names). Under it, a switch for
+ * "Hide my profile from search engines" (handles.setHideFromSearch).
  */
 function AddressSection({ profile }: { profile: { handle?: string; hideFromSearch?: boolean } }) {
   const claimHandle = useMutation(api.handles.claimHandle);
@@ -1710,6 +1766,7 @@ function AddressSection({ profile }: { profile: { handle?: string; hideFromSearc
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const handle = cleanHandle(typed);
   // A blank field isn't a problem yet; the rules speak once there's something.
@@ -1749,6 +1806,8 @@ function AddressSection({ profile }: { profile: { handle?: string; hideFromSearc
     try {
       await claimHandle({ handle });
       setSaved(true);
+      // Save goes away once the name is saved; don't leave focus nowhere.
+      inputRef.current?.focus();
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -1767,24 +1826,30 @@ function AddressSection({ profile }: { profile: { handle?: string; hideFromSearc
 
   return (
     <div>
-      <h2 className="text-lg font-semibold mb-2" style={{ color: "var(--app-text)" }}>
-        Your address
-      </h2>
-      <p className="text-sm mb-4" style={{ color: "var(--app-text-dim)" }}>
-        Your public page. Bring the name you use on Instagram.{" "}
-        <Link to="/legal/names" className="hover:underline" style={{ color: "var(--app-accent-ink)" }}>
-          How names work
-        </Link>
-      </p>
+      <div className="mb-3 flex items-center gap-2">
+        <h2 className="text-lg font-semibold" style={{ color: "var(--app-text)" }}>
+          Your public address
+        </h2>
+        <InfoTip
+          label="About your public address"
+          lines={[
+            "Your public page. Bring the name you use on Instagram.",
+            <Link key="names" to="/legal/names" className="hover:underline" style={{ color: "var(--app-accent-ink)" }}>
+              How names work →
+            </Link>,
+          ]}
+        />
+      </div>
       <form onSubmit={save} className="flex flex-col sm:flex-row sm:items-center gap-2">
         <label
-          className="flex flex-1 items-center border rounded-lg focus-within:ring-2 focus-within:ring-[var(--app-accent)]"
+          className="flex min-h-11 flex-1 items-center border rounded-lg focus-within:ring-2 focus-within:ring-[var(--app-accent)]"
           style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)" }}
         >
           <span className="pl-4 text-sm whitespace-nowrap select-none" style={{ color: "var(--app-text-dim)" }}>
             thecreative.exchange/@
           </span>
           <input
+            ref={inputRef}
             type="text"
             value={typed}
             onChange={(e) => {
@@ -1793,24 +1858,26 @@ function AddressSection({ profile }: { profile: { handle?: string; hideFromSearc
               setError(null);
             }}
             placeholder="yourname"
-            aria-label="Your address"
+            aria-label="Your public address"
             aria-invalid={refused || undefined}
             maxLength={HANDLE_MAX_LENGTH + 1}
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck={false}
-            className="min-w-0 flex-1 bg-transparent py-2 pr-4 outline-none"
+            className="min-w-0 flex-1 bg-transparent py-2 pr-4 text-base outline-none"
             style={{ color: "var(--app-text)" }}
           />
         </label>
-        <button
-          type="submit"
-          disabled={!canSave}
-          className="px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50"
-          style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
-        >
-          {saving ? "Saving…" : "Save"}
-        </button>
+        {!unchanged && (
+          <button
+            type="submit"
+            disabled={!canSave}
+            className="min-h-11 px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50"
+            style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+        )}
       </form>
       {status && (
         <p
@@ -1831,22 +1898,17 @@ function AddressSection({ profile }: { profile: { handle?: string; hideFromSearc
           Your old address, @{current}, forwards here for {HANDLE_FORWARD_DAYS} days.
         </p>
       )}
-      {current && unchanged && (
-        <p className="mt-2 text-sm">
-          <Link to={profilePath(current)} className="hover:underline" style={{ color: "var(--app-accent-ink)" }}>
-            {saved ? "Saved. " : ""}See your page →
-          </Link>
+      {saved && unchanged && (
+        <p role="status" className="mt-2 text-sm" style={{ color: "var(--app-text-muted)" }}>
+          Saved.
         </p>
       )}
-      <label className="mt-5 flex items-center gap-3 text-sm" style={{ color: "var(--app-text)" }}>
-        <input
-          type="checkbox"
-          checked={!!profile.hideFromSearch}
-          onChange={(e) => void toggleHide(e.target.checked)}
-          className="h-4 w-4"
-        />
-        Hide my profile from search engines
-      </label>
+      <SwitchRow
+        label="Hide my profile from search engines"
+        on={!!profile.hideFromSearch}
+        onChange={(hide) => void toggleHide(hide)}
+        className="mt-3 min-h-14"
+      />
     </div>
   );
 }
@@ -2331,9 +2393,18 @@ function ArtifactsSection({
   return (
     <div ref={sectionRef}>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold" style={{ color: "var(--app-text)" }}>
-          Work & Portfolio
-        </h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-semibold" style={{ color: "var(--app-text)" }}>
+            Work & Portfolio
+          </h2>
+          <InfoTip
+            label="About work and portfolio"
+            lines={[
+              "Add text, pictures, video, audio or links.",
+              `Pictures up to ${maxSize("image")}. Video and audio up to ${maxSize("video")}.`,
+            ]}
+          />
+        </div>
         {!showAddForm && !editingId && (
           <button
             onClick={() => setShowAddForm(true)}
@@ -2344,11 +2415,6 @@ function ArtifactsSection({
           </button>
         )}
       </div>
-      <p className="text-sm mb-4" style={{ color: "var(--app-text-dim)" }}>
-        Showcase your work with text, images, videos, audio, or links.
-        Pictures up to {maxSize("image")}; video and audio up to {maxSize("video")}.
-      </p>
-
       {/* Add/Edit Form */}
       {(showAddForm || editingId) && (
         <div className="mb-6 p-4 rounded-xl" style={{ backgroundColor: "var(--app-surface-raised)" }}>
@@ -2672,7 +2738,7 @@ function ArtifactsSection({
             <span className="text-3xl">✨</span>
           </div>
           <p className="text-sm" style={{ color: "var(--app-text-dim)" }}>
-            No work added yet. Click "+ Add" to showcase your portfolio.
+            No work added yet.
           </p>
         </div>
       ) : null}

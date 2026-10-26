@@ -30,6 +30,15 @@ html[data-brand="garden"] .brand-exchange {
   display: none !important;
 }
 
+/* A row that scrolls sideways with no scrollbar showing (the Settings tabs).
+   The swipe still works; give the row an edge fade so people see there's more. */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 /* Date and time boxes. iOS Safari gives them a fixed width of their own, so in
    a narrow column they ran past the screen's edge (Rick, 2026-10-05: Edit
    event on a phone). In the base layer, so a utility class still wins. */

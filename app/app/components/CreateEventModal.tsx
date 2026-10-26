@@ -22,6 +22,7 @@ import { uploadToStorage } from "../lib/uploadFile";
 import { useCoverPick } from "../lib/useCoverPick";
 import { justPublished } from "../lib/justPublished";
 import { FocusBackdrop } from "./FocusBackdrop";
+import { SwitchRow } from "./SwitchRow";
 import { shiftEndTime } from "../lib/shiftEndTime";
 import { errorMessage } from "../lib/convexError";
 import { ticketLinkHost } from "../lib/eventCta";
@@ -137,34 +138,11 @@ function FieldLabel({
   );
 }
 
-// An on/off line on the Options step.
-function SwitchRow({ label, on, onChange }: { label: string; on: boolean; onChange: (on: boolean) => void }) {
+// An on/off line on the Options step, ruled off from the line above.
+function OptionSwitch(props: { label: string; on: boolean; onChange: (on: boolean) => void }) {
   return (
     <div className="py-3 border-t" style={{ borderColor: "var(--app-hairline)" }}>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={on}
-        onClick={() => onChange(!on)}
-        className="w-full flex items-center justify-between gap-3 text-left"
-      >
-        <span className="text-[15px]" style={{ color: "var(--app-text)" }}>
-          {label}
-        </span>
-        <span
-          aria-hidden="true"
-          className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors"
-          style={{ backgroundColor: on ? "var(--app-accent)" : "var(--app-hairline-raised)" }}
-        >
-          <span
-            className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-transform"
-            style={{
-              backgroundColor: on ? "var(--garden-ink)" : "var(--app-text)",
-              transform: on ? "translateX(20px)" : "translateX(0)",
-            }}
-          />
-        </span>
-      </button>
+      <SwitchRow {...props} />
     </div>
   );
 }
@@ -998,46 +976,7 @@ export function CreateEventModal({
                 />
               </div>
 
-              <div
-                className="py-3 border-t"
-                style={{ borderColor: "var(--app-hairline)" }}
-              >
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={requiresApproval}
-                  onClick={() => setRequiresApproval((on) => !on)}
-                  className="w-full flex items-center justify-between gap-3 text-left"
-                >
-                  <span
-                    className="text-[15px]"
-                    style={{ color: "var(--app-text)" }}
-                  >
-                    Require approval
-                  </span>
-                  <span
-                    aria-hidden="true"
-                    className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors"
-                    style={{
-                      backgroundColor: requiresApproval
-                        ? "var(--app-accent)"
-                        : "var(--app-hairline-raised)",
-                    }}
-                  >
-                    <span
-                      className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-transform"
-                      style={{
-                        backgroundColor: requiresApproval
-                          ? "var(--garden-ink)"
-                          : "var(--app-text)",
-                        transform: requiresApproval
-                          ? "translateX(20px)"
-                          : "translateX(0)",
-                      }}
-                    />
-                  </span>
-                </button>
-              </div>
+              <OptionSwitch label="Require approval" on={requiresApproval} onChange={setRequiresApproval} />
 
               {!tableEvent && (
                 <>
@@ -1065,13 +1004,13 @@ export function CreateEventModal({
                         className={inputClass}
                         style={inputStyle}
                       />
-                      {capacityNumber && <SwitchRow label="Waitlist when full" on={waitlist} onChange={setWaitlist} />}
+                      {capacityNumber && <OptionSwitch label="Waitlist when full" on={waitlist} onChange={setWaitlist} />}
                       <p className="text-sm pt-1" style={{ color: "var(--app-text-muted)" }}>
                         A ticket link on another site sells on its own. Set the same limit there.
                       </p>
                     </div>
                   </OptionRow>
-                  <SwitchRow label="Show the address only to people going" on={hideAddress} onChange={setHideAddress} />
+                  <OptionSwitch label="Show the address only to people going" on={hideAddress} onChange={setHideAddress} />
                 </>
               )}
 

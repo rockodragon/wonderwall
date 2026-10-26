@@ -307,6 +307,7 @@ export const answers: Record<string, unknown | ((args: unknown) => unknown)> = {
   "garden/projectTeam:listAffiliations": myProjects,
   "invites:getInviteStats": null,
   "profiles:getMyProfile": me,
+  "profiles:getProfile": myPage,
   "profiles:directory": (args: unknown) => {
     const q = String((args as { query?: string } | undefined)?.query ?? "").toLowerCase();
     const found = q ? people.filter((p) => p.name.toLowerCase().includes(q)) : people;

@@ -14,6 +14,7 @@ import People from "../../../app/routes/search";
 // A named export, never a route's default (see routes/slug.tsx).
 import { ProfilePage, type ProfileData } from "../../../app/routes/profile";
 import { MyCodePage } from "../../../app/routes/code";
+import Settings from "../../../app/routes/settings";
 import { myPage, theirPage } from "./data";
 import "./fixture.css";
 
@@ -61,7 +62,8 @@ const router = createBrowserRouter([
       { path: "profile/:profileId", element: <Elsewhere what="a profile" /> },
       { path: "orgs/:slug", element: <Elsewhere what="an organization" /> },
       { path: "messages/:conversationId", element: <Elsewhere what="a conversation" /> },
-      { path: "settings", element: <Elsewhere what="your profile" /> },
+      // The Profile tab of Settings: where the bar's Profile tab lands.
+      { path: "settings", Component: Settings },
       { path: "*", element: <Elsewhere what="somewhere else" /> },
     ],
   },

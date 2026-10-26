@@ -20,11 +20,17 @@ function hint(hasHandle: boolean) {
 }
 
 describe("ShareHint", () => {
-  it("with an address, says what Share your profile and Show my code hold", () => {
+  // The buttons it names are tiles on a phone and pills from `sm` up
+  // (components/ownPageButton.ts): the note says what is on screen at each.
+  it("with an address, names Share and My code as they read at each width", () => {
     site.brand = "exchange";
     const html = hint(true);
-    expect(html).toContain("<strong>Share your profile</strong>");
-    expect(html).toContain("<strong>Show my code</strong>");
+    expect(html).toContain(
+      '<strong><span class="sm:hidden">Share profile</span><span class="hidden sm:inline">Share your profile</span></strong>',
+    );
+    expect(html).toContain(
+      '<strong><span class="sm:hidden">My code</span><span class="hidden sm:inline">Show my code</span></strong>',
+    );
     expect(html).not.toContain("/settings#address");
   });
 

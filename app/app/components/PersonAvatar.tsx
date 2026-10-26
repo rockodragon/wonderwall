@@ -16,6 +16,8 @@ const SIZES = {
   // 40px with a 16px initial (the blocked list), and 48px (search results).
   mdBase: "h-10 w-10 text-base",
   card: "h-12 w-12 text-base",
+  // 64px: your own face at the top of Settings.
+  xl: "h-16 w-16 text-2xl",
 } as const;
 
 const TONES = {

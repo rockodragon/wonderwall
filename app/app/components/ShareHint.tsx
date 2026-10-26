@@ -1,7 +1,9 @@
 // A one-time note under the share buttons on your own profile
 // (routes/profile.tsx), so people learn the share kit and "My code" exist.
 // With no address yet it asks for one first, since every link, code and
-// card points at it; with one, it says what "Share your profile" holds.
+// card points at it; with one, it says what Share holds. It names the
+// buttons as they read on screen: tiles on a phone, pills from `sm` up
+// (components/ownPageButton.ts).
 // Gone for good once closed, or once they open the share kit
 // (hooks/useOnceNote.ts). The address it names is the site's own
 // (lib/profileShare.ts shareSite): createthegarden.com on a Garden domain.
@@ -12,6 +14,8 @@ import { useBrand } from "../brand/brands";
 import { FOCUS_RING_CLASS } from "../desk/tokens";
 import { useOnceNote } from "../hooks/useOnceNote";
 import { displayLink, shareSite } from "../lib/profileShare";
+import { OwnPageLabel } from "./OwnPageFace";
+import { OWN_PAGE_LABELS, type OwnPageName } from "./ownPageButton";
 
 export const CLAIM_HINT_KEY = "profile.claimHint";
 export const SHARE_HINT_KEY = "profile.shareHint";
@@ -22,21 +26,31 @@ export function useShareHint(hasHandle: boolean, ready: boolean) {
   return useOnceNote(hasHandle ? SHARE_HINT_KEY : CLAIM_HINT_KEY, ready);
 }
 
+/** A button's name in bold, as it reads at the width on screen. */
+function ButtonName({ label }: { label: OwnPageName }) {
+  return (
+    <strong>
+      <OwnPageLabel look="phoneTile" label={label} />
+    </strong>
+  );
+}
+
 export function ShareHint({ hasHandle, onClose }: { hasHandle: boolean; onClose: () => void }) {
   const site = shareSite(useBrand());
   return (
     <aside
       aria-label={hasHandle ? "Sharing your profile" : "Your address"}
-      // It sits in the profile's action column, which is as wide as its
-      // widest child: capped, the words wrap instead of widening the page.
-      className="flex w-full max-w-[22rem] items-start gap-3 rounded-xl border px-4 py-3 text-sm"
+      // From `sm` up it sits in the profile's action column, which is as
+      // wide as its widest child: capped, the words wrap instead of
+      // widening the page. On a phone it fills the tiles' row.
+      className="flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-sm sm:max-w-[22rem]"
       style={{ backgroundColor: "var(--app-surface-raised)", borderColor: "var(--app-hairline)", color: "var(--app-text)" }}
     >
       <p className="flex-1">
         {hasHandle ? (
           <>
-            New: <strong>Share your profile</strong> has your link for Instagram and Linktree, a QR code to print, a story
-            picture and a card for your website. <strong>Show my code</strong> is the QR code to hold up in person.
+            <ButtonName label={OWN_PAGE_LABELS.share} /> has your link, a QR code to print, a story picture and a website
+            card. <ButtonName label={OWN_PAGE_LABELS.code} /> is a QR code to hold up in person.
           </>
         ) : (
           <>

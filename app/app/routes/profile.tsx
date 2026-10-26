@@ -10,7 +10,6 @@ import { loginHref } from "../lib/loginHref";
 import { canonicalProfileUrl, profileDescription, profileTitle } from "../lib/profileHead";
 import { EmbedStill, PlayBadge } from "../components/EmbedStill";
 import { FavoriteButton } from "../components/FavoriteButton";
-import { ShortlistLink } from "../components/shortlist/ShortlistLink";
 import { ShareButton } from "../components/ShareButton";
 import { MyShareActions } from "../components/MyShareActions";
 import { ShareHint, useShareHint } from "../components/ShareHint";
@@ -342,7 +341,7 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
           {/* Action cluster — Follow/Share always available (including on
               your own profile, matching prior behavior); Message and the
               Block kebab only make sense on someone else's. */}
-          <div className="flex flex-col items-start sm:items-end gap-2 shrink-0">
+          <div className={`flex flex-col items-start sm:items-end gap-2 shrink-0${isOwnProfile ? " w-full sm:w-auto" : ""}`}>
             <div className="flex items-center gap-2">
               {/* Signed out, Follow and Message go to sign in and come back
                   here (lib/loginHref.ts); signed in, they act. */}
@@ -396,14 +395,16 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
               </p>
             )}
             {/* Your link, a QR code, a story picture, and a badge and a card
-                for your own website (components/ProfileShareKit.tsx); and
-                your code to hold up face to face (routes/code.tsx). */}
-            {isOwnProfile && <MyShareActions profile={profile} onOpen={shareHint.dismiss} className="sm:justify-end" />}
-            {isOwnProfile && shareHint.show && <ShareHint hasHandle={!!profile.handle} onClose={shareHint.dismiss} />}
-            {/* Your own profile is one place a phone finds the Shortlist
-                (the other is Today's corner), in the place Message sits on
-                anyone else's. */}
-            {isOwnProfile && <ShortlistLink />}
+                for your own website (components/ProfileShareKit.tsx); your
+                code to hold up face to face (routes/code.tsx); and your
+                Shortlist, which a phone finds here and in Today's corner.
+                One row of tiles on a phone, the pills from `sm` up, with
+                the one-time note under the row (components/ShareHint.tsx). */}
+            {isOwnProfile && (
+              <MyShareActions profile={profile} projects={affiliations} look="phoneTile" onOpen={shareHint.dismiss}>
+                {shareHint.show && <ShareHint hasHandle={!!profile.handle} onClose={shareHint.dismiss} />}
+              </MyShareActions>
+            )}
             {/* Owner-only links into settings. Links, nothing more: what a
                 person has paid or given is private and never shown here. */}
             {isOwnProfile && (

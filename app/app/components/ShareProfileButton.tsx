@@ -6,6 +6,8 @@ import { QrCode } from "@phosphor-icons/react";
 import { lazy, Suspense, useState, type ComponentProps } from "react";
 import type { ProfileShareKit as Kit, ShareKitProfile } from "./ProfileShareKit";
 import type { ProjectRow } from "../lib/profileShare";
+import { OwnPageFace } from "./OwnPageFace";
+import { OWN_PAGE_BUTTON_STYLE, OWN_PAGE_LABELS, OWN_PAGE_LOOK, type OwnPageLook } from "./ownPageButton";
 
 const ProfileShareKit = lazy(() =>
   import("./ProfileShareKit")
@@ -18,11 +20,14 @@ export function ShareProfileButton({
   profile,
   projects,
   onOpen,
+  look = "pill",
 }: {
   profile: ShareKitProfile;
   projects: readonly ProjectRow[] | undefined;
   /** The panel opened: the one-time hint has done its job (ShareHint). */
   onOpen?: () => void;
+  /** The profile page's pill, or Settings' tile (ownPageButton.ts). */
+  look?: OwnPageLook;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -34,15 +39,10 @@ export function ShareProfileButton({
           onOpen?.();
         }}
         aria-haspopup="dialog"
-        className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-colors hover:border-[var(--app-accent)]"
-        style={{
-          backgroundColor: "var(--app-surface-raised)",
-          color: "var(--app-text)",
-          borderColor: "var(--app-hairline)",
-        }}
+        className={OWN_PAGE_LOOK[look]}
+        style={OWN_PAGE_BUTTON_STYLE}
       >
-        <QrCode size={16} aria-hidden />
-        Share your profile
+        <OwnPageFace look={look} icon={QrCode} label={OWN_PAGE_LABELS.share} />
       </button>
       {open && (
         <Suspense fallback={null}>
