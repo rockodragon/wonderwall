@@ -37,6 +37,7 @@ import {
   DESK_VIEW_LABEL,
   SHORTLIST_VIEW,
   deskCreateHref,
+  deskHref,
   isOpenCard,
   parseDeskView,
   parseShortlistArea,
@@ -676,8 +677,9 @@ function EmptyDesk({
           <p style={{ margin: 0, fontSize: 20, color: DESK.muted }}>
             {view === "all" ? "Nothing on your canvas yet." : `Nothing from ${DESK_VIEW_LABEL[view]} on the canvas yet.`}
           </p>
+          {/* The desk's own People, not the phone page. */}
           {findPeople && (
-            <Link to="/people" className={linkClass}>
+            <Link to={deskHref("people")} className={linkClass}>
               Find people →
             </Link>
           )}

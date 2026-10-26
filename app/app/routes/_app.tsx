@@ -1,5 +1,5 @@
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { Link, Outlet, useLocation, useNavigate } from "react-router";
+import { Link, Navigate, Outlet, useLocation, useNavigate } from "react-router";
 import { useEffect, useId, useState, type CSSProperties, type ReactNode } from "react";
 import { usePostHog } from "@posthog/react";
 import { BookmarkSimple, CalendarBlank, GraduationCap, PaintBrush, SquaresFour, Sun, UserCircle, Users, UsersThree, type Icon } from "@phosphor-icons/react";
@@ -17,6 +17,8 @@ import { initialsOf } from "../lib/initials";
 import { GARDEN_SLUG } from "../lib/communitySlugs";
 import { PHONE_BAR_HEIGHT } from "../lib/phoneBar";
 import { Palette } from "../desk/Palette";
+import { deskHrefForPage } from "../desk/deskRedirect";
+import { useIsDesktop } from "../hooks/useMediaQuery";
 import { NeedsYouDot } from "../components/shortlist/NeedsYouDot";
 import { useShortlist } from "../lib/shortlist/useShortlist";
 import { CountBadge } from "../components/phone/CountBadge";
@@ -138,6 +140,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const isDesktop = useIsDesktop();
   const posthog = usePostHog();
   const profile = useQuery(api.profiles.getMyProfile);
   const unreadCount = useQuery(api.messaging.getUnreadCount) ?? 0;
@@ -267,6 +270,18 @@ export function AppShell({ children }: { children?: ReactNode }) {
         />
       </div>
     );
+  }
+
+  // A signed-in member on a computer browses on the desk (/today, behind
+  // FF_DESK, md and up, as today.tsx and favorites.tsx have it), so People,
+  // Projects and Events hand over to the desk's view of the same list, with
+  // the filters it can read (desk/deskRedirect.ts). Links all over the app
+  // still say /people and the rest; this is the one place that answers them.
+  // Decided only once the sign-in check above has settled, so a member never
+  // sees the phone page first. Signed out, and on a phone, the pages stay.
+  const deskTarget = FF_DESK && isDesktop && isAuthenticated ? deskHrefForPage(location.pathname, location.search) : null;
+  if (deskTarget) {
+    return <Navigate to={deskTarget} replace />;
   }
 
   if (!isAuthenticated && !isPublicPath) {

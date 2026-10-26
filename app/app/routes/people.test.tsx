@@ -84,3 +84,80 @@ describe("/people, a page at a time", () => {
     expect(mock.asked["profiles:directory"]).toBeUndefined();
   });
 });
+
+/** The card that links to `href`, as drawn. */
+const card = (html: string, href: string) => html.match(new RegExp(`<a [^>]*href="${href}"[^>]*>.*?</a>`))![0];
+/** The classes of the first `tag` in `markup` whose class list holds `having`. */
+const classOf = (markup: string, tag: string, having = "") =>
+  markup
+    .replace(/&amp;/g, "&")
+    .match(new RegExp(`<${tag} [^>]*class="([^"]*${having.replace(/[[\]]/g, "\\$&")}[^"]*)"`))![1]
+    .split(" ");
+
+// A row of cards on a computer is only even if every card is the same height:
+// each line stays one line, however long what it says.
+describe("a person card", () => {
+  const person = {
+    _id: "p1",
+    name: "Ezekiel Pugal / ezthetics and friends",
+    imageUrl: null,
+    orgName: "Abiding Practice Collective of San Diego",
+    interests: ["Illustration", "Art", "Music"],
+  };
+
+  it("is one fixed height, with the face centered beside the words", async () => {
+    mock.answers["profiles:directory"] = { people: [person], total: 1, visitor: true };
+    const link = classOf(card(await people("/people"), "/profile/p1"), "a");
+    expect(link).toContain("min-h-[5.625rem]");
+    expect(link).toContain("items-center");
+  });
+
+  it("keeps the name, the organization and the disciplines to a line each, the full name in the tooltip", async () => {
+    mock.answers["profiles:directory"] = { people: [person], total: 1, visitor: true };
+    const markup = card(await people("/people"), "/profile/p1");
+    expect(classOf(markup, "h3")).toContain("truncate");
+    expect(markup).toContain(`title="${person.name}"`);
+    const lines = [...markup.matchAll(/<p [^>]*class="([^"]*)"/g)].map((m) => m[1].split(" "));
+    expect(lines).toHaveLength(2);
+    for (const line of lines) expect(line).toContain("truncate");
+    expect(text(markup)).toContain("Illustration · Art");
+    expect(text(markup)).not.toContain("Music");
+  });
+});
+
+describe("an organization card", () => {
+  const org = (slug: string, names: string[]) => ({
+    _id: `organizations:${slug}`,
+    name: "BetLynArt and DunhamMusicGroup Jazmae Music Publishing SESAC",
+    slug,
+    category: "Nonprofit",
+    tagline: null,
+    location: "Fallbrook",
+    logoUrl: null,
+    peopleCount: names.length,
+    faces: names.map((name) => ({ name, imageUrl: null })),
+  });
+
+  it("puts the logo at the top beside the name, and keeps the name to two lines", async () => {
+    mock.signedIn = false;
+    mock.answers["organizations:list"] = [org("betlynart", ["Betty Lynn Bass"])];
+    const markup = card(await people("/people?tab=orgs"), "/orgs/betlynart");
+    const link = classOf(markup, "a");
+    expect(link).toContain("items-start");
+    expect(link).toContain("min-h-[5.625rem]");
+    expect(classOf(markup, "h3")).toContain("line-clamp-2");
+    expect(markup).toContain('title="BetLynArt and DunhamMusicGroup Jazmae Music Publishing SESAC"');
+    expect(classOf(markup, "p")).toContain("truncate");
+  });
+
+  it("gives the count a line of its own under the faces, and cuts a long name short inside the card", async () => {
+    mock.signedIn = false;
+    mock.answers["organizations:list"] = [org("uncommon", ["Cody James Vermillion-Hargreaves"])];
+    const markup = card(await people("/people?tab=orgs"), "/orgs/uncommon");
+    // The faces are a list as wide as the card, so nothing fits beside it,
+    // and no face is wider than the card; the count comes after the list.
+    expect(classOf(markup, "div", "[&_ul]:w-full")).toEqual(expect.arrayContaining(["[&_ul]:w-full", "[&_li]:max-w-full"]));
+    expect(markup).toMatch(/<\/ul><span [^>]*>1(?:<!-- -->| )+person<\/span>/);
+    expect(classOf(markup, "span", "truncate")).toContain("truncate");
+  });
+});
