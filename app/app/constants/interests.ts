@@ -38,3 +38,12 @@ export const INTERESTS = [
 ] as const;
 
 export type Interest = (typeof INTERESTS)[number];
+
+/** A custom interest someone typed ("other:zines") is kept for their own
+ *  settings, not shown as a label to anyone else. */
+const CUSTOM_PREFIX = "other:";
+
+/** The interests to show others, in order: the custom ones left out. */
+export function shownInterests(interests: readonly string[] | null | undefined): string[] {
+  return (interests ?? []).filter((t) => !t.startsWith(CUSTOM_PREFIX));
+}

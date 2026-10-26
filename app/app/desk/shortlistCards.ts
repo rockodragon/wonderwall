@@ -26,6 +26,7 @@ import type { FavoriteTargetType } from "../../convex/favorites";
 import { workKind } from "../lib/shortlist/kind";
 import { addressName, KIND_LABEL, whenLabel } from "../components/shortlist/rowModel";
 import { cardIdOf, type ShortlistItem } from "../components/shortlist/items";
+import { shownInterests } from "../constants/interests";
 import { calendarDay, shortDay } from "../lib/dates";
 import { withProjectTab } from "../lib/projectTabs";
 import { isPast, payText } from "../lib/shortlist/model";
@@ -237,7 +238,7 @@ function requestCard(request: ShortlistRequest): DeskCard {
     ...base({ type: "request", request }),
     kind: "person",
     image: person.imageUrl,
-    face: { kicker: what, title: person.name, foot: person.interests.filter((t) => !t.startsWith("other:")).join(" · ") || null },
+    face: { kicker: what, title: person.name, foot: shownInterests(person.interests).join(" · ") || null },
     detail: {
       meta: `${what} · ${on.title}`,
       status: `${first} asked ${shortDay(at)} · Waiting on you`,
@@ -325,7 +326,7 @@ function eventRowCard(event: ShortlistEvent, ctx: ShortlistCardContext): DeskCar
 // ——— People ———
 
 function personCard(person: ShortlistFollow): DeskCard {
-  const interests = person.interests.filter((t) => !t.startsWith("other:"));
+  const interests = shownInterests(person.interests);
   const first = addressName(person.name);
   return {
     ...base({ type: "person", person }),

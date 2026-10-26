@@ -34,6 +34,7 @@ import {
   type CelebrationLike,
   type TextLink,
 } from "../lib/celebrations";
+import { shownInterests } from "../constants/interests";
 import { shortDay } from "../lib/dates";
 import type { ShortlistButton } from "./shortlistCards";
 import { isEventListed } from "../../convex/eventWindow";
@@ -614,7 +615,7 @@ export function projectCard(
 
 export function personCard(p: DeskPersonInput): DeskCard {
   const id: DeskCardId = `person:${p._id}`;
-  const interest = (p.interests ?? []).find((t) => !t.startsWith("other:")) ?? null;
+  const interest = shownInterests(p.interests)[0] ?? null;
   return {
     id,
     kind: "person",
