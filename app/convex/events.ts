@@ -34,6 +34,7 @@ import { notifyDateCanceled, notifyDateChanged } from "./garden/tableNotify";
 import { isEventListed } from "./eventWindow";
 import { isSafeHttpsUrl } from "./garden/richText";
 import { eventCoverUrl, orgLogoUrl, profileImageUrl, storedFileUrl, storedOrExternalUrl } from "./images";
+import { deleteStoredFile } from "./uploads";
 
 // ——— Pure validation helpers (unit-tested in events.test.ts) ———
 
@@ -803,15 +804,8 @@ export const update = mutation({
     if (args.mediaUrl !== undefined) {
       const mediaUrl = canonicalMediaUrl(args.mediaUrl);
       if (mediaUrl !== event.mediaUrl) {
-        if (event.mediaPreviewStorageId) {
-          // Best-effort, as garden/projects.ts's updateProject treats the same
-          // delete: a file already gone must not fail the whole edit.
-          try {
-            await ctx.storage.delete(event.mediaPreviewStorageId);
-          } catch {
-            // already gone
-          }
-        }
+        // Best-effort: a file already gone must not fail the whole edit.
+        await deleteStoredFile(ctx, event.mediaPreviewStorageId);
         mediaPatch = { mediaUrl, mediaPreviewUrl: undefined, mediaPreviewStorageId: undefined };
         fetchMediaUrl = mediaUrl;
       }

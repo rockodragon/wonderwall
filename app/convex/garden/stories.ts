@@ -23,6 +23,7 @@ import { notifyFollowers } from "../follows";
 import { isHidden } from "../moderationRules";
 import { communityVisibility, isHiddenCommunityId } from "./communityVisibility";
 import {
+  collectStorageIds,
   normalizeRichDoc,
   orphanedStorageIds,
   resolveRichDocMedia,
@@ -31,6 +32,7 @@ import {
   richDocValidator,
   type RichDoc,
 } from "./richText";
+import { claimUploads, deleteStoredFile } from "../uploads";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core: slug generation/dedup
@@ -207,6 +209,7 @@ export const postStoryUpdate = mutation({
     assertStoryOwner(project, userId);
 
     const { body, bodyDoc } = shapeUpdateContent(args);
+    await claimUploads(ctx, userId, collectStorageIds(bodyDoc));
 
     const id = await ctx.db.insert("storyUpdates", {
       projectId: args.projectId,
@@ -265,15 +268,14 @@ export const editStoryUpdate = mutation({
     }
 
     const { body, bodyDoc } = shapeUpdateContent(args);
+    // Pictures new to the update are claimed; the ones already in it came
+    // back unchanged.
+    await claimUploads(ctx, userId, collectStorageIds(bodyDoc), collectStorageIds(update.bodyDoc));
 
     // Same orphan sweep updateProject does — an edit that removes a photo
     // should not leave the file behind.
     for (const storageId of orphanedStorageIds(update.bodyDoc, bodyDoc)) {
-      try {
-        await ctx.storage.delete(storageId as Id<"_storage">);
-      } catch {
-        // already gone
-      }
+      await deleteStoredFile(ctx, storageId as Id<"_storage">);
     }
 
     await ctx.db.patch(args.storyUpdateId, { body, bodyDoc, editedAt: Date.now() });
@@ -298,11 +300,7 @@ export const deleteStoryUpdate = mutation({
     }
 
     for (const storageId of orphanedStorageIds(update.bodyDoc, undefined)) {
-      try {
-        await ctx.storage.delete(storageId as Id<"_storage">);
-      } catch {
-        // already gone
-      }
+      await deleteStoredFile(ctx, storageId as Id<"_storage">);
     }
 
     await ctx.db.delete(args.storyUpdateId);

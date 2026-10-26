@@ -18,17 +18,7 @@ import { syncCoHosts } from "./eventHosts";
 import { getProfileByUserId, requireAdminCtx } from "./helpers";
 import { HIDDEN_STATUS, deleteBlocker, isHidden, restoredStatus } from "./moderationRules";
 import { orphanedStorageIds } from "./garden/richText";
-
-async function deleteFile(ctx: MutationCtx, id: Id<"_storage"> | undefined) {
-  if (!id) return;
-  // Best-effort, as events.update treats the same delete: a file already
-  // gone must not fail the whole delete.
-  try {
-    await ctx.storage.delete(id);
-  } catch {
-    // already gone
-  }
-}
+import { deleteEventCover, deleteStoredFile } from "./uploads";
 
 async function deleteAnnouncements(
   ctx: MutationCtx,
@@ -122,7 +112,7 @@ export const deleteProject = mutation({
     // A shared piece IS its project (docs/features/project-ia.md) — left
     // behind it would be a /works/:id redirecting to nothing.
     for (const piece of pieces) {
-      await deleteFile(ctx, piece.mediaStorageId);
+      await deleteStoredFile(ctx, piece.mediaStorageId);
       const embedding = await ctx.db
         .query("embeddings")
         .withIndex("by_entity", (q) => q.eq("entityType", "artifact").eq("entityId", piece._id))
@@ -140,13 +130,13 @@ export const deleteProject = mutation({
     // Photos dropped into a rich body: the same orphan sweep an edit that
     // removes one does (updateProject, stories.ts), with nothing kept.
     for (const doc of [project.body, ...updates.map((u) => u.bodyDoc)]) {
-      for (const id of orphanedStorageIds(doc, undefined)) await deleteFile(ctx, id as Id<"_storage">);
+      for (const id of orphanedStorageIds(doc, undefined)) await deleteStoredFile(ctx, id as Id<"_storage">);
     }
     await deleteAll(ctx, [...slots, ...series, ...members, ...roles, ...tiers, ...updates, ...support]);
     await deleteAnnouncements(ctx, "project", projectId);
 
-    await deleteFile(ctx, project.photoStorageId);
-    await deleteFile(ctx, project.mediaPreviewStorageId);
+    await deleteStoredFile(ctx, project.photoStorageId);
+    await deleteStoredFile(ctx, project.mediaPreviewStorageId);
     await ctx.db.delete(projectId);
     return { ok: true, deleted: true };
   },
@@ -211,9 +201,10 @@ export const deleteEvent = mutation({
     // Synced to no co-hosts: its eventCoHosts rows go with it.
     await syncCoHosts(ctx, eventId, []);
 
-    await deleteFile(ctx, event.coverImageStorageId);
-    await deleteFile(ctx, event.mediaPreviewStorageId);
-    for (const id of event.imageStorageIds ?? []) await deleteFile(ctx, id);
+    // A Table's dates share its photo: kept while the Table still shows it.
+    await deleteEventCover(ctx, event);
+    await deleteStoredFile(ctx, event.mediaPreviewStorageId);
+    for (const id of event.imageStorageIds ?? []) await deleteStoredFile(ctx, id);
     await ctx.db.delete(eventId);
     return { ok: true, deleted: true };
   },

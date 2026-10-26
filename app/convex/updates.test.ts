@@ -337,6 +337,11 @@ function makeCtx(tables: Record<string, Row[]>, viewerId: string | null) {
         else r[k] = v;
       }
     },
+    // Stored files are `_storage` rows; claimUpload reads them.
+    system: {
+      normalizeId: (table: string, id: string) => (id.startsWith(`${table}:`) ? id : null),
+      get: async (id: string) => rowsOf("_storage").find((f) => f._id === id) ?? null,
+    },
   };
 
   const ctx = {
@@ -490,7 +495,10 @@ describe("saving an Update", () => {
       imageStorageId: "_storage:old",
       endsAt: NOW + DAY,
     });
-    const ctx = makeCtx(world({ updates: [existing] }), ADMIN);
+    const ctx = makeCtx(
+      world({ updates: [existing], _storage: [{ _id: "_storage:new", _creationTime: NOW }] }),
+      ADMIN,
+    );
     const id = await run(save, ctx, saveArgs({ updateId: existing._id, title: "Renamed", imageStorageId: "_storage:new" }));
     expect(id).toBe(existing._id);
     expect(ctx.store.updates).toHaveLength(1);

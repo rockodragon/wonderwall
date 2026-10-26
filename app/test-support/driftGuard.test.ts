@@ -139,6 +139,15 @@ const RULES: Rule[] = [
     use: "uploadToStorage(generateUploadUrl, file) in app/lib/uploadFile.ts — it removes where a photo was taken before the upload",
   },
   {
+    name: "stored file deleted by hand (one place)",
+    // A bare delete fails the whole call when the file is already gone, and
+    // an event's cover can be its Table's photo too.
+    pattern: /storage\.delete\(/g,
+    limit: 0,
+    home: "convex/uploads.ts",
+    use: "deleteStoredFile (a file already gone is fine) / deleteEventCover (keeps a Table's shared photo) in convex/uploads.ts",
+  },
+  {
     name: "upload size cap written inline",
     pattern: /\d+\s*\*\s*1024\s*\*\s*1024/g,
     // Left on purpose: useCoverPick takes bigger pictures because it shrinks
@@ -235,4 +244,55 @@ describe("drift guard: no new copies of a shared rule", () => {
       ).toBe(rule.limit);
     });
   }
+});
+
+// Stored-file ids are public (they're in /media/ links and query results).
+// A public mutation that writes one the browser sent onto a row has to check
+// who uploaded it, or anyone can attach someone else's file and then replace
+// it, which deletes the file (found 2026-10-26). Checked per exported
+// `mutation(...)`, from its `export const` to the next one: a stored-file id
+// arrives as v.id("_storage"), inside a rich-text body (richDocValidator), or
+// through a shared args object (`const x = { ... }` or `const x =
+// v.object({ ... })`, used as `args: x`, `...x` or `field: x`). It checks
+// for a claim call per mutation block, not per argument.
+const FILE_ID_ARG = /v\.id\(\s*"_storage"\s*\)|richDocValidator/;
+
+/** Public mutations that take a stored-file id without attaching it. Only
+ * ever shrinks. */
+const TAKES_A_FILE_ID_WITHOUT_ATTACHING = [
+  // Detaches a gallery picture; it refuses an id that isn't in the gallery.
+  "convex/files.ts removeEventGalleryImage",
+];
+
+function mutationsTakingAFileIdUnclaimed(): string[] {
+  const found: string[] = [];
+  for (const f of FILES) {
+    if (!f.path.startsWith("convex/") || f.path === "convex/schema.ts") continue;
+    // Top-level `const name = { ... };` / `const name = v.object({ ... });`
+    // args that hold a file id.
+    const shared = [...f.text.matchAll(/^const (\w+) = (?:\{[\s\S]*?^\};|v\.object\(\{[\s\S]*?^\}\);)/gm)]
+      .filter((m) => FILE_ID_ARG.test(m[0]))
+      .map((m) => m[1]);
+    const exports = [...f.text.matchAll(/^export const (\w+)\s*=\s*(\w+)\s*[(<]/gm)];
+    exports.forEach((m, i) => {
+      if (m[2] !== "mutation") return;
+      const block = f.text.slice(m.index, exports[i + 1]?.index ?? f.text.length);
+      const takesFileId = FILE_ID_ARG.test(block) || shared.some((name) => new RegExp(`\\b${name}\\b`).test(block));
+      if (takesFileId && !/\bclaimUploads?\(/.test(block)) found.push(`${f.path} ${m[1]}`);
+    });
+  }
+  return found;
+}
+
+describe("drift guard: stored files", () => {
+  it("every public mutation that takes a stored-file id checks who uploaded it", () => {
+    const found = mutationsTakingAFileIdUnclaimed();
+    const unclaimed = found.filter((name) => !TAKES_A_FILE_ID_WITHOUT_ATTACHING.includes(name));
+    expect(
+      unclaimed,
+      `These take a stored-file id from the browser and never call claimUpload / claimUploads (convex/uploads.ts):\n  ${unclaimed.join("\n  ")}`,
+    ).toEqual([]);
+    const stale = TAKES_A_FILE_ID_WITHOUT_ATTACHING.filter((name) => !found.includes(name));
+    expect(stale, "No longer an exception: take it off TAKES_A_FILE_ID_WITHOUT_ATTACHING.").toEqual([]);
+  });
 });

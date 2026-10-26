@@ -295,6 +295,8 @@ describe("files refusals", () => {
       { _id: "events:full", organizerId: ME, title: "Show", imageStorageIds: ["_storage:1", "_storage:2", "_storage:3"] },
       { _id: "events:room", organizerId: ME, title: "Show", imageStorageIds: ["_storage:1"] },
     ],
+    // Just uploaded, so they can be attached (claimUpload, convex/uploads.ts).
+    _storage: ["a", "1", "2", "3", "4"].map((k) => ({ _id: `_storage:${k}`, _creationTime: Date.now() })),
   });
 
   it("the profile image calls ask someone with no profile to finish it first", async () => {
