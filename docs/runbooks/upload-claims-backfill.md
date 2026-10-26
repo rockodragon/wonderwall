@@ -59,7 +59,11 @@ From `app/`. Dev first (`giant-wildebeest-814`), then prod.
    ```
 
 2. Read the report (below). Nothing in it has to be settled before applying:
-   conflicts and unresolved files are never claimed.
+   conflicts and unresolved files are never claimed. **Do clear the conflicts
+   soon after this deploys** (how: below). Until a conflict is cleared, the
+   wrong row can still replace or remove the file, and most of those paths
+   delete it for its owner too. Class photos are the exception: a class
+   never deletes a photo someone else claimed.
 
 3. Apply:
 

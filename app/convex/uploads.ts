@@ -206,10 +206,15 @@ export async function deleteEventCover(ctx: MutationCtx, event: Doc<"events">): 
 
 /** Deletes a class's photo, unless the date or Table migrated from the class
  * still shows it (storageStillUsed). Replacing or removing the photo, or
- * deleting the class, must not blank them. */
+ * deleting the class, must not blank them. A photo someone other than the
+ * teacher claimed is left too: before claims existed anyone could attach
+ * another person's file to their own class, and deleting it there would
+ * delete it for its owner. */
 export async function deleteClassPhoto(ctx: MutationCtx, offering: Doc<"offerings">): Promise<void> {
   const photo = offering.photoStorageId;
   if (!photo) return;
+  const claim = await uploadClaimOf(ctx, photo);
+  if (claim && claim.userId !== offering.userId) return;
   if (await storageStillUsed(ctx, photo, { offeringId: offering._id, except: offering._id })) return;
   await deleteStoredFile(ctx, photo);
 }

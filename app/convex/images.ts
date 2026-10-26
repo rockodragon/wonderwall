@@ -5,8 +5,10 @@
 // that no longer resolved came back blank instead of using its pasted link,
 // and the event page ignored the gallery image the event cards fall back to.
 //
-// Each helper returns a URL string or null — never undefined. A caller whose
-// own shape says `undefined` for "none" adds `?? undefined` at the call.
+// Each URL helper returns a URL string or null — never undefined. A caller
+// whose own shape says `undefined` for "none" adds `?? undefined` at the
+// call. (isStoredFileAddress answers yes or no; convexFileKey and
+// servedFileUrl work on an address already in hand.)
 // Pure reads: they take a query or mutation ctx and only call storage.getUrl.
 
 import type { Id } from "./_generated/dataModel";

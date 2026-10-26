@@ -44,12 +44,14 @@ import { claimFor, uploadClaimOf } from "./uploads";
  * `via` says where the picture came from when the row wears another row's. */
 export type RowOwner = { users: Id<"users">[]; via?: string };
 
-type Shape = "one" | "many" | "richDoc";
+type Shape = "one" | "many" | "nested" | "richDoc";
 
 type FieldSpec<T extends TableNames = TableNames> = {
   table: T;
   field: keyof Doc<T> & string;
-  /** one id, an array of ids, or a rich-text body's pictures */
+  /** one id, an array of ids, ids inside an object, or a rich-text body's
+   * pictures. Documents the field (the test checks it against schema.ts);
+   * idsIn reads whatever the value turns out to be. */
   shape: Shape;
   owner: (ctx: QueryCtx, row: Doc<T>, storageId: string) => Promise<RowOwner>;
 };
@@ -135,12 +137,34 @@ export const NOT_HOLDERS: Record<string, string> = {
 
 const HOLDING_TABLES = [...new Set(STORED_FILE_FIELDS.map((f) => f.table))];
 
-function idsIn(spec: FieldSpec, row: Record<string, unknown>): string[] {
+/**
+ * Every stored-file id in a field's value, whatever shape it has: a string
+ * is one id; an array, each element; an object, each string in it (at any
+ * depth) that `isStorageId` accepts. A string at the top or in a top-level
+ * array is kept even when it isn't a file id, so a row pointing at a bad id
+ * is reported as missing rather than skipped.
+ */
+export function idsIn(value: unknown, isStorageId: (s: string) => boolean): string[] {
+  const ids = new Set<string>();
+  const walk = (x: unknown, inObject: boolean): void => {
+    if (typeof x === "string") {
+      if (x && (!inObject || isStorageId(x))) ids.add(x);
+    } else if (Array.isArray(x)) {
+      for (const item of x) walk(item, inObject);
+    } else if (x && typeof x === "object") {
+      for (const item of Object.values(x)) walk(item, true);
+    }
+  };
+  walk(value, false);
+  return [...ids];
+}
+
+/** The ids a row holds in one field. A rich-text body's are its picture and
+ * video blocks' (collectStorageIds, as claimUploads reads them). */
+function idsInField(ctx: QueryCtx, spec: FieldSpec, row: Record<string, unknown>): string[] {
   const value = row[spec.field];
-  if (!value) return [];
-  if (spec.shape === "one") return [value as string];
-  if (spec.shape === "many") return [...new Set(value as string[])];
-  return collectStorageIds(value as RichDoc);
+  if (spec.shape === "richDoc") return collectStorageIds(value as RichDoc | undefined);
+  return idsIn(value, (s) => ctx.db.system.normalizeId("_storage", s) !== null);
 }
 
 /** One row holding one file. */
@@ -161,7 +185,7 @@ export const scanPage = internalQuery({
     const holders: Holder[] = [];
     for (const row of page.page) {
       for (const f of fields) {
-        for (const storageId of idsIn(f, row as Record<string, unknown>)) {
+        for (const storageId of idsInField(ctx, f, row as Record<string, unknown>)) {
           const owner = await f.owner(ctx, row as never, storageId);
           holders.push({
             storageId,

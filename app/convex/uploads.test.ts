@@ -498,6 +498,27 @@ describe("a class photo the date or Table migrated from it still shows is kept",
     expect(ctx.deletedFiles).toEqual([CLASS_PHOTO]);
   });
 
+  // A class that picked up someone else's file before claims existed.
+  const claimedBy = (userId: string | null) => {
+    const t = classWorld({ date: false, tablePhotoUrl: "https://example.com/elsewhere.jpg" });
+    t.uploadClaims = t.uploadClaims.filter((c) => c.storageId !== CLASS_PHOTO);
+    if (userId) t.uploadClaims.push({ _id: "uploadClaims:class", storageId: CLASS_PHOTO, userId, claimedAt: NOW });
+    return t;
+  };
+
+  it.each(changes)("%s keeps a photo another member claimed", async (_name, change) => {
+    const ctx = setup(claimedBy(VICTIM));
+    await change(ctx);
+    expect(ctx.deletedFiles).toEqual([]);
+    expect(fileExists(ctx, CLASS_PHOTO)).toBe(true);
+  });
+
+  it.each(changes)("%s deletes an unclaimed photo nothing else shows", async (_name, change) => {
+    const ctx = setup(claimedBy(null));
+    await change(ctx);
+    expect(ctx.deletedFiles).toEqual([CLASS_PHOTO]);
+  });
+
   it("a class never migrated still loses its old photo, as before", async () => {
     const t = classWorld({ date: false });
     t.gardenTables = [];

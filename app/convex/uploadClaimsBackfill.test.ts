@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { makeCtx, run, type Row } from "../test-support/convexContext";
 import { checkIndexes } from "../test-support/indexChecks";
 import * as backfill from "./uploadClaimsBackfill";
-import { NOT_HOLDERS, STORED_FILE_FIELDS, type BackfillReport } from "./uploadClaimsBackfill";
+import { idsIn, NOT_HOLDERS, STORED_FILE_FIELDS, type BackfillReport } from "./uploadClaimsBackfill";
 import { UPLOAD_CLAIM_WINDOW_MS } from "./uploads";
 
 const NOW = Date.now();
@@ -299,31 +299,103 @@ describe("apply", () => {
 // Every stored-file field in the schema is on the list
 // ——————————————————————————————————————————————————————————————
 
-/** `table.field` → its shape, for each schema field holding a v.id("_storage")
- * or a rich-text body, read from schema.ts's text. A nested key counts as
- * its top-level field. */
-function storedFileFieldsInSchema(): Map<string, string> {
-  const text = readFileSync(join(__dirname, "schema.ts"), "utf8");
+/** A field's validator, comments and spaces gone, as its shape: one id, an
+ * array of ids, ids somewhere inside an object (or a union...), a rich-text
+ * body, or null when it holds no stored-file id. */
+function shapeOf(validator: string): string | null {
+  const s = validator.replace(/\/\/.*$/gm, "").replace(/\s+/g, "");
+  if (s.includes("richDocValidator")) return "richDoc";
+  if (!s.includes('v.id("_storage")')) return null;
+  const peel = (x: string) => x.replace(/^(?:v\.optional\()+/, "");
+  const top = peel(s);
+  if (top.startsWith('v.id("_storage")')) return "one";
+  if (top.startsWith("v.array(") && peel(top.slice("v.array(".length)).startsWith('v.id("_storage")')) return "many";
+  return "nested";
+}
+
+/** `table.field` → its shape, for each field in a schema.ts text that holds
+ * a stored-file id or a rich-text body. A field's text runs over every line
+ * up to the next field or the table's end. */
+function storedFileFieldsIn(text: string): Map<string, string> {
   const found = new Map<string, string>();
   let table: string | null = null;
-  let field: string | null = null;
+  let field: { name: string; text: string } | null = null;
+  const flush = () => {
+    const shape = field && shapeOf(field.text);
+    if (table && field && shape) found.set(`${table}.${field.name}`, shape);
+    field = null;
+  };
   for (const line of text.split("\n")) {
     const t = /^ {2}(\w+): defineTable\(/.exec(line);
-    if (t) [table, field] = [t[1], null];
-    const f = /^ {4}(\w+):/.exec(line);
-    if (f) field = f[1];
-    if (!table || !field) continue;
-    const key = `${table}.${field}`;
-    if (/richDocValidator/.test(line)) found.set(key, "richDoc");
-    else if (/v\.array\(\s*v\.id\(\s*"_storage"/.test(line)) found.set(key, "many");
-    else if (/v\.id\(\s*"_storage"\s*\)/.test(line) && !found.has(key)) found.set(key, "one");
+    const f = /^ {4}(\w+):(.*)$/.exec(line);
+    if (t || /^ {0,2}\S/.test(line)) {
+      flush();
+      if (t) table = t[1];
+    } else if (f) {
+      flush();
+      field = { name: f[1], text: f[2] };
+    } else if (field) {
+      field.text += `\n${line}`;
+    }
   }
+  flush();
   return found;
 }
 
+describe("idsIn", () => {
+  const isId = (s: string) => s.startsWith("_storage:");
+
+  it("reads a field by what its value is, not what it's declared as", () => {
+    expect(idsIn("_storage:a", isId)).toEqual(["_storage:a"]);
+    // An array of optional ids: the gaps are skipped.
+    expect(idsIn(["_storage:a", undefined, null, "_storage:b", "_storage:a"], isId)).toEqual(["_storage:a", "_storage:b"]);
+    // An object: only the strings that are file ids, at any depth.
+    expect(idsIn({ caption: "Opening night", stillId: "_storage:c", crop: { x: 1 }, more: [{ fileId: "_storage:d" }] }, isId)).toEqual([
+      "_storage:c",
+      "_storage:d",
+    ]);
+    expect(idsIn(undefined, isId)).toEqual([]);
+    // A bad id where an id belongs is kept, so it's reported as missing.
+    expect(idsIn("not-a-file", isId)).toEqual(["not-a-file"]);
+  });
+});
+
 describe("STORED_FILE_FIELDS", () => {
+  it("reads each field's whole validator from the schema text", () => {
+    const sample = [
+      "export default defineSchema({",
+      "  things: defineTable({",
+      "    name: v.string(),",
+      '    photo: v.optional(v.id("_storage")), // a picture',
+      "    gallery: v.optional(",
+      '      v.array(v.optional(v.id("_storage"))),',
+      "    ),",
+      "    media: v.optional(",
+      "      v.object({",
+      "        caption: v.string(),",
+      '        stillId: v.id("_storage"),',
+      "      }),",
+      "    ),",
+      "    body: v.optional(richDocValidator),",
+      '    // the next one is not a file: v.id("_storage") in a comment',
+      "    note: v.optional(v.string()),",
+      '  }).index("by_name", ["name"]),',
+      "  others: defineTable({",
+      '    fileId: v.id("_storage"),',
+      "  }),",
+      "});",
+    ].join("\n");
+    expect(Object.fromEntries(storedFileFieldsIn(sample))).toEqual({
+      "things.photo": "one",
+      "things.gallery": "many",
+      "things.media": "nested",
+      "things.body": "richDoc",
+      "others.fileId": "one",
+    });
+  });
+
   it("covers every stored-file field in the schema", () => {
-    const schema = storedFileFieldsInSchema();
+    const schema = storedFileFieldsIn(readFileSync(join(__dirname, "schema.ts"), "utf8"));
     expect(schema.size, "the schema parse found nothing; fix storedFileFieldsInSchema").toBeGreaterThan(10);
     const listed = new Map(STORED_FILE_FIELDS.map((f) => [`${f.table}.${f.field}`, f.shape as string]));
     const missing = [...schema.keys()].filter((k) => !listed.has(k) && !(k in NOT_HOLDERS));
@@ -334,6 +406,6 @@ describe("STORED_FILE_FIELDS", () => {
     const stale = [...listed.keys(), ...Object.keys(NOT_HOLDERS)].filter((k) => !schema.has(k));
     expect(stale, "No longer a stored-file field in schema.ts: take it off the list.").toEqual([]);
     const wrongShape = [...listed].filter(([k, shape]) => schema.get(k) !== shape);
-    expect(wrongShape, "The shape (one / many / richDoc) doesn't match schema.ts.").toEqual([]);
+    expect(wrongShape, "The shape (one / many / nested / richDoc) doesn't match schema.ts.").toEqual([]);
   });
 });
