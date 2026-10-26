@@ -9,7 +9,7 @@ Build a React Native app with Expo, Expo Router and EAS, using the existing Conv
 
 This is technically feasible. Convex is already the main business/data layer, and its React client supports React Native. The substantial new work is native UI, authentication/lifecycle integration, notifications, media handling and release operations. This is not a straightforward packaging of the website. No defensible reuse percentage or delivery date can be inferred from source inspection alone.
 
-Working product assumption: first release covers discovery, event detail/free RSVP, conversations, notification inbox/push and basic profile/settings. Payment UI, host tools and administration are deferred pending scope decisions. Android should remain structurally possible, but iOS is the first validation/release target. Revisit this assumption before committing the feature build.
+Confirmed by Rick on 2026-10-26: v1 is a member companion covering discovery, RSVP, conversations, notifications and profile, with **follow-me links and QR-code invites as mandatory release features**. Begin the event slice with free RSVP. Prefer existing web checkout in an external browser (Safari on iOS where selected) wherever the product/storefront rules permit; native payment forms are not the preferred direction. Host tools and administration remain outside this member scope. Brand, launch storefronts and exact paid-product availability remain open. Android should remain structurally possible, with iOS first.
 
 ## Evidence and limits
 
@@ -38,6 +38,23 @@ The GitNexus registry initially reported an old index. The initial local index m
 Current-main additions strengthen reuse opportunities: `goesToOnboarding` already composes `hasRealName`, `isShownProject` centralizes project visibility, and `useDirectory`/`directoryRules`/`directoryPage` provide an existing directory paging policy. Reuse those decisions rather than rebuilding them on mobile; still profile actual backend work rather than assuming page-shaped output guarantees bounded reads. New profile sharing has portable URL/QR-grid logic but browser canvas image export (`storyImage.ts`), so native sharing needs a separate rendering/transport adapter. `GARDEN_ORIGIN` now centralizes the Garden's canonical sharing origin; build native links on that authority rather than introducing another hardcoded domain.
 
 The local UpSight project confirms the remembered approach: `packages/mobile/package.json` uses Expo/React Native and `packages/mobile/eas.json` defines an internal preview build. However, its root workspace explicitly excludes mobile because it uses React 18/RN 0.76 while web uses React 19. Its README also records missing device validation. Reuse release conventions and lessons, not its old dependency versions, Supabase identity layer or unverified implementation wholesale.
+
+### UpSight boilerplate to adapt
+
+The source repository inspected is `/Users/rickmoy/code/UpSight`. Its mobile project provides a concrete starting structure, with the following reuse decisions. This is a source audit, not a claim that its paths are all production/device verified.
+
+| UpSight source under `packages/mobile/` | Reuse direction for Wonderwall |
+|---|---|
+| `app/_layout.tsx`, `app/(tabs)/_layout.tsx` | Adapt router layout, safe-area/theme providers and startup/auth gates; use Convex authentication and Wonderwall navigation. Keep public QR/profile entry available before login. |
+| `src/theme/ThemeProvider.tsx`, `tokens.ts`, `theme-parity.test.ts` | Reuse the theme-provider approach; derive Wonderwall token data from one shared source instead of copying UpSight branding or mirroring two maintained value sets. |
+| `src/diagnostics/ConfigErrorScreen.tsx`, `configCheck.ts`, `buildInfo.ts`, `DiagnosticsCard.tsx` | Adapt actionable configuration errors and version/commit/EAS build diagnostics; check Convex URLs/environment, not Supabase credentials. Audit crash-report data before reuse. |
+| `src/lib/auth.ts` | Reuse the browser-auth-session flow as a reference; implement Convex's supported code/token exchange and storage, not Supabase calls or its implicit-flow fallback. |
+| `src/notifications/notificationsUtil.ts`, `InboxScreen.tsx` | Reuse the owned-origin URL validation and external-browser navigation pattern, with robust parsed URL checks and Wonderwall route mapping. Its `Linking.openURL` opens the system browser; it does not guarantee Safari when another browser is default. |
+| `src/projects/ProjectProvider.tsx` | Reference for explicit selection context; implement community context using Wonderwall's existing community APIs and visibility rules. |
+| `app.config.ts`, `eas.json` | Reuse config organization/build stamping and internal preview conventions. Create Wonderwall-owned app/project/bundle identifiers and complete development/preview/production profiles. Omit UpSight's microphone, background-audio, LiveKit and recording configuration. |
+| Root `pnpm-workspace.yaml`, mobile `pnpm-workspace.yaml` | Reuse pnpm orchestration conventions, but avoid the current explicit mobile exclusion/standalone install workaround; prove a coherent supported React dependency set first. |
+
+UpSight's `NotificationsProvider.tsx` polls every 60 seconds and explicitly defers push. It is a screen/state reference, not an existing push implementation. Use Convex live queries and the planned push delivery path. Preserve source/provenance when code is adapted; extract an actual cross-project package only if sustained shared ownership justifies it. Do not create a runtime dependency on a neighboring local checkout.
 
 ## Choices considered
 
@@ -97,6 +114,14 @@ Define one canonical public HTTPS URL mapping for profiles, projects, events, Ta
 
 Decide whether the store app is the platform, The Garden, or another branded community. Prefer one app with explicit community selection unless a concrete distribution requirement calls for more binaries. Honor the accepted Tables ADR: Table membership and Event attendance remain distinct; avoid porting legacy Offering flows as a new native domain model.
 
+### V1 follow-me and QR invites
+
+Reuse the existing web domain behavior: `app/app/lib/myCode.ts` builds a public profile URL carrying `?invite=` and `ref=f2f`, and models the signed-out invitation / signed-in Follow states. `qrCode.ts` supplies the QR grid; `carriedInvite.ts` separates URL helpers from browser persistence that needs a native adapter. `favorites.ts` owns profile-follow writes (the target is a profile ID, not a user ID); `invites.redeemBySlug` and `follows.followEachOther` already establish the existing mutual-follow policy on accepted invitations. Do not introduce another follow table, new invite attribution rules or a mobile-only QR URL format. Audit transitive imports before extracting these helpers: for example, `profileShare.ts` currently reaches branding and backend image helpers.
+
+V1 acceptance: a member can display a scannable personal code, copy/share their follow-me/invite HTTPS link, and open a scanned link into the correct profile/community. An existing member can follow/unfollow through existing APIs; an invited newcomer retains inviter and destination across authentication/onboarding, then receives the existing server-defined invite/follow behavior once. Test self-scans, repeat opens, already-following, malformed links, blocked people and unavailable profiles. QR scans must not silently grant paid entitlements or trigger unintended follow mutations. Native UI and permission handling adapt the presentation; one shared intent/URL model owns semantics.
+
+The iPhone Camera/system QR reader must work without a dedicated in-app scanner. A built-in scanner is optional until explicitly scoped; any camera permission must have a useful denial fallback. Without the app, the HTTPS link must work on the web. Installing from the App Store does not automatically preserve the scanned URL: validate a web completion, explicit resume/copy-link or rescan path rather than assuming universal links provide deferred linking across installation.
+
 ### Notifications and app lifecycle
 
 Reuse `insertNotification` as the notification creation authority, adding asynchronous delivery behind a compatible interface. Store device installations separately from people: user ownership, token, platform, environment/project and enabled state; support rotation, multiple devices and logout/account switching. Respect delivery preferences, blocks and privacy; use minimal lock-screen payloads. Check receipts, retire invalid tokens, retry transient failures with bounded backoff, and deduplicate using a notification/delivery identity. Push failure must not roll back the inbox event or core mutation. Delivery is best effort; the authenticated inbox remains authoritative.
@@ -114,6 +139,10 @@ Profile event lists, conversation lists and long threads at a realistic data vol
 Apple's guidelines require UGC safeguards, in-app account deletion initiation, and an equivalent privacy-preserving login option when applicable to third-party sign-in. Audit reporting, blocking, filtering/contact operations and deletion effects on content, ownership, sessions and retained financial records. Existing block/report work should be reused, not assumed complete. [Apple guidelines](https://developer.apple.com/app-store/review/guidelines/)
 
 Classify every paid product before implementing native checkout: digital access/membership, in-person events, one-to-one services, project backing and charitable fundraising have different rules. Digital purchases may require IAP; external-payment permissions vary by storefront and product. Nonprofit fundraising has approval conditions; a platform fee complicates relying on the personal-gift exception. Existing Stripe checkout and web return URLs do not settle these questions. Record the launch storefronts and permitted flows; omitting purchase controls is a scope choice requiring review, not an automatic compliance exemption. [Apple payment rules](https://developer.apple.com/app-store/review/guidelines/#business)
+
+Rick's preferred architecture is **web checkout in the external system browser**, keeping the existing Stripe/Convex payment authority and reducing native purchase implementation. Current guideline 3.1.1(a) allows external-purchase links in United States storefront apps without that link entitlement; other storefronts have different restrictions/agreements. Services consumed outside the app follow separate payment rules. Browser routing alone does not prove a digital purchase is exempt from IAP or all Apple fees. Implement only reviewed product/storefront combinations; keep unsupported purchase entry points out of that release. [Apple purchase-link rules](https://developer.apple.com/app-store/review/guidelines/#in-app-purchase)
+
+For an allowed checkout: request a server-authorized checkout URL/context, open it externally, and offer an owned HTTPS return route back to the app with a web fallback. Browser and native login sessions are separate; choose web reauthentication or a purpose-limited, expiring one-time handoff instead of putting session/refresh tokens in URLs. Revalidate ownership, amount, recipient and community on the server. Payment confirmation comes from verified provider events and Convex state, never the browser success URL. Refresh on app resume/return and handle pending, cancelled and delayed-webhook states without double charging. Use the same backend entitlements regardless of which browser completes payment. Validate default-browser behavior rather than promising `Linking.openURL` always launches Safari.
 
 If IAP is required, keep entitlement ownership in Convex and design verified store events, restore/refunds and duplicate subscription prevention alongside existing Stripe memberships. Select a store integration only after that decision. Link this work to existing Stripe/payout decisions rather than silently inventing a second ledger.
 
@@ -137,8 +166,8 @@ EAS Update is optional after binary delivery works. Separate preview/production 
 |---|---|---|
 | 0: Resolve scope and prove the risky integrations | Confirm app brand/MVP/storefronts; current baseline; auth + secure storage/callback spike; workspace/API bridge/React compatibility spike; payment and deletion/moderation decisions | Written decisions, real iPhone auth/cold launch, Metro bundle with no server closure, reproducible clean install/build. Unknown credentials are surfaced early. |
 | 1: Workspace foundation | Root pnpm orchestration/lockfile; keep `app/`; shared domain/client exports; expand drift/import guards; update CI/Cloudflare install assumptions | Existing web behavior passes, codegen is reproducible, native preview builds, neither consumer deep-imports the other app. |
-| 2: One end-to-end native slice | Sign in -> current profile/onboarding -> event detail/free RSVP; useful deep link; cross-client sync | Same existing user/profile; native write visible on web; authorization/blocked/capacity refusals readable; foreground/network recovery; signed-out destination restored exactly once. |
-| 3: Member beta | Discovery, messaging/inbox, push, basic profile, media if in scope; bounded queries; reporting/blocking/deletion; native analytics/crash coverage | Multiple-device push/logout tests; real HEIC upload if enabled; long-thread/large-list tests; accessibility/keyboard checks; old-client compatibility tests. |
+| 2: One end-to-end native slice | Sign in -> current profile/onboarding -> event detail/free RSVP; useful deep link; cross-client sync; begin QR/follow journey | Same existing user/profile; native write visible on web; authorization/blocked/capacity refusals readable; foreground/network recovery; signed-out destination restored exactly once. |
+| 3: Member beta | Discovery, messaging/inbox, push, profile, **follow-me and QR invites**; media if in scope; bounded queries; reporting/blocking/deletion; approved browser checkout | Multiple-device push/logout tests; member Follow and new-user invite scans; app-installed/web fallback and resume tests; browser checkout/return state if enabled; accessibility and old-client contracts. |
 | 4: TestFlight and store release | Store/account assets, support/moderation ownership, privacy declarations, reviewer access, payment decision enforcement, staged rollout/rollback | Signed reviewed candidate works on real supported iPhones; production smoke, monitoring and support process are owned. |
 
 Planning estimate, not a commitment: timebox initial spikes to roughly 3–5 engineer-days, then re-estimate from the working slice. A focused companion beta may be a 6–10 engineer-week effort for an experienced developer with shared product/design support; payments, full web parity, missing moderation/deletion infrastructure or difficult identity issues can materially expand it. Store review and external account/payment decisions add calendar uncertainty. Do not interpret EAS availability as a short build-time estimate for the product.
@@ -147,19 +176,23 @@ Dependencies and concrete acceptance criteria live in the linked Beads epic. Reu
 
 | Bead | Deliverable | Prerequisites |
 |---|---|---|
-| `wonderwall-jguo.1` | Brand, MVP, storefront and purchase-policy decisions | Product review; references existing Stripe/entity decisions |
+| `wonderwall-jguo.1` | Brand, storefront and browser-purchase-policy decisions | Member scope confirmed; references existing Stripe/entity decisions |
 | `wonderwall-jguo.2` | Expo/auth/API bridge/EAS device feasibility spike | Can start with explicit preview assumptions |
 | `wonderwall-jguo.3` | Workspace, shared boundaries and CI foundation | `.2` |
 | `wonderwall-jguo.4` | Auth -> profile -> event/free-RSVP vertical slice | `.1`, `.3` |
 | `wonderwall-jguo.5` | Bounded messaging/event query readiness | Can proceed alongside feasibility |
-| `wonderwall-jguo.6` | Member beta, push, media/settings and safety integration | `.4`, `.5` |
+| `wonderwall-jguo.6` | Member beta, push, media/settings and safety integration | `.4`, `.5`, `.8`, `.9` |
 | `wonderwall-jguo.7` | Compatibility policy, TestFlight and store release gates | `.6`, existing report/moderation `wonderwall-33yf.1` and block-visibility `wonderwall-33yf.4` |
+| `wonderwall-jguo.8` | Mandatory follow-me links and QR-code invitations | `.1`, `.3` |
+| `wonderwall-jguo.9` | Approved external-browser checkout/return, or explicit product exclusions | `.1`, `.4` |
+
+The beta must include QR/follow acceptance and any browser-payment flows selected for launch. Scope confirmation does not close `.1`: brand, storefronts, identity options and product-specific purchase policy still need decisions.
 
 The assessment deliverable is complete when this proposal and backlog are reviewed and saved; the delivery epic remains open until its implementation and release evidence exist.
 
 ## Questions to investigate deeper
 
-1. Which brand/community and primary member job justify the first iPhone app? Is Android a launch requirement or a later target?
+1. Which brand/community should the confirmed member companion represent? Follow-me and QR invites are mandatory; is Android a launch requirement or a later target?
 2. Which exact authentication methods ship, how does Apple private relay link to existing users, and who controls production/preview callback domains and Apple credentials?
 3. Which paid products and storefronts are included, and what purchase/entitlement rules apply to each? Are current Stripe/entity decisions ready to support those flows?
 4. Which queries become costly at expected membership/message volume? What are target launch data sizes, supported iPhones and network expectations?
