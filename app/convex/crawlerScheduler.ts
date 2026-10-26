@@ -1,6 +1,6 @@
 import { v } from "convex/values";
-import { internalMutation, internalAction, internalQuery, mutation, query } from "./_generated/server";
-import { internal, api } from "./_generated/api";
+import { internalMutation, internalAction, internalQuery } from "./_generated/server";
+import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 
 // ============================================
@@ -19,8 +19,10 @@ const FREQUENCY_MS: Record<string, number> = {
 // Queries
 // ============================================
 
-// Get scheduler status for admin UI
-export const getSchedulerStatus = query({
+// Scheduler status. Operator-only (dashboard or `npx convex run`): internal,
+// never callable from a browser (it had no sign-in or admin check, and no
+// page calls it; found 2026-10-26).
+export const getSchedulerStatus = internalQuery({
   args: {},
   handler: async (ctx) => {
     const sources = await ctx.db
@@ -278,7 +280,7 @@ export const runCrawlForSource = internalAction({
       switch (args.sourceName) {
         case "publicsquare":
           const psResult = await ctx.runAction(
-            api.sourceParsers.crawlPublicSquare,
+            internal.sourceParsers.crawlPublicSquare,
             {
               maxPages: 3,
             },
@@ -288,7 +290,7 @@ export const runCrawlForSource = internalAction({
 
         case "church_finder":
           const churchResult = await ctx.runAction(
-            api.sourceParsers.crawlChurches,
+            internal.sourceParsers.crawlChurches,
             {
               maxPagesPerState: 2,
             },
@@ -298,7 +300,7 @@ export const runCrawlForSource = internalAction({
 
         case "kingdom_advisors":
           const kaResult = await ctx.runAction(
-            api.sourceParsers.crawlKingdomAdvisors,
+            internal.sourceParsers.crawlKingdomAdvisors,
             {
               maxPages: 5,
             },

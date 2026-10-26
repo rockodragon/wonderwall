@@ -55,58 +55,45 @@ CLOUDFLARE_ACCOUNT_ID=...
 CLOUDFLARE_API_TOKEN=...
 ```
 
+### Who can call what
+
+The seed, classify, crawl, export and import functions are operator-only:
+internal functions, run from the Convex dashboard or with `npx convex run`
+(add `--prod` for production), never from a browser. The reads and edits the
+admin crawler page uses (`api.crawler.*`, `api.jobScraper.*`) are public but
+refuse anyone who isn't an admin.
+
 ### 2. Initialize Data Sources
 
 Run the seed mutation to set up data sources:
 
-```typescript
-// In Convex dashboard or via API
-await ctx.runMutation(api.crawlerSeeds.seedDataSources, {});
+```bash
+npx convex run crawlerSeeds:seedDataSources
 ```
 
 ### 3. Add Test Data (Optional)
 
-```typescript
-await ctx.runMutation(api.crawlerSeeds.seedTestOrganizations, {});
+```bash
+npx convex run crawlerSeeds:seedTestOrganizations
 ```
 
 ## Usage
 
 ### Classify a Single URL
 
-```typescript
-import { api } from "./convex/_generated/api";
-
-// Classify and save an organization
-const result = await convex.action(api.crawlerClassifier.classifyUrl, {
-  url: "https://example-church.org",
-  source: "manual",
-});
-
-if (result.success) {
-  console.log("Created organization:", result.organizationId);
-} else {
-  console.error("Failed:", result.error);
-}
+```bash
+# Classify and save an organization; prints { success, organizationId } or { success: false, error }
+npx convex run crawlerClassifier:classifyUrl '{"url":"https://example-church.org","source":"manual"}'
 ```
 
 ### Batch Classification
 
-```typescript
-const urls = [
-  { url: "https://church1.org", source: "church_finder" },
-  { url: "https://business2.com", source: "publicsquare" },
-];
-
-const result = await convex.action(api.crawlerClassifier.classifyBatch, {
-  urls,
-  delayMs: 2000, // Rate limiting
-});
-
-console.log(`Processed ${result.total}, ${result.successful} successful`);
+```bash
+# delayMs is the pause between requests (rate limiting)
+npx convex run crawlerClassifier:classifyBatch '{"urls":[{"url":"https://church1.org","source":"church_finder"},{"url":"https://business2.com","source":"publicsquare"}],"delayMs":2000}'
 ```
 
-### Query Organizations
+### Query Organizations (admin page; signed in as an admin)
 
 ```typescript
 // Get hot leads
@@ -128,17 +115,12 @@ console.log(`Total: ${stats.total}, Hot leads: ${stats.hotLeads}`);
 
 ### Export to CSV
 
-```typescript
-const { csv, count, filename } = await convex.query(api.crawlerExport.exportToCSV, {
-  segment: "hot",
-  includeExported: false,
-});
-
-// Download or send to CRM
-downloadFile(csv, filename);
+```bash
+# Prints { csv, count, filename }; leaves out rows already exported unless includeExported is true
+npx convex run crawlerExport:exportToCSV '{"segment":"hot","includeExported":false}'
 ```
 
-### Manual Entry
+### Manual Entry (admin page; signed in as an admin)
 
 ```typescript
 await convex.mutation(api.crawler.manualAddOrganization, {
@@ -216,13 +198,9 @@ The CSV export is compatible with:
 
 ### Tracking Exports
 
-```typescript
-// Mark organizations as exported
-await convex.mutation(api.crawlerExport.recordExportBatch, {
-  organizationIds: ["id1", "id2", "id3"],
-  destination: "upsight",
-  batchId: "batch-2024-01-15",
-});
+```bash
+# Mark organizations as exported
+npx convex run crawlerExport:recordExportBatch '{"organizationIds":["id1","id2","id3"],"destination":"upsight","batchId":"batch-2024-01-15"}'
 ```
 
 ## Rate Limiting & Compliance
@@ -256,4 +234,4 @@ await convex.mutation(api.crawlerExport.recordExportBatch, {
 ### Export Issues
 - Verify organizations exist in database
 - Check segment/status filters aren't too restrictive
-- Confirm user has admin access (if protected)
+- Run it with `npx convex run` or from the dashboard; it is internal, so a browser can't call it
