@@ -37,6 +37,7 @@ import { SOPHIA_FUND_SLUG } from "../lib/namedFunds";
 import { ShareTitleBox } from "../components/ShareTitleBox";
 import { shareProjectHref } from "../lib/shareProject";
 import { stripInlineMarks } from "../lib/richText";
+import { textParagraphs } from "../lib/textParagraphs";
 import { GARDEN_NAME } from "../../convex/garden/brandHosts";
 import { CardStack, type StackItem } from "./CardStack";
 import { GardenDisc } from "./GardenMark";
@@ -125,10 +126,7 @@ export function GardenHome() {
 
   // The description's paragraphs: the first under the line, the rest on the
   // paper note that closes the page.
-  const paragraphs = (garden?.description ?? "")
-    .split(/\n\s*\n/)
-    .map((p) => stripInlineMarks(p).trim())
-    .filter(Boolean);
+  const paragraphs = textParagraphs(garden?.description, stripInlineMarks);
   const [lead, ...rest] = paragraphs;
 
   return (

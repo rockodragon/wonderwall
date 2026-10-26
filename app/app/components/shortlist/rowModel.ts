@@ -9,6 +9,7 @@
 // venueName).
 
 import { workKind } from "../../lib/shortlist/kind";
+import { shownInterests } from "../../constants/interests";
 import { timeLabel, venueName } from "../../desk/deskCards";
 import type { DeskCardId } from "../../desk/deskState";
 import { calendarDay, shortDay, timeAgo } from "../../lib/dates";
@@ -223,7 +224,7 @@ export function rowModel(item: ShortlistItem, ctx: RowContext): RowModel {
       const { person } = item;
       const { latest } = person;
       const title = latest && shownTitle(latest.title);
-      const interests = person.interests.filter((t) => !t.startsWith("other:")).slice(0, 2);
+      const interests = shownInterests(person.interests).slice(0, 2);
       return {
         id,
         hot,

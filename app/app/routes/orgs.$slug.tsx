@@ -12,6 +12,7 @@ import { ShareButton } from "../components/ShareButton";
 import { SocialLinks } from "../components/SocialLinks";
 import { useBack } from "../lib/useBack";
 import { PAGE_WIDTH } from "../lib/pageWidth";
+import { textParagraphs } from "../lib/textParagraphs";
 import { errorMessage } from "../lib/convexError";
 import { PersonAvatar } from "../components/PersonAvatar";
 
@@ -119,10 +120,7 @@ export default function OrganizationPage() {
     org.people.length > 0 ? plural(org.people.length, "person", "people") : null,
     upcoming.length > 0 ? plural(upcoming.length, "upcoming event", "upcoming events") : null,
   ].filter(Boolean);
-  const paragraphs = (org.mission ?? "")
-    .split(/\n\s*\n/)
-    .map((p) => p.trim())
-    .filter(Boolean);
+  const paragraphs = textParagraphs(org.mission);
   const profileLink = (p: Person) => (viewer.signedIn ? `/profile/${p.profileId}` : null);
   const sparse = viewer.canEdit && paragraphs.length === 0 && !org.logoUrl;
   const showJoinButton = viewer.signedIn && !viewer.hasPosition && !joined;
