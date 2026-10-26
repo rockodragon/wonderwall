@@ -14,6 +14,7 @@ The project is **creatives.exchange** (repo: wonderwall). Four documents are the
 
 ## Feature specs
 
+- [Nurturing foundation audit](features/nurturing-foundation-audit.md) — current messaging/interaction analytics, delivery and identity gaps, source-confirmed correctness risks, and the foundation for actionable nurturing.
 - [Tables ADR](adr/tables-primary-community-container.md) — accepted domain direction: Tables contain Events; membership and attendance are separate. [Tables implementation plan](features/tables-implementation-plan.md) — current-code reconciliation, IA, migration, shared rules, test strategy, and pending scope decisions.
 - [Phase 1B spec](phase-1b/spec.md) — the October build plan (money foundation, entitlements, coverage codes)
 - [Live booking](features/live-booking.md) — a venue posts recurring paid gigs, artists answer with clips, the venue picks and pays directly; includes the payment-linking research
