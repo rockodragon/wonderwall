@@ -1,15 +1,18 @@
 // The shared community reads: which hostOrgs rows count as communities
-// (resolveCommunities — the B5 kind filter), whether one is open, and who
-// belongs. Run on the in-memory ctx in test-support/.
+// (resolveCommunities — the B5 kind filter), whether one is open, who
+// belongs, and who a community's members are. Run on the in-memory ctx in
+// test-support/.
 
 import { describe, expect, it } from "vitest";
 import { makeCtx } from "../../test-support/convexContext";
 import {
   COMMUNITY_KIND,
   activeCommunityMemberships,
+  activeMembersOfCommunity,
   communityMembershipsOf,
   getCommunityMember,
   isActiveCommunityOrg,
+  membersOfCommunity,
   resolveCommunities,
 } from "./communityLookup";
 import { COMMUNITY_KIND as RE_EXPORTED_KIND, getCommunityMember as reExportedMember } from "./communities";
@@ -109,6 +112,26 @@ describe("community membership reads", () => {
     const rows = await activeCommunityMemberships(ctx(), id(ANN));
     expect(rows.map((m) => m.hostOrgId)).toEqual([GARDEN]);
     expect(await activeCommunityMemberships(ctx(), id("users:nobody"))).toEqual([]);
+  });
+
+  it("membersOfCommunity is every row of the community, any status", async () => {
+    const tables = world();
+    tables.communityMembers.push({ _id: "communityMembers:5", hostOrgId: GARDEN, userId: "users:cy", status: "pending", role: "member", joinedAt: 5 });
+    const rows = await membersOfCommunity(makeCtx(tables, null), id(GARDEN));
+    expect(rows.map((m) => m.userId)).toEqual([ANN, BEN, "users:cy"]);
+    expect(await membersOfCommunity(ctx(), id(GHOST))).toEqual([]);
+  });
+
+  it("activeMembersOfCommunity is who is in it now: no pending request, no one removed", async () => {
+    const tables = world();
+    tables.communityMembers.push(
+      { _id: "communityMembers:5", hostOrgId: GARDEN, userId: "users:cy", status: "pending", role: "member", joinedAt: 5 },
+      { _id: "communityMembers:6", hostOrgId: GARDEN, userId: "users:di", status: "removed", role: "member", joinedAt: 6 },
+    );
+    const rows = await activeMembersOfCommunity(makeCtx(tables, null), id(GARDEN));
+    expect(rows.map((m) => m.userId)).toEqual([ANN, BEN]);
+    expect(rows.map((m) => m.role)).toEqual(["member", "host"]);
+    expect(await activeMembersOfCommunity(ctx(), id(SD))).toEqual([]);
   });
 });
 

@@ -11,6 +11,7 @@ import { communityVisibility } from "./garden/communityVisibility";
 import { isGardenMember } from "./garden/defaultCommunity";
 import { pieceMediaUrl, profileImageUrl, storedFileUrl } from "./images";
 import { byLatestActivity, directoryLimit, latestPostAt, listedFor } from "./directoryRules";
+import { activeMembersOfCommunity } from "./garden/communityLookup";
 import { filterProfiles } from "../app/lib/browse/peopleFilter";
 
 export { normalizeOrgUrl };
@@ -446,11 +447,8 @@ async function directoryPeople(ctx: QueryCtx, filter: DirectoryFilter, signedIn:
     // A hidden (test) community's people are findable only by admins and
     // its own members — same empty answer as an unknown slug.
     if (!(await gate.orgVisible(org))) return [];
-    const members = await ctx.db
-      .query("communityMembers")
-      .withIndex("by_hostOrgId", (q) => q.eq("hostOrgId", org._id))
-      .collect();
-    const memberIds = new Set(members.filter((m) => m.status === "active").map((m) => String(m.userId)));
+    const members = await activeMembersOfCommunity(ctx, org._id);
+    const memberIds = new Set(members.map((m) => String(m.userId)));
     profiles = profiles.filter((p) => memberIds.has(String(p.userId)));
   }
 
