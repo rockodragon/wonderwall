@@ -534,9 +534,11 @@ export const directory = query({
 });
 
 /**
- * The directory's people matching a name (or anything else its text search
- * reads), as a plain list: the organization page's "Add a person". The same
- * rules as directory, so a visitor gets one page at most here too.
+ * The directory's people matching a search, as a plain list: what /people
+ * and the organization page's "Add a person" called before directory and
+ * searchPeopleForInvite. No page calls it now; it stays for pages loaded
+ * before that deploy, and can go once they are gone. The same rules as
+ * directory, so a visitor gets one page at most here too.
  */
 export const search = query({
   args: {
