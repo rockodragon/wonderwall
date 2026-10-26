@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { action, internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
 import { api, internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { fail } from "./errors";
 import { canonicalMediaUrl, schedulePreviewFetch, wantsPreviewFetch } from "./linkPreview";
 import { toEmbedUrl } from "./videoEmbed";
@@ -277,6 +277,46 @@ export const create = mutation({
   },
 });
 
+/** A stored link in the spelling create stores, to tell whether a pasted link
+ * is the one the piece already has. Pieces saved before create canonicalized
+ * keep what was pasted (schemeless `example.com`, an Instagram link with its
+ * `?igsh=` token), so the stored link is canonicalized too. A stored link that
+ * isn't http(s) has no canonical form, so it equals nothing pasted. */
+function storedLinkKey(stored: string | undefined): string | undefined {
+  try {
+    return canonicalMediaUrl(stored);
+  } catch {
+    return undefined;
+  }
+}
+
+/** Lets go of what the piece's old link left behind, for a link that changed
+ * (or was replaced by an upload):
+ * - the cover. `coverStorageId` holds a cover the creator uploaded and a still
+ *   linkPreview.ts copied in, and nothing says which, so a cover belongs to
+ *   the link it was for. Its file is deleted unless the piece (`keepFile`, the
+ *   file it holds now) or its project's photo still uses it;
+ * - the companion project's picture when it was mirrored from the piece's old
+ *   preview (updateOgImage), so the new link's picture can be mirrored in its
+ *   place. A project photo the owner set (an upload, or any other address) is
+ *   never touched. */
+async function dropOldPreview(
+  ctx: MutationCtx,
+  artifact: Doc<"artifacts">,
+  keepFile: Id<"_storage"> | undefined,
+) {
+  const project = artifact.projectId ? await ctx.db.get(artifact.projectId) : null;
+  const cover = artifact.coverStorageId;
+  // The piece's old file is gone already when its link changed (update deletes
+  // it), so a cover that was that file isn't deleted a second time.
+  const usedElsewhere = [keepFile, artifact.mediaStorageId, project?.photoStorageId];
+  if (cover && !usedElsewhere.includes(cover)) await deleteStoredFile(ctx, cover);
+
+  if (project && !project.photoStorageId && artifact.ogImageUrl && project.photoUrl === artifact.ogImageUrl) {
+    await ctx.db.patch(project._id, { photoUrl: undefined, updatedAt: Date.now() });
+  }
+}
+
 export const update = mutation({
   args: {
     artifactId: v.id("artifacts"),
@@ -286,26 +326,61 @@ export const update = mutation({
     mediaStorageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
-    const { userId, row: artifact, profile } = await requireOwnProfileRow(ctx, "artifacts", args.artifactId);
+    const { userId, row: artifact } = await requireOwnProfileRow(ctx, "artifacts", args.artifactId);
+
+    // The form sends title and content every time, but media only when the
+    // owner gave new media: an edit of just a picture's title sends no file
+    // and no link, and must leave the piece's media alone. A new upload wins
+    // over a link sent beside it. A link is stored the way create stores one
+    // (canonical, and refused when it isn't http(s)), and one that is the
+    // piece's current link isn't new, whichever way either was spelled.
+    const newUpload =
+      args.mediaStorageId && args.mediaStorageId !== artifact.mediaStorageId
+        ? args.mediaStorageId
+        : undefined;
+    const pastedUrl = newUpload ? undefined : canonicalMediaUrl(args.mediaUrl);
+    const newLink = pastedUrl && pastedUrl !== storedLinkKey(artifact.mediaUrl) ? pastedUrl : undefined;
     await claimUpload(ctx, userId, args.mediaStorageId, [artifact.mediaStorageId]);
 
-    // Delete old storage file if replacing it with a different one
-    if (args.mediaStorageId && args.mediaStorageId !== artifact.mediaStorageId) {
+    const patch: Partial<Doc<"artifacts">> = { title: args.title, content: args.content };
+    let mediaUrl = artifact.mediaUrl;
+    if (newUpload || newLink) {
+      // New media replaces the old: an uploaded file it displaces is deleted.
       await deleteStoredFile(ctx, artifact.mediaStorageId);
+      patch.mediaStorageId = newUpload;
+      patch.mediaUrl = newLink;
+      mediaUrl = newLink;
     }
 
-    await ctx.db.patch(args.artifactId, {
-      title: args.title,
-      content: args.content,
-      mediaUrl: args.mediaUrl,
-      mediaStorageId: args.mediaStorageId,
-    });
+    // A preview and a cover belong to the link they were for, so a link that
+    // changed (or went) takes the old one's title, description, picture and
+    // cover with it, and the companion project's mirrored picture. The new
+    // link gets its own preview below.
+    const linkChanged = mediaUrl !== artifact.mediaUrl;
+    if (linkChanged) {
+      patch.ogTitle = undefined;
+      patch.ogDescription = undefined;
+      patch.ogImageUrl = undefined;
+      patch.coverStorageId = undefined;
+      await dropOldPreview(ctx, artifact, newUpload);
+    }
+    await ctx.db.patch(args.artifactId, patch);
 
     // Schedule embedding regeneration if content changed
     if (args.title || args.content) {
       await ctx.scheduler.runAfter(0, api.embeddings.embedArtifact, {
         artifactId: args.artifactId,
       });
+    }
+
+    // A preview for the new link, and a retry for a link whose earlier fetch
+    // failed (pressing Update again tries again). An unchanged link that has
+    // a cover keeps it and isn't fetched again, same as create: the picture
+    // the creator chose is never replaced by a fetched still; the owner's
+    // Refresh Preview (refetchOgImage) may.
+    const hasPreview = !!artifact.ogImageUrl || !!artifact.ogTitle || !!artifact.coverStorageId;
+    if (linkChanged || !hasPreview) {
+      await schedulePreview(ctx, args.artifactId, mediaUrl, artifact.type);
     }
   },
 });
@@ -436,6 +511,7 @@ export const fetchOgImage = action({
 
       await ctx.runMutation(internal.artifacts.updateOgImage, {
         artifactId: args.artifactId,
+        sourceUrl: args.url,
         ogImageUrl: imageUrl,
         ogTitle: title,
         ogDescription: description,
@@ -473,6 +549,10 @@ export const fixArtifact = internalMutation({
 export const updateOgImage = internalMutation({
   args: {
     artifactId: v.id("artifacts"),
+    // The link the fetch started from. A piece whose link was edited while the
+    // fetch was in flight is left alone: the page belongs to the old link.
+    // Optional so a fetch queued before this check existed still lands.
+    sourceUrl: v.optional(v.string()),
     ogImageUrl: v.optional(v.string()),
     ogTitle: v.optional(v.string()),
     ogDescription: v.optional(v.string()),
@@ -480,6 +560,7 @@ export const updateOgImage = internalMutation({
   handler: async (ctx, args) => {
     const artifact = await ctx.db.get(args.artifactId);
     if (!artifact) return;
+    if (args.sourceUrl !== undefined && artifact.mediaUrl !== args.sourceUrl) return;
 
     const patch: Record<string, string> = {};
     if (args.ogImageUrl) patch.ogImageUrl = args.ogImageUrl;

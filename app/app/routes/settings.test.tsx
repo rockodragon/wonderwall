@@ -201,6 +201,39 @@ describe("Work & Portfolio cards", () => {
     }
   });
 
+  // A link's card shows the site's picture once it's fetched, and opens the
+  // site; the buttons on it still edit, delete and refresh.
+  describe("a link", () => {
+    const upsight = {
+      _id: "a3",
+      type: "link",
+      title: "UpSight",
+      mediaUrl: "https://getupsight.com",
+      ogImageUrl: "https://getupsight.com/images/upsight-logo.png",
+    };
+
+    it("shows the site's picture", async () => {
+      answers["artifacts:getMyArtifacts"] = [upsight];
+      const html = await settings();
+      expect(html).toMatch(/<img[^>]*src="https:\/\/getupsight.com\/images\/upsight-logo.png"/);
+    });
+
+    it("opens the site in a new tab", async () => {
+      answers["artifacts:getMyArtifacts"] = [upsight];
+      const link = (await settings()).match(/<a[^>]*href="https:\/\/getupsight.com"[^>]*>/)?.[0] ?? "";
+      expect(link).toContain('target="_blank"');
+      expect(link).toContain('rel="noopener noreferrer"');
+      expect(link).toContain('aria-label="Open UpSight"');
+      // The card clips anything outside it, so the focus ring sits inside.
+      expect(link).toContain("focus-visible:-outline-offset-2");
+    });
+
+    it("uses the site's own title when the creative gave none", async () => {
+      answers["artifacts:getMyArtifacts"] = [{ ...upsight, title: undefined, ogTitle: "UpSight | Customer intelligence" }];
+      expect(await settings()).toContain("UpSight | Customer intelligence");
+    });
+  });
+
   it("keeps the title white on the dark gradient, with a shadow behind it", async () => {
     const html = await settings();
     const title = html.match(/<p[^>]*>Mural<\/p>/)?.[0] ?? "";
