@@ -58,6 +58,7 @@ import {
 import { GARDEN_SLUG } from "../lib/communitySlugs";
 import { SOPHIA_FUND_SLUG } from "../lib/namedFunds";
 import { useDirectory } from "../lib/useDirectory";
+import { useShortlist } from "../lib/shortlist/useShortlist";
 import { useFilterState } from "../lib/useFilterState";
 import { NEAR_ME_RADIUS_OPTIONS, useNearMe } from "../lib/useNearMe";
 import type { DeskCard, DeskEventInput, DeskOrgInput, DeskProjectInput } from "./deskCards";
@@ -370,6 +371,13 @@ export function useDeskBrowse(view: BrowseView, community: DeskCommunity, fallba
   // belong to no community, so the desk's community switch doesn't scope them.
   const orgRows = useQuery(api.organizations.list, peopleOn && !following ? {} : "skip") as DeskOrgInput[] | undefined;
   const favorites = useQuery(api.favorites.getMyFavorites, peopleOn || eventsOn ? {} : "skip");
+  // Following is by latest activity: the Shortlist's follows know what each
+  // person last posted. The Desk already holds this subscription.
+  const shortlist = useShortlist(following);
+  const activity = useMemo(
+    () => (shortlist.status === "ready" ? new Map(shortlist.data.people.map((p) => [p.profileId, p])) : undefined),
+    [shortlist],
+  );
 
   // Projects.
   const projectRows = useQuery(api.garden.projects.listProjects, projectsOn ? {} : "skip") as
@@ -393,9 +401,9 @@ export function useDeskBrowse(view: BrowseView, community: DeskCommunity, fallba
         ? favorites.profiles.flatMap((f) => (f ? [{ ...f.profile, _id: String(f.profile._id), interests: [...f.profile.interests] }] : []))
         : undefined;
       const rows = following ? followed : directoryRows;
-      if (!rows || !favorites) return undefined;
+      if (!rows || !favorites || (following && !activity)) return undefined;
       const followedIds = new Set(favorites.profiles.flatMap((f) => (f ? [String(f.profile._id)] : [])));
-      const people = peopleCards({ rows, followedIds, following, query: searched, interests });
+      const people = peopleCards({ rows, followedIds, following, query: searched, interests, activity });
       if (following) return people;
       if (!orgRows) return undefined;
       // Discipline and Near me are about people: an organization has neither.
@@ -420,7 +428,7 @@ export function useDeskBrowse(view: BrowseView, community: DeskCommunity, fallba
       return eventsCards({ rows, tab, query: searched, community, near, favoriteIds, now: Date.now() });
     }
     return undefined;
-  }, [peopleOn, projectsOn, eventsOn, favorites, following, orgsOnly, directoryRows, orgRows, searched, interests, near, projectRows, fundPage, community, lens, stage, past, pastRows, upcomingRows, tab]);
+  }, [peopleOn, projectsOn, eventsOn, favorites, following, activity, orgsOnly, directoryRows, orgRows, searched, interests, near, projectRows, fundPage, community, lens, stage, past, pastRows, upcomingRows, tab]);
 
   const filtered =
     !!searched ||
