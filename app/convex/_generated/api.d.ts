@@ -26,6 +26,7 @@ import type * as crawlerModelTest from "../crawlerModelTest.js";
 import type * as crawlerScheduler from "../crawlerScheduler.js";
 import type * as crawlerSeeds from "../crawlerSeeds.js";
 import type * as crons from "../crons.js";
+import type * as csv from "../csv.js";
 import type * as directoryRules from "../directoryRules.js";
 import type * as email_consoleProvider from "../email/consoleProvider.js";
 import type * as email_index from "../email/index.js";
@@ -191,6 +192,7 @@ declare const fullApi: ApiFromModules<{
   crawlerScheduler: typeof crawlerScheduler;
   crawlerSeeds: typeof crawlerSeeds;
   crons: typeof crons;
+  csv: typeof csv;
   directoryRules: typeof directoryRules;
   "email/consoleProvider": typeof email_consoleProvider;
   "email/index": typeof email_index;

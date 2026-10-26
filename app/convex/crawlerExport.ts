@@ -1,25 +1,21 @@
 import { v } from "convex/values";
-import { internalMutation, query, action, mutation } from "./_generated/server";
-import { api } from "./_generated/api";
+import { internalMutation, internalQuery } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
+import { csvCell } from "./csv";
+
+// Every function here is operator-only (dashboard or `npx convex run`):
+// internal, never callable from a browser. The reads were public queries
+// with no sign-in or admin check, so anyone could pull the crawler's
+// prospect list with its emails and phone numbers (found 2026-10-26). No
+// page calls them; the admin crawler page uses the admin-gated reads in
+// crawler.ts.
 
 // ============================================
-// CSV Export Utilities
+// CSV Export
 // ============================================
-
-// Helper to escape CSV values
-function escapeCSV(value: string | undefined | null): string {
-  if (value === undefined || value === null) return "";
-  const str = String(value);
-  // Escape quotes and wrap in quotes if contains comma, quote, or newline
-  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-  return str;
-}
 
 // Generate CSV from organizations
-export const exportToCSV = query({
+export const exportToCSV = internalQuery({
   args: {
     segment: v.optional(v.string()),
     status: v.optional(v.string()),
@@ -87,24 +83,24 @@ export const exportToCSV = query({
     ];
 
     const rows = orgs.map((org) => [
-      escapeCSV(org.name),
-      escapeCSV(org.website),
-      escapeCSV(org.industry),
-      escapeCSV(org.city),
-      escapeCSV(org.state),
-      escapeCSV(org.email),
-      escapeCSV(org.phone),
-      escapeCSV(org.ownerName),
+      csvCell(org.name),
+      csvCell(org.website),
+      csvCell(org.industry),
+      csvCell(org.city),
+      csvCell(org.state),
+      csvCell(org.email),
+      csvCell(org.phone),
+      csvCell(org.ownerName),
       String(org.totalScore),
-      escapeCSV(org.segment),
-      escapeCSV(org.status),
-      escapeCSV(org.personaTags.join("; ")),
+      csvCell(org.segment),
+      csvCell(org.status),
+      csvCell(org.personaTags.join("; ")),
       String(org.valuesScore),
       String(org.hiringScore),
       String(org.qualityScore),
-      escapeCSV(org.faithSignals.slice(0, 5).join("; ")), // Limit to first 5
-      escapeCSV(org.description?.substring(0, 500)), // Truncate description
-      escapeCSV(org.source),
+      csvCell(org.faithSignals.slice(0, 5).join("; ")), // Limit to first 5
+      csvCell(org.description?.substring(0, 500)), // Truncate description
+      csvCell(org.source),
       new Date(org.discoveredAt).toISOString().split("T")[0],
     ]);
 
@@ -120,7 +116,7 @@ export const exportToCSV = query({
 });
 
 // Export for specific segments (convenience methods)
-export const exportHotLeads = query({
+export const exportHotLeads = internalQuery({
   args: {},
   handler: async (ctx) => {
     const orgs = await ctx.db
@@ -133,7 +129,7 @@ export const exportHotLeads = query({
   },
 });
 
-export const exportWarmLeads = query({
+export const exportWarmLeads = internalQuery({
   args: {},
   handler: async (ctx) => {
     const orgs = await ctx.db
@@ -192,7 +188,7 @@ function formatForCRM(orgs: Doc<"crawledOrganizations">[]) {
 // ============================================
 
 // Format for webhook push to CRM
-export const getOrgsForWebhook = query({
+export const getOrgsForWebhook = internalQuery({
   args: {
     segment: v.string(),
     limit: v.optional(v.number()),
@@ -306,7 +302,7 @@ export const importFromCSV = internalMutation({
 // Analytics & Reporting
 // ============================================
 
-export const getExportStats = query({
+export const getExportStats = internalQuery({
   args: {},
   handler: async (ctx) => {
     const allOrgs = await ctx.db.query("crawledOrganizations").collect();
@@ -336,7 +332,7 @@ export const getExportStats = query({
 });
 
 // Get organizations ready for outreach
-export const getOutreachQueue = query({
+export const getOutreachQueue = internalQuery({
   args: {
     limit: v.optional(v.number()),
   },

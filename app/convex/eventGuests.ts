@@ -2,6 +2,7 @@
 // (applications, RSVPs, paid ticket purchases) into one row per person.
 // Pure and server-free — the frontend imports the summary + CSV helpers.
 
+import { csvCell } from "./csv";
 import { formatCents } from "./money";
 
 export type GuestStatus = "going" | "pending" | "declined";
@@ -119,10 +120,6 @@ export function summarizeGuests(rows: (Pick<GuestRow, "status" | "paidCents"> & 
 export function paidLabel(r: Pick<GuestRow, "paidCents" | "sentToPayPal">): string {
   if (r.paidCents != null && r.paidCents > 0) return `Paid ${formatCents(r.paidCents)}`;
   return r.sentToPayPal ? "Sent to PayPal" : "Free";
-}
-
-function csvCell(v: string): string {
-  return /[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
 }
 
 export function guestsToCsv(rows: GuestRow[]): string {

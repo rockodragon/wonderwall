@@ -235,6 +235,15 @@ const RULES: Rule[] = [
     home: "app/lib/textParagraphs.ts",
     use: "textParagraphs in app/lib/textParagraphs.ts",
   },
+  {
+    name: "CSV cell escaped by hand (one place)",
+    // The quote doubling at the heart of a CSV escaper. The copies had
+    // drifted: one forgot that a \r needs quoting too.
+    pattern: /\.replace(?:All)?\(\s*(?:\/"\/g|'"'|`"`)\s*,\s*(?:'""'|`""`|"\\"\\"")\s*\)/g,
+    limit: 0,
+    home: "convex/csv.ts",
+    use: "csvCell in convex/csv.ts",
+  },
 ];
 
 describe("drift guard: no new copies of a shared rule", () => {

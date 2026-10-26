@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { action } from "./_generated/server";
+import { internalAction } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 // Simplified JSON Schema - flatter structure for better model compliance
 const CLASSIFICATION_SCHEMA = {
@@ -188,7 +189,11 @@ const MODELS = [
   "@cf/meta/llama-3.3-70b-instruct-fp8-fast", // 70B - larger capacity
 ];
 
-export const compareModels = action({
+// Operator-only (dashboard or `npx convex run`): internal, never callable
+// from a browser. Both were public with no sign-in or admin check, so anyone
+// could make the server fetch a URL and spend the Cloudflare AI key (found
+// 2026-10-26).
+export const compareModels = internalAction({
   args: {
     url: v.optional(v.string()),
   },
@@ -270,15 +275,16 @@ export const compareModels = action({
 });
 
 // Test all sample URLs
-export const compareModelsAllUrls = action({
+export const compareModelsAllUrls = internalAction({
   args: {},
-  handler: async (ctx) => {
-    const allResults = [];
+  // The return type is written out so this file's own type doesn't depend on
+  // itself through `internal.crawlerModelTest`.
+  handler: async (ctx): Promise<unknown[]> => {
+    const allResults: unknown[] = [];
 
     for (const url of TEST_URLS) {
       const result = await ctx.runAction(
-        // @ts-expect-error - self reference
-        "crawlerModelTest:compareModels",
+        internal.crawlerModelTest.compareModels,
         { url },
       );
       allResults.push(result);
