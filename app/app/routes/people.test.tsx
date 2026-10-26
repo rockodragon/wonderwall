@@ -112,6 +112,13 @@ describe("a person card", () => {
     expect(link).toContain("items-center");
   });
 
+  it("shows the photo as a rounded square, as on the profile pages", async () => {
+    mock.answers["profiles:directory"] = { people: [person], total: 1, visitor: true };
+    const face = classOf(card(await people("/people"), "/profile/p1"), "span", "shrink-0");
+    expect(face).toContain("rounded-xl");
+    expect(face).not.toContain("rounded-full");
+  });
+
   it("keeps the name, the organization and the disciplines to a line each, the full name in the tooltip", async () => {
     mock.answers["profiles:directory"] = { people: [person], total: 1, visitor: true };
     const markup = card(await people("/people"), "/profile/p1");
@@ -150,14 +157,21 @@ describe("an organization card", () => {
     expect(classOf(markup, "p")).toContain("truncate");
   });
 
-  it("gives the count a line of its own under the faces, and cuts a long name short inside the card", async () => {
+  // The logo is as big as a person's photo; one quiet line under the name
+  // says how many people, and how many of them you follow, with no faces.
+  it("shows the logo the size of a person's photo, and one line of who's there", async () => {
     mock.signedIn = false;
-    mock.answers["organizations:list"] = [org("uncommon", ["Cody James Vermillion-Hargreaves"])];
+    mock.answers["organizations:list"] = [{ ...org("uncommon", ["A", "B", "C", "D"]), followingCount: 2 }];
     const markup = card(await people("/people?tab=orgs"), "/orgs/uncommon");
-    // The faces are a list as wide as the card, so nothing fits beside it,
-    // and no face is wider than the card; the count comes after the list.
-    expect(classOf(markup, "div", "[&_ul]:w-full")).toEqual(expect.arrayContaining(["[&_ul]:w-full", "[&_li]:max-w-full"]));
-    expect(markup).toMatch(/<\/ul><span [^>]*>1(?:<!-- -->| )+person<\/span>/);
-    expect(classOf(markup, "span", "truncate")).toContain("truncate");
+    expect(classOf(markup, "div", "shrink-0")).toEqual(expect.arrayContaining(["w-12", "h-12", "rounded-xl"]));
+    expect(text(markup)).toContain("2 you follow · 4 people");
+    expect(markup).not.toContain("<ul");
+  });
+
+  it("says only how many when you follow none of them", async () => {
+    mock.signedIn = false;
+    mock.answers["organizations:list"] = [{ ...org("solo", ["Betty Lynn Bass"]), followingCount: 0 }];
+    expect(text(card(await people("/people?tab=orgs"), "/orgs/solo"))).toContain("1 person");
+    expect(text(card(await people("/people?tab=orgs"), "/orgs/solo"))).not.toContain("you follow");
   });
 });

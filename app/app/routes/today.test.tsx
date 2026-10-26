@@ -145,3 +145,36 @@ describe("Share a project on a phone's Today", () => {
     expect(html).not.toContain('aria-label="Start a project"');
   });
 });
+
+// An open project is a card with an edge, its maker's name in plain words
+// under the title, and no "See →": the whole card opens it.
+describe("an open project on Today", () => {
+  const project = (id: string, title: string) => ({
+    _id: id,
+    userId: `u-${id}`,
+    kind: "passion",
+    status: "active",
+    title,
+    media: [],
+    createdAt: NOW,
+    creator: { _id: `profile-${id}`, name: "MG Smith", imageUrl: null },
+  });
+
+  it("names its maker under the title, readably, and says no See", async () => {
+    scene.answers = {
+      "profiles:getMyProfile": { _id: "me", userId: "u-me", name: "Me", bio: "", imageUrl: null },
+      "garden/projects:listProjects": [project("a", "Featured one"), project("b", "Songs of Safety"), project("c", "Third")],
+    };
+    const html = await today();
+    const row = html.match(/<a [^>]*href="\/projects\/b"[^>]*>.*?<\/a>/)?.[0] ?? "";
+    expect(row).not.toBe("");
+    expect(row).not.toContain("See →");
+    const title = row.indexOf("Songs of Safety");
+    const maker = row.indexOf(">MG Smith<");
+    expect(maker).toBeGreaterThan(title);
+    // A plain line, not the small uppercase mono label it was.
+    expect(row).toMatch(/<p class="[^"]*text-sm[^"]*"[^>]*>MG Smith<\/p>/);
+    // An edge on a phone: a bordered, raised card.
+    expect(row).toMatch(/^<a [^>]*class="[^"]*border[^"]*"/);
+  });
+});

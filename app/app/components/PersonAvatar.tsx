@@ -69,7 +69,9 @@ export function PersonAvatar({
   className?: string;
 }) {
   const dimensions = SIZES[size];
-  const rounded = shape === "square" ? "rounded" : shape === "tile" ? "rounded-2xl" : "rounded-full";
+  // A tile's corners scale with it: 16px on the 80px profile photo, 12px on a card.
+  const rounded =
+    shape === "square" ? "rounded" : shape === "tile" ? (size === "xl" ? "rounded-2xl" : "rounded-xl") : "rounded-full";
   const initial = name.trim().charAt(0).toUpperCase() || "·";
   const { className: toneClass, style } = TONES[tone] as { className: string; style?: CSSProperties };
   // The tone's background sits behind a picture too, so a transparent logo

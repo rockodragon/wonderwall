@@ -308,6 +308,11 @@ export const answers: Record<string, unknown | ((args: unknown) => unknown)> = {
   "invites:getInviteStats": null,
   "profiles:getMyProfile": me,
   "profiles:getProfile": myPage,
+  // People › Organizations: one you follow people in, one you don't.
+  "organizations:list": [
+    { _id: "org-harbor", name: "Harbor Light Collective", slug: "harbor-light", category: "Collective", tagline: null, location: null, logoUrl: null, peopleCount: 4, followingCount: 2, faces: [] },
+    { _id: "org-tide", name: "Tidewater Center for the Arts", slug: "tidewater", category: "Nonprofit", tagline: null, location: "Fallbrook", logoUrl: "/campaign/church.jpg", peopleCount: 2, followingCount: 0, faces: [] },
+  ],
   // Settings → Profile's Work & Portfolio: the same work your page shows.
   "artifacts:getMyArtifacts": [
     ...myPage.artifacts.map((a) => ({ ...a, title: "Cafe opening" })),

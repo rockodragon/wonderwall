@@ -177,14 +177,14 @@ function TodayPage() {
       </Section>
 
       {/* Browsing, not acting (today-page-ux-review-2026-09-26.md): a
-          short list, every row a link that says "See →", and the section
-          stays on the page when it's empty so a new member learns it
-          exists. Backing and responding live on the project page. */}
+          short list, every row a link (the whole row opens it, no "See →"),
+          and the section stays on the page when it's empty so a new member
+          learns it exists. Backing and responding live on the project page. */}
       <Section title="Open projects" action={<SectionLink to="/projects">{countLabel("project", open.length)} →</SectionLink>}>
         {loading ? (
           <Skeleton height={140} />
         ) : shownOpen.length > 0 ? (
-          <div className="space-y-10 md:space-y-20">
+          <div className="space-y-3 md:space-y-20">
             {shownOpen.map((p, i) => (
               <ProjectRow key={p._id} project={p} flip={i % 2 === 1} />
             ))}
@@ -581,49 +581,56 @@ function FeaturedProject({ project }: { project: Project }) {
   );
 }
 
-/** One open project, set wide: image on one side, words on the other, and
-    the sides swap on every other row so a short list reads as a walk past
-    a few things rather than a stack of identical cards. No card border —
-    the space between rows is the separator. The whole row is the link. */
+/** One open project. On a phone, a card with an edge: the cover small on
+    the left, the title beside it, and who it's from right under the title
+    in words you can read (Rick, 2026-10-27: the full-width covers wasted
+    the screen and ran into each other). From md up it is set wide: image on
+    one side, words on the other, the sides swapping every other row, no
+    edge (the space between rows separates). The whole row is the link. */
 function ProjectRow({ project, flip }: { project: Project; flip: boolean }) {
   const cover = coverOf(project);
   const funded = fundingOf(project, formatMoney);
   const daysLeft = project.raiseByDate && project.raiseByDate > Date.now() ? Math.max(1, Math.ceil((project.raiseByDate - Date.now()) / 86400000)) : null;
+  const maker = bylineOf(project)?.name ?? "A Garden creative";
   const meta = [
     stageLabel(resolveStage(project)),
-    bylineOf(project)?.name ?? "A Garden creative",
     funded ? `${funded.raised} of ${funded.goal}` : null,
     daysLeft ? `${daysLeft} ${daysLeft === 1 ? "day" : "days"} left` : null,
   ].filter(Boolean);
   return (
     <Link
       to={`/projects/${project._id}`}
-      className={`group grid items-center gap-4 md:gap-14 ${flip ? "md:grid-cols-[1fr_320px]" : "md:grid-cols-[320px_1fr]"}`}
+      className={`group grid grid-cols-[96px_minmax(0,1fr)] items-center gap-3 rounded-xl border border-[color:var(--app-hairline)] bg-[var(--app-surface-raised)] p-3 md:gap-14 md:rounded-none md:border-0 md:bg-transparent md:p-0 ${flip ? "md:grid-cols-[1fr_320px]" : "md:grid-cols-[320px_1fr]"}`}
     >
-      {/* 4:5, full width on a phone; beside the words it is a fixed 320px
-          wide, so a portrait picture doesn't run taller than the text. */}
+      {/* 4:5 always: 96px wide in a phone's card; beside the words on a
+          wide screen it is a fixed 320px, so a portrait picture doesn't run
+          taller than the text. */}
       <Dissolve
-        className={`overflow-hidden rounded-xl transition-transform duration-300 group-hover:scale-[1.01] ${flip ? "md:order-2" : ""}`}
+        className={`overflow-hidden rounded-lg md:rounded-xl transition-transform duration-300 group-hover:scale-[1.01] ${flip ? "md:order-2" : ""}`}
         style={{ backgroundColor: "#121212" }}
       >
         <ProjectCover cover={cover} seed={project._id} />
       </Dissolve>
       <div className={`min-w-0 ${flip ? "md:order-1" : ""}`}>
-        <Badges project={project} />
-        <h3 className="mt-3 md:mt-4 text-[22px] md:text-[30px] leading-tight font-semibold tracking-[-0.01em] group-hover:underline" style={DISPLAY}>
+        <div className="hidden md:block md:mb-4">
+          <Badges project={project} />
+        </div>
+        <h3 className="text-[17px] md:text-[30px] leading-snug md:leading-tight font-semibold tracking-[-0.01em] line-clamp-3 md:line-clamp-none group-hover:underline" style={DISPLAY}>
           {project.title}
         </h3>
+        <p className="mt-1 text-sm truncate" style={{ color: "var(--app-text-muted)" }}>
+          {maker}
+        </p>
         {project.blurb && (
-          <p className="mt-2 md:mt-3 text-[15px] leading-relaxed line-clamp-2 md:line-clamp-3" style={{ color: "var(--app-text-muted)" }}>
+          <p className="hidden md:block mt-3 text-[15px] leading-relaxed line-clamp-3" style={{ color: "var(--app-text-muted)" }}>
             {project.blurb}
           </p>
         )}
-        <p className="mt-3 md:mt-5 text-xs uppercase tracking-[0.08em]" style={{ ...MONO, color: "var(--app-text-dim)" }}>
-          {meta.join(" · ")}
-        </p>
-        <span className="mt-3 md:mt-6 inline-block text-xs uppercase tracking-[0.1em]" style={{ ...MONO, color: "var(--app-accent-ink)" }}>
-          See →
-        </span>
+        {meta.length > 0 && (
+          <p className="mt-1.5 md:mt-4 text-xs" style={{ color: "var(--app-text-dim)" }}>
+            {meta.join(" · ")}
+          </p>
+        )}
       </div>
     </Link>
   );
@@ -636,7 +643,7 @@ function GigRow({ project }: { project: Project }) {
   return (
     <Link
       to={`/projects/${project._id}`}
-      className="group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-4 transition-colors hover:bg-[var(--app-hairline)] sm:gap-4 sm:px-5 sm:py-5 sm:grid-cols-[1fr_auto_auto_auto]"
+      className="group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-4 transition-colors hover:bg-[var(--app-hairline)] sm:gap-4 sm:px-5 sm:py-5 sm:grid-cols-[1fr_auto_auto]"
       style={{ borderColor: "var(--app-hairline)" }}
     >
       <div className="row-start-1 min-w-0 sm:row-auto">
@@ -646,16 +653,14 @@ function GigRow({ project }: { project: Project }) {
         </p>
       </div>
       {/* On a phone the pay sits beside the title and the tags go under
-          both; from sm up the four columns read left to right. */}
+          both; from sm up the three columns read left to right. The whole
+          row opens it, so no "See →". */}
       <div className="col-span-2 row-start-2 flex flex-wrap gap-1.5 sm:col-span-1 sm:row-auto">
         {topic && <Tag>{topic}</Tag>}
         <Tag>{project.remote === false ? "In person" : "Remote OK"}</Tag>
       </div>
       <span className="col-start-2 row-start-1 text-lg font-semibold whitespace-nowrap sm:col-auto sm:row-auto sm:text-right" style={{ ...DISPLAY, color: "var(--app-accent-ink)" }}>
         {money ?? ""}
-      </span>
-      <span className="hidden text-xs uppercase tracking-[0.08em] whitespace-nowrap sm:inline" style={{ ...MONO, color: "var(--app-accent-ink)" }}>
-        See →
       </span>
     </Link>
   );

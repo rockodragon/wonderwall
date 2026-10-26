@@ -364,7 +364,7 @@ function ProfileCard({ profile }: { profile: DirectoryPerson }) {
       className={`group flex ${PROFILE_CARD_MIN_H} items-center gap-3 p-4 rounded-xl border transition-colors hover:border-[var(--app-accent)]`}
       style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)" }}
     >
-      <PersonAvatar name={profile.name} imageUrl={profile.imageUrl} size="card" tone="strong" />
+      <PersonAvatar name={profile.name} imageUrl={profile.imageUrl} size="card" shape="tile" tone="strong" />
       {/* One line each, cut short with an ellipsis: a long name wrapping to
           a second line made its whole row of cards taller. The full name is
           on the profile, and in the tooltip. */}
