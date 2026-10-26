@@ -353,7 +353,7 @@ describe("peopleGroups", () => {
   });
 
   it("whoever posted most recently comes first; those who've posted nothing after, newest follow first", () => {
-    const posted = (at: number) => ({ type: "project" as const, id: `projects:${at}`, title: "Work", at, thumbUrl: null, media: null });
+    const posted = (at: number) => ({ type: "project" as const, id: `projects:${at}`, title: "Work", at, thumbUrl: null, media: null, share: false, when: null });
     const data = shortlist({
       people: [
         follow("Quiet New", [], on(10, 20)),

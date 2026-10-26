@@ -226,24 +226,41 @@ describe("a person row", () => {
     at: daysAgo(3),
     thumbUrl: "https://p/bloom.jpg",
     media: "image",
+    share: false,
+    when: null,
     ...over,
   });
 
-  it("says what they last posted and how long ago, with its picture where an action would be", () => {
+  it("says what they last did and when, with its picture where an action would be", () => {
     expect(row({ type: "person", person: follow("Kofi Mensah", ["Design"], on(9, 30), post()) })).toEqual({
       id: "person:kofi-mensah",
       title: "Kofi Mensah",
       sub: "Bloom.",
-      meta: "Project",
-      status: "Posted 3d ago",
+      meta: null,
+      status: "Started a project · 3d ago",
       thumb: { kind: "face", name: "Kofi Mensah", url: null },
       post: { url: "https://p/bloom.jpg", media: "image" },
       action: null,
       hot: false,
       past: false,
     });
-    const reel = row({ type: "person", person: follow("Kofi Mensah", [], NOW, post({ type: "event", title: "Renaissance", media: "video" })) }, { ...CALM, withArea: true });
-    expect(reel).toMatchObject({ sub: "People · Renaissance", meta: "Event", post: { media: "video" } });
+    const reel = row(
+      { type: "person", person: follow("Kofi Mensah", [], NOW, post({ type: "event", title: "Renaissance", media: "video", when: { datetime: daysAgo(-3), endTime: null } })) },
+      { ...CALM, withArea: true },
+    );
+    expect(reel).toMatchObject({ sub: "People · Renaissance", meta: null, post: { media: "video" } });
+    expect(reel.status).toMatch(/^Hosting an event · [A-Z][a-z]{2} \d{1,2}$/);
+  });
+
+  it("names a shared piece as work, and a past event as hosted", () => {
+    expect(row({ type: "person", person: follow("Kofi Mensah", [], NOW, post({ share: true })) }).status).toBe("Shared work · 3d ago");
+    const past = post({ type: "event", when: { datetime: daysAgo(10), endTime: daysAgo(10) + 3600_000 } });
+    expect(row({ type: "person", person: follow("Kofi Mensah", [], NOW, past) }).status).toMatch(/^Hosted an event · /);
+  });
+
+  it("leaves a placeholder title out for what they do", () => {
+    const untitled = row({ type: "person", person: follow("Ana Manwiller", ["Art", "Design"], NOW, post({ title: "Untitled image", share: true })) });
+    expect(untitled).toMatchObject({ sub: "Art · Design", status: "Shared work · 3d ago" });
   });
 
   it("draws nothing at the end for a post with no picture and no recording; a recording alone gets its mark", () => {

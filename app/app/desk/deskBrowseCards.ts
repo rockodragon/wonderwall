@@ -23,6 +23,10 @@ import {
   type DeskProjectInput,
 } from "./deskCards";
 import type { DeskCommunity } from "./deskState";
+import { postStatus } from "../components/shortlist/rowModel";
+import { shownTitle } from "../lib/placeholderTitle";
+import { byLatestPost } from "../lib/shortlist/model";
+import type { ShortlistFollow } from "../lib/shortlist/types";
 
 // ——————————————————————————————————————————————————————————————
 // People
@@ -55,11 +59,27 @@ export function directoryCard(p: ProfileRow & { _distance?: number }, followed: 
   };
 }
 
+/** A followed person's card, saying what they last did (rowModel postStatus,
+ *  as the Shortlist says it) in place of FOLLOWING, and its title, unless a
+ *  placeholder, in place of their discipline. */
+export function activityCard(card: DeskCard, follow: ShortlistFollow | undefined): DeskCard {
+  const latest = follow?.latest;
+  if (!latest) return card;
+  const status = postStatus(latest);
+  return {
+    ...card,
+    face: { ...card.face, kicker: status, foot: shownTitle(latest.title) ?? card.face.foot },
+    detail: { ...card.detail, meta: status.toUpperCase() },
+  };
+}
+
 /**
  * Everyone: the server's search result (already scoped to the community and
  * the text), then the Discipline filter and Near me, as /people does.
  * Following: the people the member follows, searched by name and interest,
  * then the Discipline filter. (Following carries no coordinates, so no Near me.)
+ * With `activity` (the Shortlist's follows, by profile id), Following is by
+ * latest activity (byLatestPost) and each card says what they last did.
  */
 export function peopleCards(opts: {
   rows: readonly ProfileRow[];
@@ -68,11 +88,21 @@ export function peopleCards(opts: {
   query: string;
   interests: readonly string[];
   near: NearMe | null;
+  activity?: ReadonlyMap<string, ShortlistFollow>;
 }): DeskCard[] {
   const base = opts.following ? opts.rows.filter((p) => matchesPersonQuery(p, opts.query)) : opts.rows;
-  return filterProfiles(base, { interests: opts.interests, near: opts.following ? null : opts.near }).map((p) =>
-    directoryCard(p, opts.following || opts.followedIds.has(String(p._id))),
-  );
+  const shown = filterProfiles(base, { interests: opts.interests, near: opts.following ? null : opts.near });
+  const { activity } = opts;
+  if (!opts.following || !activity) {
+    return shown.map((p) => directoryCard(p, opts.following || opts.followedIds.has(String(p._id))));
+  }
+  const of = (p: ProfileRow) => activity.get(String(p._id));
+  // Someone the Shortlist doesn't have yet (just followed) goes last; the sort keeps their order.
+  const ranked = [...shown].sort((a, b) => {
+    const [x, y] = [of(a), of(b)];
+    return x && y ? byLatestPost(x, y) : x ? -1 : y ? 1 : 0;
+  });
+  return ranked.map((p) => activityCard(directoryCard(p, true), of(p)));
 }
 
 // ——————————————————————————————————————————————————————————————
