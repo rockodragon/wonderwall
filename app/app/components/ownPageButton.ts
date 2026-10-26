@@ -49,15 +49,20 @@ export const OWN_PAGE_LABELS = {
 /** Where the three sit (components/MyShareActions.tsx). Icons sit in a row.
  *  On the profile page a phone gets a row of three equal tiles with the note
  *  under it; from `sm` up, a column as it always was: Share and code side by
- *  side, the note, then Shortlist. The note comes before Shortlist in the
- *  markup, so on a phone Shortlist is placed in the first row's third
- *  column. */
-export const OWN_PAGE_ROW: Record<Exclude<OwnPageLook, "pill">, { row: string; pair: string; note: string; shortlist: string }> = {
-  icon: { row: "flex items-center gap-1", pair: "contents", note: "", shortlist: "" },
+ *  side, the note, then Shortlist.
+ *
+ *  Tab and screen-reader order is the markup's, so the markup is in the order
+ *  it reads at each width, with no cell moved by the grid. The note is there
+ *  twice, each copy shown at one width only (`display: none` takes the other
+ *  out of both orders): `note` between the pair and Shortlist from `sm` up,
+ *  `phoneNote` after Shortlist on a phone, where it spans the row under the
+ *  tiles. Shortlist is just the grid's third cell. */
+export const OWN_PAGE_ROW: Record<Exclude<OwnPageLook, "pill">, { row: string; pair: string; note: string; phoneNote: string }> = {
+  icon: { row: "flex items-center gap-1", pair: "contents", note: "", phoneNote: "" },
   phoneTile: {
     row: "grid w-full max-w-md grid-cols-3 gap-2 sm:flex sm:w-auto sm:max-w-none sm:flex-col sm:items-end",
     pair: "contents sm:flex sm:flex-wrap sm:items-center sm:justify-end sm:gap-2",
-    note: "col-span-3 sm:contents",
-    shortlist: "col-start-3 row-start-1 sm:col-auto sm:row-auto",
+    note: "hidden sm:contents",
+    phoneNote: "col-span-3 sm:hidden",
   },
 };

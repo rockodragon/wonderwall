@@ -39,6 +39,9 @@ function findFavorite(
     .first();
 }
 
+/** A save or follow of something gone, hidden, or not what it says it is. */
+const notFound = () => new ConvexError({ code: "not_found", reason: "That isn't here anymore." });
+
 /** Throws unless a member may newly save this project or role. A project
  * they can't browse to (VISIBLE_PROJECT_STATUSES), or one posted into a
  * hidden (test) community they can't see (communityVisibility, as on the
@@ -53,7 +56,6 @@ async function assertSaveable(
   targetType: "project" | "role",
   targetId: string,
 ): Promise<void> {
-  const notFound = () => new ConvexError({ code: "not_found", reason: "That isn't here anymore." });
   const roleId = targetType === "role" ? ctx.db.normalizeId("projectRoles", targetId) : null;
   const role = roleId ? await ctx.db.get(roleId) : null;
   if (targetType === "role" && !role) throw notFound();
@@ -93,6 +95,9 @@ export const toggle = mutation({
       // normalizeId, so another table's id never passes for a profile.
       const followedId = args.targetType === "profile" ? ctx.db.normalizeId("profiles", args.targetId) : null;
       const followedProfile = followedId ? await ctx.db.get(followedId) : null;
+      // A follow is of a profile that's there; anything else was saved as
+      // a row pointing nowhere.
+      if (args.targetType === "profile" && !followedProfile) throw notFound();
       // Nobody follows themselves (Rick, 2026-10-26). An old self-follow
       // can still be unfollowed above.
       if (followedProfile && followedProfile.userId === userId) {

@@ -34,7 +34,9 @@ function MyCodeLink({ look }: { look: OwnPageLook }) {
 /** The three buttons, for a page already loaded (the share kit is built
  *  from it). `phoneTile` is the profile page's, with its page's own projects
  *  and `children` (the one-time note, ShareHint) under the row on a phone and
- *  between Share and Shortlist from `sm` up. */
+ *  between Share and Shortlist from `sm` up. The note is rendered at both
+ *  places, shown at one width each, so keyboard and screen-reader order
+ *  matches what's on screen (ownPageButton.ts OWN_PAGE_ROW). */
 export function MyShareActions({
   profile,
   projects,
@@ -59,7 +61,8 @@ export function MyShareActions({
         <MyCodeLink look={look} />
       </div>
       {children && <div className={place.note}>{children}</div>}
-      <ShortlistLink look={look} className={place.shortlist} />
+      <ShortlistLink look={look} />
+      {children && <div className={place.phoneNote}>{children}</div>}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { usePostHog } from "@posthog/react";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from "react";
 import { Link, useLocation, useSearchParams } from "react-router";
 import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
@@ -96,10 +96,18 @@ export default function Settings() {
   useEffect(() => {
     if (!wantsAddress || !isEditingProfile || !profile?._id || addressShownFor.current === location.key) return;
     addressShownFor.current = location.key;
-    const address = document.getElementById("address");
-    address?.scrollIntoView({ block: "start" });
-    address?.querySelector("input")?.focus({ preventScroll: true });
+    // #address is the field itself: on a fresh page load the browser also
+    // focuses the #address target, and a box around the field would take
+    // the cursor back out of it.
+    const field = document.getElementById("address");
+    field?.scrollIntoView({ block: "start" });
+    field?.focus({ preventScroll: true });
   }, [wantsAddress, isEditingProfile, profile?._id, location.key]);
+
+  // Save Profile saves a changed address too, first, so leaving the editor
+  // never quietly drops one; a refused address keeps the editor open with
+  // why, and nothing else is saved.
+  const address = useRef<AddressHandle>(null);
 
   const activeTab: SettingsTab = editArtifactId
     ? "profile"
@@ -134,15 +142,16 @@ export default function Settings() {
                 <ProfileEditForm
                   profile={profile}
                   onDone={() => setShowProfileEdit(false)}
+                  beforeSave={() => address.current?.savePending() ?? Promise.resolve(true)}
                   isNewProfile={profileNeedsSetup}
                 />
                 {/* Your address — thecreative.exchange/@handle — and the
                     search switch are profile settings, so they sit behind
-                    Edit with the rest. Each change saves on its own. Needs
-                    the profile row. */}
+                    Edit with the rest. Each saves on its own too. Needs the
+                    profile row. */}
                 {profile?._id && (
-                  <div id="address" className="mt-8 pt-6 border-t scroll-mt-4" style={{ borderColor: "var(--app-hairline)" }}>
-                    <AddressSection profile={profile} />
+                  <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+                    <AddressSection ref={address} profile={profile} />
                   </div>
                 )}
               </>
@@ -1443,10 +1452,15 @@ function ProfileSummary({
 function ProfileEditForm({
   profile,
   onDone,
+  beforeSave,
   isNewProfile,
 }: {
   profile: ReturnType<typeof useQuery<typeof api.profiles.getMyProfile>>;
   onDone: () => void;
+  /** Before the save: false keeps the editor open and saves nothing. It
+   *  runs first because saving can close the editor (a new profile is
+   *  complete once it has interests) while it's still at work. */
+  beforeSave?: () => Promise<boolean>;
   isNewProfile: boolean;
 }) {
   const posthog = usePostHog();
@@ -1533,6 +1547,7 @@ function ProfileEditForm({
 
     setSaving(true);
     try {
+      if (beforeSave && !(await beforeSave())) return;
       await upsertProfile({
         name: name.trim(),
         bio: bio.trim() || undefined,
@@ -1789,8 +1804,33 @@ const CONTACT_LINK = [{ text: LEGAL_ENTITY.contactEmail, href: `mailto:${LEGAL_E
  * the old address forwarding for HANDLE_FORWARD_DAYS. The "i" holds the
  * explanation and "How names work" (/legal/names). Under it, a switch for
  * "Hide my profile from search engines" (handles.setHideFromSearch).
+ * The field is the #address target (Settings' #address effect).
  */
-function AddressSection({ profile }: { profile: { handle?: string; hideFromSearch?: boolean } }) {
+/** What Save Profile does with the address field: nothing (blank or
+ *  unchanged), stop (already refused: its reason is showing, so no second
+ *  ask), or claim it and let the server decide. */
+export function pendingAddressStep(field: {
+  handle: string;
+  unchanged: boolean;
+  refused: boolean;
+}): "none" | "refused" | "claim" {
+  if (!field.handle || field.unchanged) return "none";
+  return field.refused ? "refused" : "claim";
+}
+
+type AddressHandle = {
+  /** Claims a changed address, if there is one. False when it was refused:
+   *  the reason is showing and the field has the cursor. */
+  savePending: () => Promise<boolean>;
+};
+
+function AddressSection({
+  profile,
+  ref,
+}: {
+  profile: { handle?: string; hideFromSearch?: boolean };
+  ref?: Ref<AddressHandle>;
+}) {
   const claimHandle = useMutation(api.handles.claimHandle);
   const setHideFromSearch = useMutation(api.handles.setHideFromSearch);
   const current = profile.handle ?? "";
@@ -1847,6 +1887,34 @@ function AddressSection({ profile }: { profile: { handle?: string; hideFromSearc
     }
   }
 
+  // Save Profile's turn (Settings, before it saves anything): a name the
+  // rules or the check already refused keeps the editor open with the
+  // reason that's showing; one the server then refuses does the same.
+  useImperativeHandle(ref, () => ({
+    async savePending() {
+      const step = pendingAddressStep({ handle, unchanged, refused });
+      if (step === "none") return true;
+      const showWhy = () => {
+        inputRef.current?.scrollIntoView({ block: "center" });
+        inputRef.current?.focus({ preventScroll: true });
+      };
+      if (step === "refused") {
+        showWhy();
+        return false;
+      }
+      setError(null);
+      try {
+        await claimHandle({ handle });
+        setSaved(true);
+        return true;
+      } catch (err) {
+        setError(errorMessage(err));
+        showWhy();
+        return false;
+      }
+    },
+  }));
+
   async function toggleHide(hide: boolean) {
     setError(null);
     try {
@@ -1882,7 +1950,10 @@ function AddressSection({ profile }: { profile: { handle?: string; hideFromSearc
           </span>
           <input
             ref={inputRef}
+            id="address"
             type="text"
+            // A handle, not a street address: keep browser autofill out.
+            autoComplete="off"
             value={typed}
             onChange={(e) => {
               setTyped(e.target.value);
@@ -1896,7 +1967,7 @@ function AddressSection({ profile }: { profile: { handle?: string; hideFromSearc
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck={false}
-            className="min-w-0 flex-1 bg-transparent py-2 pr-4 text-base outline-none"
+            className="min-w-0 flex-1 scroll-mt-24 bg-transparent py-2 pr-4 text-base outline-none"
             style={{ color: "var(--app-text)" }}
           />
         </label>
