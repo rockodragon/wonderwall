@@ -135,6 +135,11 @@ export interface ShortlistPost {
   thumbUrl: string | null;
   /** Null when there's nothing to show: no picture and no recording. */
   media: PostMedia | null;
+  /** A project made by sharing one piece of work (origin "portfolio"),
+   *  rather than posted as a project. */
+  share: boolean;
+  /** An event's start and end, to say hosting or hosted; null for a project. */
+  when: { datetime: number; endTime: number | null } | null;
 }
 
 export interface ShortlistFollow extends ShortlistPerson {

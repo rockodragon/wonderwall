@@ -22,6 +22,7 @@
 import { memo, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Link } from "react-router";
 import { AbstractCover } from "../components/AbstractCover";
+import { PostThumbView } from "../components/shortlist/PostThumb";
 import { CelebrationMark } from "../components/CelebrationMark";
 import { CreateCard } from "../components/CreateCard";
 import { useReducedMotion } from "../hooks/useMediaQuery";
@@ -206,7 +207,9 @@ export const DeskCardView = memo(function DeskCardView({
   const radius = open ? RADIUS_OPEN : RADIUS;
   // An organization has no kicker (its "ORG" tag is a corner mark), so its name is
   // said in the label: "Organization, Abiding Practice, Collective · San Diego".
-  const label = [card.face.kicker || (card.kind === "org" ? "Organization" : ""), card.face.title, card.face.foot].filter(Boolean).join(", ");
+  const label = [card.face.kicker || (card.kind === "org" ? "Organization" : ""), card.face.title, card.face.foot, ...postWords(card)]
+    .filter(Boolean)
+    .join(", ");
 
   return (
     <Shell
@@ -271,7 +274,7 @@ export function RestingCard({
 }) {
   const reduced = useReducedMotion();
   const [lift, setLift] = useState(false);
-  const name = [stamp ?? label ?? card.face.kicker, card.face.title, card.face.foot].filter(Boolean).join(", ");
+  const name = [stamp ?? label ?? card.face.kicker, card.face.title, card.face.foot, ...postWords(card)].filter(Boolean).join(", ");
   return (
     <div
       onPointerEnter={() => setLift(true)}
@@ -806,6 +809,8 @@ function Face({
           >
             {face.foot}
           </p>
+        ) : face.post ? (
+          <PostStrip post={face.post} />
         ) : face.foot && (
           <p
             style={{
@@ -849,6 +854,42 @@ function Face({
           {face.tag}
         </span>
       )}
+    </div>
+  );
+}
+
+/** A followed person's card says what they last posted. */
+function postWords(card: DeskCard): string[] {
+  const post = card.face.post;
+  return post ? [post.status, post.title ?? ""] : [];
+}
+
+const CLIP_LINE = { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } as const;
+
+/** Under a followed person's name: what they last posted, on a dark, softly
+ *  blurred backing so it reads over their photo as well as on a plain face. */
+function PostStrip({ post }: { post: NonNullable<DeskCard["face"]["post"]> }) {
+  return (
+    <div
+      style={{
+        marginTop: 12,
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: 8,
+        borderRadius: 10,
+        background: "rgba(12,12,12,.6)",
+        backdropFilter: "blur(6px)",
+        WebkitBackdropFilter: "blur(6px)",
+        border: `1px solid ${DESK.lineStrong}`,
+        color: DESK.text,
+      }}
+    >
+      {post.thumb && <PostThumbView post={post.thumb} size={40} well={DESK.page} line={DESK.lineStrong} muted={DESK.textSoft} />}
+      <span style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+        {post.title && <span style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.3, ...CLIP_LINE }}>{post.title}</span>}
+        <span style={{ fontSize: 12, lineHeight: 1.3, color: DESK.textSoft, ...CLIP_LINE }}>{post.status}</span>
+      </span>
     </div>
   );
 }

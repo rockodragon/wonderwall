@@ -7,6 +7,7 @@
 // already say them (today.tsx, give.tsx, fund.$slug.tsx). Amounts are exact:
 // the caller passes the app's own formatter.
 
+import type { PostThumb } from "../components/shortlist/rowModel";
 import { CLAIMS } from "../constants/claims";
 import { isRaising } from "../lib/browse/projectsFilter";
 import { hostNamesLine, type EventHost, hostLabels, type HostLabel } from "../lib/eventHosts";
@@ -84,6 +85,9 @@ export type DeskCard = {
     /** A small mono tag in the face's lower-right corner, at rest only: an
      *  organization's "ORG", in place of a kicker at the top. */
     tag?: string;
+    /** A person you follow: what they last posted, under their name
+     *  (deskBrowseCards.ts activityCard): its picture, title and when. */
+    post?: { title: string | null; status: string; thumb: PostThumb | null };
   };
   detail: {
     meta: string;

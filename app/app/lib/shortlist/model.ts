@@ -321,8 +321,9 @@ function eventNext(events: ShortlistEvent[], now: number): string | null {
 // ——————————————————————————————————————————————————————————————
 
 /** Whoever posted most recently first; those who've posted nothing after,
- *  the newest follow first. */
-const byLatestPost = (a: ShortlistFollow, b: ShortlistFollow) =>
+ *  the newest follow first. The Shortlist's People and the desk's Following
+ *  (desk/deskBrowseCards.ts) both list in this order. */
+export const byLatestPost = (a: ShortlistFollow, b: ShortlistFollow) =>
   (b.latest?.at ?? 0) - (a.latest?.at ?? 0) || b.since - a.since;
 
 // groupFollows reads the Following page's shape; this hands it ours.
