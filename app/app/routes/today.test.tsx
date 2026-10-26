@@ -146,8 +146,10 @@ describe("Share a project on a phone's Today", () => {
   });
 });
 
-// An open project is a card with an edge, its maker's name in plain words
-// under the title, and no "See →": the whole card opens it.
+// An open project on a phone: its picture square and full width across the
+// top of the card, then the title, its maker's name in plain words, and no
+// "See →": the whole card opens it. No border; the card's own ground and the
+// gap between cards set them apart.
 describe("an open project on Today", () => {
   const project = (id: string, title: string) => ({
     _id: id,
@@ -160,7 +162,7 @@ describe("an open project on Today", () => {
     creator: { _id: `profile-${id}`, name: "MG Smith", imageUrl: null },
   });
 
-  it("names its maker under the title, readably, and says no See", async () => {
+  it("puts a square picture full width on top, names its maker under the title, and says no See", async () => {
     scene.answers = {
       "profiles:getMyProfile": { _id: "me", userId: "u-me", name: "Me", bio: "", imageUrl: null },
       "garden/projects:listProjects": [project("a", "Featured one"), project("b", "Songs of Safety"), project("c", "Third")],
@@ -169,12 +171,14 @@ describe("an open project on Today", () => {
     const row = html.match(/<a [^>]*href="\/projects\/b"[^>]*>.*?<\/a>/)?.[0] ?? "";
     expect(row).not.toBe("");
     expect(row).not.toContain("See →");
+    const link = row.match(/^<a [^>]*class="([^"]*)"/)?.[1].split(" ") ?? [];
+    expect(link).toEqual(expect.arrayContaining(["block", "overflow-hidden", "rounded-xl"]));
+    expect(link).not.toContain("border");
+    expect(link.some((c) => /^p-\d/.test(c))).toBe(false);
+    expect(row).toContain("aspect-square");
+    expect(row).not.toContain("aspect-[4/5]");
     const title = row.indexOf("Songs of Safety");
-    const maker = row.indexOf(">MG Smith<");
-    expect(maker).toBeGreaterThan(title);
-    // A plain line, not the small uppercase mono label it was.
+    expect(row.indexOf(">MG Smith<")).toBeGreaterThan(title);
     expect(row).toMatch(/<p class="[^"]*text-sm[^"]*"[^>]*>MG Smith<\/p>/);
-    // An edge on a phone: a bordered, raised card.
-    expect(row).toMatch(/^<a [^>]*class="[^"]*border[^"]*"/);
   });
 });

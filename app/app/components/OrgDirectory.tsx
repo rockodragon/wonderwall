@@ -3,11 +3,13 @@ import { useMemo } from "react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { filterOrgs } from "../lib/browse/orgFilter";
+import { DIRECTORY_CARD, DIRECTORY_CARD_PICTURE, DIRECTORY_CARD_WORDS } from "./directoryCard";
 import { OrgLogo } from "./OrgLogo";
 
 // The Organizations tab on People (/people?tab=orgs;
-// docs/features/organizations.md). Same footprint as a person card, the
-// logo the size of a person's photo, and one quiet line of who's there: how
+// docs/features/organizations.md). The same card as a person's
+// (directoryCard.ts), the logo where their photo is, and one quiet line of
+// who's there: how
 // many people, and how many of them you follow (Rick, 2026-10-27: the faces
 // made the cards busy).
 
@@ -45,14 +47,13 @@ export function OrgDirectory({ query }: { query: string }) {
           <Link
             key={o._id}
             to={`/orgs/${o.slug}`}
-            className={`flex ${ORG_CARD_MIN_H} items-start gap-3 p-4 rounded-xl border transition-colors min-w-0 hover:border-[var(--app-accent)]`}
+            className={DIRECTORY_CARD}
             style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)" }}
           >
-            {/* Top-aligned with the name: a card taller than its words (the
-                grid gives every card in a row the row's height) used to leave
-                the logo floating halfway down. */}
-            <OrgLogo name={o.name} logoUrl={o.logoUrl} size="card" />
-            <div className="min-w-0 flex-1">
+            <div className={DIRECTORY_CARD_PICTURE}>
+              <OrgLogo name={o.name} logoUrl={o.logoUrl} size="fill" />
+            </div>
+            <div className={DIRECTORY_CARD_WORDS}>
               <h3 className="font-medium text-sm leading-snug break-words line-clamp-2" title={o.name} style={{ color: "var(--app-text)" }}>
                 {o.name}
               </h3>
@@ -73,10 +74,6 @@ export function OrgDirectory({ query }: { query: string }) {
     </div>
   );
 }
-
-/** As short as a person card (routes/search.tsx), so a row of organizations
- * with nobody listed yet still reads as cards. */
-const ORG_CARD_MIN_H = "min-h-[5.625rem]";
 
 /** "2 you follow · 4 people", or "4 people" when you follow none of them. */
 function peopleLine(count: number, following: number): string {

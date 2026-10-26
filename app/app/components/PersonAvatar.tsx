@@ -18,6 +18,8 @@ const SIZES = {
   card: "h-12 w-12 text-base",
   // 80px: your own photo at the top of Settings.
   xl: "h-20 w-20 text-3xl",
+  // As big as its box: the strip down a directory card's edge.
+  fill: "h-full w-full text-2xl",
 } as const;
 
 const TONES = {
@@ -64,14 +66,23 @@ export function PersonAvatar({
   imageUrl?: string | null;
   size?: keyof typeof SIZES;
   tone?: keyof typeof TONES;
-  /** `tile` is a rounded square, like the photos on the Canvas's cards. */
-  shape?: "round" | "square" | "tile";
+  /** `tile` is a rounded square, like the photos on the Canvas's cards;
+   *  `flush` has no corners of its own (its box rounds it). */
+  shape?: "round" | "square" | "tile" | "flush";
   className?: string;
 }) {
   const dimensions = SIZES[size];
   // A tile's corners scale with it: 16px on the 80px profile photo, 12px on a card.
   const rounded =
-    shape === "square" ? "rounded" : shape === "tile" ? (size === "xl" ? "rounded-2xl" : "rounded-xl") : "rounded-full";
+    shape === "flush"
+      ? ""
+      : shape === "square"
+        ? "rounded"
+        : shape === "tile"
+          ? size === "xl"
+            ? "rounded-2xl"
+            : "rounded-xl"
+          : "rounded-full";
   const initial = name.trim().charAt(0).toUpperCase() || "·";
   const { className: toneClass, style } = TONES[tone] as { className: string; style?: CSSProperties };
   // The tone's background sits behind a picture too, so a transparent logo

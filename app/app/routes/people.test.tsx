@@ -105,18 +105,21 @@ describe("a person card", () => {
     interests: ["Illustration", "Art", "Music"],
   };
 
-  it("is one fixed height, with the face centered beside the words", async () => {
+  it("is one fixed height, its photo running to the card's left edge, top to bottom", async () => {
     mock.answers["profiles:directory"] = { people: [person], total: 1, visitor: true };
-    const link = classOf(card(await people("/people"), "/profile/p1"), "a");
-    expect(link).toContain("min-h-[5.625rem]");
-    expect(link).toContain("items-center");
+    const markup = card(await people("/people"), "/profile/p1");
+    const link = classOf(markup, "a");
+    expect(link).toEqual(expect.arrayContaining(["min-h-[5.625rem]", "items-stretch", "overflow-hidden", "rounded-xl"]));
+    // No padding on the card itself: only the words are inset.
+    expect(link.some((c) => /^p-|^px-|^py-/.test(c))).toBe(false);
+    expect(classOf(markup, "div", "w-[5.625rem]")).toContain("shrink-0");
   });
 
-  it("shows the photo as a rounded square, as on the profile pages", async () => {
+  it("fills that strip with the photo, the card's corners rounding it", async () => {
     mock.answers["profiles:directory"] = { people: [person], total: 1, visitor: true };
     const face = classOf(card(await people("/people"), "/profile/p1"), "span", "shrink-0");
-    expect(face).toContain("rounded-xl");
-    expect(face).not.toContain("rounded-full");
+    expect(face).toEqual(expect.arrayContaining(["h-full", "w-full"]));
+    expect(face.some((c) => c.startsWith("rounded"))).toBe(false);
   });
 
   it("keeps the name, the organization and the disciplines to a line each, the full name in the tooltip", async () => {
@@ -145,13 +148,12 @@ describe("an organization card", () => {
     faces: names.map((name) => ({ name, imageUrl: null })),
   });
 
-  it("puts the logo at the top beside the name, and keeps the name to two lines", async () => {
+  it("puts the logo beside the name, and keeps the name to two lines", async () => {
     mock.signedIn = false;
     mock.answers["organizations:list"] = [org("betlynart", ["Betty Lynn Bass"])];
     const markup = card(await people("/people?tab=orgs"), "/orgs/betlynart");
     const link = classOf(markup, "a");
-    expect(link).toContain("items-start");
-    expect(link).toContain("min-h-[5.625rem]");
+    expect(link).toEqual(expect.arrayContaining(["min-h-[5.625rem]", "items-stretch", "overflow-hidden"]));
     expect(classOf(markup, "h3")).toContain("line-clamp-2");
     expect(markup).toContain('title="BetLynArt and DunhamMusicGroup Jazmae Music Publishing SESAC"');
     expect(classOf(markup, "p")).toContain("truncate");
@@ -159,11 +161,15 @@ describe("an organization card", () => {
 
   // The logo is as big as a person's photo; one quiet line under the name
   // says how many people, and how many of them you follow, with no faces.
-  it("shows the logo the size of a person's photo, and one line of who's there", async () => {
+  it("shows the logo the way a person card shows a photo, and one line of who's there", async () => {
     mock.signedIn = false;
     mock.answers["organizations:list"] = [{ ...org("uncommon", ["A", "B", "C", "D"]), followingCount: 2 }];
     const markup = card(await people("/people?tab=orgs"), "/orgs/uncommon");
-    expect(classOf(markup, "div", "shrink-0")).toEqual(expect.arrayContaining(["w-12", "h-12", "rounded-xl"]));
+    // The logo runs to the card's left edge, top to bottom, like a person's photo.
+    expect(classOf(markup, "div", "w-[5.625rem]")).toContain("shrink-0");
+    const logo = classOf(markup, "div", "overflow-hidden flex");
+    expect(logo).toEqual(expect.arrayContaining(["w-full", "h-full"]));
+    expect(logo.some((c) => c.startsWith("rounded") || c === "border")).toBe(false);
     expect(text(markup)).toContain("2 you follow · 4 people");
     expect(markup).not.toContain("<ul");
   });

@@ -184,7 +184,7 @@ function TodayPage() {
         {loading ? (
           <Skeleton height={140} />
         ) : shownOpen.length > 0 ? (
-          <div className="space-y-3 md:space-y-20">
+          <div className="space-y-5 md:space-y-20">
             {shownOpen.map((p, i) => (
               <ProjectRow key={p._id} project={p} flip={i % 2 === 1} />
             ))}
@@ -486,10 +486,20 @@ function StatusPill({ live, when }: { live: boolean; when: string | null }) {
 /** A project's picture in the 4:5 cover shape (docs/features/cover-4x5.md),
     shown whole; without one, the abstract cover in the same box so the
     page doesn't jump when a picture arrives. */
-function ProjectCover({ cover, seed, className = "" }: { cover: string | null; seed: string; className?: string }) {
-  if (cover) return <CoverFrame src={cover} alt="" className={className} />;
+function ProjectCover({
+  cover,
+  seed,
+  className = "",
+  square = false,
+}: {
+  cover: string | null;
+  seed: string;
+  className?: string;
+  square?: boolean;
+}) {
+  if (cover) return <CoverFrame src={cover} alt="" className={className} square={square} />;
   return (
-    <div className={`relative aspect-[4/5] overflow-hidden ${className}`}>
+    <div className={`relative ${square ? "aspect-square" : "aspect-[4/5]"} overflow-hidden ${className}`}>
       <div className="absolute inset-0">
         <AbstractCover seed={seed} />
       </div>
@@ -581,12 +591,12 @@ function FeaturedProject({ project }: { project: Project }) {
   );
 }
 
-/** One open project. On a phone, a card with an edge: the cover small on
-    the left, the title beside it, and who it's from right under the title
-    in words you can read (Rick, 2026-10-27: the full-width covers wasted
-    the screen and ran into each other). From md up it is set wide: image on
-    one side, words on the other, the sides swapping every other row, no
-    edge (the space between rows separates). The whole row is the link. */
+/** One open project. On a phone, a card on its own ground (no border):
+    the picture square and full width across the top, then the title, who
+    it's from right under it in words you can read, and one status line
+    (Rick, 2026-10-27: side by side felt cramped, the border and padding
+    weren't needed). From md up it is set wide: image on one side, words on
+    the other, the sides swapping every other row. The whole row is the link. */
 function ProjectRow({ project, flip }: { project: Project; flip: boolean }) {
   const cover = coverOf(project);
   const funded = fundingOf(project, formatMoney);
@@ -600,22 +610,21 @@ function ProjectRow({ project, flip }: { project: Project; flip: boolean }) {
   return (
     <Link
       to={`/projects/${project._id}`}
-      className={`group grid grid-cols-[96px_minmax(0,1fr)] items-center gap-3 rounded-xl border border-[color:var(--app-hairline)] bg-[var(--app-surface-raised)] p-3 md:gap-14 md:rounded-none md:border-0 md:bg-transparent md:p-0 ${flip ? "md:grid-cols-[1fr_320px]" : "md:grid-cols-[320px_1fr]"}`}
+      className={`group block overflow-hidden rounded-xl bg-[var(--app-surface-raised)] md:grid md:items-center md:gap-14 md:overflow-visible md:rounded-none md:bg-transparent ${flip ? "md:grid-cols-[1fr_320px]" : "md:grid-cols-[320px_1fr]"}`}
     >
-      {/* 4:5 always: 96px wide in a phone's card; beside the words on a
-          wide screen it is a fixed 320px, so a portrait picture doesn't run
-          taller than the text. */}
+      {/* Square, full width on a phone; beside the words on a wide screen
+          it is a fixed 320px. */}
       <Dissolve
-        className={`overflow-hidden rounded-lg md:rounded-xl transition-transform duration-300 group-hover:scale-[1.01] ${flip ? "md:order-2" : ""}`}
+        className={`overflow-hidden md:rounded-xl transition-transform duration-300 group-hover:scale-[1.01] ${flip ? "md:order-2" : ""}`}
         style={{ backgroundColor: "#121212" }}
       >
-        <ProjectCover cover={cover} seed={project._id} />
+        <ProjectCover cover={cover} seed={project._id} square />
       </Dissolve>
-      <div className={`min-w-0 ${flip ? "md:order-1" : ""}`}>
+      <div className={`min-w-0 px-3.5 pt-3 pb-3.5 md:p-0 ${flip ? "md:order-1" : ""}`}>
         <div className="hidden md:block md:mb-4">
           <Badges project={project} />
         </div>
-        <h3 className="text-[17px] md:text-[30px] leading-snug md:leading-tight font-semibold tracking-[-0.01em] line-clamp-3 md:line-clamp-none group-hover:underline" style={DISPLAY}>
+        <h3 className="text-[19px] md:text-[30px] leading-snug md:leading-tight font-semibold tracking-[-0.01em] line-clamp-2 md:line-clamp-none group-hover:underline" style={DISPLAY}>
           {project.title}
         </h3>
         <p className="mt-1 text-sm truncate" style={{ color: "var(--app-text-muted)" }}>
