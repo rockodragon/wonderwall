@@ -7,8 +7,10 @@
 import { ConvexError } from "convex/values";
 import { describe, expect, it } from "vitest";
 import { makeCtx, run, type Row } from "../test-support/convexContext";
+import { checkIndexes } from "../test-support/indexChecks";
 import * as artifacts from "./artifacts";
 import * as files from "./files";
+import * as linkPreview from "./linkPreview";
 import * as projects from "./garden/projects";
 import * as stories from "./garden/stories";
 import * as tables from "./garden/tables";
@@ -423,6 +425,182 @@ describe("an event cover something else still shows is kept", () => {
     expect(row(ctx, "events", "events:d1")).toBeUndefined();
     expect(ctx.deletedFiles).toEqual([]);
     expect(fileExists(ctx, TABLE_PHOTO)).toBe(true);
+  });
+});
+
+// ——————————————————————————————————————————————————————————————
+// A class shares its photo with what was migrated from it (deleteClassPhoto)
+// ——————————————————————————————————————————————————————————————
+
+describe("a class photo the date or Table migrated from it still shows is kept", () => {
+  const CLASS_PHOTO = "_storage:class";
+  // Convex's address for a stored file, as storage.getUrl gives it.
+  const urlOf = (id: string) => `https://test-123.convex.cloud/api/storage/${id.split(":")[1]}`;
+  // The class was migrated (garden/tablesMigration.ts): the Table keeps the
+  // photo's address, the date wears the photo as its cover.
+  const classWorld = (
+    { date = true, tablePhotoUrl = urlOf(CLASS_PHOTO) }: { date?: boolean; tablePhotoUrl?: string } = {},
+  ): Record<string, Row[]> => {
+    const t = world();
+    t._storage.push(fresh(CLASS_PHOTO));
+    t.uploadClaims.push({ _id: "uploadClaims:class", storageId: CLASS_PHOTO, userId: ME, claimedAt: NOW });
+    t.offerings.push({ _id: "offerings:class", userId: ME, title: "Drawing", format: "class", status: "active", photoStorageId: CLASS_PHOTO });
+    t.gardenTables = [
+      { _id: "gardenTables:moved", name: "Drawing", hostUserId: ME, sourceOfferingId: "offerings:class", photoUrl: tablePhotoUrl },
+    ];
+    if (date) {
+      t.events.push({
+        _id: "events:moved",
+        organizerId: ME,
+        title: "Drawing",
+        tableId: "gardenTables:moved",
+        sourceOfferingId: "offerings:class",
+        coverImageStorageId: CLASS_PHOTO,
+      });
+    }
+    return t;
+  };
+  const setup = (t: Record<string, Row[]>) => {
+    const ctx = makeCtx(t, ME);
+    checkIndexes(ctx);
+    ctx.storage.getUrl = async (id: string) => (fileExists(ctx, id) ? urlOf(id) : null);
+    return ctx;
+  };
+  const edit = (photoStorageId?: string) => ({ offeringId: "offerings:class", title: "Drawing", format: "class", photoStorageId });
+  const replace = (ctx: unknown) => run(offerings.updateOffering, ctx, edit(MINE));
+  const remove = (ctx: unknown) => run(offerings.updateOffering, ctx, edit());
+  const deleteClass = (ctx: unknown) => run(offerings.deleteOffering, ctx, { offeringId: "offerings:class" });
+  const changes: [string, (ctx: unknown) => Promise<unknown>][] = [
+    ["replacing the photo", replace],
+    ["removing the photo", remove],
+    ["deleting the class", deleteClass],
+  ];
+
+  it.each(changes)("%s keeps it while the migrated date wears it", async (_name, change) => {
+    const ctx = setup(classWorld({ tablePhotoUrl: "https://example.com/elsewhere.jpg" }));
+    await change(ctx);
+    expect(ctx.deletedFiles).toEqual([]);
+    expect(fileExists(ctx, CLASS_PHOTO)).toBe(true);
+    expect(row(ctx, "events", "events:moved").coverImageStorageId).toBe(CLASS_PHOTO);
+  });
+
+  it.each(changes)("%s keeps it while the migrated Table shows its address", async (_name, change) => {
+    for (const address of [urlOf(CLASS_PHOTO), "https://thecreative.exchange/media/class"]) {
+      const ctx = setup(classWorld({ date: false, tablePhotoUrl: address }));
+      await change(ctx);
+      expect(ctx.deletedFiles, address).toEqual([]);
+    }
+  });
+
+  it.each(changes)("%s deletes it when nothing else shows it", async (_name, change) => {
+    const ctx = setup(classWorld({ date: false, tablePhotoUrl: "https://example.com/elsewhere.jpg" }));
+    await change(ctx);
+    expect(ctx.deletedFiles).toEqual([CLASS_PHOTO]);
+  });
+
+  // A class that picked up someone else's file before claims existed.
+  const claimedBy = (userId: string | null) => {
+    const t = classWorld({ date: false, tablePhotoUrl: "https://example.com/elsewhere.jpg" });
+    t.uploadClaims = t.uploadClaims.filter((c) => c.storageId !== CLASS_PHOTO);
+    if (userId) t.uploadClaims.push({ _id: "uploadClaims:class", storageId: CLASS_PHOTO, userId, claimedAt: NOW });
+    return t;
+  };
+
+  it.each(changes)("%s keeps a photo another member claimed", async (_name, change) => {
+    const ctx = setup(claimedBy(VICTIM));
+    await change(ctx);
+    expect(ctx.deletedFiles).toEqual([]);
+    expect(fileExists(ctx, CLASS_PHOTO)).toBe(true);
+  });
+
+  it.each(changes)("%s deletes an unclaimed photo nothing else shows", async (_name, change) => {
+    const ctx = setup(claimedBy(null));
+    await change(ctx);
+    expect(ctx.deletedFiles).toEqual([CLASS_PHOTO]);
+  });
+
+  it("a class never migrated still loses its old photo, as before", async () => {
+    const t = classWorld({ date: false });
+    t.gardenTables = [];
+    const ctx = setup(t);
+    await replace(ctx);
+    expect(ctx.deletedFiles).toEqual([CLASS_PHOTO]);
+    expect(row(ctx, "offerings", "offerings:class").photoStorageId).toBe(MINE);
+  });
+
+  it("sending the same photo back deletes nothing", async () => {
+    const ctx = setup(classWorld({ date: false, tablePhotoUrl: "https://example.com/elsewhere.jpg" }));
+    await run(offerings.updateOffering, ctx, edit(CLASS_PHOTO));
+    expect(ctx.deletedFiles).toEqual([]);
+  });
+
+  it("the migrated date's cover, once the class has a new photo, is kept while the Table shows it", async () => {
+    const ctx = setup(classWorld());
+    await replace(ctx);
+    await run(files.saveEventCoverImage, ctx, { eventId: "events:moved", storageId: MINE2 });
+    expect(ctx.deletedFiles).toEqual([]);
+    expect(fileExists(ctx, CLASS_PHOTO)).toBe(true);
+  });
+
+  it("the migrated date's cover goes once nothing else shows it", async () => {
+    const ctx = setup(classWorld({ tablePhotoUrl: "https://example.com/elsewhere.jpg" }));
+    await replace(ctx);
+    expect(ctx.deletedFiles).toEqual([]);
+    await run(files.deleteEventCoverImage, ctx, { eventId: "events:moved" });
+    expect(ctx.deletedFiles).toEqual([CLASS_PHOTO]);
+  });
+});
+
+// ——————————————————————————————————————————————————————————————
+// A still the server stores for a pasted link is claimed (linkPreview.apply)
+// ——————————————————————————————————————————————————————————————
+
+describe("a link preview's still is claimed for the row's owner", () => {
+  const STILL = "_storage:still";
+  const REEL = "https://www.instagram.com/p/abc/";
+  const previewWorld = (): Record<string, Row[]> => {
+    const t = world();
+    t._storage.push(fresh(STILL));
+    for (const table of ["events", "projects", "artifacts"]) t[table] = t[table].map((r) => ({ ...r, mediaUrl: REEL }));
+    t.artifacts.push({ _id: "artifacts:victimReel", profileId: "profiles:victim", type: "video", mediaUrl: REEL, order: 1 });
+    return t;
+  };
+  const rows: [string, string, string, string][] = [
+    ["an event's", "event", "events:mine", ME],
+    ["a project's", "project", "projects:mine", ME],
+    ["a piece's cover", "artifact", "artifacts:mine", ME],
+    ["another person's piece cover", "artifact", "artifacts:victimReel", VICTIM],
+  ];
+
+  it.each(rows)("%s still", async (_name, target, id, owner) => {
+    const ctx = makeCtx(previewWorld(), ME);
+    await run(linkPreview.apply, ctx, {
+      target,
+      id,
+      sourceUrl: REEL,
+      canonicalUrl: REEL,
+      imageUrl: "https://test-123.convex.cloud/api/storage/still",
+      imageStorageId: STILL,
+    });
+    expect(claimsOf(ctx, STILL).map((c: Row) => c.userId)).toEqual([owner]);
+    // Someone else who reads the id can't take it, so can't delete it.
+    const other = makeCtx({ ...ctx.store }, owner === ME ? VICTIM : ME);
+    expect(await refused(run(files.saveProfileImage, other, { storageId: STILL }))).toEqual(BELONGS);
+    expect(other.deletedFiles).toEqual([]);
+  });
+
+  it("a still for a link that changed meanwhile is dropped, not claimed", async () => {
+    const ctx = makeCtx(previewWorld(), ME);
+    await run(linkPreview.apply, ctx, {
+      target: "event",
+      id: "events:mine",
+      sourceUrl: "https://www.instagram.com/p/old/",
+      canonicalUrl: "https://www.instagram.com/p/old/",
+      imageUrl: "https://test-123.convex.cloud/api/storage/still",
+      imageStorageId: STILL,
+    });
+    expect(claimsOf(ctx, STILL)).toEqual([]);
+    expect(ctx.deletedFiles).toEqual([STILL]);
   });
 });
 

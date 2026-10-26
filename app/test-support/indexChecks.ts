@@ -25,7 +25,7 @@ export function checkIndexes(ctx: { db: { query: (table: string) => any } }): { 
   ctx.db.query = (table: string) => {
     let inner = query(table);
     let indexed = false;
-    const ended = (method: "collect" | "first" | "unique" | "take") => (...args: unknown[]) => {
+    const ended = (method: "collect" | "first" | "unique" | "take" | "paginate") => (...args: unknown[]) => {
       if (!indexed) scans.push(table);
       return inner[method](...args);
     };
@@ -51,6 +51,7 @@ export function checkIndexes(ctx: { db: { query: (table: string) => any } }): { 
       first: ended("first"),
       unique: ended("unique"),
       take: ended("take"),
+      paginate: ended("paginate"),
     };
     return api;
   };
