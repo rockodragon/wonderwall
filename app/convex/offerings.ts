@@ -22,7 +22,7 @@ import { classCheckoutRefusal, classPaymentPath, classPriceProblem } from "./gar
 import { getProfileByUserId, isAdmin, isAdminProfile, requireOwner } from "./helpers";
 import { communityVisibility } from "./garden/communityVisibility";
 import { profileImageUrl, projectPhotoUrl } from "./images";
-import { claimUpload } from "./uploads";
+import { claimUpload, deleteStoredFile } from "./uploads";
 
 const VALID_STATUSES = new Set(["active", "archived"]);
 
@@ -546,8 +546,8 @@ export const updateOffering = mutation({
     // alone." Either way — replaced or removed — the old storage object is
     // now orphaned and gets cleaned up, same as files.ts's
     // saveProfileImage/saveEventCoverImage.
-    if (offering.photoStorageId && args.photoStorageId !== offering.photoStorageId) {
-      await ctx.storage.delete(offering.photoStorageId);
+    if (args.photoStorageId !== offering.photoStorageId) {
+      await deleteStoredFile(ctx, offering.photoStorageId);
     }
 
     await ctx.db.patch(args.offeringId, {

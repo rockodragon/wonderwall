@@ -32,7 +32,7 @@ import {
   richDocValidator,
   type RichDoc,
 } from "./richText";
-import { claimUploads } from "../uploads";
+import { claimUploads, deleteStoredFile } from "../uploads";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core: slug generation/dedup
@@ -275,11 +275,7 @@ export const editStoryUpdate = mutation({
     // Same orphan sweep updateProject does — an edit that removes a photo
     // should not leave the file behind.
     for (const storageId of orphanedStorageIds(update.bodyDoc, bodyDoc)) {
-      try {
-        await ctx.storage.delete(storageId as Id<"_storage">);
-      } catch {
-        // already gone
-      }
+      await deleteStoredFile(ctx, storageId as Id<"_storage">);
     }
 
     await ctx.db.patch(args.storyUpdateId, { body, bodyDoc, editedAt: Date.now() });
@@ -304,11 +300,7 @@ export const deleteStoryUpdate = mutation({
     }
 
     for (const storageId of orphanedStorageIds(update.bodyDoc, undefined)) {
-      try {
-        await ctx.storage.delete(storageId as Id<"_storage">);
-      } catch {
-        // already gone
-      }
+      await deleteStoredFile(ctx, storageId as Id<"_storage">);
     }
 
     await ctx.db.delete(args.storyUpdateId);

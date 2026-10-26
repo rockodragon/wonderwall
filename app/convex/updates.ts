@@ -28,7 +28,7 @@ import { activeMembersOfCommunity, getCommunityMember } from "./garden/community
 import { insertNotification } from "./notify";
 import { escapeHtml } from "./email/template";
 import { storedFileUrl } from "./images";
-import { claimUpload } from "./uploads";
+import { claimUpload, deleteStoredFile } from "./uploads";
 
 // ——————————————————————————————————————————————————————————————
 // Limits and the pure rules
@@ -608,12 +608,8 @@ export const save = mutation({
       imageStorageId: args.imageStorageId,
       updatedAt: now,
     });
-    if (existing.imageStorageId && existing.imageStorageId !== args.imageStorageId) {
-      try {
-        await ctx.storage.delete(existing.imageStorageId);
-      } catch {
-        // already gone
-      }
+    if (existing.imageStorageId !== args.imageStorageId) {
+      await deleteStoredFile(ctx, existing.imageStorageId);
     }
     return args.updateId;
   },

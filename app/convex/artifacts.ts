@@ -11,7 +11,7 @@ import { normalizeUrl, isSafeHttpUrl } from "./garden/richText";
 import { parseOgMeta } from "./ogParse";
 import { currentUserId, getProfileByUserId, requireOwnProfileRow, requireProfile, requireUserId } from "./helpers";
 import { pieceMediaUrl, profileImageUrl, storedFileUrl } from "./images";
-import { claimUpload } from "./uploads";
+import { claimUpload, deleteStoredFile } from "./uploads";
 
 export const getMyArtifacts = query({
   args: {},
@@ -290,8 +290,8 @@ export const update = mutation({
     await claimUpload(ctx, userId, args.mediaStorageId, [artifact.mediaStorageId]);
 
     // Delete old storage file if replacing it with a different one
-    if (args.mediaStorageId && artifact.mediaStorageId && args.mediaStorageId !== artifact.mediaStorageId) {
-      await ctx.storage.delete(artifact.mediaStorageId);
+    if (args.mediaStorageId && args.mediaStorageId !== artifact.mediaStorageId) {
+      await deleteStoredFile(ctx, artifact.mediaStorageId);
     }
 
     await ctx.db.patch(args.artifactId, {
@@ -318,12 +318,8 @@ export const remove = mutation({
     const { userId, row: artifact, profile } = await requireOwnProfileRow(ctx, "artifacts", args.artifactId);
 
     // Delete associated storage files — the work and any stored cover
-    if (artifact.mediaStorageId) {
-      await ctx.storage.delete(artifact.mediaStorageId);
-    }
-    if (artifact.coverStorageId) {
-      await ctx.storage.delete(artifact.coverStorageId);
-    }
+    await deleteStoredFile(ctx, artifact.mediaStorageId);
+    await deleteStoredFile(ctx, artifact.coverStorageId);
 
     await ctx.db.delete(args.artifactId);
   },

@@ -23,7 +23,7 @@ import {
   resolveRichDocMedia,
   richDocValidator,
 } from "./richText";
-import { claimUploads } from "../uploads";
+import { claimUploads, deleteStoredFile } from "../uploads";
 import { summarizeGig } from "./gigSummary";
 import { can } from "./capabilities";
 import { getGardenUser } from "./entitlements";
@@ -251,11 +251,7 @@ export const updateProject = mutation({
       await claimUploads(ctx, userId, collectStorageIds(body), collectStorageIds(project.body));
       patch.body = body;
       for (const storageId of orphanedStorageIds(project.body, body)) {
-        try {
-          await ctx.storage.delete(storageId as Id<"_storage">);
-        } catch {
-          // already gone
-        }
+        await deleteStoredFile(ctx, storageId as Id<"_storage">);
       }
     }
     if (args.photoUrl !== undefined) patch.photoUrl = args.photoUrl;
@@ -269,13 +265,7 @@ export const updateProject = mutation({
     if (args.mediaUrl !== undefined) {
       const next = canonicalMediaUrl(args.mediaUrl);
       if (next !== project.mediaUrl) {
-        if (project.mediaPreviewStorageId) {
-          try {
-            await ctx.storage.delete(project.mediaPreviewStorageId);
-          } catch {
-            // already gone
-          }
-        }
+        await deleteStoredFile(ctx, project.mediaPreviewStorageId);
         patch.mediaUrl = next;
         patch.mediaPreviewUrl = undefined;
         patch.mediaPreviewStorageId = undefined;

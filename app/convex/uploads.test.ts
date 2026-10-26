@@ -12,6 +12,7 @@ import * as files from "./files";
 import * as projects from "./garden/projects";
 import * as stories from "./garden/stories";
 import * as tables from "./garden/tables";
+import * as moderation from "./moderation";
 import * as offerings from "./offerings";
 import * as organizations from "./organizations";
 import * as updates from "./updates";
@@ -335,5 +336,141 @@ describe("an edit that sends back a file the row already holds", () => {
     expect(
       await refused(run(stories.editStoryUpdate, ctx, { storyUpdateId: "storyUpdates:mine", bodyDoc: image("kg2-not-a-storage-id") })),
     ).toMatchObject({ code: "not_found" });
+  });
+});
+
+// ——————————————————————————————————————————————————————————————
+// A Table's dates share its photo (deleteEventCover)
+// ——————————————————————————————————————————————————————————————
+
+describe("an event cover something else still shows is kept", () => {
+  const HOST = "users:host";
+  const TABLE_PHOTO = "_storage:table";
+  const CLASS_PHOTO = "_storage:class";
+  const SHARED = "_storage:shared";
+  // I co-host the Table's dates; the host made the Table.
+  const tableWorld = (): Record<string, Row[]> => {
+    const t = world();
+    t.users.push({ _id: HOST });
+    t.profiles.push({ _id: "profiles:admin", userId: HOST, name: "Hana", isAdmin: true });
+    t._storage.push(fresh(TABLE_PHOTO), fresh(CLASS_PHOTO), fresh(SHARED));
+    t.gardenTables = [{ _id: "gardenTables:t", name: "Supper", hostUserId: HOST, photoStorageId: TABLE_PHOTO }];
+    const date = (id: string, cover: string): Row => ({
+      _id: id,
+      organizerId: HOST,
+      coHostIds: [ME],
+      title: "Supper",
+      tableId: "gardenTables:t",
+      coverImageStorageId: cover,
+    });
+    t.events.push(
+      date("events:d1", TABLE_PHOTO),
+      date("events:d2", TABLE_PHOTO),
+      // Two dates whose cover isn't the Table's photo but is shared between them.
+      date("events:d3", SHARED),
+      date("events:d4", SHARED),
+      // A date that got its own cover.
+      date("events:d5", MINE2),
+      // A date carried over from a class: it wears the class photo.
+      { _id: "events:moved", organizerId: ME, title: "Drawing", sourceOfferingId: "offerings:class", coverImageStorageId: CLASS_PHOTO },
+    );
+    t.offerings.push({ _id: "offerings:class", userId: ME, title: "Drawing", format: "class", status: "active", photoStorageId: CLASS_PHOTO });
+    return t;
+  };
+
+  it("a co-host replacing one date's cover leaves the Table's photo", async () => {
+    const ctx = makeCtx(tableWorld(), ME);
+    await run(files.saveEventCoverImage, ctx, { eventId: "events:d1", storageId: MINE });
+    expect(row(ctx, "events", "events:d1").coverImageStorageId).toBe(MINE);
+    expect(row(ctx, "events", "events:d2").coverImageStorageId).toBe(TABLE_PHOTO);
+    expect(ctx.deletedFiles).toEqual([]);
+    expect(fileExists(ctx, TABLE_PHOTO)).toBe(true);
+  });
+
+  it("a co-host removing one date's cover leaves the Table's photo", async () => {
+    const ctx = makeCtx(tableWorld(), ME);
+    await run(files.deleteEventCoverImage, ctx, { eventId: "events:d1" });
+    expect(row(ctx, "events", "events:d1").coverImageStorageId).toBeUndefined();
+    expect(ctx.deletedFiles).toEqual([]);
+  });
+
+  it("a cover another date of the Table still wears is kept", async () => {
+    const ctx = makeCtx(tableWorld(), ME);
+    await run(files.saveEventCoverImage, ctx, { eventId: "events:d3", storageId: MINE });
+    expect(ctx.deletedFiles).toEqual([]);
+    expect(row(ctx, "events", "events:d4").coverImageStorageId).toBe(SHARED);
+  });
+
+  it("a date moved over from a class keeps the class's photo", async () => {
+    const ctx = makeCtx(tableWorld(), ME);
+    await run(files.deleteEventCoverImage, ctx, { eventId: "events:moved" });
+    expect(ctx.deletedFiles).toEqual([]);
+    expect(row(ctx, "offerings", "offerings:class").photoStorageId).toBe(CLASS_PHOTO);
+  });
+
+  it("a date's own cover, and a normal event's, are still deleted when replaced or removed", async () => {
+    const ctx = makeCtx(tableWorld(), ME);
+    await run(files.saveEventCoverImage, ctx, { eventId: "events:d5", storageId: MINE });
+    expect(ctx.deletedFiles).toEqual([MINE2]);
+    await run(files.deleteEventCoverImage, ctx, { eventId: "events:mine" });
+    expect(ctx.deletedFiles).toEqual([MINE2, KEPT]);
+    expect(row(ctx, "events", "events:mine").coverImageStorageId).toBeUndefined();
+  });
+
+  it("an admin deleting one date leaves the Table's photo", async () => {
+    const ctx = makeCtx(tableWorld(), HOST);
+    await run(moderation.deleteEvent, ctx, { eventId: "events:d1" });
+    expect(row(ctx, "events", "events:d1")).toBeUndefined();
+    expect(ctx.deletedFiles).toEqual([]);
+    expect(fileExists(ctx, TABLE_PHOTO)).toBe(true);
+  });
+});
+
+// ——————————————————————————————————————————————————————————————
+// A file that's already gone doesn't fail the call (deleteStoredFile)
+// ——————————————————————————————————————————————————————————————
+
+describe("replacing or removing a file that's already gone", () => {
+  // Rows still pointing at a file that was deleted (the hole this fixes left
+  // some behind). A storage that refuses to delete a missing file, as a
+  // stricter Convex might.
+  const goneWorld = (): Record<string, Row[]> => {
+    const t = world();
+    t.profiles = t.profiles.map((p) => (p.userId === ME ? { ...p, imageStorageId: GONE } : p));
+    t.events = [{ _id: "events:mine", organizerId: ME, title: "Show", coverImageStorageId: GONE, imageStorageIds: [GONE] }];
+    t.artifacts = [{ _id: "artifacts:mine", profileId: "profiles:me", type: "image", mediaStorageId: GONE, order: 0 }];
+    t.offerings = [{ _id: "offerings:mine", userId: ME, title: "Drawing", format: "class", status: "active", photoStorageId: GONE }];
+    t.organizations = [{ _id: "organizations:mine", name: "Studio", slug: "studio", logoStorageId: GONE }];
+    return t;
+  };
+  const strict = (ctx: any) => {
+    ctx.storage.delete = async (id: string) => {
+      if (!fileExists(ctx, id)) throw new Error(`no file ${id}`);
+      ctx.deletedFiles.push(id);
+    };
+    return ctx;
+  };
+
+  const calls: [string, unknown, Record<string, unknown>][] = [
+    ["files.saveProfileImage", files.saveProfileImage, { storageId: MINE }],
+    ["files.deleteProfileImage", files.deleteProfileImage, {}],
+    ["files.saveProfileImageUrl", files.saveProfileImageUrl, { imageUrl: "https://example.com/a.jpg" }],
+    ["files.saveEventCoverImage", files.saveEventCoverImage, { eventId: "events:mine", storageId: MINE }],
+    ["files.deleteEventCoverImage", files.deleteEventCoverImage, { eventId: "events:mine" }],
+    ["files.removeEventGalleryImage", files.removeEventGalleryImage, { eventId: "events:mine", storageId: GONE }],
+    ["artifacts.update", artifacts.update, { artifactId: "artifacts:mine", mediaStorageId: MINE }],
+    ["artifacts.remove", artifacts.remove, { artifactId: "artifacts:mine" }],
+    [
+      "offerings.updateOffering",
+      offerings.updateOffering,
+      { offeringId: "offerings:mine", title: "Drawing", format: "class", photoStorageId: MINE },
+    ],
+    ["organizations.setLogo", organizations.setLogo, { organizationId: "organizations:mine", storageId: MINE }],
+  ];
+
+  it.each(calls)("%s still goes through", async (_name, fn, args) => {
+    const ctx = strict(makeCtx(goneWorld(), ME));
+    await run(fn, ctx, args); // throws if the missing file fails it
+    expect(ctx.deletedFiles).toEqual([]);
   });
 });

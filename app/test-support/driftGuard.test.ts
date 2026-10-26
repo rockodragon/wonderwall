@@ -139,6 +139,15 @@ const RULES: Rule[] = [
     use: "uploadToStorage(generateUploadUrl, file) in app/lib/uploadFile.ts — it removes where a photo was taken before the upload",
   },
   {
+    name: "stored file deleted by hand (one place)",
+    // A bare delete fails the whole call when the file is already gone, and
+    // an event's cover can be its Table's photo too.
+    pattern: /storage\.delete\(/g,
+    limit: 0,
+    home: "convex/uploads.ts",
+    use: "deleteStoredFile (a file already gone is fine) / deleteEventCover (keeps a Table's shared photo) in convex/uploads.ts",
+  },
+  {
     name: "upload size cap written inline",
     pattern: /\d+\s*\*\s*1024\s*\*\s*1024/g,
     // Left on purpose: useCoverPick takes bigger pictures because it shrinks
@@ -243,7 +252,9 @@ describe("drift guard: no new copies of a shared rule", () => {
 // it, which deletes the file (found 2026-10-26). Checked per exported
 // `mutation(...)`, from its `export const` to the next one: a stored-file id
 // arrives as v.id("_storage"), inside a rich-text body (richDocValidator), or
-// through a shared args object (`args: offeringFields`, `...offeringFields`).
+// through a shared args object (`const x = { ... }` or `const x =
+// v.object({ ... })`, used as `args: x`, `...x` or `field: x`). It checks
+// for a claim call per mutation block, not per argument.
 const FILE_ID_ARG = /v\.id\(\s*"_storage"\s*\)|richDocValidator/;
 
 /** Public mutations that take a stored-file id without attaching it. Only
@@ -257,8 +268,9 @@ function mutationsTakingAFileIdUnclaimed(): string[] {
   const found: string[] = [];
   for (const f of FILES) {
     if (!f.path.startsWith("convex/") || f.path === "convex/schema.ts") continue;
-    // Top-level `const name = { ... };` args objects that hold a file id.
-    const shared = [...f.text.matchAll(/^const (\w+) = \{[\s\S]*?^\};/gm)]
+    // Top-level `const name = { ... };` / `const name = v.object({ ... });`
+    // args that hold a file id.
+    const shared = [...f.text.matchAll(/^const (\w+) = (?:\{[\s\S]*?^\};|v\.object\(\{[\s\S]*?^\}\);)/gm)]
       .filter((m) => FILE_ID_ARG.test(m[0]))
       .map((m) => m[1]);
     const exports = [...f.text.matchAll(/^export const (\w+)\s*=\s*(\w+)\s*[(<]/gm)];

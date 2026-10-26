@@ -33,6 +33,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { isSafeHttpUrl, normalizeUrl } from "./garden/richText";
 import { isTikTokShortLink, toEmbedUrl } from "./videoEmbed";
 import { storedFileUrl } from "./images";
+import { deleteStoredFile } from "./uploads";
 
 export type PreviewTarget = "artifact" | "event" | "project";
 
@@ -288,9 +289,7 @@ export const apply = internalMutation({
     imageStorageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
-    const dropImage = async () => {
-      if (args.imageStorageId) await ctx.storage.delete(args.imageStorageId);
-    };
+    const dropImage = () => deleteStoredFile(ctx, args.imageStorageId);
     const hasImage = !!args.imageUrl && !!args.imageStorageId;
     // An absent link counts as changed: the user removed it while the fetch
     // was in flight, and applying anyway would bring it back.
@@ -304,8 +303,8 @@ export const apply = internalMutation({
       const patch: Partial<Doc<"artifacts">> = {};
       if (artifact.mediaUrl !== args.canonicalUrl) patch.mediaUrl = args.canonicalUrl;
       if (hasImage) {
-        if (artifact.coverStorageId && artifact.coverStorageId !== args.imageStorageId) {
-          await ctx.storage.delete(artifact.coverStorageId);
+        if (artifact.coverStorageId !== args.imageStorageId) {
+          await deleteStoredFile(ctx, artifact.coverStorageId);
         }
         patch.ogImageUrl = args.imageUrl;
         patch.coverStorageId = args.imageStorageId;
@@ -337,8 +336,8 @@ export const apply = internalMutation({
     > = {};
     if (row.mediaUrl !== args.canonicalUrl) patch.mediaUrl = args.canonicalUrl;
     if (hasImage) {
-      if (row.mediaPreviewStorageId && row.mediaPreviewStorageId !== args.imageStorageId) {
-        await ctx.storage.delete(row.mediaPreviewStorageId);
+      if (row.mediaPreviewStorageId !== args.imageStorageId) {
+        await deleteStoredFile(ctx, row.mediaPreviewStorageId);
       }
       patch.mediaPreviewUrl = args.imageUrl;
       patch.mediaPreviewStorageId = args.imageStorageId;

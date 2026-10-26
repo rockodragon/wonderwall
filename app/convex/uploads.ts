@@ -22,9 +22,13 @@
 // whole record back, including a picture the person didn't touch, and they
 // already passed the row's own permission check. Rich-text bodies pass the
 // ids from the stored body, so only pictures new to the body are claimed.
+//
+// Deleting goes through here too: deleteStoredFile (a file already gone
+// doesn't fail the call) and deleteEventCover (a Table's dates share one
+// picture).
 
 import type { MutationCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { fail } from "./errors";
 
 /** How long after an upload its file can first be attached: 24 hours. The
@@ -88,4 +92,44 @@ export async function claimUploads(
   held: HeldIds = [],
 ): Promise<void> {
   for (const storageId of storageIds) await claimUpload(ctx, userId, storageId, held);
+}
+
+/** Deletes a stored file. A file that's already gone doesn't fail the save
+ * or delete around it. Every storage delete goes through here (the drift
+ * guard checks). */
+export async function deleteStoredFile(
+  ctx: { storage: { delete(storageId: Id<"_storage">): Promise<void> } },
+  storageId: Id<"_storage"> | null | undefined,
+): Promise<void> {
+  if (!storageId) return;
+  try {
+    await ctx.storage.delete(storageId);
+  } catch {
+    // already gone
+  }
+}
+
+/** Deletes an event's cover, unless something else still shows the same
+ * file. A Table's dates wear the Table's photo (insertTableOccurrence in
+ * garden/tables.ts; runTableAgain gives the new Table the same photo), and a
+ * date carried over from a class wears the class's photo
+ * (garden/tablesMigration.ts). Changing one date's cover must not blank the
+ * Table, its other dates or the class. */
+export async function deleteEventCover(ctx: MutationCtx, event: Doc<"events">): Promise<void> {
+  const cover = event.coverImageStorageId;
+  if (!cover) return;
+  if (event.tableId) {
+    const table = await ctx.db.get(event.tableId);
+    if (table?.photoStorageId === cover) return;
+    const dates = await ctx.db
+      .query("events")
+      .withIndex("by_tableId", (q) => q.eq("tableId", event.tableId))
+      .collect();
+    if (dates.some((d) => d._id !== event._id && d.coverImageStorageId === cover)) return;
+  }
+  if (event.sourceOfferingId) {
+    const offering = await ctx.db.get(event.sourceOfferingId);
+    if (offering?.photoStorageId === cover) return;
+  }
+  await deleteStoredFile(ctx, cover);
 }
