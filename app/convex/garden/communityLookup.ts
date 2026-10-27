@@ -22,6 +22,16 @@ export function isActiveCommunityOrg(org: { kind: string; status?: string }): bo
   return org.kind === COMMUNITY_KIND && (org.status ?? "active") === "active";
 }
 
+/** Only role "host" counts as a leader (the owner or an admin of a
+ * community) — "moderator" manages but isn't one, and no new moderator rows
+ * get created. What every public "Hosted by …" line and the community
+ * leader badge (communityLeader.ts) ask. Lives here, with no server imports,
+ * so the leader rule can be used without pulling communities.ts in;
+ * communities.ts re-exports it, so existing imports from there keep working. */
+export function isLeaderRole(role: string | undefined): boolean {
+  return role === "host";
+}
+
 /** The person's row in a community, whatever its status (null if none). */
 export async function getCommunityMember(
   ctx: Ctx,

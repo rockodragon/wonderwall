@@ -13,6 +13,7 @@ import { isGardenMember } from "./garden/defaultCommunity";
 import { pieceMediaUrl, profileImageUrl, storedFileUrl } from "./images";
 import { byLatestActivity, directoryLimit, latestPostAt, listedFor, searchedText } from "./directoryRules";
 import { activeMembersOfCommunity } from "./garden/communityLookup";
+import { isCommunityLeader, leaderUserIds } from "./garden/communityLeader";
 import { filterProfiles } from "../app/lib/browse/peopleFilter";
 
 export { normalizeOrgUrl };
@@ -105,7 +106,9 @@ export const getMyProfile = query({
 /**
  * Everything a person's page shows (routes/profile.tsx): the public fields
  * (toPublicProfile), the picture, attributes, links, pieces, the active
- * wondering and positions at organizations. getProfile (by id) and
+ * wondering, positions at organizations and whether they lead a community
+ * (`isLeader`, for the badge beside their name: garden/communityLeader.ts,
+ * a yes or no, never the admin flag behind it). getProfile (by id) and
  * getProfileByHandle (by address) answer with exactly this, so the page is
  * the same whichever way it was reached.
  */
@@ -178,6 +181,7 @@ export async function publicProfilePage(ctx: QueryCtx, profile: Doc<"profiles">)
       // The Garden's members are found under createthegarden.com (Rick,
       // 2026-10-25): their page's canonical address (lib/profileHead.ts).
       inGarden: await isGardenMember(ctx, profile.userId),
+      isLeader: await isCommunityLeader(ctx, profile.userId, profile),
     };
 }
 
@@ -514,9 +518,21 @@ async function directoryPeople(ctx: QueryCtx, filter: DirectoryFilter, signedIn:
 }
 
 /** A directory row: the public profile (with how far away they are, under
- * Near me) and its picture resolved. */
-async function directoryRow(ctx: QueryCtx, person: PublicProfile & { _distance?: number }) {
-  return { ...person, imageUrl: await profileImageUrl(ctx, person) };
+ * Near me), its picture resolved, and whether they lead a community (the
+ * badge on their card; `leaders` is leaderUserIds of the page's people). */
+async function directoryRow(
+  ctx: QueryCtx,
+  person: PublicProfile & { _distance?: number },
+  leaders: ReadonlySet<string>,
+) {
+  return { ...person, imageUrl: await profileImageUrl(ctx, person), isLeader: leaders.has(String(person.userId)) };
+}
+
+/** The rows of one directory page, in order. The leaders among them are
+ * found once for the page (two indexed reads a person), not per query. */
+async function directoryRows(ctx: QueryCtx, shown: (PublicProfile & { _distance?: number })[]) {
+  const leaders = await leaderUserIds(ctx, shown.map((person) => person.userId));
+  return await Promise.all(shown.map((person) => directoryRow(ctx, person, leaders)));
 }
 
 /**
@@ -539,7 +555,7 @@ export const directory = query({
     const everyone = await directoryPeople(ctx, args, signedIn);
     const shown = everyone.slice(0, directoryLimit(args.limit, signedIn));
     return {
-      people: await Promise.all(shown.map((person) => directoryRow(ctx, person))),
+      people: await directoryRows(ctx, shown),
       total: everyone.length,
       visitor: !signedIn,
     };
@@ -573,7 +589,7 @@ export const search = query({
       signedIn,
     );
     const shown = everyone.slice(0, directoryLimit(SEARCH_LIMIT, signedIn));
-    return await Promise.all(shown.map((person) => directoryRow(ctx, person)));
+    return await directoryRows(ctx, shown);
   },
 });
 

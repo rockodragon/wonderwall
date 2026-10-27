@@ -25,6 +25,7 @@ import { AbstractCover } from "../components/AbstractCover";
 import { PostThumbView } from "../components/shortlist/PostThumb";
 import { CelebrationMark } from "../components/CelebrationMark";
 import { CreateCard } from "../components/CreateCard";
+import { LeaderBadge } from "../components/LeaderBadge";
 import { useReducedMotion } from "../hooks/useMediaQuery";
 import { initialsOf } from "../lib/initials";
 import type { DeskCreateLink } from "./deskBrowse";
@@ -207,7 +208,13 @@ export const DeskCardView = memo(function DeskCardView({
   const radius = open ? RADIUS_OPEN : RADIUS;
   // An organization has no kicker (its "ORG" tag is a corner mark), so its name is
   // said in the label: "Organization, Abiding Practice, Collective · San Diego".
-  const label = [card.face.kicker || (card.kind === "org" ? "Organization" : ""), card.face.title, card.face.foot, ...postWords(card)]
+  const label = [
+    card.face.kicker || (card.kind === "org" ? "Organization" : ""),
+    card.face.title,
+    card.leader ? "Community leader" : "",
+    card.face.foot,
+    ...postWords(card),
+  ]
     .filter(Boolean)
     .join(", ");
 
@@ -792,6 +799,12 @@ function Face({
         >
           {face.title}
         </h3>
+        {card.leader && (
+          // A person who leads a community wears the sprout under their name.
+          <div style={{ marginTop: 8, display: "flex" }}>
+            <LeaderBadge surface="dark" />
+          </div>
+        )}
         {face.foot && face.script ? (
           // A signature: the fund's name in handwriting under an award.
           <p
