@@ -177,7 +177,7 @@ The visual spec is the handoff README. What follows covers the build.
 **Project** cards: open passion projects and open paid projects, picked the way today.tsx picks them.
 - Section: `projects`.
 - Cover from `coverOf()`.
-- Kicker says what the card is (`lib/projectKind.ts`): the stage label for a project; `JOB` for one-off paid work; `RECURRING GIG · FRIDAYS 8–10PM` for a live-booking series; `VOLUNTEER` for an unpaid posting. Foot: owner or community.
+- Kicker says what the card is (`lib/projectKind.ts`), for paid work only: `JOB` for one-off paid work; `RECURRING GIG · FRIDAYS 8–10PM` for a live-booking series; `VOLUNTEER` for an unpaid posting. A project has no kicker (the stage is not the first thing; it is a row in the opened card's facts), the way an organization has none. Foot: the maker's small rounded picture (a person's photo or an organization's logo, `lib/byline.ts`) and name, after a paid role's pay; the community when nobody is named.
 - Under Jobs and gigs, a project shown for a paid role leads with the role: kicker `ROLE ON {PROJECT} · PAID`, the role as the title, its pay then the owner in the foot.
 - Detail: description, then "See project" linking to `/projects/:id`. Its meta line repeats the kicker with the community. Its rows are, top to bottom: Paid role (Jobs and gigs only), Stage, Schedule (a recurring gig), Funding, Roles, Pay. Funding is "$370 of $1,000 · 37%" with a goal, "Open to backing" when the project is raising through a tier with no goal.
 - The featured project, picked the way today.tsx picks it, also joins `all`.

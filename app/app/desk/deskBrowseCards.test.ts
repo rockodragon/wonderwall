@@ -235,7 +235,7 @@ describe("peopleNoun", () => {
 });
 
 function project(id: string, extra: Partial<DeskProjectInput> = {}): DeskProjectInput {
-  return { _id: id, kind: "passion", status: "active", title: `Project ${id}`, blurb: "Making a thing.", media: [], creator: { name: "Dana Lee" }, community: null, ...extra };
+  return { _id: id, kind: "passion", status: "active", title: `Project ${id}`, blurb: "Making a thing.", media: [], creator: { _id: "dana", name: "Dana Lee", imageUrl: null }, community: null, ...extra };
 }
 const FUND: DeskFundInput = { slug: "abiding-practice", name: "The Sophia Grant Fund", orgName: "Abiding Practice", availableCents: 1_000_000, openCall: null };
 
@@ -298,7 +298,12 @@ describe("projectsCards", () => {
       openRoles: [{ title: "Drummer", budgetType: "amount", budget: 200 }],
     });
     const [lead] = projectsCards({ ...base, rows: [withRole], lens: "work" });
-    expect(lead.face).toEqual({ kicker: "ROLE ON HARBOR MURAL · PAID", title: "Drummer", foot: "$200 · Dana Lee" });
+    expect(lead.face).toEqual({
+      kicker: "ROLE ON HARBOR MURAL · PAID",
+      title: "Drummer",
+      foot: "$200",
+      by: { kind: "person", name: "Dana Lee", imageUrl: null, href: "/profile/dana" },
+    });
     expect(lead.detail.meta).toBe("ROLE ON HARBOR MURAL · PAID · THE GARDEN");
     expect(lead.detail.title).toBe("Drummer");
     expect(lead.detail.facts).toContainEqual({ label: "Paid role", value: "Drummer · $200" });
@@ -306,7 +311,8 @@ describe("projectsCards", () => {
     // The same project under Seeking people is the project.
     const [plain] = projectsCards({ ...base, rows: [withRole], lens: "people" });
     expect(plain.face.title).toBe("Harbor Mural");
-    expect(plain.face.kicker).toBe("PLANNING");
+    // A plain project's face has no stage up top.
+    expect(plain.face.kicker).toBe("");
     expect(plain.detail.facts?.some((f) => f.label === "Paid role")).toBe(false);
   });
   it("searches the title and description", () => {
