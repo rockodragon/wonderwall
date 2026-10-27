@@ -73,12 +73,20 @@ export const PROMISE_TERMS_LINK = "Read them in the Terms";
 /** The Terms' link back here, at the end of its promises section. */
 export const TERMS_PROMISE_LINK = "Read our promise to creatives";
 
-/** The places people can pay a creative from their profile today. Backing a
- *  project joins them only once FF_BACKING opens it (payouts first). */
+/** Grants, the other way to get paid here. */
+export const GRANTS_LINE = "Paid members can also apply for grants, awarded by a community or by our team.";
+
+/** The places people can pay a creative from their profile today, and
+ *  grants. Backing a project joins them only once FF_BACKING opens it
+ *  (payouts first). */
 function waysToGetPaid(backing: boolean): string {
-  return backing
+  const people = backing
     ? "People can buy tickets to your events, sign up for your classes, hire you and back your projects, right from your profile."
     : "People can buy tickets to your events, sign up for your classes and hire you, right from your profile.";
+  // Grants: a paid member proposes to a fund (garden/grantProposals.ts);
+  // a community's fund decides its own, our team decides the project pool
+  // (routes/grant-program.tsx "Who decides").
+  return `${people} ${GRANTS_LINE}`;
 }
 
 /** The promises, in the order the page lists (and numbers) them: most
@@ -116,8 +124,8 @@ export function creativePromises(site: PromiseSite, backing: boolean = FF_BACKIN
     },
     {
       id: "personDecides",
-      title: "A person decides any removal.",
-      body: "If we ever take down your work or close your account, a person on our team makes that call, not a computer, and tells you why. If the law forces us to act at once, a person reviews it right after.",
+      title: "A person decides if your work comes down.",
+      body: "If we ever take down your work or close your account, a person on our team makes that call, not a computer, and tells you why. If the law forces us to act at once, a person reviews it right after. Only spam and fake accounts made by bots can be removed automatically.",
     },
     {
       id: "photoLocation",
@@ -139,5 +147,5 @@ export function creativePromises(site: PromiseSite, backing: boolean = FF_BACKIN
 export const PROMISE_PAGE = {
   title: `Our promise to creatives — ${PLATFORM_NAME}`,
   description:
-    "Show your work. Keep it yours. Get paid for it. You own your work, we don't train AI on it or sell it, and a person decides any removal.",
+    "Show your work. Keep it yours. Get paid for it. You own your work, we don't train AI on it or sell it, and a person decides if it comes down.",
 } as const;

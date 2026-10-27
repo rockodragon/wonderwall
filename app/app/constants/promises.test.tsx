@@ -143,6 +143,11 @@ describe("each promise, pinned to what keeps it", () => {
     expect(terms).toContain("A person makes those decisions, as set out in Our promises to creatives.");
     expect(terms).toContain("Where the law requires us to act at once");
     expect(terms).toContain("a person will review it promptly after");
+    // Bots and spam are the one exception, said the same way in both places.
+    expect(byId("personDecides").body).toContain("Only spam and fake accounts made by bots can be removed automatically.");
+    expect(terms).toContain(
+      "Spam, and accounts created by automated means, are not covered by the promise that a person decides: we may remove them automatically.",
+    );
   });
 
   it("you own it: the Terms leave ownership with you and license only showing and promoting the site", () => {
@@ -194,10 +199,19 @@ describe("each promise, pinned to what keeps it", () => {
     expect(byId("getPaid").body).toBe(
       FF_BACKING
         ? byId("getPaid", true).body
-        : "People can buy tickets to your events, sign up for your classes and hire you, right from your profile.",
+        : "People can buy tickets to your events, sign up for your classes and hire you, right from your profile. Paid members can also apply for grants, awarded by a community or by our team.",
     );
     expect(byId("getPaid", false).body).not.toMatch(/\bback/i);
     expect(byId("getPaid", true).body).toContain("back your projects");
+  });
+
+  it("grants: a paid member can propose to a fund, and a community or our team decides", () => {
+    expect(byId("getPaid").body).toContain("Paid members can also apply for grants");
+    expect(read("convex/garden/capabilities.ts")).toMatch(/case "pool\.propose":\s*\n\s*if \(isPaidLevel\(level\)\)/);
+    expect(read("convex/garden/grantProposals.ts")).toContain("export const submitProposal");
+    const grantPage = read("app/routes/grant-program.tsx");
+    expect(grantPage).toContain("Any paid member can submit a proposal to a fund");
+    expect(grantPage).toContain("A community fund's administrator");
   });
 
   it("followers: a new project or event notifies the people who follow you", () => {

@@ -114,6 +114,7 @@ const SECTIONS: LegalSection[] = [
     paragraphs: [
       "Three parts of these Terms are promises to you: we do not use Your Content to train artificial intelligence models; we do not sell or license Your Content; and a person on our team decides before we remove Your Content or end your account, and tells you why.",
       "Where the law requires us to act at once, or to stop serious harm to someone, we may act first, and a person will review it promptly after.",
+      "Spam, and accounts created by automated means, are not covered by the promise that a person decides: we may remove them automatically.",
       "We will not change these promises for you unless you agree.",
     ],
   },
