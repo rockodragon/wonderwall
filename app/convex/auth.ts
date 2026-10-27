@@ -13,7 +13,7 @@ import { isAdminEmail } from "./adminEmails";
 import { PLACEHOLDER_NAME } from "./names";
 import { normalizePhone } from "./phone";
 import { sendSms } from "./smsSender";
-import { decideCreateOrUpdateUser } from "./authLinking";
+import { decideCreateOrUpdateUser, passwordsToRevoke } from "./authLinking";
 import { joinDefaultCommunity } from "./garden/defaultCommunity";
 import { trackEvent } from "./posthog";
 import { scheduleSignupNudges } from "./engagement/schedule";
@@ -251,16 +251,18 @@ async function defaultLikeCreateOrUpdateUser(
   return userId;
 }
 
-// Deletes every password sign-in on a user. Used when a sign-in that proves
-// control of the email (Google, or the emailed code) lands on an account whose
-// email was never verified: the unproven password could belong to someone who
-// registered with a stolen email (the classic pre-account-takeover).
-async function revokePasswordAccounts(ctx: MutationCtx, userId: Id<"users">) {
+// Deletes a user's password sign-ins for `address`. Used when a sign-in that
+// proves control of that address (Google, or the emailed code) lands on an
+// account whose email was never verified: the unproven password could belong
+// to someone who registered with a stolen email (the classic
+// pre-account-takeover). A password for another address stays
+// (authLinking.ts passwordsToRevoke): a merged account can hold two.
+async function revokePasswordAccounts(ctx: MutationCtx, userId: Id<"users">, address: string) {
   const passwordAccounts = await ctx.db
     .query("authAccounts")
     .withIndex("userIdAndProvider", (q) => q.eq("userId", userId).eq("provider", "password"))
     .collect();
-  for (const account of passwordAccounts) {
+  for (const account of passwordsToRevoke(passwordAccounts, address)) {
     await ctx.db.delete(account._id);
   }
 }
@@ -287,11 +289,12 @@ async function createOrUpdateUser(
     isEmailOtp &&
     args.type === "verification" &&
     args.existingUserId !== null &&
-    args.profile.emailVerified
+    args.profile.emailVerified &&
+    email
   ) {
     const user = await ctx.db.get(args.existingUserId);
     if (user && user.emailVerificationTime === undefined) {
-      await revokePasswordAccounts(ctx, args.existingUserId);
+      await revokePasswordAccounts(ctx, args.existingUserId, email);
     }
   }
 
@@ -357,7 +360,7 @@ async function createOrUpdateUser(
         // Google has proven ownership of this email — the unproven
         // password could belong to someone who registered with a stolen
         // email, so it's revoked rather than left to coexist.
-        await revokePasswordAccounts(ctx, existing._id);
+        await revokePasswordAccounts(ctx, existing._id, email);
 
         const patch: Record<string, unknown> = {};
         if (existing.emailVerificationTime === undefined) {

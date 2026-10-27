@@ -90,6 +90,39 @@ export function planDisplayHosts(
   return { ok: true, refs: [...refs] };
 }
 
+/** An event's stored "shown as host" entry (events.displayHosts). */
+export type StoredDisplayHost =
+  | { kind: "user"; userId: string }
+  | { kind: "org"; organizationId: string }
+  | { kind: "name"; name: string };
+
+const storedHostKey = (h: StoredDisplayHost) =>
+  h.kind === "user" ? `user:${h.userId}` : h.kind === "org" ? `org:${h.organizationId}` : `name:${h.name.trim().toLowerCase()}`;
+
+/** A merge of two copies of one person or organization (admin/mergeUsers.ts,
+ * admin/mergeOrganizations.ts): the list with `from` swapped for `to`, in
+ * place, and listed once when both were there. Null when `from` isn't
+ * listed, so nothing needs writing. */
+export function swapDisplayHost<T extends StoredDisplayHost>(
+  hosts: readonly T[] | null | undefined,
+  kind: "user" | "org",
+  from: string,
+  to: string,
+): T[] | null {
+  const listed = (h: T) => (kind === "user" ? h.kind === "user" && h.userId === from : h.kind === "org" && h.organizationId === from);
+  if (!hosts?.some(listed)) return null;
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const h of hosts) {
+    const next = (listed(h) ? (kind === "user" ? { ...h, userId: to } : { ...h, organizationId: to }) : h) as T;
+    const key = storedHostKey(next);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(next);
+  }
+  return out;
+}
+
 /** The writes that bring one event's eventCoHosts rows in step with its
  * coHostIds: a row for each listed co-host who has none, and every other row
  * removed, repeats included. Nothing when they're already in step. */

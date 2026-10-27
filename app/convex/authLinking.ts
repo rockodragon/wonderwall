@@ -59,3 +59,19 @@ export function decideCreateOrUpdateUser(params: {
   // the user ids in this case).
   return "create";
 }
+
+/** The password sign-ins to revoke when a sign-in proves control of
+ * `address` (Google, or an emailed code) on an account whose email was
+ * never verified: those registered with that very address, case aside. Such
+ * a password could be someone else's, set up with an address they didn't
+ * own (the classic pre-account-takeover), so it goes once the owner proves
+ * the address. A password registered with a different address stays: an
+ * account two copies were merged into (admin/mergeUsers.ts) can hold both
+ * copies' passwords, and proving one address says nothing about the other. */
+export function passwordsToRevoke<T extends { provider: string; providerAccountId: string }>(
+  accounts: readonly T[],
+  address: string,
+): T[] {
+  const proven = address.trim().toLowerCase();
+  return accounts.filter((a) => a.provider === "password" && a.providerAccountId.trim().toLowerCase() === proven);
+}
