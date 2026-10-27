@@ -42,7 +42,7 @@ import { shownInterests } from "../constants/interests";
 import { bylineOf } from "../lib/byline";
 import { Byline } from "../components/Byline";
 import { FavoriteButton } from "../components/FavoriteButton";
-import { SupportButtons, useProjectSupport, type SupportMode } from "./projects";
+import { SupportButtons, useProjectSupport, type SupportMode } from "../components/ProjectSupport";
 
 export function meta() {
   return [{ title: "Today — The Garden" }];
@@ -90,8 +90,8 @@ function TodayPage() {
   // Today is signed-in only (routes/_app.tsx), so there's always a Shortlist.
   const shortlist = useShortlist();
   // Cheering and backing from a post, and who may save one: the same rules
-  // as the Projects page and a project's own page (routes/projects.tsx,
-  // lib/projectPick.ts).
+  // as the Projects page and a project's own page (components/
+  // ProjectSupport.tsx, lib/projectPick.ts).
   const { isAuthenticated } = useConvexAuth();
   const { support, modal: supportModal } = useProjectSupport();
   const viewer = { signedIn: isAuthenticated, profile };
@@ -617,8 +617,15 @@ function FeaturedProject({ project }: { project: Project }) {
     spans every row and each piece of the words takes its own row, so
     nothing is drawn twice. The maker's header and the picture-and-words link
     are separate links, and the buttons sit outside both, so nothing is
-    nested. Where it sits in the words column is `wordsCol`; `md:contents`
-    lets the link's children take their places in that grid. */
+    nested. Where it sits in the words column is `wordsCol`.
+
+    The picture-and-words link is a stretched link: a real box at every
+    width (a `display: contents` anchor can't take focus in Chrome, and older
+    Safari drops it from the accessibility tree), whose ::after covers the
+    whole post, so a tap anywhere on it opens the project. The maker's header
+    and the buttons sit above that cover (`z-10`). From md the link spans the
+    article's grid and is a subgrid of it, so its children still take their
+    places in the article's columns and rows. */
 export function ProjectRow({
   project,
   flip,
@@ -647,16 +654,19 @@ export function ProjectRow({
   const titleStyle: CSSProperties = { ...DISPLAY, color: "var(--app-text)" };
   return (
     <article
-      className={`md:grid md:gap-x-14 md:grid-rows-[1fr_repeat(6,auto)_1fr] ${flip ? "md:grid-cols-[minmax(0,1fr)_320px]" : "md:grid-cols-[320px_minmax(0,1fr)]"}`}
+      className={`relative isolate md:grid md:gap-x-14 md:grid-rows-[1fr_repeat(6,auto)_1fr] ${flip ? "md:grid-cols-[minmax(0,1fr)_320px]" : "md:grid-cols-[320px_minmax(0,1fr)]"}`}
     >
       {byline && (
-        <div className={`mb-1 md:mb-5 md:row-start-2 ${wordsCol}`}>
+        <div className={`relative z-10 w-fit max-w-full mb-1 md:mb-5 md:row-start-2 ${wordsCol}`}>
           <Byline byline={byline} size="post" linked>
             {project.community ? `in ${project.community.name}` : undefined}
           </Byline>
         </div>
       )}
-      <Link to={`/projects/${project._id}`} className="group grid grid-cols-[minmax(0,1fr)] md:contents">
+      <Link
+        to={`/projects/${project._id}`}
+        className="group grid grid-cols-[minmax(0,1fr)] after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-[var(--app-accent-ink)] md:col-span-full md:row-span-full md:grid-cols-subgrid md:grid-rows-subgrid"
+      >
         {/* Edge to edge on a phone (the page's side gutter taken back), the
             fixed 320px square beside the words from md. */}
         <Dissolve
@@ -708,15 +718,22 @@ export function ProjectRow({
       {/* The post's last row, outside the link: the heart (with how many
           cheered or backed it), Back this while it's raising, and Save at
           the far right. 44px targets; the margins pull the icons' own edges
-          level with the words. */}
+          level with the words. Each group sits above the link's cover; the
+          empty space between them is the cover, so it opens the project. */}
       <div className={`mt-1 flex items-center md:mt-6 md:row-start-7 ${wordsCol}`}>
         {project.kind === "passion" && (
-          <div className="-ml-[9px]">
-            <SupportButtons raising={raising} count={project.supportCount} onSupport={(mode) => onSupport(project, mode)} size="post" />
+          <div className="relative z-10 -ml-[9px]">
+            <SupportButtons
+              raising={raising}
+              count={project.supportCount}
+              onSupport={(mode) => onSupport(project, mode)}
+              size="post"
+              name={project.title}
+            />
           </div>
         )}
         {canSave && (
-          <div className="ml-auto -mr-2.5 flex items-center">
+          <div className="ml-auto relative z-10 -mr-2.5 flex items-center">
             <FavoriteButton targetType="project" targetId={project._id} name={project.title} look="icon" />
           </div>
         )}

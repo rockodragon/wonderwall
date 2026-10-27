@@ -212,7 +212,7 @@ describe("an open project on Today", () => {
       at(html, "<h3"),
       at(html, "Twelve new hymns"),
       at(html, "$320 of $1,000"),
-      at(html, 'aria-label="Cheer"'),
+      at(html, 'aria-label="Cheer Songs of Safety"'),
     ];
     expect(order).toEqual([...order].sort((x, y) => x - y));
     expect(new Set(order).size).toBe(order.length);
@@ -244,7 +244,7 @@ describe("an open project on Today", () => {
     for (const inside of ['<img src="/cover-b.jpg"', "<h3", "Twelve new hymns", "$320 of $1,000"]) expect(link).toContain(inside);
     // The actions are outside every link.
     expect(link).not.toContain("<button");
-    expect(html.slice(html.lastIndexOf("</a>"))).toContain('aria-label="Cheer"');
+    expect(html.slice(html.lastIndexOf("</a>"))).toContain('aria-label="Cheer Songs of Safety"');
     // Scanned tag by tag: nothing opens inside an open link or button.
     let open: string | null = null;
     for (const [tag] of html.matchAll(/<\/?(?:a|button)\b/g)) {
@@ -289,7 +289,7 @@ describe("an open project on Today", () => {
     const html = await post("b", [full]);
     expect(html).not.toContain("md:hidden");
     expect(html.match(/>Songs of Safety</g)).toHaveLength(1);
-    expect(html.match(/aria-label="Cheer"/g)).toHaveLength(1);
+    expect(html.match(/aria-label="Cheer /g)).toHaveLength(1);
     expect(html.match(/Twelve new hymns/g)).toHaveLength(1);
   });
 
@@ -319,12 +319,12 @@ describe("an open project on Today", () => {
     scene.answers = {};
     const html = await post("b", [full]);
     const row = html.slice(html.lastIndexOf("</a>"));
-    expect(row).toMatch(/aria-label="Cheer"[^>]*>/);
+    expect(row).toMatch(/aria-label="Cheer Songs of Safety"[^>]*>/);
     expect(row).toContain(">3<");
-    expect(row).toContain('aria-label="Back this"');
+    expect(row).toContain('aria-label="Back Songs of Safety"');
     expect(row).toContain('aria-label="Save Songs of Safety"');
-    expect(row.indexOf("Cheer")).toBeLessThan(row.indexOf("Back this"));
-    expect(row.indexOf("Back this")).toBeLessThan(row.indexOf("Save Songs of Safety"));
+    expect(row.indexOf("Cheer")).toBeLessThan(row.indexOf("Back Songs of Safety"));
+    expect(row.indexOf("Back Songs of Safety")).toBeLessThan(row.indexOf("Save Songs of Safety"));
     expect(row).toMatch(/<div class="ml-auto[^"]*"><button/);
     // Every one a 44px target.
     expect(row.match(/<button[^>]*class="[^"]*\bw-11 h-11\b/g)).toHaveLength(2);
@@ -334,14 +334,14 @@ describe("an open project on Today", () => {
   it("offers Back this only while the project is raising", async () => {
     const calm = project("f", "No ask here", { resolvedPhotoUrl: "/cover-f.jpg", raising: false });
     const html = await post("f", [calm]);
-    expect(html).toContain('aria-label="Cheer"');
-    expect(html).not.toContain("Back this");
+    expect(html).toContain('aria-label="Cheer No ask here"');
+    expect(html).not.toMatch(/aria-label="Back /);
   });
 
   it("offers no Save on your own project", async () => {
     const mine = project("g", "Mine", { userId: "u-me" });
     const html = await post("g", [mine]);
-    expect(html).toContain('aria-label="Cheer"');
+    expect(html).toContain('aria-label="Cheer Mine"');
     expect(html).not.toContain("Save");
   });
 
@@ -359,11 +359,108 @@ describe("an open project on Today", () => {
           <ProjectRow project={p as never} flip={false} viewer={{ signedIn: true, profile: me }} onSupport={() => {}} />
         </MemoryRouter>,
       );
-    expect(row(full)).toContain('aria-label="Cheer"');
+    expect(row(full)).toContain('aria-label="Cheer Songs of Safety"');
     const paid = row({ ...full, kind: "paid", gig: null, budgetType: "amount", budget: 300 });
-    expect(paid).not.toContain('aria-label="Cheer"');
-    expect(paid).not.toContain("Back this");
+    expect(paid).not.toContain('aria-label="Cheer');
+    expect(paid).not.toMatch(/aria-label="Back /);
     expect(paid).toContain('aria-label="Save Songs of Safety"');
+  });
+
+  it("names each post's Cheer and Back buttons for its project, so a page of posts isn't a row of identical Cheers", async () => {
+    const zine = project("h", "Zine Press", { resolvedPhotoUrl: "/cover-h.jpg", goal: 200, raising: true });
+    scene.answers = { "profiles:getMyProfile": me, "garden/projects:listProjects": [featured, full, zine] };
+    const html = await today();
+    for (const title of ["Songs of Safety", "Zine Press"]) {
+      expect(html).toContain(`aria-label="Cheer ${title}" title="Cheer ${title}"`);
+      expect(html).toContain(`aria-label="Back ${title}" title="Back ${title}"`);
+    }
+    expect(html).not.toContain('aria-label="Cheer"');
+    expect(html).not.toContain('aria-label="Back this"');
+  });
+
+  // The picture-and-words link must keep a box of its own at every width: a
+  // `display: contents` anchor can't take focus in Chrome, and older Safari
+  // drops it from the accessibility tree, so from md up a keyboard user could
+  // not reach the project. It is a stretched link instead: its ::after covers
+  // the post, and the maker and the buttons sit above that.
+  describe("the link to the project", () => {
+    const draw = (flip: boolean, p: Record<string, unknown> = full) =>
+      renderToString(
+        <MemoryRouter>
+          <ProjectRow project={p as never} flip={flip} viewer={{ signedIn: true, profile: me }} onSupport={() => {}} />
+        </MemoryRouter>,
+      );
+    const classesOf = (html: string) => [...html.matchAll(/class="([^"]*)"/g)].map((m) => m[1].split(" "));
+    const linkOf = (html: string) => html.match(/<a [^>]*href="\/projects\/b"[^>]*>/)![0].match(/class="([^"]*)"/)![1].split(" ");
+
+    it("is never display: contents, at any breakpoint, with a picture or without", () => {
+      for (const flip of [false, true]) {
+        for (const p of [full, project("e", "Songs of Safety", { blurb: "Twelve new hymns." })]) {
+          const html = draw(flip, p);
+          const link = html.match(/<a [^>]*href="\/projects\/[be]"[^>]*>/)![0].match(/class="([^"]*)"/)![1].split(" ");
+          expect(link.filter((c) => /(^|:)contents$/.test(c))).toEqual([]);
+          // Nor is anything else in the post.
+          expect(classesOf(html).flat().filter((c) => /(^|:)contents$/.test(c))).toEqual([]);
+        }
+      }
+    });
+
+    it("stretches over the post: its own box stays put and its ::after covers the article", () => {
+      const html = draw(false);
+      const link = linkOf(html);
+      expect(link).toEqual(expect.arrayContaining(["after:absolute", "after:inset-0"]));
+      // Anything positioned on the link itself would hold the cover to the link's box.
+      expect(link.filter((c) => /^(?:(?!after:|before:)[\w-]+:)*(?:relative|absolute|fixed|sticky)$/.test(c))).toEqual([]);
+      const article = html.match(/<article class="([^"]*)"/)![1].split(" ");
+      expect(article).toEqual(expect.arrayContaining(["relative", "isolate"]));
+    });
+
+    it("lifts the maker and the heart, Back this and Save above the cover so they stay clickable", () => {
+      const html = draw(false);
+      const header = html.match(/<div class="([^"]*)"><a [^>]*href="\/profile\/profile-b"/)![1].split(" ");
+      expect(header).toEqual(expect.arrayContaining(["relative", "z-10"]));
+      // The two groups in the actions row: the heart and Back this, and Save.
+      const row = html.slice(html.lastIndexOf("</a>"));
+      const groups = [row.match(/<div class="([^"]*-ml-\[9px\][^"]*)">/), row.match(/<div class="(ml-auto[^"]*)">/)];
+      for (const m of groups) {
+        expect(m, "the actions row's group").not.toBeNull();
+        expect(m![1].split(" ")).toEqual(expect.arrayContaining(["relative", "z-10"]));
+      }
+    });
+
+    it("shows a focus ring on the stretched cover when the link is focused by keyboard", () => {
+      const link = linkOf(draw(false));
+      expect(link).toEqual(
+        expect.arrayContaining(["focus-visible:after:outline-2", "focus-visible:after:outline-offset-2"]),
+      );
+      expect(link).toContain("focus-visible:after:outline-[var(--app-accent-ink)]");
+      // One ring, not two: the link's own default outline gives way to it.
+      expect(link).toContain("focus-visible:outline-none");
+    });
+
+    it.each([false, true])("keeps the md grid placing the picture and the words side by side (flip: %s)", (flip) => {
+      const html = draw(flip);
+      const link = linkOf(html);
+      // The link spans every column and row of the article's grid and hands
+      // its tracks to what is inside it.
+      expect(link).toEqual(
+        expect.arrayContaining(["md:col-span-full", "md:row-span-full", "md:grid-cols-subgrid", "md:grid-rows-subgrid"]),
+      );
+      const article = html.match(/<article class="([^"]*)"/)![1];
+      expect(article).toContain(flip ? "md:grid-cols-[minmax(0,1fr)_320px]" : "md:grid-cols-[320px_minmax(0,1fr)]");
+      const picture = flip ? "md:col-start-2" : "md:col-start-1";
+      const words = flip ? "md:col-start-1" : "md:col-start-2";
+      const all = classesOf(html);
+      const pictures = all.filter((c) => c.includes("md:row-span-8"));
+      expect(pictures).toHaveLength(1);
+      expect(pictures[0]).toContain(picture);
+      // The maker, badges, title, blurb, status line and actions: one row each, in the words' column.
+      const placed = all.filter((c) => c.some((t) => /^md:row-start-\d$/.test(t)));
+      expect(placed.map((c) => c.find((t) => /^md:row-start-\d$/.test(t)))).toEqual(
+        [2, 3, 4, 5, 6, 7].map((n) => `md:row-start-${n}`),
+      );
+      for (const c of placed) expect(c).toContain(words);
+    });
   });
 
   it("keeps the wide layout: a 320px picture beside the words, the sides swapping, the maker and actions in the words' column", async () => {

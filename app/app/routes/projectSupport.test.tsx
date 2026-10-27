@@ -1,6 +1,8 @@
-// useProjectSupport (routes/projects.tsx): what a tap on Cheer or Back this
-// does, for the Projects page, a project's page and Today's posts alike. A
-// server render has no clicks, so a tap is made while the probe renders, once.
+// useProjectSupport (components/ProjectSupport.tsx; imported here through
+// routes/projects.tsx, which still re-exports it): what a tap on Cheer or
+// Back this does, for the Projects page, a project's page and Today's posts
+// alike. A server render has no clicks, so a tap is made while the probe
+// renders, once.
 
 import { useRef } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";

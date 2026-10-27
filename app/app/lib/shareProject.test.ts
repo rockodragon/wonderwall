@@ -7,6 +7,7 @@ import {
   dropShareProjectIntent,
   ownsAProject,
   readStartStage,
+  spendStartLink,
   withFinishedStage,
   hasNameIfNeeded,
   isShareProjectIntent,
@@ -196,6 +197,41 @@ describe("withFinishedStage / readStartStage", () => {
     expect(readStartStage(new URLSearchParams("stage=working"))).toBe("working");
     expect(readStartStage(new URLSearchParams("stage=finished"))).toBeUndefined();
     expect(readStartStage(new URLSearchParams("new=project"))).toBeUndefined();
+  });
+});
+
+describe("spendStartLink", () => {
+  const spend = (query: string) => {
+    const { stage, rest } = spendStartLink(new URLSearchParams(query));
+    return { stage, rest: rest.toString() };
+  };
+
+  it("hands the form the start stage and leaves neither ?new nor ?stage in the URL", () => {
+    expect(spend("new=project&stage=completed")).toEqual({ stage: "completed", rest: "" });
+    expect(spend("new=project&stage=working")).toEqual({ stage: "working", rest: "" });
+  });
+
+  it("keeps every other param, such as the chip and a typed title", () => {
+    expect(spend("show=people&new=project&stage=completed&title=Zine")).toEqual({
+      stage: "completed",
+      rest: "show=people&title=Zine",
+    });
+  });
+
+  it("has no start stage when the link names none, or one a project can't be in", () => {
+    expect(spend("new=project")).toEqual({ stage: undefined, rest: "" });
+    expect(spend("new=project&stage=finished")).toEqual({ stage: undefined, rest: "" });
+  });
+
+  it("leaves a ?stage= with no start link alone: that is the Stage menu's own choice", () => {
+    expect(spend("stage=completed")).toEqual({ stage: undefined, rest: "stage=completed" });
+    expect(spend("show=funding&stage=working")).toEqual({ stage: undefined, rest: "show=funding&stage=working" });
+  });
+
+  it("does not change the params it was given", () => {
+    const params = new URLSearchParams("new=project&stage=completed");
+    spendStartLink(params);
+    expect(params.toString()).toBe("new=project&stage=completed");
   });
 });
 
