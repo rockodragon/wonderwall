@@ -179,16 +179,20 @@ export default defineSchema({
     .index("by_nameKey", ["nameKey"])
     .searchIndex("search_name", { searchField: "name" }),
 
-  // The address of an organization merged into another (admin/
+  // The address and name of an organization merged into another (admin/
   // mergeOrganizations.ts): /orgs/<slug> keeps opening the one it was
-  // merged into (organizations.ts orgBySlug). An organization that holds
-  // the slug itself wins over a forward.
+  // merged into (organizations.ts orgBySlug), and adding an organization by
+  // the old name finds that one instead of making the copy again
+  // (findOrCreate). A new organization never takes a forwarded slug
+  // (uniqueSlug); one that already held it wins over the forward.
   orgSlugForwards: defineTable({
     slug: v.string(),
+    nameKey: v.optional(v.string()), // organizationRules.orgNameKey of the old name
     organizationId: v.id("organizations"),
     createdAt: v.number(),
   })
     .index("by_slug", ["slug"])
+    .index("by_nameKey", ["nameKey"])
     .index("by_organizationId", ["organizationId"]),
 
   // A person's position at an organization: one row per person per

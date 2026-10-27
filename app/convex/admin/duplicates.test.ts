@@ -216,16 +216,17 @@ describe("merging people", () => {
       moveContent: true,
     });
     expect(plan).toEqual({
-      keep: { name: "sarah  shreves", contact: "sarah@example.com" },
+      keep: { name: "sarah shreves", contact: "sarah@example.com" },
       lines: [
-        "Moves 1 project, 2 followers and 1 organization to sarah  shreves (sarah@example.com).",
-        "Fills sarah  shreves's empty bio and interests from the other copy. Everything sarah  shreves's copy already had stays as it is.",
+        "Moves 1 project, 2 followers and 1 organization to sarah shreves (sarah@example.com).",
+        "Fills sarah shreves's empty bio and interests from the other copy. Everything sarah shreves's copy already had stays as it is.",
+        "The other copy's address, @sarahpaints, opens sarah shreves's profile for the next 90 days; after that anyone can take it.",
         "Deletes the other account.",
       ],
       signIn: [
-        "sarah  shreves's own sign-in stays as it is: password (sarah@example.com).",
-        "The other copy's sign-in, Google (sarah@old.example), moves over: it keeps working, and opens sarah  shreves's account from now on.",
-        "The other copy's password (sarah@old.example) stops working, because sarah  shreves's account already has a password.",
+        "sarah shreves's own sign-in stays as it is: password (sarah@example.com).",
+        "The other copy's sign-in, Google (sarah@old.example), moves over: it keeps working, and opens sarah shreves's account from now on.",
+        "The other copy's password (sarah@old.example) stops working, because sarah shreves's account already has a password. Sign in with sarah shreves's own from now on.",
         "Anyone signed in as the other copy right now is signed out.",
       ],
       warnings: ["This can't be undone."],
@@ -241,8 +242,8 @@ describe("merging people", () => {
       dryRun: false,
       moveContent: true,
     });
-    expect(plan.lines[0]).toMatch(/^Moved 1 project, 2 followers and 1 organization to sarah {2}shreves/);
-    expect(plan.lines[2]).toBe("Deleted the other account.");
+    expect(plan.lines[0]).toMatch(/^Moved 1 project, 2 followers and 1 organization to sarah shreves/);
+    expect(plan.lines[3]).toBe("Deleted the other account.");
     const s = ctx.store;
     expect(s.users.some((u: Row) => u._id === SARAH_OLD)).toBe(false);
     expect(s.projects[0].userId).toBe(SARAH);
@@ -252,6 +253,13 @@ describe("merging people", () => {
       "authAccounts:1",
       "authAccounts:3",
     ]);
+    // The old @address forwards; the kept profile keeps its own.
+    expect(s.handleForwards).toEqual([expect.objectContaining({ handle: "sarahpaints", profileId: "profiles:sarah" })]);
+    expect(s.profiles.find((p: Row) => p._id === "profiles:sarah")).toMatchObject({
+      handle: "sarah",
+      bio: "Painter in San Diego.",
+      imageUrl: "https://x/sarah.jpg",
+    });
   });
 
   it("a refusal from mergeUsers comes back as a reason, and nothing changes", async () => {
@@ -313,7 +321,7 @@ describe("merging organizations", () => {
       lines: [
         "Moves 1 person (Sarah Shreves) to The Grove Center for the Arts & Media (/orgs/the-grove).",
         "Nothing to fill in: The Grove Center for the Arts & Media already has everything the other copy has.",
-        "Deletes the other copy, The Grove Center for. Its old address, /orgs/the-grove-center-for, keeps working and opens The Grove Center for the Arts & Media.",
+        "Deletes the other copy, The Grove Center for. Its old address, /orgs/the-grove-center-for, keeps working and opens The Grove Center for the Arts & Media, and anyone who adds “The Grove Center for” by name gets The Grove Center for the Arts & Media.",
       ],
       signIn: [],
       warnings: ["This can't be undone."],

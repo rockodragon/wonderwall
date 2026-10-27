@@ -95,6 +95,15 @@ reads them.
 Typing a new name never creates a duplicate: a create whose `nameKey`
 already exists joins the existing organization.
 
+Two entered for one organization anyway ("The Grove Center for" and "The
+Grove Center for the Arts & Media") are merged on `/admin/duplicates`
+(`convex/admin/duplicates.ts`, `convex/admin/mergeOrganizations.ts`): the
+other one's people, projects and "shown as host" events move to the kept
+one, its empty fields are filled, and the other one is deleted. Its old
+slug and name live on in `orgSlugForwards`: `/orgs/<old-slug>` opens the
+kept one, adding the old name finds it, and no new organization takes the
+old slug.
+
 ## Events
 
 "Hosted by" resolves each host's primary organization and links to

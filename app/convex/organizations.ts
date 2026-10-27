@@ -165,20 +165,29 @@ function checkTitle(raw: string | undefined | null) {
   return title || undefined;
 }
 
+/** A slug no organization holds, and no merged one's old address forwards
+ * from (orgSlugForwards), so an old link keeps opening what it did. */
 async function uniqueSlug(ctx: MutationCtx, name: string) {
   const base = slugifyOrgName(name);
   for (let n = 1; n < 100; n++) {
     const slug = n === 1 ? base : `${base}-${n}`;
-    const taken = await ctx.db
-      .query("organizations")
-      .withIndex("by_slug", (q) => q.eq("slug", slug))
-      .first();
+    const taken =
+      (await ctx.db
+        .query("organizations")
+        .withIndex("by_slug", (q) => q.eq("slug", slug))
+        .first()) ??
+      (await ctx.db
+        .query("orgSlugForwards")
+        .withIndex("by_slug", (q) => q.eq("slug", slug))
+        .first());
     if (!taken) return slug;
   }
   return `${base}-${Date.now()}`;
 }
 
-/** Find an organization by name, or create it. Never makes a duplicate. */
+/** Find an organization by name, or create it. Never makes a duplicate: the
+ * name of one merged into another (orgSlugForwards) finds the one it was
+ * merged into, so the copy isn't made again. */
 async function findOrCreate(ctx: MutationCtx, userId: Id<"users">, rawName: string) {
   const name = checkName(rawName);
   const existing = await ctx.db
@@ -186,6 +195,12 @@ async function findOrCreate(ctx: MutationCtx, userId: Id<"users">, rawName: stri
     .withIndex("by_nameKey", (q) => q.eq("nameKey", orgNameKey(name)))
     .first();
   if (existing) return { org: existing, created: false };
+  const forward = await ctx.db
+    .query("orgSlugForwards")
+    .withIndex("by_nameKey", (q) => q.eq("nameKey", orgNameKey(name)))
+    .first();
+  const mergedInto = forward ? await ctx.db.get(forward.organizationId) : null;
+  if (mergedInto) return { org: mergedInto, created: false };
   const now = Date.now();
   const id = await ctx.db.insert("organizations", {
     name,

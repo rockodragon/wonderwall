@@ -6,7 +6,7 @@
 import { ConvexError } from "convex/values";
 import { describe, expect, it } from "vitest";
 import { makeCtx, run, type Row } from "../../test-support/convexContext";
-import { getBySlug } from "../organizations";
+import { addByName, createForHosting, getBySlug } from "../organizations";
 import { mergeOrganizations, ORG_ID_FIELDS, orgFill } from "./mergeOrganizations";
 import { schemaFieldsPointingAt } from "../../test-support/schemaFields";
 
@@ -159,6 +159,23 @@ describe("mergeOrganizations", () => {
     const page = await run(getBySlug, ctx, { slug: "the-grove-center-for" });
     expect(page).toMatchObject({ _id: KEEP, slug: "the-grove-center-for-the-arts-and-media" });
     expect(await run(getBySlug, ctx, { slug: "nothing-here" })).toBeNull();
+  });
+
+  it("adding the old name finds the kept one, and no new organization takes the old address", async () => {
+    const ctx = world();
+    await merge(ctx);
+    // Jo is already there (moved over); Sarah adds it again by its old name.
+    expect(await run(addByName, ctx, { name: "the grove  center for" })).toEqual({
+      slug: "the-grove-center-for-the-arts-and-media",
+      created: false,
+    });
+    expect(ctx.store.organizations).toHaveLength(1);
+    // A different organization whose name makes the forwarded slug gets another one.
+    expect(await run(createForHosting, ctx, { name: "The Grove Center For!" })).toMatchObject({
+      slug: "the-grove-center-for-2",
+      created: true,
+    });
+    expect(await run(getBySlug, ctx, { slug: "the-grove-center-for" })).toMatchObject({ _id: KEEP });
   });
 
   it("an organization that holds a slug wins over a forward", async () => {

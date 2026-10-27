@@ -13,6 +13,7 @@ import { mutation, query, type MutationCtx, type QueryCtx } from "../_generated/
 import type { Doc, Id } from "../_generated/dataModel";
 import { contactOf, displayNameOf, getProfileByUserId, isAdminProfile, requireAdminCtx } from "../helpers";
 import { fail } from "../errors";
+import { HANDLE_FORWARD_DAYS } from "../handleRules";
 import { hasRealName } from "../names";
 import { orgLogoUrl, profileImageUrl } from "../images";
 import { isCurrent } from "../organizationRules";
@@ -33,6 +34,9 @@ import { runMergeOrganizations, type OrgMergeReport } from "./mergeOrganizations
 type Ctx = QueryCtx | MutationCtx;
 
 const BIO_PREVIEW = 280;
+
+/** A name as the page writes it: trimmed, one space between words. */
+const tidyName = (name: string) => name.trim().replace(/\s+/g, " ");
 
 /** How a sign-in reads on the page. */
 const SIGN_IN_WORDS: Record<string, string> = {
@@ -93,7 +97,7 @@ async function personCard(ctx: Ctx, userId: Id<"users">, viewerId: Id<"users">) 
   return {
     userId,
     profileId: profile?._id ?? null,
-    name: name.trim() || "(no name)",
+    name: tidyName(name) || "(no name)",
     unfinished: !hasRealName(name),
     handle: profile?.handle ?? null,
     imageUrl: await profileImageUrl(ctx, profile),
@@ -129,7 +133,7 @@ async function orgCard(ctx: Ctx, org: Doc<"organizations">, eventsShowing: numbe
   for (const p of await positionsOfOrg(ctx, org._id)) {
     const profile = await ctx.db.get(p.profileId);
     members.push({
-      name: profile && hasRealName(profile.name) ? profile.name.trim() : "Unfinished signup",
+      name: profile && hasRealName(profile.name) ? tidyName(profile.name) : "Unfinished signup",
       isAdmin: p.isAdmin,
       current: isCurrent(p),
       title: p.title ?? null,
@@ -222,6 +226,7 @@ const CONTENT_WORDS: [key: string, one: string, many: string][] = [
   ["artifacts.profileId", "piece of work", "pieces of work"],
   ["events.organizerId", "event they host", "events they host"],
   ["events.coHostIds", "event they co-host", "events they co-host"],
+  ["events.displayHosts", "event that shows them as a host", "events that show them as a host"],
   ["favorites.targetId", "follower", "followers"],
   ["orgPositions.userId", "organization", "organizations"],
   ["conversations.participants", "conversation", "conversations"],
@@ -374,6 +379,9 @@ async function planPeopleMerge(
   let after: Record<string, unknown> | null = keepProfile ? { ...keepProfile } : null;
   let wholeProfile = false;
   const filled: string[] = [];
+  // The other copies' @addresses that forward to the kept one (mergeUsers
+  // mergeProfiles): each one the kept profile doesn't take as its own.
+  const forwarded: string[] = [];
   for (const p of otherProfiles) {
     if (!p) continue;
     if (!after) {
@@ -381,12 +389,13 @@ async function planPeopleMerge(
       wholeProfile = true;
       continue;
     }
+    if (p.handle && after.handle && p.handle !== after.handle) forwarded.push(p.handle);
     const patch = profileFill(p, after);
     filled.push(...Object.keys(patch));
     Object.assign(after, patch);
   }
   const afterName = typeof after?.name === "string" ? after.name : "";
-  const keepName = hasRealName(afterName) ? afterName.trim() : "The kept copy";
+  const keepName = hasRealName(afterName) ? tidyName(afterName) : "The kept copy";
   const contact = keepUser.email || (keepUser.phone ? maskPhone(keepUser.phone) : null);
   const keepLabel = contact ? `${keepName} (${contact})` : keepName;
 
@@ -429,10 +438,20 @@ async function planPeopleMerge(
   const lines = [
     movesLine(counts, keepLabel, done),
     fillsLine(filledNow?.filter((k) => !k.startsWith("(")) ?? filled, keepName, wholeProfile, done),
+  ];
+  if (forwarded.length > 0) {
+    const addresses = listPhrase(forwarded.map((h) => `@${h}`));
+    lines.push(
+      forwarded.length === 1
+        ? `The other copy's address, ${addresses}, opens ${keepName}'s profile for the next ${HANDLE_FORWARD_DAYS} days; after that anyone can take it.`
+        : `The other copies' addresses, ${addresses}, open ${keepName}'s profile for the next ${HANDLE_FORWARD_DAYS} days; after that anyone can take them.`,
+    );
+  }
+  lines.push(
     n === 1
       ? `${done ? "Deleted" : "Deletes"} the other account.`
       : `${done ? "Deleted" : "Deletes"} the other ${n} accounts.`,
-  ];
+  );
 
   const signIn: string[] = [];
   signIn.push(
@@ -446,7 +465,9 @@ async function planPeopleMerge(
     signIn.push(`The other copy's sign-ins, ${listPhrase(moving)}, move over: they keep working, and open ${keepName}'s account from now on.`);
   }
   for (const d of dropping) {
-    signIn.push(`The other copy's ${d} stops working, because ${keepName}'s account already has a password.`);
+    signIn.push(
+      `The other copy's ${d} stops working, because ${keepName}'s account already has a password. Sign in with ${keepName}'s own from now on.`,
+    );
   }
   if (moving.length === 0 && dropping.length === 0) signIn.push("The other copy had no way to sign in.");
   signIn.push("Anyone signed in as the other copy right now is signed out.");
@@ -518,7 +539,7 @@ function orgPlan(r: OrgMergeReport): MergePlan {
       : `Nothing to fill in: ${r.target.name} already has everything the other copy has.`,
   );
   lines.push(
-    `${done ? "Deleted" : "Deletes"} the other copy, ${r.source.name}. Its old address, /orgs/${r.slugForwarded}, keeps working and opens ${r.target.name}.`,
+    `${done ? "Deleted" : "Deletes"} the other copy, ${r.source.name}. Its old address, /orgs/${r.slugForwarded}, keeps working and opens ${r.target.name}, and anyone who adds “${r.source.name}” by name gets ${r.target.name}.`,
   );
   const warnings: string[] = [];
   if (r.sourceLogoUnused) warnings.push(`Both have a logo. ${r.target.name}'s stays; the other copy's isn't used.`);

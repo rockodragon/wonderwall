@@ -13,7 +13,9 @@
 //     location and community link come from the source (the target's own
 //     always win);
 //   - /orgs/<source slug> keeps working: it forwards to the target
-//     (orgSlugForwards, read by organizations.ts orgBySlug).
+//     (orgSlugForwards, read by organizations.ts orgBySlug), and adding an
+//     organization by the source's name finds the target (findOrCreate), so
+//     the copy isn't made again.
 //
 // Upload claims (uploads.ts) are left alone: a moved logo is already on the
 // target's row, and setLogo lets the target's admins replace a logo the row
@@ -32,6 +34,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { fail } from "../errors";
 import { swapDisplayHost } from "../eventHosts";
 import { positionsOfOrg, syncProfileOrgCache } from "../organizations";
+import { orgNameKey } from "../organizationRules";
 
 /** Every field that points at an organization (grep `v.id("organizations")`
  * in schema.ts; mergeOrganizations.test.ts fails on one this list misses). */
@@ -164,7 +167,12 @@ export async function runMergeOrganizations(
   if (!dryRun) {
     if (words.length > 0) await ctx.db.patch(targetId, { ...patch, updatedAt: Date.now() });
     for (const f of forwards) await ctx.db.patch(f._id, { organizationId: targetId });
-    await ctx.db.insert("orgSlugForwards", { slug: source.slug, organizationId: targetId, createdAt: Date.now() });
+    await ctx.db.insert("orgSlugForwards", {
+      slug: source.slug,
+      nameKey: source.nameKey || orgNameKey(source.name),
+      organizationId: targetId,
+      createdAt: Date.now(),
+    });
     await ctx.db.delete(sourceId);
     // The organization shown with each person's name may have changed.
     for (const profileId of touchedProfiles) await syncProfileOrgCache(ctx, profileId);
