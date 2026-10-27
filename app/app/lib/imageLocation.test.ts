@@ -1,64 +1,22 @@
 import { crc32 as zlibCrc32 } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { stripLocation, withoutLocation } from "./imageLocation";
+import {
+  ORIENTATION_VALUE,
+  SCAN,
+  concat,
+  coordinatesZeroed,
+  gpsFieldCount,
+  jpeg,
+  text,
+  tiff,
+} from "../../test-support/photoFixtures";
 
-// A TIFF block the way a phone writes one: IFD0 holds Orientation and a
-// pointer to the GPS block; the GPS block holds latitude and longitude, each
-// three rationals stored after the fields.
-const GPS_BLOCK = 38;
-const COORDINATES = { start: 92, end: 140 };
-const ORIENTATION_VALUE = 18; // offset of IFD0's first field value
-
-function tiff(little = true) {
-  const bytes = new Uint8Array(140);
-  const view = new DataView(bytes.buffer);
-  const u16 = (at: number, v: number) => view.setUint16(at, v, little);
-  const u32 = (at: number, v: number) => view.setUint32(at, v, little);
-  const field = (at: number, tag: number, type: number, count: number, value: number) => {
-    u16(at, tag);
-    u16(at + 2, type);
-    u32(at + 4, count);
-    if (type === 3 && count === 1) u16(at + 8, value);
-    else u32(at + 8, value);
-  };
-  bytes.set(little ? [0x49, 0x49] : [0x4d, 0x4d], 0);
-  u16(2, 42);
-  u32(4, 8);
-  u16(8, 2);
-  field(10, 0x0112, 3, 1, 6); // Orientation: rotate 90°
-  field(22, 0x8825, 4, 1, GPS_BLOCK);
-  u16(GPS_BLOCK, 4);
-  field(GPS_BLOCK + 2, 0x0001, 2, 2, 0); // LatitudeRef "N"
-  bytes[GPS_BLOCK + 2 + 8] = 0x4e;
-  field(GPS_BLOCK + 14, 0x0002, 5, 3, 92); // Latitude
-  field(GPS_BLOCK + 26, 0x0003, 2, 2, 0); // LongitudeRef "W"
-  bytes[GPS_BLOCK + 26 + 8] = 0x57;
-  field(GPS_BLOCK + 38, 0x0004, 5, 3, 116); // Longitude
-  [34, 1, 3, 1, 1234, 100, 118, 1, 14, 1, 5678, 100].forEach((n, i) => u32(92 + i * 4, n));
-  return bytes;
-}
-
-const text = (s: string) => Uint8Array.from(s, (c) => c.charCodeAt(0));
-const concat = (...parts: ArrayLike<number>[]) => {
-  const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
-  let at = 0;
-  for (const p of parts) {
-    out.set(p, at);
-    at += p.length;
-  }
-  return out;
-};
-const be16 = (n: number) => [n >> 8, n & 0xff];
+// The photos (tiff, jpeg) and the readers (gpsFieldCount, coordinatesZeroed)
+// are test-support/photoFixtures.ts, shared with constants/promises.test.ts.
+// PNG and WebP are only built here.
 const be32 = (n: number) => [(n >>> 24) & 0xff, (n >>> 16) & 0xff, (n >>> 8) & 0xff, n & 0xff];
 const le32 = (n: number) => be32(n).reverse();
-
-const SCAN = [0x12, 0x34, 0x56, 0x78, 0x9a];
-
-function jpeg(...app1s: Uint8Array[]) {
-  const segments = app1s.map((data) => concat([0xff, 0xe1], be16(data.length + 2), data));
-  const quantTable = concat([0xff, 0xdb], be16(4), [0, 1]);
-  return concat([0xff, 0xd8], ...segments, quantTable, [0xff, 0xda], be16(2), SCAN, [0xff, 0xd9]);
-}
 
 function pngChunk(type: string, data: Uint8Array) {
   const body = concat(text(type), data);
@@ -67,15 +25,6 @@ function pngChunk(type: string, data: Uint8Array) {
 
 function png(...chunks: Uint8Array[]) {
   return concat([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], pngChunk("IHDR", new Uint8Array(13)), ...chunks, pngChunk("IEND", new Uint8Array()));
-}
-
-/** The TIFF block's location, read back the way a viewer would. */
-function gpsFieldCount(bytes: Uint8Array, tiffStart: number, little = true): number {
-  return new DataView(bytes.buffer, bytes.byteOffset).getUint16(tiffStart + GPS_BLOCK, little);
-}
-
-function coordinatesZeroed(bytes: Uint8Array, tiffStart: number): boolean {
-  return bytes.subarray(tiffStart + COORDINATES.start, tiffStart + COORDINATES.end).every((b) => b === 0);
 }
 
 describe("stripLocation", () => {
