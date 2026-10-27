@@ -12,6 +12,7 @@ import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { resummarizeConversations } from "../engagement/conversations";
 import { swapDisplayHost, syncCoHosts } from "../eventHosts";
 import { getProfileByUserId } from "../helpers";
 import { HANDLE_FORWARD_MS } from "../handleRules";
@@ -46,10 +47,6 @@ export type RefField = {
 // introspecting the schema's validator tree at runtime; mergeUsers.test.ts
 // fails when the schema has one this list doesn't name. eventCoHosts isn't
 // here: it mirrors events.coHostIds, and repoint re-syncs it from that.
-// emailDeliveries.blockedUserId isn't either, on purpose: it names the sender
-// whose block would stop a queued message email, is read only until that
-// email is sent, and the table (every email ever sent) has no index to find it
-// by. A merge during that window skips one block check on one email.
 export const USER_ID_FIELDS: RefField[] = [
   { table: "wonderingResponses", field: "responderId", index: "by_responderId" },
   { table: "events", field: "organizerId" },
@@ -139,26 +136,18 @@ export const USER_ID_FIELDS: RefField[] = [
   { table: "updates", field: "createdBy" },
   { table: "updateReads", field: "userId", index: "by_userId_updateId" },
   { table: "engagementLoops", field: "updatedBy" },
+  // Admin follow-ups on a member: who they're about, who owns them, who last
+  // changed them. Small; read whole, as ownerId and updatedBy have no index.
+  { table: "engagementAttention", field: "userId" },
+  { table: "engagementAttention", field: "ownerId" },
+  { table: "engagementAttention", field: "updatedBy" },
   { table: "nudgeLog", field: "userId", index: "by_userId_at" },
+  // Emails sent to the account: its contact cooldown carries over.
+  { table: "emailDeliveries", field: "recipientUserId", index: "by_recipientUserId_createdAt" },
   // Who uploaded a file (uploads.ts): the kept account can replace the
   // pictures it now holds.
   { table: "uploadClaims", field: "userId", index: "by_userId" },
   { table: "duplicateDismissals", field: "dismissedByUserId" },
-  // Nurture measurement (2026-10-27). conversationParticipants holds each
-  // person's summary of a conversation and mirrors conversations.participants,
-  // so it moves with it (applyConversationPlan deletes the summaries of a
-  // conversation that goes). Neither field is the start of an index that
-  // fits, so the table is read whole.
-  { table: "conversationParticipants", field: "userId" },
-  { table: "conversationParticipants", field: "otherUserId" },
-  // Emails sent to the account: the wait between two emails to one person
-  // follows the person.
-  { table: "emailDeliveries", field: "recipientUserId", index: "by_recipientUserId_createdAt" },
-  // Admin attention decisions: who they're about, the admin who took one,
-  // and the admin who last changed one. Few rows, so read whole.
-  { table: "engagementAttention", field: "userId" },
-  { table: "engagementAttention", field: "ownerId" },
-  { table: "engagementAttention", field: "updatedBy" },
 ];
 
 // Tables that reference the source's PROFILE id rather than their user id
@@ -424,6 +413,9 @@ async function repoint(
 type ConversationPlan = {
   withEachOther: Doc<"conversations">[];
   combine: { keep: Doc<"conversations">; drop: Doc<"conversations"> }[];
+  /** Every conversation the source is in, and those it's combined into:
+   * their summaries are redone once the lists move (resummarizeConversations). */
+  touched: Id<"conversations">[];
 };
 
 async function planConversations(
@@ -434,9 +426,10 @@ async function planConversations(
 ): Promise<ConversationPlan> {
   // participants is a list, so the table is read whole (once per merge).
   const all = (await reads.table("conversations")) as Doc<"conversations">[];
-  const plan: ConversationPlan = { withEachOther: [], combine: [] };
+  const plan: ConversationPlan = { withEachOther: [], combine: [], touched: [] };
   const used = new Set<string>();
   for (const c of all.filter((x) => x.participants.includes(sourceUserId))) {
+    plan.touched.push(c._id);
     const others = c.participants.filter((p) => !merging.has(p));
     if (others.length === 0) {
       plan.withEachOther.push(c);
@@ -454,12 +447,12 @@ async function planConversations(
     used.add(theirs._id);
     used.add(c._id);
     plan.combine.push({ keep: theirs, drop: c });
+    plan.touched.push(theirs._id);
   }
   return plan;
 }
 
 const MESSAGES_IN: RefField = { table: "messages", field: "conversationId", index: "by_conversationId" };
-const SUMMARIES_IN: RefField = { table: "conversationParticipants", field: "conversationId", index: "by_conversationId" };
 const NOTICES_OF = USER_ID_FIELDS.find((f) => f.table === "notifications" && f.field === "userId")!;
 
 /** The notices that open one of `conversationIds` (messaging.ts links them
@@ -494,21 +487,12 @@ async function applyConversationPlan(
 
   for (const c of plan.withEachOther) {
     for (const m of await reads.pointingAt(MESSAGES_IN, c._id)) await reads.delete("messages", m._id);
-    for (const s of await reads.pointingAt(SUMMARIES_IN, c._id)) await reads.delete("conversationParticipants", s._id);
     await reads.delete("conversations", c._id);
   }
   for (const { keep, drop } of plan.combine) {
     for (const m of await reads.pointingAt(MESSAGES_IN, drop._id)) {
       await reads.patch("messages", m, { conversationId: keep._id });
     }
-    // The kept conversation's summaries no longer match its messages: mark
-    // them incomplete, and the next message sent or read in it recomputes
-    // them from the messages (engagement/conversations.ts). The dropped
-    // one's go with it.
-    for (const s of await reads.pointingAt(SUMMARIES_IN, keep._id)) {
-      await reads.patch("conversationParticipants", s, { historyComplete: false });
-    }
-    for (const s of await reads.pointingAt(SUMMARIES_IN, drop._id)) await reads.delete("conversationParticipants", s._id);
     await reads.patch("conversations", keep, {
       lastMessageAt: Math.max(keep.lastMessageAt, drop.lastMessageAt),
       createdAt: Math.min(keep.createdAt, drop.createdAt),
@@ -719,6 +703,8 @@ async function moveContentOf(
   for (const ref of USER_ID_FIELDS) {
     note(`${ref.table}.${ref.field}`, await repoint(ctx, reads, ref, sourceUserId, targetUserId));
   }
+  // Summaries are worked out from the conversations and messages just moved.
+  if (!dryRun) await resummarizeConversations(ctx, conversations.touched, sourceUserId, targetUserId);
   let profileFieldsFilled: string[] = [];
   if (profile) {
     let targetProfileId: Id<"profiles">;

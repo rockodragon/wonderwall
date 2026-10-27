@@ -20,7 +20,8 @@
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 import type { MutationCtx } from "../_generated/server";
-import type { Doc, Id } from "../_generated/dataModel";
+import type { Doc } from "../_generated/dataModel";
+import { resummarizeConversations } from "../engagement/conversations";
 import { isCurrent } from "../organizationRules";
 import { getProfileByUserId } from "../helpers";
 import { MergeReads, PROFILE_ID_FIELDS, USER_ID_FIELDS } from "./mergeUsers";
@@ -48,11 +49,6 @@ const HANDLED_USER_FIELDS = new Set([
   "nudgeLog.userId",
   "organizations.createdByUserId",
   "uploadClaims.userId",
-  // Named in mergeUsers' lists since 2026-10-27. A conversation's summaries
-  // follow the conversation (below); the emails sent to the login go with it.
-  "conversationParticipants.userId",
-  "conversationParticipants.otherUserId",
-  "emailDeliveries.recipientUserId",
 ]);
 const HANDLED_PROFILE_FIELDS = new Set([
   "profileViews.profileId",
@@ -67,13 +63,6 @@ async function rowsWhere(ctx: MutationCtx, table: string, test: (row: any) => bo
 
 const refersTo = (field: string, id: string, array?: boolean) => (row: any) =>
   array ? Array.isArray(row[field]) && row[field].includes(id) : row[field] === id;
-
-/** The per-person summaries kept for one conversation (engagement/conversations.ts). */
-const summariesOf = (ctx: MutationCtx, conversationId: Id<"conversations">) =>
-  ctx.db
-    .query("conversationParticipants")
-    .withIndex("by_conversationId", (q) => q.eq("conversationId", conversationId))
-    .collect();
 
 export const accountToOrganization = internalMutation({
   args: {
@@ -176,6 +165,7 @@ export const accountToOrganization = internalMutation({
     for (const row of await rowsWhere(ctx, "uploadClaims", refersTo("userId", userId))) {
       await ctx.db.patch(row._id, { userId: runBy });
     }
+    const touched = conversations.map((c) => c._id);
     for (const conversation of conversations) {
       const other = conversation.participants.find((p) => p !== userId);
       const messages = await ctx.db
@@ -185,7 +175,6 @@ export const accountToOrganization = internalMutation({
       if (!other || other === runBy) {
         // A conversation with runBy themselves: nobody left to talk to.
         for (const m of messages) await ctx.db.delete(m._id);
-        for (const s of await summariesOf(ctx, conversation._id)) await ctx.db.delete(s._id);
         await ctx.db.delete(conversation._id);
         continue;
       }
@@ -206,23 +195,15 @@ export const accountToOrganization = internalMutation({
         await ctx.db.patch(existing._id, {
           lastMessageAt: Math.max(existing.lastMessageAt, conversation.lastMessageAt),
         });
-        // The kept conversation's summaries no longer match its messages:
-        // marked incomplete, they are recomputed from the messages next time.
-        for (const s of await summariesOf(ctx, existing._id)) await ctx.db.patch(s._id, { historyComplete: false });
-        for (const s of await summariesOf(ctx, conversation._id)) await ctx.db.delete(s._id);
         await ctx.db.delete(conversation._id);
+        touched.push(existing._id);
       } else {
         await ctx.db.patch(conversation._id, {
           participants: conversation.participants.map((p) => (p === userId ? runBy : p)),
         });
-        for (const s of await summariesOf(ctx, conversation._id)) {
-          await ctx.db.patch(s._id, {
-            userId: s.userId === userId ? runBy : s.userId,
-            otherUserId: s.otherUserId === userId ? runBy : s.otherUserId,
-          });
-        }
       }
     }
+    await resummarizeConversations(ctx, touched, userId, runBy);
 
     // ——— Its own traces go ———
     const gone: [string, (row: any) => boolean][] = [
@@ -245,14 +226,6 @@ export const accountToOrganization = internalMutation({
     }
     for (const [table, test] of gone) {
       for (const row of await rowsWhere(ctx, table, test)) await ctx.db.delete(row._id);
-    }
-    // The record of emails sent to the login (read by index: it holds every
-    // email ever sent). One still waiting to go never will.
-    for (const row of await ctx.db
-      .query("emailDeliveries")
-      .withIndex("by_recipientUserId_createdAt", (q) => q.eq("recipientUserId", userId))
-      .collect()) {
-      await ctx.db.delete(row._id);
     }
 
     // ——— Sign-ins, profile, account ———

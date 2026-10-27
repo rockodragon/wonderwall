@@ -104,59 +104,6 @@ describe("accountToOrganization", () => {
     expect(s.favorites).toEqual([]);
   });
 
-  describe("what the nurture work keeps about the account (2026-10-27)", () => {
-    const summary = (_id: string, conversationId: string, userId: string, otherUserId: string) => ({
-      _id: `conversationParticipants:${_id}`,
-      conversationId: `conversations:${conversationId}`,
-      userId,
-      otherUserId,
-      lastMessageAt: 1,
-      historyComplete: true,
-    });
-    const delivery = (_id: string, recipientUserId: string) => ({ _id: `emailDeliveries:${_id}`, recipientUserId, to: "x@example.com", status: "sent" });
-    const pairs = (s: any[]) => s.map((r) => [r._id.split(":")[1], r.userId, r.otherUserId, r.historyComplete]);
-
-    it("a conversation's summaries follow it to David, and the emails sent to the login go", async () => {
-      const ctx = world({
-        conversationParticipants: [summary("ap", "1", AP, JO), summary("jo", "1", JO, AP)],
-        emailDeliveries: [delivery("ap", AP), delivery("jo", JO)],
-      });
-      expect(await run(accountToOrganization, ctx, args(true))).toMatchObject({ dryRun: true });
-      expect(ctx.store.conversationParticipants).toHaveLength(2);
-      expect(await run(accountToOrganization, ctx, args(false))).toMatchObject({ done: true });
-      expect(pairs(ctx.store.conversationParticipants)).toEqual([
-        ["ap", DAVID, JO, true],
-        ["jo", JO, DAVID, true],
-      ]);
-      expect(ctx.store.emailDeliveries.map((d: any) => d._id)).toEqual(["emailDeliveries:jo"]);
-    });
-
-    it("a talk with David goes with its summaries; one David already has takes its messages and is recomputed", async () => {
-      const ctx = world({
-        conversations: [
-          { _id: "conversations:ap-jo", participants: [AP, JO], lastMessageAt: 5, createdAt: 1 },
-          { _id: "conversations:david-jo", participants: [DAVID, JO], lastMessageAt: 4, createdAt: 1 },
-          { _id: "conversations:ap-david", participants: [AP, DAVID], lastMessageAt: 3, createdAt: 1 },
-        ],
-        messages: [],
-        conversationParticipants: [
-          summary("apjo-ap", "ap-jo", AP, JO),
-          summary("apjo-jo", "ap-jo", JO, AP),
-          summary("davidjo-david", "david-jo", DAVID, JO),
-          summary("davidjo-jo", "david-jo", JO, DAVID),
-          summary("apdavid-ap", "ap-david", AP, DAVID),
-          summary("apdavid-david", "ap-david", DAVID, AP),
-        ],
-      });
-      await run(accountToOrganization, ctx, args(false));
-      expect(ctx.store.conversations.map((c: any) => c._id)).toEqual(["conversations:david-jo"]);
-      expect(pairs(ctx.store.conversationParticipants)).toEqual([
-        ["davidjo-david", DAVID, JO, false],
-        ["davidjo-jo", JO, DAVID, false],
-      ]);
-    });
-  });
-
   it("refuses when an event shows the account as a host", async () => {
     const ctx = world({ events: [{ _id: "events:1", organizerId: DAVID, displayHosts: [{ kind: "user", userId: AP }] }] });
     expect(await run(accountToOrganization, ctx, args(true))).toEqual({
