@@ -4,6 +4,7 @@
 // (routes/onboarding.tsx), and the stashed visit that screen replaces.
 
 import { signupHref, takePendingIntent, setPendingIntent } from "./pendingIntent";
+import { isProjectOwner } from "./projectPick";
 import { isStage, type Stage } from "./stage";
 
 /** Where "Share your project" goes for someone with an account: the form. */
@@ -91,6 +92,20 @@ export function readStartStage(params: URLSearchParams): Stage | undefined {
   return isStage(raw) ? raw : undefined;
 }
 
+/** A start link used up. /projects?new=project opens the form once: the form
+ *  takes the link's stage (as state, not from the URL) and ?new and ?stage
+ *  both leave the URL. On that page ?stage= is also the Stage menu's word, so
+ *  a start link's stage left behind would filter the list to it, behind the
+ *  form and after it closes. A ?stage= with no ?new is the menu's own choice
+ *  and stays. Returns a copy; `params` is not changed. */
+export function spendStartLink(params: URLSearchParams): { stage: Stage | undefined; rest: URLSearchParams } {
+  const rest = new URLSearchParams(params);
+  if (params.get("new") !== "project") return { stage: undefined, rest };
+  rest.delete("new");
+  rest.delete("stage");
+  return { stage: readStartStage(params), rest };
+}
+
 /** Whether this member has a project up, read off the public list the
  *  phone's Today and the Canvas already load (garden/projects:listProjects:
  *  posted, not archived or hidden), so it takes no query of its own. null
@@ -102,7 +117,7 @@ export function ownsAProject(
   profile: { userId?: string } | null | undefined,
 ): boolean | null {
   if (projects === undefined || !profile) return null;
-  return projects.some((p) => p.userId === profile.userId);
+  return projects.some((p) => isProjectOwner(p, profile));
 }
 
 /** The ways off the onboarding screen: a maker shares a project or not

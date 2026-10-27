@@ -14,7 +14,9 @@
 // plate, and with no logo the face is its monogram in a square frame. At rest
 // the plate (or the monogram's field) is the card's top two-thirds, edge to
 // edge, the name and foot are under it, and a small "ORG" tag is in the lower
-// right corner; there is no kicker at the top.
+// right corner; there is no kicker at the top. A project has none either, unless
+// it is paid work (JOB, RECURRING GIG): the stage is a row of the card once it
+// opens, and the foot ends with its maker's small picture and name.
 //
 // Geometry comes from deskLayout.ts; this file draws it. All motion is 620ms
 // DESK.ease, and none of it runs under prefers-reduced-motion.
@@ -26,7 +28,10 @@ import { PostThumbView } from "../components/shortlist/PostThumb";
 import { CelebrationMark } from "../components/CelebrationMark";
 import { CreateCard } from "../components/CreateCard";
 import { LeaderBadge } from "../components/LeaderBadge";
+import { OrgLogo } from "../components/OrgLogo";
+import { PersonAvatar } from "../components/PersonAvatar";
 import { useReducedMotion } from "../hooks/useMediaQuery";
+import type { ProjectByline } from "../lib/byline";
 import { initialsOf } from "../lib/initials";
 import type { DeskCreateLink } from "./deskBrowse";
 import { opensAsSheet, picturePage, type DeskCard } from "./deskCards";
@@ -208,11 +213,13 @@ export const DeskCardView = memo(function DeskCardView({
   const radius = open ? RADIUS_OPEN : RADIUS;
   // An organization has no kicker (its "ORG" tag is a corner mark), so its name is
   // said in the label: "Organization, Abiding Practice, Collective · San Diego".
+  // So does a project's: "Project, Songs of Safety, Dana Lee".
   const label = [
-    card.face.kicker || (card.kind === "org" ? "Organization" : ""),
+    kindWord(card),
     card.face.title,
     card.leader ? "Community leader" : "",
     card.face.foot,
+    ...makerWords(card),
     ...postWords(card),
   ]
     .filter(Boolean)
@@ -281,7 +288,7 @@ export function RestingCard({
 }) {
   const reduced = useReducedMotion();
   const [lift, setLift] = useState(false);
-  const name = [stamp ?? label ?? card.face.kicker, card.face.title, card.face.foot, ...postWords(card)].filter(Boolean).join(", ");
+  const name = [stamp ?? label ?? card.face.kicker, card.face.title, card.face.foot, ...makerWords(card), ...postWords(card)].filter(Boolean).join(", ");
   return (
     <div
       onPointerEnter={() => setLift(true)}
@@ -516,8 +523,9 @@ function Face({
   // An organization has no kicker at the top: it wears a small tag in the lower
   // right corner instead, and the words keep clear of it. With a logo, the plate
   // fills the card's top, edge to edge, and the name is held to two lines and the
-  // foot to one so they stay in the band under it.
-  const kickerless = logo && !face.kicker;
+  // foot to one so they stay in the band under it. A project with nothing to say
+  // up top (no kind: paid work says JOB) has no kicker line either.
+  const kickerless = !face.kicker && (logo || card.kind === "project");
   const plated = logo && Boolean(pic);
   // The tag is 12px mono at 0.2em tracking (0.8em a letter), plus a gap.
   const tagRoom = face.tag && !split ? Math.ceil(face.tag.length * 12 * 0.8) + 10 : 0;
@@ -776,8 +784,8 @@ function Face({
         </div>
       )}
 
-      {/* An organization's words are the only thing in the flow, so they hold the bottom themselves. */}
-      <div style={{ position: "relative", minWidth: 0, marginTop: logo ? "auto" : undefined, opacity: wordsGo ? 0 : 1, transition: t(["opacity"]) }}>
+      {/* With no kicker above them (an organization's, a project's) the words are the only thing in the flow, so they hold the bottom themselves. */}
+      <div style={{ position: "relative", minWidth: 0, marginTop: logo || kickerless ? "auto" : undefined, opacity: wordsGo ? 0 : 1, transition: t(["opacity"]) }}>
         {fromTheHouse && <span aria-hidden style={{ display: "block", width: 28, height: 2, marginBottom: 12, background: paper ? ink : DESK.accent }} />}
         <h3
           style={{
@@ -824,6 +832,35 @@ function Face({
           </p>
         ) : face.post ? (
           <PostStrip post={face.post} />
+        ) : face.by ? (
+          // A project's foot: whatever comes first (a paid role's pay), then
+          // the maker's small picture and their name. A div, not a p: an
+          // organization's logo is one.
+          <div
+            style={{
+              margin: "10px 0 0",
+              display: "flex",
+              alignItems: "center",
+              gap: 7,
+              fontSize: split ? 16 : 13,
+              lineHeight: 1.35,
+              opacity: 0.85,
+              transition: t(["font-size"]),
+            }}
+          >
+            {face.foot && <span style={{ flex: "none" }}>{face.foot} ·</span>}
+            <MakerMark by={face.by} />
+            <span
+              style={{
+                minWidth: 0,
+                hyphens: "manual",
+                overflowWrap: "break-word",
+                ...(split ? {} : { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const, overflow: "hidden" }),
+              }}
+            >
+              {face.by.name}
+            </span>
+          </div>
         ) : face.foot && (
           <p
             style={{
@@ -875,6 +912,37 @@ function Face({
 function postWords(card: DeskCard): string[] {
   const post = card.face.post;
   return post ? [post.status, post.title ?? ""] : [];
+}
+
+/** What a card says it is when its face has no kicker to say so: an
+ *  organization or a project (its paid work's kicker says JOB, and so on). */
+function kindWord(card: DeskCard): string {
+  return card.face.kicker || (card.kind === "org" ? "Organization" : card.kind === "project" ? "Project" : "");
+}
+
+/** A project's maker, said after its foot. */
+function makerWords(card: DeskCard): string[] {
+  return card.face.by ? [card.face.by.name] : [];
+}
+
+/** A maker's small picture before their name: a person's photo or an
+ *  organization's logo (their initial when there is none), the same rounded
+ *  squares as everywhere else, ringed so it reads over a picture and over a
+ *  plain tone alike. */
+function MakerMark({ by }: { by: ProjectByline }) {
+  const org = by.kind === "org";
+  return (
+    <span
+      aria-hidden
+      style={{ flex: "none", display: "inline-flex", borderRadius: org ? 6 : 4, boxShadow: "0 0 0 1px rgba(237,227,180,.4)" }}
+    >
+      {org ? (
+        <OrgLogo name={by.name} logoUrl={by.imageUrl} size="xs" />
+      ) : (
+        <PersonAvatar name={by.name} imageUrl={by.imageUrl} size="xs" tone="garden" shape="square" />
+      )}
+    </span>
+  );
 }
 
 const CLIP_LINE = { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } as const;

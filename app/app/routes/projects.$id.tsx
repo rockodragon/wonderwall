@@ -6,8 +6,9 @@
 // sidebar/wordmark/CommunitySwitcher render normally; it queries the
 // CURRENT garden/projects.getProject (same shape listProjects' cards use).
 //
-// StatusSelect and SupportModal are reused directly from routes/projects.tsx
-// (the list page) rather than re-implemented — same convention offerings.
+// StatusSelect and the support sheet (useProjectSupport) are reused directly
+// from routes/projects.tsx (the list page) rather than re-implemented — same
+// convention offerings.
 // $id.tsx already uses for PostOfferingForm/SignupModal.
 //
 // Public (Rick, 2026-10-22; _app.tsx's PUBLIC_PROJECT_DETAIL_PATH): anyone
@@ -19,12 +20,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { Link, useLocation, useNavigate, useParams, useRouteError, useSearchParams } from "react-router";
+import { Link, useLocation, useParams, useRouteError, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { formatCents } from "../../convex/money";
 import { EMBED_PROVIDER_LABEL, toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
-import { VISIBLE_PROJECT_STATUSES } from "../../convex/moderationRules";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { AdminMenu, HiddenNotice } from "../components/AdminMenu";
 import { InviteToThis } from "../components/InviteToThis";
@@ -57,18 +57,19 @@ import { FF_BACKING } from "../lib/featureFlags";
 import { shortDay } from "../lib/dates";
 import {
   STATUS_LABELS,
-  SupportModal,
   SupportButtons,
   GoalProgress,
   isRaising,
+  useProjectSupport,
   type SupportMode,
 } from "./projects";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { useStartConversation } from "../lib/useStartConversation";
 import { useIsAdmin } from "../lib/useIsAdmin";
 import { useProfileLinks } from "../lib/useProfileLinks";
-import { signupHref, supportDetour } from "../lib/pendingIntent";
+import { signupHref } from "../lib/pendingIntent";
 import { bylineOf } from "../lib/byline";
+import { canSaveProject, isProjectOwner } from "../lib/projectPick";
 import { Byline } from "../components/Byline";
 import { PersonAvatar } from "../components/PersonAvatar";
 
@@ -229,10 +230,9 @@ export default function ProjectDetail() {
   const roles = useQuery(api.garden.projectTeam.listRoles, id ? { projectId: id as Id<"projects"> } : "skip");
   const updates = useQuery(api.garden.stories.listProjectUpdates, id ? { projectId: id } : "skip");
   const isAdmin = useIsAdmin() === true;
-  const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [supportMode, setSupportMode] = useState<SupportMode | null>(null);
+  const { support: openSupport, modal: supportModal } = useProjectSupport();
   // Lifted so the owner's "Next steps" nudge can open the support editor.
   const [editingSupport, setEditingSupport] = useState(false);
   // The same three-step modal "Start a project" uses, opened on this project:
@@ -271,14 +271,13 @@ export default function ProjectDetail() {
     );
   }
 
-  const isOwner = !!myProfile && project.userId === myProfile.userId;
+  const isOwner = isProjectOwner(project, myProfile);
   const byline = bylineOf(project);
   // Save for the Shortlist (docs/handoff/favorites-redesign/README.md): a
   // signed-in member who isn't the lead, on a project the browse lists show.
   // favorites.toggle refuses the rest, so the page never offers a save that
   // would fail. Held until the profile loads, so the lead never sees it flash.
-  const canSave =
-    isAuthenticated && myProfile !== undefined && !isOwner && VISIBLE_PROJECT_STATUSES.has(project.status);
+  const canSave = canSaveProject({ signedIn: isAuthenticated, profile: myProfile }, project);
   const raising = isRaising(project);
   const isPassion = project.kind === "passion";
   // No chip for a plain project: "Project" on a project's own page says nothing.
@@ -337,12 +336,7 @@ export default function ProjectDetail() {
   // back to this page (signup.tsx stashes it; _app.tsx replays it).
   // Still checking the token reads as a member, not a visitor: no detour.
   const visitorSignUp = !authLoading && !isAuthenticated ? signupHref(location.pathname + location.search) : null;
-  function support(mode: SupportMode) {
-    if (authLoading) return;
-    const detour = supportDetour(mode, isAuthenticated, location.pathname + location.search);
-    if (detour) navigate(detour);
-    else setSupportMode(mode);
-  }
+  const support = (mode: SupportMode) => openSupport(project, mode);
   // The owner's "Next steps" buttons: show the tab first, then scroll to it.
   function showTab(next: ProjectTab) {
     if (next === tab) {
@@ -603,9 +597,7 @@ export default function ProjectDetail() {
         </TabPanel>
       )}
 
-      {supportMode && (
-        <SupportModal project={project} mode={supportMode} onClose={() => setSupportMode(null)} />
-      )}
+      {supportModal}
     </PageShell>
   );
 }

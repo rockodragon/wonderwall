@@ -22,10 +22,19 @@ New field `projects.stage`, optional. `projects.status` is untouched: it keeps m
 | `raising` | Raising |
 | `forming` | Forming team |
 | `working` | Working |
-| `releasing` | Releasing |
 | `paused` | Paused |
 | `completed` | Completed |
 | `cancelled` | Cancelled |
+
+**`releasing` is retired** (2026-10-27). It was labelled "Released", a second
+kind of done beside Completed, and two finished stages split the browse filter
+and the start flow ("Finished it" saves `completed`). Completed is the one
+finished stage. Nothing migrated: a project whose stored `stage` is
+`"releasing"` keeps the word in the database and reads as Completed everywhere
+(`resolveStage` maps it, client and server alike); `setStage` stores
+`completed` if an old tab still sends `"releasing"`, and refuses every other
+unknown word. "Released" is in no picker: not the owner's stage menu, not the
+browse Stage filter.
 
 One label per stage regardless of `kind` — `forming` used to read "Hiring" on a
 paid post, but "still forming its team" is true whether or not the work pays,
@@ -40,7 +49,7 @@ as any other stage.
 
 - Any stage can move to any other. It is a label, not a state machine.
 - **Default:** paid → `forming` (a paid post still needs to build its team first). Passion → `planning`.
-- **Derived for old rows** (`stage` absent), in one pure function `resolveStage(project)`: `status in_progress → working`, `completed → completed`, paid → `forming`, else `planning`. No migration.
+- **Derived for old rows** (`stage` absent), in one pure function `resolveStage(project)`: `status in_progress → working`, `completed → completed`, paid → `forming`, else `planning`. No migration. A stored `releasing` reads as `completed`. The function, the stage list and the labels live in one pure module, `convex/stages.ts`; `app/lib/stage.ts` re-exports it and `garden/projectTeam.ts`, `garden/projects.ts` and `garden/operatorCounts.ts` import it, so the app and the server cannot disagree.
 - Stage label on cards in `/projects` and `/opportunities`, and on the project page. Always shown.
 - `StatusSelect` on the project page becomes a stage select writing `stage` via `setStage`. Archive becomes a separate "Archive" action calling the existing `updateProjectStatus`.
 - `stageChangedAt` on the project, for the notification rule in §6.
@@ -174,7 +183,7 @@ Stage-change rule: only when the stage actually changes, and at most once per pr
 - Retiring `/jobs` or migrating `jobInterests`. Legacy, read-only.
 - Team on events or offerings.
 - A DM rate-limit exemption for teammates.
-- Stage filters on browse.
+- Stage filters on browse. (Built: Planning, Forming team, Working, Completed; see project-ia.md.)
 - Email-match auto-linking of invites.
 
 ## 9 · Build

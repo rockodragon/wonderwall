@@ -39,22 +39,14 @@ import {
 
 const NOW = 1_800_000_000_000;
 
-describe("stage twin — matches app/app/lib/stage.ts", () => {
-  it("has the eight stages in creative-process order", () => {
-    expect(STAGES).toEqual([
-      "planning",
-      "raising",
-      "forming",
-      "working",
-      "releasing",
-      "paused",
-      "completed",
-      "cancelled",
-    ]);
+describe("stage helpers — one list shared with app/app/lib/stage.ts", () => {
+  it("has the seven stages an owner can pick, in creative-process order, with no releasing", () => {
+    expect(STAGES).toEqual(["planning", "raising", "forming", "working", "paused", "completed", "cancelled"]);
   });
   it("isStage accepts only the tuple", () => {
     for (const s of STAGES) expect(isStage(s)).toBe(true);
     expect(isStage("archived")).toBe(false);
+    expect(isStage("releasing")).toBe(false);
     expect(isStage("")).toBe(false);
     expect(isStage(undefined)).toBe(false);
     expect(isStage(3)).toBe(false);
@@ -64,12 +56,16 @@ describe("stage twin — matches app/app/lib/stage.ts", () => {
     expect(stageLabel("working")).toBe("Working");
   });
   it("resolveStage: stage wins, else derives from legacy status / kind", () => {
-    expect(resolveStage({ stage: "releasing", status: "in_progress", kind: "paid" })).toBe("releasing");
+    expect(resolveStage({ stage: "working", status: "completed", kind: "paid" })).toBe("working");
     expect(resolveStage({ status: "in_progress", kind: "passion" })).toBe("working");
     expect(resolveStage({ status: "completed", kind: "paid" })).toBe("completed");
     expect(resolveStage({ status: "active", kind: "paid" })).toBe("forming");
     expect(resolveStage({ status: "active", kind: "passion" })).toBe("planning");
     expect(resolveStage({ stage: "bogus", status: "active", kind: "passion" })).toBe("planning");
+  });
+  it("a stored releasing resolves to completed and is labelled Completed, as on the client", () => {
+    expect(resolveStage({ stage: "releasing", status: "in_progress", kind: "paid" })).toBe("completed");
+    expect(stageLabel(resolveStage({ stage: "releasing", status: "active", kind: "passion" }))).toBe("Completed");
   });
 });
 
@@ -321,7 +317,7 @@ describe("nameMatches", () => {
 
 describe("isAcceptingPeople", () => {
   it("takes people while the work is live", () => {
-    for (const stage of ["planning", "raising", "forming", "working", "releasing"]) {
+    for (const stage of ["planning", "raising", "forming", "working"]) {
       expect(isAcceptingPeople({ kind: "passion", status: "active", stage })).toBe(true);
     }
   });
@@ -335,6 +331,10 @@ describe("isAcceptingPeople", () => {
     expect(isAcceptingPeople({ kind: "passion", status: "active", stage: "cancelled" })).toBe(false);
     expect(isAcceptingPeople({ kind: "paid", status: "completed" })).toBe(false);
     expect(isAcceptingPeople({ kind: "paid", status: "archived", stage: "forming" })).toBe(false);
+  });
+
+  it("stops for a stored releasing too: it reads as Completed", () => {
+    expect(isAcceptingPeople({ kind: "passion", status: "active", stage: "releasing" })).toBe(false);
   });
 
   it("reads a legacy row with no stage the way resolveStage does", () => {
@@ -352,8 +352,12 @@ describe("isProjectFinished — the work is over", () => {
     expect(isProjectFinished({ kind: "passion", status: "active", stage: "cancelled" })).toBe(true);
   });
 
+  it("a stored releasing is finished: it reads as Completed", () => {
+    expect(isProjectFinished({ kind: "passion", status: "active", stage: "releasing" })).toBe(true);
+  });
+
   it("live, paused or hidden work isn't", () => {
-    for (const stage of ["planning", "raising", "forming", "working", "releasing", "paused"]) {
+    for (const stage of ["planning", "raising", "forming", "working", "paused"]) {
       expect(isProjectFinished({ kind: "passion", status: "active", stage })).toBe(false);
     }
     expect(isProjectFinished({ kind: "paid", status: "in_progress" })).toBe(false);

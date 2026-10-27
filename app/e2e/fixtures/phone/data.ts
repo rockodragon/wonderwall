@@ -112,6 +112,8 @@ const projects = [
     resolvedPhotoUrl: "/campaign/pair.jpg",
     goal: 800,
     raisedCents: 12000,
+    raiseByDate: now + 9 * DAY,
+    supportCount: 7,
     interests: ["Murals"],
     creator: { _id: "u-marta", name: "Marta Reyes", imageUrl: "/campaign/marta.jpg", interests: ["Murals"], location: "San Diego" },
   }),
@@ -123,6 +125,19 @@ const projects = [
     interests: ["Music"],
     stage: "working",
     creator: { _id: "u-june", name: "June Park", imageUrl: "/campaign/june.jpg", interests: ["Music"], location: "San Diego" },
+  }),
+  // No picture, and posted as an organization: Today's post sets the title on
+  // the abstract cover, and the maker's square is the logo's initial.
+  project({
+    _id: "p-gardenwalk",
+    title: "Saturday Garden Walk: a neighborhood listening tour",
+    blurb: "Four stops, one hour each, with a field recorder and whoever wants to come along.",
+    goal: 1200,
+    raisedCents: 0,
+    supportCount: 2,
+    interests: ["Music"],
+    stage: "planning",
+    organization: { name: "Abiding Practice", slug: "abiding-practice" },
   }),
   project({
     _id: "p-jazz",
