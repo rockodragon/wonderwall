@@ -104,6 +104,10 @@ describe("/admin/duplicates", () => {
     expect(html).toContain("Sarah Shreves · admin");
     expect(html).toContain("Added");
     expect(html.match(/Keep this one/g)).toHaveLength(4);
+    // Each copy can be left out of a merge; every one starts in it.
+    expect(raw.match(/<input type="checkbox" checked=""/g)).toHaveLength(4);
+    expect(html.match(/Same one: include in the merge/g)).toHaveLength(4);
+    expect(html).toContain("Untick any copy that isn't the same one.");
     expect(html.match(/Not duplicates/g)!.length).toBeGreaterThanOrEqual(2);
   });
 

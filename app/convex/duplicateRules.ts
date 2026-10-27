@@ -10,8 +10,8 @@
 //
 // Organizations: the same name the same way; one name the start of the
 // other ("The Grove Center for" and "The Grove Center for the Arts &
-// Media"); or most of their words the same ("BetLynArt and Shreves
-// Publishing SESAC" and "BetLynArt Publishing (SESAC)").
+// Media"); or every telling word of one in the other ("BetLynArt
+// Publishing (SESAC)" in "BetLynArt and Shreves Publishing SESAC").
 //
 // Matches make groups, not just pairs: A like B and B like C is one group of
 // three. A pair an admin said isn't a duplicate (duplicateDismissals) is
@@ -35,7 +35,7 @@ export const REASON_LABEL: Record<MatchReason, string> = {
   same_email: "Same email",
   same_phone: "Same phone",
   starts_the_same: "One name starts the other",
-  most_words: "Most words the same",
+  most_words: "One name’s words all in the other",
 };
 
 /** "  Sarah   SHREVES." → "sarah shreves": accents, case, punctuation and
@@ -150,12 +150,16 @@ export function orgsLookAlike(a: string, b: string): MatchReason | null {
     significantWords(short.join(" ")).size >= 1;
   if (startsLong) return "starts_the_same";
 
+  // Every telling word of the shorter name is in the longer one, at least
+  // two of them: "BetLynArt Publishing (SESAC)" inside "BetLynArt and
+  // Shreves Publishing SESAC". Three of four isn't enough: "First Baptist
+  // Church of Carlsbad" and "… of Vista" are two churches.
   const sa = significantWords(a);
   const sb = significantWords(b);
   let shared = 0;
   for (const w of sa) if (sb.has(w)) shared++;
   const smaller = Math.min(sa.size, sb.size);
-  if (shared >= 2 && smaller > 0 && shared / smaller >= 0.75) return "most_words";
+  if (shared >= 2 && shared === smaller) return "most_words";
   return null;
 }
 
@@ -206,6 +210,12 @@ export function groupEdges(
     ids: [...g.ids].sort(),
     reasons: order.filter((r) => g.reasons.has(r)),
   }));
+}
+
+/** The copies a merge into `keepId` takes on /admin/duplicates: the ticked
+ * ones, the kept one aside, in the group's order. */
+export function copiesToMerge(ids: readonly string[], keepId: string, ticked: ReadonlySet<string>): string[] {
+  return ids.filter((id) => id !== keepId && ticked.has(id));
 }
 
 /** "a", "a and b", "a, b and c". */

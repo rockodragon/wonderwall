@@ -5,6 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  copiesToMerge,
   groupEdges,
   listPhrase,
   normalizeName,
@@ -89,7 +90,7 @@ describe("orgsLookAlike", () => {
     expect(orgsLookAlike("The Grove Center for", "The Grove Center for the Arts & Media")).toBe("starts_the_same");
     expect(orgsLookAlike("The Grove Center fo", "The Grove Center for the Arts")).toBe("starts_the_same");
   });
-  it("most words the same", () => {
+  it("every telling word of one in the other", () => {
     expect(orgsLookAlike("BetLynArt and Shreves Publishing SESAC", "BetLynArt Publishing (SESAC)")).toBe("most_words");
     expect(orgsLookAlike("BetLynArt and Shreve's Publishing SESAC", "BetLynArt & Shreves Publishing SESAC")).toBe(
       "most_words",
@@ -101,6 +102,8 @@ describe("orgsLookAlike", () => {
     // One meaningful word isn't enough to start another name.
     expect(orgsLookAlike("The Art", "Art House San Diego")).toBeNull();
     expect(orgsLookAlike("San Diego Art Center", "Chicago Music Hall")).toBeNull();
+    // Three of four words isn't the same organization: two churches.
+    expect(orgsLookAlike("First Baptist Church of Carlsbad", "First Baptist Church of Vista")).toBeNull();
   });
 });
 
@@ -142,6 +145,16 @@ describe("groupEdges", () => {
       { id: "u:c", name: "Sarah Shreves" },
     ]);
     expect(groupEdges(edges, new Set(pairKeysOf(["u:a", "u:b", "u:c"])))).toEqual([]);
+  });
+});
+
+describe("copiesToMerge", () => {
+  it("is the ticked copies, the kept one aside", () => {
+    const ids = ["o:grove", "o:church", "o:center"];
+    expect(copiesToMerge(ids, "o:center", new Set(ids))).toEqual(["o:grove", "o:church"]);
+    // "The Grove Church" isn't the same one: unticked, it stays out.
+    expect(copiesToMerge(ids, "o:center", new Set(["o:grove", "o:center"]))).toEqual(["o:grove"]);
+    expect(copiesToMerge(ids, "o:center", new Set(["o:center"]))).toEqual([]);
   });
 });
 

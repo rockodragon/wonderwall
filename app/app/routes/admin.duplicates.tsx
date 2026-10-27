@@ -1,9 +1,12 @@
 // /admin/duplicates — people and organizations that look like the same one
 // entered twice (two "Sarah Shreves", "The Grove Center for" and "The Grove
 // Center for the Arts & Media"). Each group shows its copies side by side
-// with what each one holds. Pick the copy to keep, read what will happen
-// (the server's dry run, in plain words), then confirm. "Not duplicates"
-// puts the group away for good. convex/admin/duplicates.ts does the work.
+// with what each one holds. Pick the copy to keep, untick any copy that
+// isn't the same one (a group can gather look-alikes that aren't: "The
+// Grove" brings in "The Grove Church" too), read what will happen (the
+// server's dry run, in plain words, for exactly the ticked copies), then
+// confirm, which merges exactly those. "Not duplicates" puts the group away
+// for good. convex/admin/duplicates.ts does the work.
 //
 // Written for someone who doesn't think in tables and ids: the words say
 // what happens to the person, their things and their sign-in. Ids are only
@@ -11,10 +14,11 @@
 
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import type { MetaFunction } from "react-router";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
+import { copiesToMerge } from "../../convex/duplicateRules";
 import { displayPhone } from "../../convex/phone";
 import { admin } from "../components/admin/adminStyles";
 import {
@@ -155,34 +159,59 @@ type GroupProps<T> = {
 };
 
 function DuplicateGroup<T>({ title, reasons, members, idOf, card, preview, merge, dismiss, onDone }: GroupProps<T>) {
+  const ids = members.map(idOf);
   const [keepId, setKeepId] = useState<string | null>(null);
-  const [plan, setPlan] = useState<Plan | null>(null);
+  // Every copy starts ticked; untick one that isn't the same.
+  const [ticked, setTicked] = useState<ReadonlySet<string>>(() => new Set(ids));
+  // The preview, with the exact copies it was worked out for: Confirm sends
+  // those, never a set the person didn't see.
+  const [shown, setShown] = useState<{ plan: Plan; keepId: string; mergeIds: string[] } | null>(null);
   const [busy, setBusy] = useState<"preview" | "merge" | "dismiss" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Only the latest preview counts when ticks change faster than answers come.
+  const latest = useRef(0);
 
-  const keep = members.find((m) => idOf(m) === keepId) ?? null;
-  const others = members.filter((m) => idOf(m) !== keepId);
+  const byId = (id: string) => members.find((m) => idOf(m) === id)!;
 
-  async function choose(m: T) {
-    setKeepId(idOf(m));
-    setPlan(null);
+  async function showPreview(keep: string, tick: ReadonlySet<string>) {
+    const mergeIds = copiesToMerge(ids, keep, tick);
+    const asked = ++latest.current;
+    setShown(null);
     setError(null);
+    if (mergeIds.length === 0) {
+      setBusy(null);
+      return;
+    }
     setBusy("preview");
     try {
-      setPlan(await preview(m, members.filter((x) => idOf(x) !== idOf(m))));
+      const plan = await preview(byId(keep), mergeIds.map(byId));
+      if (asked === latest.current) setShown({ plan, keepId: keep, mergeIds });
     } catch (err) {
-      setError(errorMessage(err, "Couldn't work out what merging would do. Try again."));
+      if (asked === latest.current) setError(errorMessage(err, "Couldn't work out what merging would do. Try again."));
     } finally {
-      setBusy(null);
+      if (asked === latest.current) setBusy(null);
     }
   }
 
+  function choose(m: T) {
+    setKeepId(idOf(m));
+    void showPreview(idOf(m), ticked);
+  }
+
+  function toggle(id: string) {
+    const next = new Set(ticked);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setTicked(next);
+    if (keepId) void showPreview(keepId, next);
+  }
+
   async function confirm() {
-    if (!keep) return;
+    if (!shown) return;
     setError(null);
     setBusy("merge");
     try {
-      onDone(await merge(keep, others));
+      onDone(await merge(byId(shown.keepId), shown.mergeIds.map(byId)));
     } catch (err) {
       setError(errorMessage(err, "The merge didn't go through. Nothing was changed."));
       setBusy(null);
@@ -201,10 +230,15 @@ function DuplicateGroup<T>({ title, reasons, members, idOf, card, preview, merge
   }
 
   function cancel() {
+    latest.current++;
     setKeepId(null);
-    setPlan(null);
+    setShown(null);
     setError(null);
+    setBusy(null);
   }
+
+  const plan = shown?.plan ?? null;
+  const nothingTicked = keepId !== null && copiesToMerge(ids, keepId, ticked).length === 0;
 
   return (
     <article className={admin.panel} aria-label={`Possible duplicates: ${title}`}>
@@ -227,14 +261,20 @@ function DuplicateGroup<T>({ title, reasons, members, idOf, card, preview, merge
       </header>
 
       <p className={`${admin.meta} mb-3`}>
-        {keep ? "The highlighted copy stays. The others are merged into it." : "Pick the copy to keep."}
+        {keepId
+          ? "The highlighted copy stays. The ticked ones are merged into it; an unticked one is left as it is."
+          : "Pick the copy to keep. Untick any copy that isn't the same one."}
       </p>
 
       <ul className={`grid gap-3 ${members.length >= 3 ? "lg:grid-cols-3" : ""} sm:grid-cols-2`}>
         {members.map((m) => {
           const id = idOf(m);
           const kept = id === keepId;
-          const goes = keepId !== null && !kept;
+          const inMerge = ticked.has(id);
+          const goes = keepId !== null && !kept && inMerge;
+          const left = keepId !== null && !kept && !inMerge;
+          // Keeping this one needs another ticked copy to merge into it.
+          const nothingToMerge = copiesToMerge(ids, id, ticked).length === 0;
           return (
             <li
               key={id}
@@ -246,17 +286,29 @@ function DuplicateGroup<T>({ title, reasons, members, idOf, card, preview, merge
             >
               {kept && <span className={`${admin.chip.green} mb-2`}>Keeping this one</span>}
               {goes && <span className={`${admin.chip.amber} mb-2`}>Merged into the kept one</span>}
+              {left && <span className={`${admin.chip.neutral} mb-2`}>Left as it is</span>}
               <div className="flex-1">{card(m)}</div>
-              <div className="mt-4">
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                 <button
                   type="button"
                   className={kept ? admin.btnRowSecondary : admin.btnRowPrimary}
                   onClick={() => (kept ? cancel() : choose(m))}
-                  disabled={busy === "merge" || busy === "dismiss"}
+                  disabled={busy === "merge" || busy === "dismiss" || (!kept && nothingToMerge)}
                   aria-pressed={kept}
                 >
                   {kept ? "Pick again" : "Keep this one"}
                 </button>
+                {!kept && (
+                  <label className={`${admin.meta} inline-flex cursor-pointer items-center gap-2`}>
+                    <input
+                      type="checkbox"
+                      checked={inMerge}
+                      onChange={() => toggle(id)}
+                      disabled={busy === "merge" || busy === "dismiss"}
+                    />
+                    Same one: include in the merge
+                  </label>
+                )}
               </div>
             </li>
           );
@@ -271,7 +323,11 @@ function DuplicateGroup<T>({ title, reasons, members, idOf, card, preview, merge
 
       {busy === "preview" && <p className={`${admin.meta} mt-4`}>Working out what would happen…</p>}
 
-      {plan && keep && (
+      {nothingTicked && (
+        <p className={`${admin.meta} mt-4`}>Tick at least one other copy to merge into the kept one.</p>
+      )}
+
+      {plan && shown && (
         <div className={`${admin.inset} mt-4 p-4 sm:p-5`} aria-live="polite">
           <h4 className={admin.h3}>
             If you keep {plan.keep.name}
@@ -302,8 +358,17 @@ function DuplicateGroup<T>({ title, reasons, members, idOf, card, preview, merge
             </AdminNotice>
           )}
           <div className="mt-4 flex flex-wrap gap-2">
-            <button type="button" className={admin.btnPrimary} onClick={confirm} disabled={busy !== null}>
-              {busy === "merge" ? "Merging…" : "Confirm merge"}
+            <button
+              type="button"
+              className={admin.btnPrimary}
+              onClick={confirm}
+              disabled={busy !== null || shown.mergeIds.length === 0}
+            >
+              {busy === "merge"
+                ? "Merging…"
+                : shown.mergeIds.length === 1
+                  ? "Confirm merge"
+                  : `Confirm: merge these ${shown.mergeIds.length}`}
             </button>
             <button type="button" className={admin.btnQuiet} onClick={cancel} disabled={busy === "merge"}>
               Cancel
