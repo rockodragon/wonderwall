@@ -128,6 +128,94 @@ describe("isCommunityLeader", () => {
   });
 });
 
+// Applying for a community makes you its active host on the spot
+// (communities.ts applyForCommunity), before an operator has said yes.
+describe("isCommunityLeader — only a host of an open community leads", () => {
+  const PENDING = "hostOrgs:pending";
+  const DECLINED = "hostOrgs:declined";
+  const ARCHIVED = "hostOrgs:archived";
+  const PLATFORM = "hostOrgs:platform";
+  const GONE = "hostOrgs:deleted";
+  const withOrgs = () => {
+    const w = world();
+    w.hostOrgs.push(
+      { _id: PENDING, kind: "community", name: "Applied", slug: "applied", status: "pending", ownerUserId: "users:applicant" } as any,
+      { _id: DECLINED, kind: "community", name: "Declined", slug: "declined", status: "declined" } as any,
+      { _id: ARCHIVED, kind: "community", name: "Archived", slug: "archived", status: "archived" } as any,
+      { _id: PLATFORM, kind: "platform", name: "The Creative Exchange", slug: "creatives-exchange" } as any,
+    );
+    return w;
+  };
+  const leads = (w: ReturnType<typeof withOrgs>, user: string) => isCommunityLeader(makeCtx(w, null), id(user));
+
+  it("a host of a community that is still pending is not a leader", async () => {
+    const w = withOrgs();
+    w.profiles.push(profile("users:applicant"));
+    w.communityMembers.push(row(20, PENDING, "users:applicant", "host", "active"));
+    expect(await leads(w, "users:applicant")).toBe(false);
+  });
+
+  it("nor is a host of a declined or an archived community", async () => {
+    const w = withOrgs();
+    w.communityMembers.push(row(21, DECLINED, "users:d", "host", "active"), row(22, ARCHIVED, "users:a", "host", "active"));
+    expect(await leads(w, "users:d")).toBe(false);
+    expect(await leads(w, "users:a")).toBe(false);
+  });
+
+  it("nor is a host of something that isn't a community (the platform row), or of one that is gone", async () => {
+    const w = withOrgs();
+    w.communityMembers.push(row(23, PLATFORM, "users:p", "host", "active"), row(24, GONE, "users:g", "host", "active"));
+    expect(await leads(w, "users:p")).toBe(false);
+    expect(await leads(w, "users:g")).toBe(false);
+  });
+
+  it("becomes a leader the moment the operator approves it", async () => {
+    const w = withOrgs();
+    w.communityMembers.push(row(25, PENDING, "users:applicant", "host", "active"));
+    expect(await leads(w, "users:applicant")).toBe(false);
+    (w.hostOrgs.find((o) => o._id === PENDING) as unknown as { status: string }).status = "active";
+    expect(await leads(w, "users:applicant")).toBe(true);
+  });
+
+  it("a community with no status at all is open, as everywhere else hostOrgs is read", async () => {
+    expect(await isCommunityLeader(ctx(), id(HOST))).toBe(true);
+    expect(world().hostOrgs.every((o) => !("status" in o))).toBe(true);
+  });
+
+  it("leads if any one of their communities is open, whatever the others are", async () => {
+    const w = withOrgs();
+    w.communityMembers.push(row(26, PENDING, "users:both", "host", "active"), row(27, GARDEN, "users:both", "host", "active"));
+    expect(await leads(w, "users:both")).toBe(true);
+  });
+
+  it("an admin leads whatever their communities are", async () => {
+    const w = withOrgs();
+    w.communityMembers.push(row(28, PENDING, ADMIN, "host", "active"));
+    expect(await leads(w, ADMIN)).toBe(true);
+  });
+
+  it("a list agrees, and fetches each community once however many of its people are listed", async () => {
+    const w = withOrgs();
+    w.communityMembers.push(row(29, PENDING, "users:applicant", "host", "active"));
+    const crowd = Array.from({ length: 30 }, (_, i) => `users:crowd${i}`);
+    w.communityMembers.push(...crowd.map((u, i) => row(100 + i, i % 2 ? PENDING : GARDEN, u, "host", "active")));
+    const c = makeCtx(w, null);
+    const { scans } = checkIndexes(c);
+    let fetches = 0;
+    const get = c.db.get;
+    c.db.get = async (x: string) => (fetches++, get(x));
+    const leaders = await leaderUserIds(c, [...crowd, "users:applicant", HOST].map(id));
+    // The 15 hosts of the open Garden, and HOST: not the 15 at the pending one, nor the applicant.
+    expect(leaders.size).toBe(16);
+    expect(leaders.has("users:applicant")).toBe(false);
+    expect(leaders.has("users:crowd1")).toBe(false);
+    expect(leaders.has("users:crowd0")).toBe(true);
+    // Two communities in all (the Garden and the pending one), however many people: two reads.
+    expect(fetches).toBe(2);
+    expect(scans).toEqual([]);
+  });
+});
+
 describe("isCommunityLeader — a profile the caller already has", () => {
   const admin = world().profiles[0] as any;
   const plain = world().profiles.find((p) => p.userId === MEMBER) as any;

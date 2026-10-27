@@ -570,8 +570,21 @@ describe("profiles.directory — who leads a community", () => {
     expect((await call(directory, led(), MEMBER)).scans.sort()).toEqual(["profiles", "projects"]);
   });
 
+  it("a host of a community still pending is no leader: applying isn't leading", async () => {
+    const pending = world(2, {
+      hostOrgs: [{ _id: PUB, name: "Applied", slug: "applied", kind: "community", status: "pending" }],
+      communityMembers: [LEAD(1, PUB, "users:u1", "host", "active")],
+    });
+    for (const viewer of [MEMBER, null]) {
+      expect(leaders((await call(directory, pending, viewer)).out.people)).toEqual([]);
+    }
+  });
+
   it("looks only at the page it returns, not at everyone who matches", async () => {
-    const crowd = world(60, { communityMembers: [LEAD(9, PUB, "users:u60", "host", "active")] });
+    const crowd = world(60, {
+      hostOrgs: [{ _id: PUB, name: "Public Circle", slug: "public-circle", kind: "community", status: "active" }],
+      communityMembers: [LEAD(9, PUB, "users:u60", "host", "active")],
+    });
     const ctx = makeCtx(crowd, MEMBER);
     const asked: string[] = [];
     const query = ctx.db.query;
