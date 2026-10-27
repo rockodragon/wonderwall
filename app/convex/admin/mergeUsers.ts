@@ -4,22 +4,34 @@
 // same person (e.g. they signed up with a password, then years later with
 // Google under a *different* verified email that later turned out to be
 // the same person, or a support case needs to combine two accounts by
-// hand). Never callable from a client: internalMutation only, run from the
-// Convex dashboard or `npx convex run` by an operator.
+// hand). The internalMutation is never callable from a client: it runs from
+// the Convex dashboard or `npx convex run` by an operator. The admin
+// duplicates page (admin/duplicates.ts) calls the same handler,
+// runMergeUsers, behind its own admin check.
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
-import { syncCoHosts } from "../eventHosts";
+import { swapDisplayHost, syncCoHosts } from "../eventHosts";
 import { getProfileByUserId } from "../helpers";
+import { HANDLE_FORWARD_MS } from "../handleRules";
+import { hasRealName } from "../names";
+import { syncProfileOrgCache } from "../organizations";
+import { isCurrent } from "../organizationRules";
+import { maskPhone } from "../phone";
+
+/** A field that points at an account: one id, a list of ids (`array`), or
+ * an event's "shown as host" list (`hostRefs`, events.displayHosts). */
+export type RefField = { table: string; field: string; array?: boolean; hostRefs?: boolean };
 
 // Every table with a `v.id("users")` field whose rows count as "real
 // content" on an account (i.e. NOT just the account's own empty profile or
 // its auth plumbing). Regenerate by grepping `v.id("users")` in
 // convex/schema.ts — kept as an explicit, reviewable list rather than
-// introspecting the schema's validator tree at runtime. eventCoHosts isn't
+// introspecting the schema's validator tree at runtime; mergeUsers.test.ts
+// fails when the schema has one this list doesn't name. eventCoHosts isn't
 // here: it mirrors events.coHostIds, and repoint re-syncs it from that.
-export const USER_ID_FIELDS: { table: string; field: string; array?: boolean }[] = [
+export const USER_ID_FIELDS: RefField[] = [
   { table: "wonderingResponses", field: "responderId" },
   { table: "events", field: "organizerId" },
   { table: "events", field: "coHostIds", array: true },
@@ -84,6 +96,35 @@ export const USER_ID_FIELDS: { table: string; field: string; array?: boolean }[]
   { table: "emailPreferences", field: "userId" },
   { table: "phoneLinkCodes", field: "userId" },
   { table: "phoneLinkStarts", field: "userId" },
+  // Missing until the duplicates page (2026-10-26): a merge left these
+  // pointing at the deleted account — its organizations, the Tables it
+  // hosts, its gifts, the events that show it as a host, its uploads.
+  { table: "events", field: "displayHosts", hostRefs: true },
+  { table: "eventWaitlist", field: "userId" },
+  { table: "organizations", field: "createdByUserId" },
+  { table: "orgPositions", field: "userId" },
+  { table: "gardenTables", field: "hostUserId" },
+  { table: "gardenTables", field: "coHostIds", array: true },
+  { table: "gardenTables", field: "pausedByUserId" },
+  { table: "tableMembershipHistory", field: "userId" },
+  { table: "tableMembershipHistory", field: "recordedByUserId" },
+  { table: "tableCheckoutHolds", field: "userId" },
+  { table: "tableCheckoutHolds", field: "payeeUserId" },
+  { table: "tableAttendance", field: "userId" },
+  { table: "tableAttendance", field: "recordedByUserId" },
+  { table: "apGiftSubscriptions", field: "userId" },
+  { table: "memberGifts", field: "userId" },
+  { table: "memberGifts", field: "recipientUserId" },
+  { table: "giftPayments", field: "payeeUserId" },
+  { table: "giftPayments", field: "giverUserId" },
+  { table: "updates", field: "createdBy" },
+  { table: "updateReads", field: "userId" },
+  { table: "engagementLoops", field: "updatedBy" },
+  { table: "nudgeLog", field: "userId" },
+  // Who uploaded a file (uploads.ts): the kept account can replace the
+  // pictures it now holds.
+  { table: "uploadClaims", field: "userId" },
+  { table: "duplicateDismissals", field: "dismissedByUserId" },
 ];
 
 // Tables that reference the source's PROFILE id rather than their user id
@@ -98,20 +139,30 @@ export const PROFILE_ID_FIELDS: { table: string; field: string }[] = [
   { table: "jobs", field: "profileId" },
   { table: "jobInterests", field: "profileId" },
   { table: "gigResponses", field: "profileId" },
+  { table: "orgPositions", field: "profileId" },
+  { table: "handleForwards", field: "profileId" },
+  // A "profile" favorite is a follow, and its targetId is the followed
+  // person's profile id (only a profile favorite can hold one): the
+  // source's followers.
+  { table: "favorites", field: "targetId" },
 ];
 
-async function countMatching(
-  ctx: MutationCtx,
-  table: string,
-  field: string,
-  value: unknown,
-  array: boolean | undefined,
-): Promise<number> {
-  const rows = await ctx.db.query(table as any).collect();
-  if (array) {
-    return rows.filter((r: any) => Array.isArray(r[field]) && r[field].includes(value)).length;
+/** Whether `row` points at `value` through `ref`. */
+export function refersTo(row: any, ref: Pick<RefField, "field" | "array" | "hostRefs">, value: unknown): boolean {
+  const cell = row[ref.field];
+  if (ref.hostRefs) return Array.isArray(cell) && cell.some((h: any) => h?.kind === "user" && h.userId === value);
+  if (ref.array) return Array.isArray(cell) && cell.includes(value);
+  return cell === value;
+}
+
+/** Every row of a table, read once per scan (the scan only reads). */
+async function rowsOf(ctx: MutationCtx, table: string, cache: Map<string, any[]>): Promise<any[]> {
+  let rows = cache.get(table);
+  if (!rows) {
+    rows = await ctx.db.query(table as any).collect();
+    cache.set(table, rows);
   }
-  return rows.filter((r: any) => r[field] === value).length;
+  return rows;
 }
 
 /** Everything beyond a source account's own (possibly nonexistent) empty
@@ -123,18 +174,19 @@ async function scanForContent(
   userId: Id<"users">,
 ): Promise<{ profile: Doc<"profiles"> | null; blockers: Record<string, number> }> {
   const blockers: Record<string, number> = {};
+  const cache = new Map<string, any[]>();
 
-  for (const { table, field, array } of USER_ID_FIELDS) {
-    const count = await countMatching(ctx, table, field, userId, array);
-    if (count > 0) blockers[`${table}.${field}`] = count;
+  for (const ref of USER_ID_FIELDS) {
+    const count = (await rowsOf(ctx, ref.table, cache)).filter((r) => refersTo(r, ref, userId)).length;
+    if (count > 0) blockers[`${ref.table}.${ref.field}`] = count;
   }
 
   const profile = await getProfileByUserId(ctx, userId);
 
   if (profile) {
-    for (const { table, field } of PROFILE_ID_FIELDS) {
-      const count = await countMatching(ctx, table, field, profile._id, false);
-      if (count > 0) blockers[`${table}.${field}`] = count;
+    for (const ref of PROFILE_ID_FIELDS) {
+      const count = (await rowsOf(ctx, ref.table, cache)).filter((r) => refersTo(r, ref, profile._id)).length;
+      if (count > 0) blockers[`${ref.table}.${ref.field}`] = count;
     }
   }
 
@@ -163,6 +215,14 @@ const DEDUPE_KEYS: Record<string, string[]> = {
   "gigResponses.userId": ["slotId"],
   "offeringSignups.userId": ["offeringId"],
   "announcementRecipients.userId": ["announcementId"],
+  // Followed by both copies: one follow of the kept one.
+  "favorites.targetId": ["userId", "targetType"],
+  // Listed at an organization from both copies: the kept copy's place.
+  "orgPositions.userId": ["organizationId"],
+  "orgPositions.profileId": ["organizationId"],
+  "eventWaitlist.userId": ["eventId"],
+  "tableAttendance.userId": ["eventId"],
+  "updateReads.userId": ["updateId"],
 };
 
 // One Stripe customer per account: two can't be combined by re-pointing,
@@ -174,17 +234,22 @@ const ONE_PER_ACCOUNT_BLOCKING = ["billingCustomers"];
  * [moved, dropped]. */
 async function repoint(
   ctx: MutationCtx,
-  table: string,
-  field: string,
+  { table, field, array, hostRefs }: RefField,
   from: string,
   to: string,
-  array: boolean | undefined,
 ): Promise<[number, number]> {
   const rows: any[] = await ctx.db.query(table as any).collect();
   const dedupe = DEDUPE_KEYS[`${table}.${field}`];
   let moved = 0;
   let dropped = 0;
   for (const row of rows) {
+    if (hostRefs) {
+      const next = swapDisplayHost(row[field], "user", from, to);
+      if (!next) continue;
+      await ctx.db.patch(row._id, { [field]: next } as any);
+      moved++;
+      continue;
+    }
     if (array) {
       if (!Array.isArray(row[field]) || !row[field].includes(from)) continue;
       const next = [...new Set(row[field].map((x: string) => (x === from ? to : x)))];
@@ -215,10 +280,36 @@ async function repoint(
 // Profile fields never copied between accounts: identity and bookkeeping.
 const PROFILE_FIELDS_NOT_COPIED = new Set(["_id", "_creationTime", "userId", "createdAt", "updatedAt"]);
 
+/** The fields the target's profile leaves empty that the source's has, with
+ * the source's values: what mergeProfiles writes, and what the duplicates
+ * page's preview lists. The target's own values always win. A name that is
+ * still the sign-up placeholder (names.ts) counts as empty. */
+export function profileFill(
+  sourceProfile: Record<string, unknown>,
+  targetProfile: Record<string, unknown>,
+): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(sourceProfile)) {
+    if (PROFILE_FIELDS_NOT_COPIED.has(key)) continue;
+    const current = targetProfile[key];
+    const empty =
+      current === undefined ||
+      current === null ||
+      current === "" ||
+      (Array.isArray(current) && current.length === 0) ||
+      (key === "name" && !hasRealName(current as string));
+    if (key === "name" && !hasRealName(value as string)) continue;
+    if (empty && value !== undefined) patch[key] = value;
+  }
+  return patch;
+}
+
 /** Fills fields the target's profile leaves empty from the source's, so
- * nothing the person wrote on either account is lost. The target's own
- * values always win. Creates the target's profile from the source's if it
- * has none. Returns the target profile id and which fields were filled. */
+ * nothing the person wrote on either account is lost (profileFill). Creates
+ * the target's profile from the source's if it has none. When both had an
+ * @address, the source's forwards to the kept profile for
+ * HANDLE_FORWARD_DAYS, like an address someone changed (handles.ts). Returns
+ * the target profile id and which fields were filled. */
 async function mergeProfiles(
   ctx: MutationCtx,
   sourceProfile: Doc<"profiles">,
@@ -229,28 +320,28 @@ async function mergeProfiles(
     await ctx.db.patch(sourceProfile._id, { userId: targetUserId, updatedAt: Date.now() });
     return { targetProfileId: sourceProfile._id, filled: ["(whole profile moved)"] };
   }
-  const patch: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(sourceProfile)) {
-    if (PROFILE_FIELDS_NOT_COPIED.has(key)) continue;
-    const current = (targetProfile as any)[key];
-    const empty =
-      current === undefined ||
-      current === null ||
-      current === "" ||
-      (Array.isArray(current) && current.length === 0);
-    if (empty && value !== undefined) patch[key] = value;
-  }
+  const patch = profileFill(sourceProfile, targetProfile);
   if (Object.keys(patch).length > 0) {
     await ctx.db.patch(targetProfile._id, { ...patch, updatedAt: Date.now() } as any);
+  }
+  if (sourceProfile.handle && targetProfile.handle && sourceProfile.handle !== targetProfile.handle) {
+    await ctx.db.insert("handleForwards", {
+      handle: sourceProfile.handle,
+      profileId: targetProfile._id,
+      expiresAt: Date.now() + HANDLE_FORWARD_MS,
+    });
   }
   return { targetProfileId: targetProfile._id, filled: Object.keys(patch) };
 }
 
-function maskPhone(phone: string): string {
-  return `••••${phone.slice(-4)}`;
+/** What a merge does with one of the source's sign-ins: it moves to the
+ * target, so it opens the kept account from then on — except a password
+ * when the target already has one, which would collide and is dropped. */
+export function signInFate(provider: string, targetHasPassword: boolean): "moved" | "dropped" {
+  return provider === "password" && targetHasPassword ? "dropped" : "moved";
 }
 
-type SourceReport =
+export type SourceReport =
   | { sourceUserId: Id<"users">; skipped: string }
   | { sourceUserId: Id<"users">; blocked: true; blockers: Record<string, number> }
   | { sourceUserId: Id<"users">; dryRun: true; blockers: Record<string, number>; wouldMerge: boolean }
@@ -264,6 +355,14 @@ type SourceReport =
       contentMoved?: { moved: Record<string, number>; droppedDuplicates: Record<string, number>; profileFieldsFilled: string[] };
     };
 
+export type MergeUsersArgs = {
+  targetUserId: Id<"users">;
+  sourceUserIds: Id<"users">[];
+  dryRun: boolean;
+  force?: boolean;
+  moveContent?: boolean;
+};
+
 export const mergeUsers = internalMutation({
   args: {
     targetUserId: v.id("users"),
@@ -275,171 +374,226 @@ export const mergeUsers = internalMutation({
     // pointing at the deleted account.
     moveContent: v.optional(v.boolean()),
   },
-  handler: async (ctx, { targetUserId, sourceUserIds, dryRun, force, moveContent }) => {
-    const results: SourceReport[] = [];
+  handler: (ctx, args) => runMergeUsers(ctx, args),
+});
 
-    for (const sourceUserId of sourceUserIds) {
-      if (sourceUserId === targetUserId) {
-        results.push({ sourceUserId, skipped: "same as target" });
-        continue;
-      }
+/** mergeUsers' handler. A caller other than the operator CLI checks who is
+ * calling first (admin/duplicates.ts). */
+export async function runMergeUsers(
+  ctx: MutationCtx,
+  { targetUserId, sourceUserIds, dryRun, force, moveContent }: MergeUsersArgs,
+): Promise<{ targetUserId: Id<"users">; results: SourceReport[] }> {
+  const results: SourceReport[] = [];
 
-      const { profile, blockers } = await scanForContent(ctx, sourceUserId);
-      const hasContent = Object.keys(blockers).length > 0;
-
-      if (hasContent && !force && !moveContent) {
-        results.push({ sourceUserId, blocked: true, blockers });
-        continue;
-      }
-
-      if (moveContent) {
-        const clashes: Record<string, number> = {};
-        for (const table of ONE_PER_ACCOUNT_BLOCKING) {
-          const rows: any[] = await ctx.db.query(table as any).collect();
-          if (rows.some((r) => r.userId === sourceUserId) && rows.some((r) => r.userId === targetUserId)) {
-            clashes[`${table} (both accounts have one)`] = 1;
-          }
-        }
-        if (Object.keys(clashes).length > 0) {
-          results.push({ sourceUserId, blocked: true, blockers: clashes });
-          continue;
-        }
-      }
-
-      if (dryRun) {
-        results.push({ sourceUserId, dryRun: true, blockers, wouldMerge: true });
-        continue;
-      }
-
-      // ---- actually merge ----
-      let contentMoved: Extract<SourceReport, { merged: true }>["contentMoved"];
-      if (moveContent && hasContent) {
-        const moved: Record<string, number> = {};
-        const droppedDuplicates: Record<string, number> = {};
-        const note = (key: string, [m, d]: [number, number]) => {
-          if (m) moved[key] = m;
-          if (d) droppedDuplicates[key] = d;
-        };
-        for (const { table, field, array } of USER_ID_FIELDS) {
-          note(`${table}.${field}`, await repoint(ctx, table, field, sourceUserId, targetUserId, array));
-        }
-        let profileFieldsFilled: string[] = [];
-        if (profile) {
-          const { targetProfileId, filled } = await mergeProfiles(ctx, profile, targetUserId);
-          profileFieldsFilled = filled;
-          if (targetProfileId !== profile._id) {
-            for (const { table, field } of PROFILE_ID_FIELDS) {
-              note(`${table}.${field}`, await repoint(ctx, table, field, profile._id, targetProfileId, false));
-            }
-          }
-        }
-        // A block between the two accounts is now a person blocking
-        // themselves; drop it.
-        for (const b of await ctx.db.query("blocks").collect()) {
-          if (b.blockerId === targetUserId && b.blockedId === targetUserId) await ctx.db.delete(b._id);
-        }
-        contentMoved = { moved, droppedDuplicates, profileFieldsFilled };
-      }
-
-      const targetAccounts = await ctx.db
-        .query("authAccounts")
-        .withIndex("userIdAndProvider", (q) => q.eq("userId", targetUserId))
-        .collect();
-      const targetHasPassword = targetAccounts.some((a) => a.provider === "password");
-
-      const sourceAccounts = await ctx.db
-        .query("authAccounts")
-        .withIndex("userIdAndProvider", (q) => q.eq("userId", sourceUserId))
-        .collect();
-
-      let movedPhone: string | null = null;
-
-      for (const account of sourceAccounts) {
-        // Clean up verification codes tied to this account before it's
-        // either moved (codes stay valid, harmless to leave — but we drop
-        // them anyway since a merge invalidates any in-flight sign-in) or
-        // deleted (would otherwise orphan).
-        const codes = await ctx.db
-          .query("authVerificationCodes")
-          .withIndex("accountId", (q) => q.eq("accountId", account._id))
-          .collect();
-        for (const code of codes) await ctx.db.delete(code._id);
-
-        if (account.provider === "password" && targetHasPassword) {
-          // Target already has a password account — the source's would
-          // collide, so it's dropped rather than moved.
-          await ctx.db.delete(account._id);
-          continue;
-        }
-
-        await ctx.db.patch(account._id, { userId: targetUserId });
-        if (account.provider === "phone") {
-          movedPhone = account.providerAccountId;
-        }
-      }
-
-      // Carry the source's verified email over when it's the same address
-      // as the target's. Read from the source's users row, not the moved
-      // account: Convex Auth leaves authAccounts.emailVerified empty for
-      // Google sign-ins, so checking the account never fired.
-      const targetPatch: Record<string, unknown> = {};
-      const [sourceUser, targetUser] = await Promise.all([
-        ctx.db.get(sourceUserId),
-        ctx.db.get(targetUserId),
-      ]);
-      const copiedEmailVerification = Boolean(
-        sourceUser?.emailVerificationTime &&
-          !targetUser?.emailVerificationTime &&
-          sourceUser.email &&
-          sourceUser.email.toLowerCase() === targetUser?.email?.toLowerCase(),
-      );
-      if (copiedEmailVerification) {
-        targetPatch.emailVerificationTime = sourceUser!.emailVerificationTime;
-      }
-      if (movedPhone) {
-        targetPatch.phone = movedPhone;
-        targetPatch.phoneVerificationTime = Date.now();
-      }
-      if (Object.keys(targetPatch).length > 0) {
-        await ctx.db.patch(targetUserId, targetPatch);
-      }
-
-      // Delete the source's auth sessions (and each session's refresh
-      // tokens) and its profile, then the user row itself.
-      const sessions = await ctx.db
-        .query("authSessions")
-        .withIndex("userId", (q) => q.eq("userId", sourceUserId))
-        .collect();
-      for (const session of sessions) {
-        const refreshTokens = await ctx.db
-          .query("authRefreshTokens")
-          .withIndex("sessionId", (q) => q.eq("sessionId", session._id))
-          .collect();
-        for (const token of refreshTokens) await ctx.db.delete(token._id);
-        await ctx.db.delete(session._id);
-      }
-
-      const profileNow = profile ? await ctx.db.get(profile._id) : null;
-      if (profileNow && profileNow.userId === sourceUserId) {
-        await ctx.db.delete(profileNow._id);
-      }
-
-      await ctx.db.delete(sourceUserId);
-
-      results.push({
-        sourceUserId,
-        merged: true,
-        movedAccountCount: sourceAccounts.length,
-        copiedEmailVerification,
-        movedPhoneMasked: movedPhone ? maskPhone(movedPhone) : null,
-        forced: hasContent && !moveContent,
-        ...(contentMoved ? { contentMoved } : {}),
-      });
+  for (const sourceUserId of sourceUserIds) {
+    if (sourceUserId === targetUserId) {
+      results.push({ sourceUserId, skipped: "same as target" });
+      continue;
     }
 
-    return { targetUserId, results };
-  },
-});
+    const { profile, blockers } = await scanForContent(ctx, sourceUserId);
+    const hasContent = Object.keys(blockers).length > 0;
+
+    if (hasContent && !force && !moveContent) {
+      results.push({ sourceUserId, blocked: true, blockers });
+      continue;
+    }
+
+    if (moveContent) {
+      const clashes: Record<string, number> = {};
+      for (const table of ONE_PER_ACCOUNT_BLOCKING) {
+        const rows: any[] = await ctx.db.query(table as any).collect();
+        if (rows.some((r) => r.userId === sourceUserId) && rows.some((r) => r.userId === targetUserId)) {
+          clashes[`${table} (both accounts have one)`] = 1;
+        }
+      }
+      if (Object.keys(clashes).length > 0) {
+        results.push({ sourceUserId, blocked: true, blockers: clashes });
+        continue;
+      }
+    }
+
+    if (dryRun) {
+      results.push({ sourceUserId, dryRun: true, blockers, wouldMerge: true });
+      continue;
+    }
+
+    // ---- actually merge ----
+    // With moveContent the profiles are combined even when the source
+    // has nothing else, so its photo or bio isn't lost with it.
+    let contentMoved: Extract<SourceReport, { merged: true }>["contentMoved"];
+    if (moveContent) {
+      const moved: Record<string, number> = {};
+      const droppedDuplicates: Record<string, number> = {};
+      const note = (key: string, [m, d]: [number, number]) => {
+        if (m) moved[key] = m;
+        if (d) droppedDuplicates[key] = d;
+      };
+      // The kept account's own organizations, before any move in.
+      const ownPositions = new Set(
+        (
+          await ctx.db
+            .query("orgPositions")
+            .withIndex("by_userId", (q) => q.eq("userId", targetUserId))
+            .collect()
+        ).map((p) => p._id),
+      );
+      for (const ref of USER_ID_FIELDS) {
+        note(`${ref.table}.${ref.field}`, await repoint(ctx, ref, sourceUserId, targetUserId));
+      }
+      let profileFieldsFilled: string[] = [];
+      if (profile) {
+        const { targetProfileId, filled } = await mergeProfiles(ctx, profile, targetUserId);
+        profileFieldsFilled = filled;
+        if (targetProfileId !== profile._id) {
+          for (const ref of PROFILE_ID_FIELDS) {
+            note(`${ref.table}.${ref.field}`, await repoint(ctx, ref, profile._id, targetProfileId));
+          }
+        }
+        // Following or liking the other copy is now following or liking
+        // yourself; drop it.
+        for (const f of await ctx.db
+          .query("favorites")
+          .withIndex("by_userId_target", (q) =>
+            q.eq("userId", targetUserId).eq("targetType", "profile").eq("targetId", targetProfileId),
+          )
+          .collect()) {
+          await ctx.db.delete(f._id);
+        }
+        for (const l of await ctx.db
+          .query("profileLikes")
+          .withIndex("by_profileId_userId", (q) => q.eq("profileId", targetProfileId).eq("userId", targetUserId))
+          .collect()) {
+          await ctx.db.delete(l._id);
+        }
+        // Organizations that moved in go after the kept account's own, so
+        // the one shown with the name stays its own (organizations.ts).
+        if (moved["orgPositions.userId"] || moved["orgPositions.profileId"]) {
+          const current = (
+            await ctx.db
+              .query("orgPositions")
+              .withIndex("by_profileId", (q) => q.eq("profileId", targetProfileId))
+              .collect()
+          )
+            .filter(isCurrent)
+            .sort(
+              (a, b) =>
+                Number(!ownPositions.has(a._id)) - Number(!ownPositions.has(b._id)) ||
+                a.order - b.order ||
+                a.createdAt - b.createdAt,
+            );
+          for (let i = 0; i < current.length; i++) {
+            if (current[i].order !== i) await ctx.db.patch(current[i]._id, { order: i });
+          }
+          await syncProfileOrgCache(ctx, targetProfileId);
+        }
+      }
+      // A block between the two accounts is now a person blocking
+      // themselves; drop it.
+      for (const b of await ctx.db.query("blocks").collect()) {
+        if (b.blockerId === targetUserId && b.blockedId === targetUserId) await ctx.db.delete(b._id);
+      }
+      contentMoved = { moved, droppedDuplicates, profileFieldsFilled };
+    }
+
+    const targetAccounts = await ctx.db
+      .query("authAccounts")
+      .withIndex("userIdAndProvider", (q) => q.eq("userId", targetUserId))
+      .collect();
+    const targetHasPassword = targetAccounts.some((a) => a.provider === "password");
+
+    const sourceAccounts = await ctx.db
+      .query("authAccounts")
+      .withIndex("userIdAndProvider", (q) => q.eq("userId", sourceUserId))
+      .collect();
+
+    let movedPhone: string | null = null;
+
+    for (const account of sourceAccounts) {
+      // Clean up verification codes tied to this account before it's
+      // either moved (codes stay valid, harmless to leave — but we drop
+      // them anyway since a merge invalidates any in-flight sign-in) or
+      // deleted (would otherwise orphan).
+      const codes = await ctx.db
+        .query("authVerificationCodes")
+        .withIndex("accountId", (q) => q.eq("accountId", account._id))
+        .collect();
+      for (const code of codes) await ctx.db.delete(code._id);
+
+      if (signInFate(account.provider, targetHasPassword) === "dropped") {
+        // Target already has a password account — the source's would
+        // collide, so it's dropped rather than moved.
+        await ctx.db.delete(account._id);
+        continue;
+      }
+
+      await ctx.db.patch(account._id, { userId: targetUserId });
+      if (account.provider === "phone") {
+        movedPhone = account.providerAccountId;
+      }
+    }
+
+    // Carry the source's verified email over when it's the same address
+    // as the target's. Read from the source's users row, not the moved
+    // account: Convex Auth leaves authAccounts.emailVerified empty for
+    // Google sign-ins, so checking the account never fired.
+    const targetPatch: Record<string, unknown> = {};
+    const [sourceUser, targetUser] = await Promise.all([
+      ctx.db.get(sourceUserId),
+      ctx.db.get(targetUserId),
+    ]);
+    const copiedEmailVerification = Boolean(
+      sourceUser?.emailVerificationTime &&
+        !targetUser?.emailVerificationTime &&
+        sourceUser.email &&
+        sourceUser.email.toLowerCase() === targetUser?.email?.toLowerCase(),
+    );
+    if (copiedEmailVerification) {
+      targetPatch.emailVerificationTime = sourceUser!.emailVerificationTime;
+    }
+    if (movedPhone) {
+      targetPatch.phone = movedPhone;
+      targetPatch.phoneVerificationTime = Date.now();
+    }
+    if (Object.keys(targetPatch).length > 0) {
+      await ctx.db.patch(targetUserId, targetPatch);
+    }
+
+    // Delete the source's auth sessions (and each session's refresh
+    // tokens) and its profile, then the user row itself.
+    const sessions = await ctx.db
+      .query("authSessions")
+      .withIndex("userId", (q) => q.eq("userId", sourceUserId))
+      .collect();
+    for (const session of sessions) {
+      const refreshTokens = await ctx.db
+        .query("authRefreshTokens")
+        .withIndex("sessionId", (q) => q.eq("sessionId", session._id))
+        .collect();
+      for (const token of refreshTokens) await ctx.db.delete(token._id);
+      await ctx.db.delete(session._id);
+    }
+
+    const profileNow = profile ? await ctx.db.get(profile._id) : null;
+    if (profileNow && profileNow.userId === sourceUserId) {
+      await ctx.db.delete(profileNow._id);
+    }
+
+    await ctx.db.delete(sourceUserId);
+
+    results.push({
+      sourceUserId,
+      merged: true,
+      movedAccountCount: sourceAccounts.length,
+      copiedEmailVerification,
+      movedPhoneMasked: movedPhone ? maskPhone(movedPhone) : null,
+      forced: hasContent && !moveContent,
+      ...(contentMoved ? { contentMoved } : {}),
+    });
+  }
+
+  return { targetUserId, results };
+}
 
 /**
  * Sign-in records whose user no longer exists (accounts deleted before

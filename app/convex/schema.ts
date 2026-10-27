@@ -179,6 +179,18 @@ export default defineSchema({
     .index("by_nameKey", ["nameKey"])
     .searchIndex("search_name", { searchField: "name" }),
 
+  // The address of an organization merged into another (admin/
+  // mergeOrganizations.ts): /orgs/<slug> keeps opening the one it was
+  // merged into (organizations.ts orgBySlug). An organization that holds
+  // the slug itself wins over a forward.
+  orgSlugForwards: defineTable({
+    slug: v.string(),
+    organizationId: v.id("organizations"),
+    createdAt: v.number(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_organizationId", ["organizationId"]),
+
   // A person's position at an organization: one row per person per
   // organization. endYear set = a former position. Among current
   // positions the lowest `order` is their primary organization — the one
@@ -2473,4 +2485,15 @@ export default defineSchema({
     userId: v.id("users"),
     claimedAt: v.number(),
   }).index("by_storageId", ["storageId"]),
+
+  // Two people or two organizations an admin said are NOT the same one, on
+  // /admin/duplicates (admin/duplicates.ts), so the pair isn't suggested
+  // again. One row per pair: `pairKey` is the two ids (users ids for people,
+  // organizations ids for organizations), sorted, joined by "+".
+  duplicateDismissals: defineTable({
+    kind: v.union(v.literal("person"), v.literal("organization")),
+    pairKey: v.string(),
+    dismissedByUserId: v.id("users"),
+    dismissedAt: v.number(),
+  }).index("by_kind_pairKey", ["kind", "pairKey"]),
 }, { schemaValidation: false });

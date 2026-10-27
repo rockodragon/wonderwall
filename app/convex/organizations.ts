@@ -354,15 +354,28 @@ export async function fillOrgWebsite(
   await refreshMemberCaches(ctx, org._id);
 }
 
+/** The organization at /orgs/<slug>: the one that holds the slug, else the
+ * one an organization merged into it forwards to (orgSlugForwards, written
+ * by admin/mergeOrganizations.ts), so an old link still opens a page. */
+export async function orgBySlug(ctx: Ctx, slug: string): Promise<Doc<"organizations"> | null> {
+  const org = await ctx.db
+    .query("organizations")
+    .withIndex("by_slug", (q) => q.eq("slug", slug))
+    .first();
+  if (org) return org;
+  const forward = await ctx.db
+    .query("orgSlugForwards")
+    .withIndex("by_slug", (q) => q.eq("slug", slug))
+    .first();
+  return forward ? await ctx.db.get(forward.organizationId) : null;
+}
+
 // ——— Queries ———
 
 export const getBySlug = query({
   args: { slug: v.string() },
   handler: async (ctx, { slug }) => {
-    const org = await ctx.db
-      .query("organizations")
-      .withIndex("by_slug", (q) => q.eq("slug", slug))
-      .first();
+    const org = await orgBySlug(ctx, slug);
     if (!org) return null;
 
     const people = [];

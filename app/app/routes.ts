@@ -144,6 +144,9 @@ export default [
     // only — money activity is /admin/ledger's.
     route("admin/activity", "routes/admin.activity.tsx"),
     route("admin/crawler", "routes/admin.crawler.tsx"),
+    // People and organizations entered twice: compare, pick one, merge
+    // (convex/admin/duplicates.ts).
+    route("admin/duplicates", "routes/admin.duplicates.tsx"),
     // The emails PostHog asks the app to send (docs/features/engagement-loops.md).
     route("admin/engagement-loops", "routes/admin.engagement-loops.tsx"),
     route("admin/garden", "routes/admin.garden.tsx"),
