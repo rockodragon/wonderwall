@@ -24,6 +24,7 @@ import { currentUserId, getProfileByUserId, isAdminProfile, requireProfile, requ
 import { insertNotification } from "./notify";
 import { fail } from "./errors";
 import { hasRealName } from "./names";
+import { followedProfileIds } from "./favorites";
 import { claimUpload, deleteStoredFile } from "./uploads";
 
 type Ctx = QueryCtx | MutationCtx;
@@ -461,12 +462,15 @@ export const search = query({
 });
 
 /** The Organizations tab on People (/people?tab=orgs): every organization,
- * most people first, with the first few faces of its people. Someone who
- * never gave a name (convex/names.ts) has no page yet, so they are neither
- * shown nor counted: the count is the people a visitor could find. */
+ * most people first, with the first few faces of its people and how many of
+ * them the viewer follows. Someone who never gave a name (convex/names.ts)
+ * has no page yet, so they are neither shown nor counted: the count is the
+ * people a visitor could find. */
 export const list = query({
   args: {},
   handler: async (ctx) => {
+    const viewer = await currentUserId(ctx);
+    const followed = viewer ? await followedProfileIds(ctx, viewer) : new Set<string>();
     const orgs = await ctx.db.query("organizations").collect();
     const rows = await Promise.all(
       orgs.map(async (o) => {
@@ -491,6 +495,7 @@ export const list = query({
           location: o.location ?? null,
           logoUrl: await orgLogoUrl(ctx, o),
           peopleCount: named.length,
+          followingCount: named.filter((p) => followed.has(p._id)).length,
           faces,
         };
       }),
