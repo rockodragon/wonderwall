@@ -476,4 +476,71 @@ describe("getMyFavorites", () => {
   it("is empty when signed out", async () => {
     expect(await run(getMyFavorites, makeCtx(saved(), null), {})).toEqual({ profiles: [], events: [] });
   });
+
+  // The badge on a followed person's card in the desk's People › Following.
+  describe("says whether each person followed leads a community", () => {
+    const person = (n: string, over: Record<string, unknown> = {}): Row => ({
+      _id: `profiles:${n}`,
+      userId: `users:${n}`,
+      name: `Person ${n}`,
+      interests: [],
+      createdAt: 0,
+      ...over,
+    });
+    const host = (n: number, user: string, role: string, status: string): Row => ({
+      _id: `communityMembers:${n}`,
+      hostOrgId: "hostOrgs:circle",
+      userId: `users:${user}`,
+      role,
+      status,
+      joinedAt: n,
+    });
+    const followed = () => {
+      const w = world({
+        favorites: ["ada", "hana", "rex", "mo", "pat", "pam"].map((n) => ({
+          ...fav("profile", `profiles:${n}`),
+          _id: `favorites:follow-${n}`,
+        })),
+      });
+      w.profiles.push(
+        person("ada", { isAdmin: true }),
+        person("hana"),
+        person("rex"),
+        person("mo"),
+        person("pat"),
+        person("pam"),
+      );
+      w.hostOrgs = [{ _id: "hostOrgs:circle", kind: "community", name: "Circle", slug: "circle" }];
+      w.communityMembers = [
+        host(1, "hana", "host", "active"),
+        host(2, "rex", "host", "removed"),
+        host(3, "mo", "moderator", "active"),
+        host(4, "pat", "host", "pending"),
+        host(5, "pam", "member", "active"),
+      ];
+      return w;
+    };
+
+    it("an admin and an active host do; a removed host, a moderator, a pending host and a member don't", async () => {
+      const { profiles } = await run(getMyFavorites, makeCtx(followed(), MEMBER), {});
+      const flags = Object.fromEntries(profiles.map((p: any) => [p.profile.name, p.profile.isLeader]));
+      expect(flags).toEqual({
+        "Person ada": true,
+        "Person hana": true,
+        "Person rex": false,
+        "Person mo": false,
+        "Person pat": false,
+        "Person pam": false,
+      });
+    });
+
+    it("sends the yes or no and not the admin flag", async () => {
+      const { profiles } = await run(getMyFavorites, makeCtx(followed(), MEMBER), {});
+      for (const p of profiles) expect(p.profile).not.toHaveProperty("isAdmin");
+    });
+
+    it("is still empty for a signed-out caller: no profiles, so no flags", async () => {
+      expect(await run(getMyFavorites, makeCtx(followed(), null), {})).toEqual({ profiles: [], events: [] });
+    });
+  });
 });
