@@ -47,6 +47,10 @@ export function checkIndexes(ctx: { db: { query: (table: string) => any } }): { 
         inner = inner.filter(build);
         return api;
       },
+      order(direction: "asc" | "desc") {
+        inner = inner.order(direction);
+        return api;
+      },
       collect: ended("collect"),
       first: ended("first"),
       unique: ended("unique"),
