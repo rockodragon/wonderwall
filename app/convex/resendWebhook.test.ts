@@ -15,7 +15,7 @@ import {
 
 function createFakeDb() {
   const deliveries = new Map<string, DeliveryStatusRow & { detail?: string; lastEventAt?: number }>();
-  const suppressions: Array<{ email: string; reason: "bounced" | "complained"; providerId?: string }> = [];
+  const suppressions: Array<Parameters<ResendWebhookDb["addSuppression"]>[0]> = [];
 
   const db: ResendWebhookDb = {
     async getDelivery(providerId) {
@@ -46,6 +46,13 @@ function createFakeDb() {
 const NOW = 1_700_000_000_000;
 
 describe("handleResendEvent", () => {
+  it.each(["failed", "suppressed"] as const)("tracks asynchronous %s instead of leaving an accepted send successful", async status => {
+    const fake = createFakeDb(); fake.seed("provider-one");
+    await handleResendEvent({ type: `email.${status}`, data: { email_id: "provider-one", to: ["person@example.com"] } }, fake.db, NOW);
+    expect(fake.deliveries.get("provider-one")?.status).toBe(status);
+    if (status === "suppressed") expect(fake.suppressions[0].reason).toBe("suppressed");
+    else expect(fake.suppressions).toHaveLength(0);
+  });
   it("email.sent sets status to sent", async () => {
     const fake = createFakeDb();
     fake.seed("em_1", "sent");

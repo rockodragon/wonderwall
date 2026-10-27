@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import {
   Bell,
@@ -56,28 +56,11 @@ export default function MessagesIndex() {
     if (restoreFocus) newMessageButton.current?.focus();
   }, []);
 
-  // The unread badge is Messages + Notifications combined, and this page is
-  // where notifications are read — so mounting it clears them.
-  const markAllNotificationsRead = useMutation(api.notifications.markAllAsRead);
-  useEffect(() => {
-    markAllNotificationsRead({});
-  }, []);
-
-  // markAllAsRead fires on mount, so the live query flips every readAt a
-  // render or two later. Capture which rows were unread the first time data
-  // arrives and keep them marked for the life of the page.
-  const initialUnreadIds = useRef<Set<string> | null>(null);
-  if (notifications !== undefined && initialUnreadIds.current === null) {
-    initialUnreadIds.current = new Set(
-      notifications.filter((n) => n.readAt === undefined).map((n) => n._id as string),
-    );
-  }
-
   const inbox = useMemo(
     () =>
       conversations === undefined || notifications === undefined
         ? null
-        : buildInbox(conversations, notifications, initialUnreadIds.current ?? new Set(), Date.now()),
+        : buildInbox(conversations, notifications, new Set(notifications.filter(n => n.readAt === undefined).map(n => String(n._id))), Date.now()),
     [conversations, notifications],
   );
 
@@ -171,6 +154,11 @@ function InboxList({ rows }: { rows: InboxRow[] }) {
 
 function InboxRowView({ row }: { row: InboxRow }) {
   const RowIcon = ICONS[row.icon];
+  const markAsRead = useMutation(api.notifications.markAsRead);
+  const acknowledge = () => {
+    if (row.key.startsWith("n:") && row.unread)
+      void markAsRead({ notificationId: row.key.slice(2) as import("../../convex/_generated/dataModel").Id<"notifications"> }).catch(() => {});
+  };
   // The person's photo, else their initials, else the icon for the kind of
   // row. The title already says who, so the picture is decoration.
   const [photoFailed, setPhotoFailed] = useState(false);
@@ -238,10 +226,10 @@ function InboxRowView({ row }: { row: InboxRow }) {
     </>
   );
   return row.href ? (
-    <Link to={row.href} className={className}>
+    <Link to={row.href} className={className} onClick={acknowledge}>
       {content}
     </Link>
   ) : (
-    <div className={className}>{content}</div>
+    <button type="button" className={`${className} w-full text-left`} onClick={acknowledge} aria-label={`Mark ${row.title} as read`}>{content}</button>
   );
 }

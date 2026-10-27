@@ -1,22 +1,11 @@
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
 import { PersonAvatar } from "./PersonAvatar";
-
-// Get anonymous ID for analytics
-function getAnonymousId(): string {
-  if (typeof window === "undefined") return "server";
-  let id = localStorage.getItem("analytics_id");
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem("analytics_id", id);
-  }
-  return id;
-}
+import { captureAnalytics } from "../lib/posthog";
 
 export function CreateWonderingComposer() {
-  const captureEvent = useAction(api.posthog.capture);
   const profile = useQuery(api.profiles.getMyProfile);
   const wondering = useQuery(api.wonderings.getMyWondering);
   const createWondering = useMutation(api.wonderings.create);
@@ -60,14 +49,10 @@ export function CreateWonderingComposer() {
       });
 
       // Track wondering created
-      captureEvent({
-        event: "wondering_created",
-        distinctId: getAnonymousId(),
-        properties: {
-          prompt_length: prompt.trim().length,
-          replaced_existing: hasActiveWondering,
-        },
-      }).catch(console.error);
+      captureAnalytics("wondering_created", {
+        prompt_length: prompt.trim().length,
+        replaced_existing: !!hasActiveWondering,
+      });
 
       // Reset form
       setPrompt("");

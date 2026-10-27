@@ -21,10 +21,10 @@ export function createResendProvider(apiKey: string): EmailProvider {
         text: msg.text,
         headers: msg.headers,
         replyTo: msg.replyTo,
-      });
+      }, { idempotencyKey: msg.idempotencyKey });
 
       if (error) {
-        return { ok: false, error: error.message };
+        return { ok: false, error: error.message, retryable: error.name === "rate_limit_exceeded" || error.name === "internal_server_error" };
       }
       return { ok: true, id: data?.id };
     },

@@ -74,6 +74,9 @@ export const getUnreadCount = query({
       .withIndex("by_userId_readAt", (q) =>
         q.eq("userId", userId).eq("readAt", undefined),
       )
+      // Message unread state is counted by messaging.getUnreadCount; the
+      // merged inbox deliberately has no duplicate new_message rows.
+      .filter(q => q.neq(q.field("type"), "new_message"))
       .collect();
 
     return unread.length;

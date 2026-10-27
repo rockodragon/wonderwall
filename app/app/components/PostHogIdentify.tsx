@@ -9,7 +9,7 @@
 import { useConvexAuth, useQuery } from "convex/react";
 import { useEffect, useRef } from "react";
 import { api } from "../../convex/_generated/api";
-import { posthog } from "../lib/posthog";
+import { browserAnalyticsReady, posthog } from "../lib/posthog";
 
 export function PostHogIdentify() {
   const { isAuthenticated, isLoading } = useConvexAuth();
@@ -17,13 +17,22 @@ export function PostHogIdentify() {
   const identified = useRef<string | null>(null);
 
   useEffect(() => {
-    if (isLoading || !posthog.__loaded) return;
+    if (isLoading || !browserAnalyticsReady()) return;
+    const storedId = posthog.get_property("$user_id");
     if (isAuthenticated && me) {
       const id = String(me.userId);
-      if (identified.current === id) return;
-      posthog.identify(id, { name: me.name, ...(me.email ? { email: me.email } : {}) });
+      // Account switches must not merge two members through a shared device.
+      if ((identified.current && identified.current !== id) || (storedId && storedId !== id)) posthog.reset();
+      posthog.identify(id, {
+        name: me.name,
+        ...(me.email ? { email: me.email } : {}),
+        ...(me.plan ? { plan: me.plan } : {}),
+        interests: me.interests,
+      });
       identified.current = id;
-    } else if (!isAuthenticated && identified.current) {
+    } else if (identified.current || storedId) {
+      // Also clear an identity persisted before a reload, or while a new
+      // session is waiting for its own profile to become available.
       posthog.reset();
       identified.current = null;
     }

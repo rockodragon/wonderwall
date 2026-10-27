@@ -1,3 +1,4 @@
+import { analyticsErrorProperties } from "../lib/posthog";
 import { useMutation, useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
@@ -74,7 +75,7 @@ export default function OAuthCallback() {
           await generateSlug({});
         } catch (err) {
           posthog?.capture("invite_slug_generation_failed", {
-            error: err instanceof Error ? err.message : "Unknown error",
+            ...analyticsErrorProperties(err),
           });
         }
         navigate(inviteOnly ? "/invite" : "/onboarding", { replace: true });
@@ -123,7 +124,7 @@ export default function OAuthCallback() {
       } catch (err) {
         console.error("❌ OAuth invite processing failed:", err);
         posthog?.capture("oauth_invite_error", {
-          error: err instanceof Error ? err.message : "Unknown error",
+          ...analyticsErrorProperties(err),
           invite_slug: inviteSlug,
         });
 

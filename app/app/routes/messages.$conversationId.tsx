@@ -8,6 +8,7 @@ import { FULL_HEIGHT } from "../lib/phoneBar";
 import { exactTime, startsStretch, stretchLabel } from "../lib/messageTime";
 import { errorMessage } from "../lib/convexError";
 import { PersonAvatar } from "../components/PersonAvatar";
+import { observeVisibleMessageReads } from "../lib/visibleMessages";
 
 // The thread reads as one column, not edge to edge (Rick, 2026-10-01): full
 // width on a phone, then 768px, then 896px on a big screen. Bubbles stop at
@@ -28,6 +29,7 @@ export default function ConversationView() {
   const [showMenu, setShowMenu] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const messageListRef = useRef<HTMLDivElement>(null);
 
   const conversation = useQuery(
     api.messaging.getConversation,
@@ -45,22 +47,18 @@ export default function ConversationView() {
 
   const sendMessage = useMutation(api.messaging.sendMessage);
 
-  // See messages._index.tsx — a direct conversation link should also clear
-  // the merged Messages+Notifications badge, not just the inbox list view.
-  const markAllNotificationsRead = useMutation(api.notifications.markAllAsRead);
-  useEffect(() => {
-    markAllNotificationsRead({});
-  }, []);
   const markRead = useMutation(api.messaging.markConversationRead);
-
-  // Mark messages as read when viewing
+  // IDs change even when the latest page remains at its 100-message limit.
+  const messageReadVersion = messagesData?.messages
+    .filter(message => !message.isOwnMessage && message.readAt === undefined)
+    .map(message => String(message._id)).join("|");
   useEffect(() => {
-    if (conversationId) {
-      markRead({
-        conversationId: conversationId as Id<"conversations">,
-      }).catch(() => {});
-    }
-  }, [conversationId, markRead, messagesData?.messages.length]);
+    if (!conversationId || !messageListRef.current || !messageReadVersion) return;
+    return observeVisibleMessageReads(messageListRef.current, visibleMessageIds => markRead({
+      conversationId: conversationId as Id<"conversations">,
+      visibleMessageIds: visibleMessageIds as Id<"messages">[],
+    }));
+  }, [conversationId, markRead, messageReadVersion]);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -306,7 +304,7 @@ export default function ConversationView() {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div ref={messageListRef} className="flex-1 overflow-y-auto p-4">
         <div className={`${COLUMN} ${messages.length === 0 ? "h-full" : ""}`}>
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center">
@@ -348,7 +346,7 @@ export default function ConversationView() {
                       {stretchLabel(msg.createdAt, now)}
                     </p>
                   )}
-                  <div className={`flex ${gap} ${msg.isOwnMessage ? "justify-end" : "justify-start"}`}>
+                  <div data-inbound-message-id={!msg.isOwnMessage && msg.readAt === undefined ? msg._id : undefined} className={`flex ${gap} ${msg.isOwnMessage ? "justify-end" : "justify-start"}`}>
                     <p
                       title={exactTime(msg.createdAt)}
                       className={`max-w-[80%] md:max-w-[34rem] px-3.5 py-2 rounded-2xl border text-[15px] leading-[1.45] whitespace-pre-wrap break-words ${

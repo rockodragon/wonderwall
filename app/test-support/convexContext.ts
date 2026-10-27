@@ -1,3 +1,5 @@
+import { indexFields } from "./indexChecks";
+
 export type Row = Record<string, any> & { _id: string };
 
 /** Just enough of Convex's ctx: get / insert / patch / delete, and
@@ -24,18 +26,43 @@ export function makeCtx(
 
   function query(table: string) {
     let rows = rowsOf(table).slice();
+    let fields = ["_creationTime", "_id"];
+    let direction: "asc" | "desc" = "asc";
+    const compare = (a: any, b: any): number => {
+      if (a === b) return 0;
+      if (a === undefined) return -1;
+      if (b === undefined) return 1;
+      if (a === null) return -1;
+      if (b === null) return 1;
+      return a < b ? -1 : 1;
+    };
+    const compareKeys = (a: unknown[], b: unknown[]) => {
+      for (let i = 0; i < fields.length; i += 1) {
+        const result = compare(a[i], b[i]);
+        if (result) return direction === "asc" ? result : -result;
+      }
+      return 0;
+    };
+    const keyOf = (row: Row) => fields.map(field => row[field]);
+    const ordered = () => rows.slice().sort((a, b) => compareKeys(keyOf(a), keyOf(b)));
     const api = {
-      withIndex(_name: string, build: (q: any) => any) {
+      withIndex(name: string, build: (q: any) => any) {
+        fields = [...indexFields(table, name), "_creationTime", "_id"];
         const conds: ((r: Row) => boolean)[] = [];
         const q: any = {
           eq: (f: string, v: unknown) => (conds.push((r) => r[f] === v), q),
-          gt: (f: string, v: any) => (conds.push((r) => r[f] > v), q),
-          gte: (f: string, v: any) => (conds.push((r) => r[f] >= v), q),
-          lt: (f: string, v: any) => (conds.push((r) => r[f] < v), q),
-          lte: (f: string, v: any) => (conds.push((r) => r[f] <= v), q),
+          gt: (f: string, v: any) => (conds.push((r) => compare(r[f], v) > 0), q),
+          gte: (f: string, v: any) => (conds.push((r) => compare(r[f], v) >= 0), q),
+          lt: (f: string, v: any) => (conds.push((r) => compare(r[f], v) < 0), q),
+          lte: (f: string, v: any) => (conds.push((r) => compare(r[f], v) <= 0), q),
         };
         build(q);
         rows = rows.filter((r) => conds.every((c) => c(r)));
+        return api;
+      },
+      order(next: "asc" | "desc") {
+        direction = next;
+        rows = ordered();
         return api;
       },
       filter(build: (q: any) => any) {
@@ -57,10 +84,6 @@ export function makeCtx(
         rows = rows.filter((r) => pred(r));
         return api;
       },
-      order(dir: "asc" | "desc") {
-        if (dir === "desc") rows.reverse();
-        return api;
-      },
       async collect() {
         return rows.map((r) => ({ ...r }));
       },
@@ -75,14 +98,16 @@ export function makeCtx(
       async first() {
         return rows[0] ? { ...rows[0] } : null;
       },
-      // The cursor is the offset of the next row.
       async paginate({ cursor, numItems }: { cursor: string | null; numItems: number }) {
-        const start = cursor ? Number(cursor) : 0;
-        const end = Math.min(start + numItems, rows.length);
+        const after = cursor ? JSON.parse(cursor, (_key, value) => value?.__missingValue === true ? undefined : value) as { key: unknown[]; fields: string[]; direction: string } : null;
+        if (after && (JSON.stringify(after.fields) !== JSON.stringify(fields) || after.direction !== direction))
+          throw new Error("Pagination cursor belongs to a different query");
+        const remaining = ordered().filter(row => !after || compareKeys(keyOf(row), after.key) > 0);
+        const page = remaining.slice(0, numItems);
         return {
-          page: rows.slice(start, end).map((r) => ({ ...r })),
-          continueCursor: String(end),
-          isDone: end >= rows.length,
+          page: page.map(row => ({ ...row })),
+          isDone: remaining.length <= numItems,
+          continueCursor: page.length ? JSON.stringify({ key: keyOf(page[page.length - 1]), fields, direction }, (_key, value) => value === undefined ? { __missingValue: true } : value) : cursor ?? "",
         };
       },
     };
