@@ -17,6 +17,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { GARDEN_SLUG } from "../lib/communitySlugs";
 import { useCommunityContext } from "./CommunityFilter";
+import { gardenField } from "./gardenField";
 
 /** Default community for a new or edited event: the sidebar switcher's
  * community when one is picked, otherwise The Garden (every account joins
@@ -37,6 +38,7 @@ export function CommunityPicker({
   variant = "garden",
   className,
   defaultHostOrgId,
+  roomy,
 }: {
   /** The selected community's hostOrgId, or "" for none. */
   value: string;
@@ -53,6 +55,9 @@ export function CommunityPicker({
    * to "No community — just me" either way.
    */
   defaultHostOrgId?: string;
+  /** Garden variant only: the phone-sized look of the start-a-project sheet
+   *  (gardenField.ts). */
+  roomy?: boolean;
 }) {
   const communities = useQuery(api.garden.communities.listMyCommunities);
   const active = (communities ?? []).filter((c) => c.status === "active");
@@ -101,7 +106,7 @@ export function CommunityPicker({
   return (
     <div className={className}>
       <label
-        className="block text-xs uppercase tracking-[0.06em] mb-1.5"
+        className={roomy ? gardenField.label : "block text-xs uppercase tracking-[0.06em] mb-1.5"}
         style={{ color: "var(--garden-dim)" }}
       >
         Post to a community (optional)
@@ -109,12 +114,8 @@ export function CommunityPicker({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
-        style={{
-          backgroundColor: "var(--garden-ink)",
-          borderColor: "var(--garden-hairline-raised)",
-          color: "var(--garden-paper)",
-        }}
+        className={roomy ? gardenField.input : "w-full px-3 py-2 rounded-lg border text-sm outline-none"}
+        style={gardenField.inputStyle}
       >
         <option value={EMPTY_VALUE}>No community — just me</option>
         {active.map((c) => (

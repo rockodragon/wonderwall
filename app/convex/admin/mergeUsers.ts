@@ -12,6 +12,7 @@ import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { resummarizeConversations } from "../engagement/conversations";
 import { swapDisplayHost, syncCoHosts } from "../eventHosts";
 import { getProfileByUserId } from "../helpers";
 import { HANDLE_FORWARD_MS } from "../handleRules";
@@ -63,8 +64,6 @@ export const USER_ID_FIELDS: RefField[] = [
   { table: "jobs", field: "posterId", index: "by_posterId" },
   { table: "jobInterests", field: "userId" },
   { table: "conversations", field: "participants", array: true },
-  { table: "conversationParticipants", field: "userId", index: "by_userId_conversationId" },
-  { table: "conversationParticipants", field: "otherUserId", index: "by_otherUserId" },
   { table: "messages", field: "senderId", index: "by_senderId" },
   { table: "blocks", field: "blockerId", index: "by_blockerId" },
   { table: "blocks", field: "blockedId", index: "by_blockedId" },
@@ -112,11 +111,6 @@ export const USER_ID_FIELDS: RefField[] = [
   { table: "gigSlots", field: "bookedUserId", index: "by_bookedUserId_startsAt" },
   { table: "gigResponses", field: "userId" },
   { table: "emailPreferences", field: "userId", index: "by_userId" },
-  { table: "emailDeliveries", field: "recipientUserId", index: "by_recipientUserId_createdAt" },
-  { table: "emailDeliveries", field: "blockedUserId", index: "by_blockedUserId" },
-  { table: "engagementAttention", field: "userId", index: "by_userId" },
-  { table: "engagementAttention", field: "ownerId", index: "by_ownerId" },
-  { table: "engagementAttention", field: "updatedBy", index: "by_updatedBy" },
   { table: "phoneLinkCodes", field: "userId", index: "by_userId" },
   { table: "phoneLinkStarts", field: "userId", index: "by_userId_startedAt" },
   // Missing until the duplicates page (2026-10-26): a merge left these
@@ -142,7 +136,14 @@ export const USER_ID_FIELDS: RefField[] = [
   { table: "updates", field: "createdBy" },
   { table: "updateReads", field: "userId", index: "by_userId_updateId" },
   { table: "engagementLoops", field: "updatedBy" },
+  // Admin follow-ups on a member: who they're about, who owns them, who last
+  // changed them. Small; read whole, as ownerId and updatedBy have no index.
+  { table: "engagementAttention", field: "userId" },
+  { table: "engagementAttention", field: "ownerId" },
+  { table: "engagementAttention", field: "updatedBy" },
   { table: "nudgeLog", field: "userId", index: "by_userId_at" },
+  // Emails sent to the account: its contact cooldown carries over.
+  { table: "emailDeliveries", field: "recipientUserId", index: "by_recipientUserId_createdAt" },
   // Who uploaded a file (uploads.ts): the kept account can replace the
   // pictures it now holds.
   { table: "uploadClaims", field: "userId", index: "by_userId" },
@@ -419,14 +420,6 @@ async function moveProjectMemberReferences(reads: MergeReads, from: string, to: 
   }
 }
 
-/** Combined/deleted threads cannot retain summaries of their former history.
- * The existing conversation summary service reseeds them on next use. */
-async function discardConversationSummaries(reads: MergeReads, conversationId: string): Promise<void> {
-  for (const summary of await reads.pointingAt({ table: "conversationParticipants", field: "conversationId", index: "by_conversationId" }, conversationId)) {
-    await reads.delete("conversationParticipants", summary._id);
-  }
-}
-
 /** What a merge does with the other copy's conversations: one with the kept
  * account, or with another copy in the same merge, is a conversation with
  * yourself, so it goes, its messages with it;
@@ -435,6 +428,9 @@ async function discardConversationSummaries(reads: MergeReads, conversationId: s
 type ConversationPlan = {
   withEachOther: Doc<"conversations">[];
   combine: { keep: Doc<"conversations">; drop: Doc<"conversations"> }[];
+  /** Every conversation the source is in, and those it's combined into:
+   * their summaries are redone once the lists move (resummarizeConversations). */
+  touched: Id<"conversations">[];
 };
 
 async function planConversations(
@@ -445,9 +441,10 @@ async function planConversations(
 ): Promise<ConversationPlan> {
   // participants is a list, so the table is read whole (once per merge).
   const all = (await reads.table("conversations")) as Doc<"conversations">[];
-  const plan: ConversationPlan = { withEachOther: [], combine: [] };
+  const plan: ConversationPlan = { withEachOther: [], combine: [], touched: [] };
   const used = new Set<string>();
   for (const c of all.filter((x) => x.participants.includes(sourceUserId))) {
+    plan.touched.push(c._id);
     const others = c.participants.filter((p) => !merging.has(p));
     if (others.length === 0) {
       plan.withEachOther.push(c);
@@ -465,6 +462,7 @@ async function planConversations(
     used.add(theirs._id);
     used.add(c._id);
     plan.combine.push({ keep: theirs, drop: c });
+    plan.touched.push(theirs._id);
   }
   return plan;
 }
@@ -503,13 +501,10 @@ async function applyConversationPlan(
   ]);
 
   for (const c of plan.withEachOther) {
-    await discardConversationSummaries(reads, c._id);
     for (const m of await reads.pointingAt(MESSAGES_IN, c._id)) await reads.delete("messages", m._id);
     await reads.delete("conversations", c._id);
   }
   for (const { keep, drop } of plan.combine) {
-    await discardConversationSummaries(reads, keep._id);
-    await discardConversationSummaries(reads, drop._id);
     for (const m of await reads.pointingAt(MESSAGES_IN, drop._id)) {
       await reads.patch("messages", m, { conversationId: keep._id });
     }
@@ -724,6 +719,8 @@ async function moveContentOf(
   for (const ref of USER_ID_FIELDS) {
     note(`${ref.table}.${ref.field}`, await repoint(ctx, reads, ref, sourceUserId, targetUserId));
   }
+  // Summaries are worked out from the conversations and messages just moved.
+  if (!dryRun) await resummarizeConversations(ctx, conversations.touched, sourceUserId, targetUserId);
   let profileFieldsFilled: string[] = [];
   if (profile) {
     let targetProfileId: Id<"profiles">;

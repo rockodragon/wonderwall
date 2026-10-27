@@ -778,7 +778,6 @@ export default defineSchema({
   })
     .index("by_userId_conversationId", ["userId", "conversationId"])
     .index("by_conversationId", ["conversationId"])
-    .index("by_otherUserId", ["otherUserId"])
     .index("by_userId_lastMessageAt", ["userId", "lastMessageAt"])
     .index("by_userId_awaitingReplySince", ["userId", "awaitingReplySince"])
     .index("by_userId_unreadSince", ["userId", "unreadSince"])
@@ -1344,12 +1343,13 @@ export default defineSchema({
     // runs it, and every permission and payout still goes through them.
     organizationId: v.optional(v.id("organizations")),
     // Stage of the creative process (docs/features/project-teams.md §1):
-    // "planning" | "raising" | "forming" | "working" | "releasing" |
-    // "completed". A label, not a state machine, and deliberately NOT a
-    // rename of `status` (which stays lifecycle/visibility). Optional: rows
-    // from before this field derive one via resolveStage — the canonical
-    // copy lives in app/app/lib/stage.ts, twinned in garden/projectTeam.ts
-    // because convex/ can't import from app/.
+    // "planning" | "raising" | "forming" | "working" | "paused" |
+    // "completed" | "cancelled". A label, not a state machine, and
+    // deliberately NOT a rename of `status` (which stays lifecycle/
+    // visibility). Old rows may hold "releasing" (retired 2026-10-27): it
+    // reads as Completed and is not migrated. Optional: rows from before
+    // this field derive one via resolveStage — the one copy lives in
+    // convex/stages.ts, which app/app/lib/stage.ts re-exports.
     stage: v.optional(v.string()),
     // When `stage` last changed — setStage's once-per-24h notification rule
     // (project-teams.md §6) checks against it.
@@ -2519,7 +2519,6 @@ export default defineSchema({
     .index("by_to_createdAt", ["to", "createdAt"])
     .index("by_dedupeKey", ["dedupeKey"])
     .index("by_recipientUserId_createdAt", ["recipientUserId", "createdAt"])
-    .index("by_blockedUserId", ["blockedUserId"])
     .index("by_recipientUserId_cooldownAt", ["recipientUserId", "cooldownAt"]),
 
   emailDeliveryEvents: defineTable({
@@ -2558,8 +2557,7 @@ export default defineSchema({
     reviewedAt: v.optional(v.number()),
     updatedAt: v.number(),
     updatedBy: v.id("users"),
-  }).index("by_candidateKey", ["candidateKey"]).index("by_userId", ["userId"])
-    .index("by_ownerId", ["ownerId"]).index("by_updatedBy", ["updatedBy"]),
+  }).index("by_candidateKey", ["candidateKey"]).index("by_userId", ["userId"]),
 
   // Addresses that have hard-bounced or complained — checked before every
   // send (emails.sendNotificationEmail) so we stop mailing them. Written by

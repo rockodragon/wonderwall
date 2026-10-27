@@ -81,7 +81,7 @@ export function InviteGate({
       }
     }
     const next = takePendingIntent();
-    // A project title typed before the account is posted by onboarding.
+    // A project title typed before the account fills in onboarding's project step.
     if (hasStashedProjectTitle(next) && next) {
       setPendingIntent(next);
       navigate("/onboarding", { replace: true });

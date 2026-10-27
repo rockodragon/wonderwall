@@ -163,6 +163,22 @@ describe("tallyCounts", () => {
       expect(projects["Archived"]).toMatchObject({ all: 1, recent: 1 });
       expect(projects["Hidden by an admin"]).toMatchObject({ all: 1, recent: 0 });
     });
+
+    it("counts a project stored as releasing as Finished, the way it reads: Completed", () => {
+      const projects = rows(
+        {
+          ...empty(),
+          projects: [
+            project("a", THIS_WEEK, { stage: "releasing" }),
+            project("a", LAST_MONTH, { stage: "completed" }),
+            project("a", THIS_WEEK, { stage: "working" }),
+          ],
+        },
+        "Projects",
+      );
+      expect(projects["Finished"]).toMatchObject({ all: 2, recent: 1, sub: true });
+      expect(projects["In progress"]).toMatchObject({ all: 1, recent: 1, sub: true });
+    });
   });
 
   describe("events", () => {

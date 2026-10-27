@@ -26,6 +26,19 @@ const DUES_EVERY = "Half of every membership funds grants for other creatives.";
 export const CLAIMS = {
   whatItIs:
     "TheCreative.exchange is where creatives find paid work, get backed by people who believe in them, and apply for grants.",
+  /** The front door (Rick, 2026-10-27): who it's for and the three things
+   *  they find here. "Paid work" is the money; "support" is the patrons and
+   *  the grants. It describes the platform, which "Never say" #4 allows; it
+   *  promises nobody anything. */
+  hero: "Where creatives find their people, paid work, and support.",
+  /** The Garden's front door, Rick's words (2026-10-27): the line, and the
+   *  sentence under it. */
+  heroGarden: "The Garden is where connections take root and creative opportunities grow.",
+  heroGardenLine: "Find your people, get hired, and get paid with a community rooted in faith that helps you flourish.",
+  /** The grant fund, as The Garden's front door explains it (Rick's words,
+   *  2026-10-27). The amount available follows it, from the fund itself. */
+  grantFundHome:
+    "The Garden operates a grant fund to support community projects every month. There are advisor grants and member-directed grants.",
   join: "Joining is free.",
   backing: "When someone backs you for $100, you get $90. The other $10 runs the platform.",
   backingShort: "You keep 90% of what a backer gives you.",

@@ -1,6 +1,6 @@
 // "What are you working on?" on the signed-out front doors: the title comes
 // before the account. Submitting stashes it (lib/shareProject.ts) and goes to
-// signup; onboarding posts the project the moment the account exists.
+// signup; onboarding fills it in on its project step once the account exists.
 
 import { useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router";

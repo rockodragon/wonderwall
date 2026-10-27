@@ -26,6 +26,7 @@ import { CaretLeft, CaretRight, X } from "@phosphor-icons/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { PersonAvatar } from "../components/PersonAvatar";
+import { LeaderBadge } from "../components/LeaderBadge";
 import { PeopleFaces } from "../components/PeopleFaces";
 import { useReducedMotion } from "../hooks/useMediaQuery";
 import { errorMessage } from "../lib/convexError";
@@ -231,10 +232,17 @@ export function DetailPanel({
               follows the column so that is rare: see TITLE_SIZE. */}
           {card.kind === "person" ? (
             <div className="flex items-center gap-3">
-              <PersonAvatar name={card.detail.title} imageUrl={profile?.imageUrl ?? card.image} />
-              <h2 style={TITLE_STYLE}>
-                <LinkedText text={card.detail.title} links={card.detail.links} className={NAME_LINK_CLASS} />
-              </h2>
+              {/* Their photo already fills the card beside this, so a second,
+                  smaller copy would only repeat it. With no photo, their initial
+                  stands in, square like a profile photo. */}
+              {!card.image && <PersonAvatar name={card.detail.title} imageUrl={profile?.imageUrl} shape="tile" />}
+              {/* A leader's sprout goes under their name, as on the card's face. */}
+              <div className="flex min-w-0 flex-col items-start gap-2">
+                <h2 style={TITLE_STYLE}>
+                  <LinkedText text={card.detail.title} links={card.detail.links} className={NAME_LINK_CLASS} />
+                </h2>
+                {card.leader && <LeaderBadge surface="dark" />}
+              </div>
             </div>
           ) : (
             <h2 style={TITLE_STYLE}>

@@ -28,9 +28,12 @@ export function FocusBackdrop({
       className="fixed inset-0 z-50 overflow-y-auto overscroll-contain"
       style={deskSurfaceStyle(tint)}
     >
+      {/* On a phone the row is exactly the screen (the backdrop is fixed to
+          it), so a card that fills it keeps its own footer in view under the
+          browser's bar; a taller card still scrolls the backdrop. */}
       <div
-        className={`flex min-h-full justify-center ${
-          phoneFullScreen ? "items-stretch sm:items-center sm:p-4" : "items-center p-4"
+        className={`flex justify-center ${
+          phoneFullScreen ? "h-full items-stretch sm:h-auto sm:min-h-full sm:items-center sm:p-4" : "min-h-full items-center p-4"
         }`}
       >
         {children}

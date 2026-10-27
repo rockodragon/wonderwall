@@ -18,15 +18,9 @@ import { useSignOut } from "../lib/useSignOut";
 import { INTERESTS, shownInterests } from "../constants/interests";
 import { LEVEL_LABEL } from "../garden/capabilities";
 import { normalizeHandle, type PayoutKind } from "../../convex/garden/gigRules";
-import {
-  cleanHandle,
-  HANDLE_FORWARD_DAYS,
-  HANDLE_MAX_LENGTH,
-  HANDLE_PROBLEM_REASON,
-  handleProblem,
-  profilePath,
-} from "../../convex/handleRules";
+import { HANDLE_FORWARD_DAYS, HANDLE_MAX_LENGTH, profilePath } from "../../convex/handleRules";
 import { errorMessage } from "../lib/convexError";
+import { claimPendingAddress, useHandleCheck } from "../lib/useHandleCheck";
 import { LEGAL_ENTITY } from "../legal/entity";
 import { LinkedText } from "../components/LinkedText";
 import { NetworkTab } from "../components/NetworkTab";
@@ -1796,34 +1790,23 @@ function ProfileEditForm({
  * link where the reason is shown. */
 const CONTACT_LINK = [{ text: LEGAL_ENTITY.contactEmail, href: `mailto:${LEGAL_ENTITY.contactEmail}` }];
 
-/**
- * Your address: thecreative.exchange/@handle (convex/handleRules.ts has the
- * rules — Instagram's). Checks as you type: the rules here; taken, held
- * (convex/heldHandles.ts) or a community's name on the server
- * (handles.checkHandle). Save shows once the name changes; a change keeps
- * the old address forwarding for HANDLE_FORWARD_DAYS. The "i" holds the
- * explanation and "How names work" (/legal/names). Under it, a switch for
- * "Hide my profile from search engines" (handles.setHideFromSearch).
- * The field is the #address target (Settings' #address effect).
- */
-/** What Save Profile does with the address field: nothing (blank or
- *  unchanged), stop (already refused: its reason is showing, so no second
- *  ask), or claim it and let the server decide. */
-export function pendingAddressStep(field: {
-  handle: string;
-  unchanged: boolean;
-  refused: boolean;
-}): "none" | "refused" | "claim" {
-  if (!field.handle || field.unchanged) return "none";
-  return field.refused ? "refused" : "claim";
-}
-
 type AddressHandle = {
   /** Claims a changed address, if there is one. False when it was refused:
    *  the reason is showing and the field has the cursor. */
   savePending: () => Promise<boolean>;
 };
 
+/**
+ * Your address: thecreative.exchange/@handle (convex/handleRules.ts has the
+ * rules — Instagram's). Checks as you type: the rules here; taken, held
+ * (convex/heldHandles.ts) or a community's name on the server
+ * (handles.checkHandle, read through useHandleCheck). Save shows once the
+ * name changes; a change keeps the old address forwarding for
+ * HANDLE_FORWARD_DAYS. The "i" holds the explanation and "How names work"
+ * (/legal/names). Under it, a switch for "Hide my profile from search
+ * engines" (handles.setHideFromSearch).
+ * The field is the #address target (Settings' #address effect).
+ */
 function AddressSection({
   profile,
   ref,
@@ -1840,35 +1823,8 @@ function AddressSection({
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handle = cleanHandle(typed);
-  // A blank field isn't a problem yet; the rules speak once there's something.
-  const problem = handle ? handleProblem(handle) : null;
-  const unchanged = handle === current;
-
-  // The server's answer, a moment after typing stops.
-  const [asked, setAsked] = useState("");
-  useEffect(() => {
-    if (!handle || problem || unchanged) {
-      setAsked("");
-      return;
-    }
-    const timer = setTimeout(() => setAsked(handle), 300);
-    return () => clearTimeout(timer);
-  }, [handle, problem, unchanged]);
-  const check = useQuery(api.handles.checkHandle, asked ? { handle: asked } : "skip");
-  const answered = check !== undefined && check.handle === handle;
-  const refused = !!problem || (answered && !check.ok);
-  const status =
-    !handle || unchanged
-      ? null
-      : problem
-        ? HANDLE_PROBLEM_REASON[problem]
-        : !answered
-          ? "Checking…"
-          : check.ok
-            ? "Available."
-            : check.reason;
-  const canSave = !!handle && !problem && !unchanged && answered && check.ok && !saving;
+  const { handle, problem, unchanged, refused, status, canSave: free } = useHandleCheck(typed, current);
+  const canSave = free && !saving;
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -1892,26 +1848,16 @@ function AddressSection({
   // reason that's showing; one the server then refuses does the same.
   useImperativeHandle(ref, () => ({
     async savePending() {
-      const step = pendingAddressStep({ handle, unchanged, refused });
-      if (step === "none") return true;
-      const showWhy = () => {
-        inputRef.current?.scrollIntoView({ block: "center" });
-        inputRef.current?.focus({ preventScroll: true });
-      };
-      if (step === "refused") {
-        showWhy();
-        return false;
-      }
       setError(null);
-      try {
-        await claimHandle({ handle });
-        setSaved(true);
+      const result = await claimPendingAddress({ handle, unchanged, refused }, (h) => claimHandle({ handle: h }));
+      if (result.ok) {
+        if (result.claimed) setSaved(true);
         return true;
-      } catch (err) {
-        setError(errorMessage(err));
-        showWhy();
-        return false;
       }
+      if (result.error) setError(result.error);
+      inputRef.current?.scrollIntoView({ block: "center" });
+      inputRef.current?.focus({ preventScroll: true });
+      return false;
     },
   }));
 

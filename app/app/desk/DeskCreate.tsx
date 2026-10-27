@@ -79,7 +79,7 @@ export function DeskCreate() {
   // would otherwise sit above the card. Page modals cover it, so this does too.
   return createPortal(
     kind === "project" ? (
-      <ProjectModal onClose={close} onCreated={onCreated} initialStage={initialStage} />
+      <ProjectModal onClose={close} onCreated={onCreated} initialStage={initialStage} inUrl />
     ) : kind === "hire" ? (
       <HireFlow
         onClose={close}

@@ -10,6 +10,7 @@ import { loginHref } from "../lib/loginHref";
 import { canonicalProfileUrl, profileDescription, profileTitle } from "../lib/profileHead";
 import { EmbedStill, PlayBadge } from "../components/EmbedStill";
 import { FavoriteButton } from "../components/FavoriteButton";
+import { LeaderBadge } from "../components/LeaderBadge";
 import { ShareButton } from "../components/ShareButton";
 import { MyShareActions } from "../components/MyShareActions";
 import { ShareHint, useShareHint } from "../components/ShareHint";
@@ -218,6 +219,7 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
               >
                 {profile.name}
               </h1>
+              {profile.isLeader && <LeaderBadge />}
               {followsMe === true && (
                 <span className="text-xs" style={{ color: "var(--app-text-dim)" }}>
                   Follows you

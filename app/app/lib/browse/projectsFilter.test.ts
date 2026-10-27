@@ -137,6 +137,16 @@ describe("matchesStage", () => {
     expect(matchesStage(passion(), "planning")).toBe(true);
     expect(matchesStage(paid({ budgetType: "volunteer" }), "forming")).toBe(true);
   });
+  it("matches a project stored as releasing to Completed, which is how it reads", () => {
+    expect(matchesStage(passion({ stage: "releasing" }), "completed")).toBe(true);
+    expect(matchesStage(passion({ stage: "completed" }), "completed")).toBe(true);
+    expect(matchesStage(passion({ status: "completed" }), "completed")).toBe(true);
+    expect(matchesStage(passion({ stage: "releasing" }), "working")).toBe(false);
+    expect(matchesStage(passion({ stage: "working" }), "completed")).toBe(false);
+    // The old word, asked for directly, is Completed too.
+    expect(matchesStage(passion({ stage: "releasing" }), "releasing")).toBe(true);
+    expect(matchesStage(passion({ stage: "working" }), "releasing")).toBe(false);
+  });
   it("lets everything through for any stage, and for a word that is not a stage", () => {
     expect(matchesStage(passion({ stage: "working" }), "")).toBe(true);
     expect(matchesStage(passion({ stage: "working" }), "raising")).toBe(true);
@@ -145,17 +155,22 @@ describe("matchesStage", () => {
 });
 
 describe("the Stage menu", () => {
-  it("is Any stage, Planning, Forming team, Working, Released, with no Raising", () => {
-    expect(STAGE_OPTIONS.map((o) => o.label)).toEqual(["Any stage", "Planning", "Forming team", "Working", "Released"]);
-    expect(STAGE_OPTIONS.map((o) => o.value)).toEqual(["", "planning", "forming", "working", "releasing"]);
+  it("is Any stage, Planning, Forming team, Working, Completed, with no Raising and no Released", () => {
+    expect(STAGE_OPTIONS.map((o) => o.label)).toEqual(["Any stage", "Planning", "Forming team", "Working", "Completed"]);
+    expect(STAGE_OPTIONS.map((o) => o.value)).toEqual(["", "planning", "forming", "working", "completed"]);
+    expect(BROWSE_STAGES).toEqual(["planning", "forming", "working", "completed"]);
     expect(BROWSE_STAGES).not.toContain("raising");
+    expect(BROWSE_STAGES as readonly string[]).not.toContain("releasing");
   });
   it("is captioned Stage until one is chosen, then says which", () => {
     expect(stageCaption("")).toBe("Stage");
     expect(stageCaption("working")).toBe("Working");
-    expect(stageCaption("releasing")).toBe("Released");
+    expect(stageCaption("completed")).toBe("Completed");
+    // An old ?stage=releasing link reads as Completed.
+    expect(stageCaption("releasing")).toBe("Completed");
     expect(stageCaption("forming")).toBe("Forming team");
     expect(stageCaption("raising")).toBe("Stage");
+    expect(stageCaption("paused")).toBe("Stage");
     expect(stageCaption("nonsense")).toBe("Stage");
   });
 });
@@ -187,14 +202,14 @@ describe("readProjectsView", () => {
       expect(read({ show: "work" }).lens).toBe("work");
     });
     it("reads each stage, with Projects", () => {
-      for (const stage of ["planning", "forming", "working", "releasing"]) {
+      for (const stage of ["planning", "forming", "working", "completed"]) {
         expect(read({ stage })).toEqual(projects(stage));
       }
     });
     it("combines a chip with a stage", () => {
       expect(read({ show: "funding", stage: "planning" })).toEqual({ lens: "funding", stage: "planning" });
       expect(read({ show: "people", stage: "working" })).toEqual({ lens: "people", stage: "working" });
-      expect(read({ show: "projects", stage: "releasing" })).toEqual(projects("releasing"));
+      expect(read({ show: "projects", stage: "completed" })).toEqual(projects("completed"));
     });
     it("drops the stage under Jobs and gigs", () => {
       expect(read({ show: "work", stage: "planning" })).toEqual({ lens: "work", stage: "" });
@@ -206,7 +221,7 @@ describe("readProjectsView", () => {
       expect(read({ show: "nonsense" })).toEqual(projects());
       expect(read({ stage: "nonsense" })).toEqual(projects());
       expect(read({ stage: "paused" })).toEqual(projects());
-      expect(read({ stage: "completed" })).toEqual(projects());
+      expect(read({ stage: "cancelled" })).toEqual(projects());
       expect(read({ show: "constructor", stage: "__proto__" })).toEqual(projects());
     });
   });
@@ -249,10 +264,18 @@ describe("readProjectsView", () => {
       expect(read({ stage: "working", seek: "people" })).toEqual({ lens: "people", stage: "working" });
     });
     it("reads an old stage id as that stage, with Projects", () => {
-      for (const stage of ["planning", "forming", "working", "releasing"]) {
+      for (const stage of ["planning", "forming", "working", "completed"]) {
         expect(read({ show: stage })).toEqual(projects(stage));
       }
       expect(read({ view: "projects", show: "working" })).toEqual(projects("working"));
+    });
+    it("stage=releasing, from before Released was dropped: Completed", () => {
+      expect(read({ stage: "releasing" })).toEqual(projects("completed"));
+      expect(read({ show: "releasing" })).toEqual(projects("completed"));
+      expect(read({ show: "funding", stage: "releasing" })).toEqual({ lens: "funding", stage: "completed" });
+      expect(read({ stage: "releasing", seek: "people" })).toEqual({ lens: "people", stage: "completed" });
+      // Jobs and gigs has no Stage, the old word included.
+      expect(read({ show: "work", stage: "releasing" })).toEqual({ lens: "work", stage: "" });
     });
     it("view=projects, kind=passion and an unknown word: Projects", () => {
       expect(read({ view: "projects" })).toEqual(projects());
@@ -325,6 +348,10 @@ describe("writeProjectsView", () => {
   });
   it("drops a stage it does not offer", () => {
     expect(write("", { lens: "projects", stage: "raising" }, PAGE)).toBe("");
+  });
+  it("writes Completed, and the old releasing word as Completed", () => {
+    expect(write("", { lens: "projects", stage: "completed" }, PAGE)).toBe("stage=completed");
+    expect(write("stage=releasing", { lens: "projects", stage: "releasing" }, PAGE)).toBe("stage=completed");
   });
   it("cleans up the old params the page used, and keeps the rest", () => {
     expect(write("view=work&show=gigs&community=sd&interests=Music", { lens: "people", stage: "" }, PAGE)).toBe(
@@ -426,6 +453,20 @@ describe("filterProjects", () => {
     expect(pick("work")).toEqual(["f", "g"]);
     expect(pick("work", "planning")).toEqual(["f", "g"]);
     expect(pick("projects", "planning")).toEqual(["a", "b"]);
+  });
+  it("Completed shows finished work: a stored releasing, a completed stage and a legacy completed status", () => {
+    const rows = [
+      passion({ _id: "a", stage: "releasing" }),
+      passion({ _id: "b", stage: "completed" }),
+      passion({ _id: "c", status: "completed" }),
+      passion({ _id: "d", stage: "working" }),
+      passion({ _id: "e", stage: "paused" }),
+    ];
+    expect(ids(filterProjects(rows as any, { lens: "projects", stage: "completed" }) as any)).toEqual(["a", "b", "c"]);
+    expect(ids(filterProjects(rows as any, { lens: "projects", stage: "working" }) as any)).toEqual(["d"]);
+    // The old link's word lands on the same list once read.
+    const { stage } = readProjectsView({ stage: "releasing" });
+    expect(ids(filterProjects(rows as any, { lens: "projects", stage }) as any)).toEqual(["a", "b", "c"]);
   });
   it("applies a community, a search and tags", () => {
     expect(ids(filterProjects(list as any, { lens: "projects", inCommunity: (p: any) => p.community?.slug === "sd" }) as any)).toEqual(["b"]);

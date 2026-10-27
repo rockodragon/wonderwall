@@ -5,7 +5,7 @@
 // `projects.userId`, never a row.
 //
 // House style (communities.ts / tables.ts): a pure core at the top —
-// stage twin, row-reuse rules, limits, and the client projections that strip
+// stage rules, row-reuse rules, limits, and the client projections that strip
 // `email` / `claimToken` — unit-tested in projectTeam.test.ts without
 // Convex; thin ctx.db wrappers below.
 
@@ -37,62 +37,15 @@ import {
   validateRateProposal,
   type RateProposal,
 } from "./recruitment";
+import { resolveStage } from "../stages";
 
 // ——————————————————————————————————————————————————————————————
-// Stage — TWIN of app/app/lib/stage.ts (STAGES, isStage, stageLabel,
-// resolveStage). convex/ cannot import from app/, so the tuple and the
-// derivation live here too. Keep both in sync; the frontend copy is the
-// one with the unit tests for labels.
+// Stage — STAGES, isStage, stageLabel and resolveStage live in ./stages.ts
+// (one pure copy the app shares: app/lib/stage.ts re-exports it). They are
+// re-exported here for anything that imported them from this file.
 // ——————————————————————————————————————————————————————————————
 
-export const STAGES = [
-  "planning",
-  "raising",
-  "forming",
-  "working",
-  "releasing",
-  "paused",
-  "completed",
-  "cancelled",
-] as const;
-
-export type Stage = (typeof STAGES)[number];
-
-export function isStage(value: unknown): value is Stage {
-  return typeof value === "string" && (STAGES as readonly string[]).includes(value);
-}
-
-/** One label per stage, same for passion and paid — see app/app/lib/stage.ts. */
-export function stageLabel(stage: Stage): string {
-  switch (stage) {
-    case "planning":
-      return "Planning";
-    case "raising":
-      return "Raising";
-    case "forming":
-      return "Forming team";
-    case "working":
-      return "Working";
-    case "releasing":
-      return "Released";
-    case "paused":
-      return "Paused";
-    case "completed":
-      return "Completed";
-    case "cancelled":
-      return "Cancelled";
-  }
-}
-
-/** Derive a stage for rows written before `stage` existed (§1): `stage`
- * wins when set; in_progress → working, completed → completed, paid →
- * forming, else planning. */
-export function resolveStage(project: { stage?: string; status?: string; kind: string }): Stage {
-  if (isStage(project.stage)) return project.stage;
-  if (project.status === "in_progress") return "working";
-  if (project.status === "completed") return "completed";
-  return project.kind === "paid" ? "forming" : "planning";
-}
+export { STAGES, isStage, resolveStage, stageLabel, type Stage } from "../stages";
 
 /** Whether a project's work is over: archived, completed (by status or
  * stage), or cancelled. "paused" isn't: on hold is not over. Nor is a hide,

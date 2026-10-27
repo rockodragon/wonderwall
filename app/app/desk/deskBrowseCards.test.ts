@@ -37,6 +37,13 @@ describe("directoryCard", () => {
   it("belongs to People only, so it never lands in Favorites", () => {
     expect(directoryCard(person(1), true).sections).toEqual(["people"]);
   });
+  it("marks a community leader's card for the sprout badge, and nobody else's", () => {
+    expect(directoryCard(person(1, { isLeader: true }), false).leader).toBe(true);
+    expect(directoryCard(person(1, { isLeader: true }), true).leader).toBe(true);
+    // Not a `leader: false` on every card: the others are as they were.
+    expect(directoryCard(person(1, { isLeader: false }), false)).not.toHaveProperty("leader");
+    expect(directoryCard(person(1), false)).not.toHaveProperty("leader");
+  });
   it("prefixes the foot with the distance when Near me measured one", () => {
     expect(directoryCard({ ...person(1), _distance: 12.4 }, false).face.foot).toBe("12 mi · Music");
     expect(directoryCard({ ...person(1), _distance: Infinity }, false).face.foot).toBe("Music");
@@ -125,6 +132,32 @@ describe("peopleCards", () => {
       "person:u1",
       "person:u3",
     ]);
+  });
+
+  it("keeps a followed leader's badge, with or without what they last posted", () => {
+    const leaders = [person(1, { isLeader: true }), person(2)];
+    const plain = peopleCards({ ...base, rows: leaders, following: true });
+    expect(plain.map((c) => c.leader)).toEqual([true, undefined]);
+    const activity = new Map([
+      [
+        "u1",
+        {
+          profileId: "u1",
+          name: "u1",
+          imageUrl: null,
+          interests: [],
+          since: 1,
+          latest: { type: "project", id: "projects:a", title: "Reel", at: NOW - DAY, thumbUrl: null, media: null, share: false, when: null },
+        } as ShortlistFollow,
+      ],
+    ]);
+    const withPost = peopleCards({ ...base, rows: leaders, following: true, activity });
+    expect(withPost.find((c) => c.id === "person:u1")?.leader).toBe(true);
+    expect(withPost.find((c) => c.id === "person:u2")).not.toHaveProperty("leader");
+  });
+  it("keeps it on Everyone too", () => {
+    const cards = peopleCards({ ...base, rows: [person(1, { isLeader: true }), person(2)], followedIds: new Set<string>(), following: false });
+    expect(cards.map((c) => c.leader)).toEqual([true, undefined]);
   });
 });
 
@@ -235,7 +268,7 @@ describe("peopleNoun", () => {
 });
 
 function project(id: string, extra: Partial<DeskProjectInput> = {}): DeskProjectInput {
-  return { _id: id, kind: "passion", status: "active", title: `Project ${id}`, blurb: "Making a thing.", media: [], creator: { name: "Dana Lee" }, community: null, ...extra };
+  return { _id: id, kind: "passion", status: "active", title: `Project ${id}`, blurb: "Making a thing.", media: [], creator: { _id: "dana", name: "Dana Lee", imageUrl: null }, community: null, ...extra };
 }
 const FUND: DeskFundInput = { slug: "abiding-practice", name: "The Sophia Grant Fund", orgName: "Abiding Practice", availableCents: 1_000_000, openCall: null };
 
@@ -298,7 +331,12 @@ describe("projectsCards", () => {
       openRoles: [{ title: "Drummer", budgetType: "amount", budget: 200 }],
     });
     const [lead] = projectsCards({ ...base, rows: [withRole], lens: "work" });
-    expect(lead.face).toEqual({ kicker: "ROLE ON HARBOR MURAL · PAID", title: "Drummer", foot: "$200 · Dana Lee" });
+    expect(lead.face).toEqual({
+      kicker: "ROLE ON HARBOR MURAL · PAID",
+      title: "Drummer",
+      foot: "$200",
+      by: { kind: "person", name: "Dana Lee", imageUrl: null, href: "/profile/dana" },
+    });
     expect(lead.detail.meta).toBe("ROLE ON HARBOR MURAL · PAID · THE GARDEN");
     expect(lead.detail.title).toBe("Drummer");
     expect(lead.detail.facts).toContainEqual({ label: "Paid role", value: "Drummer · $200" });
@@ -306,7 +344,8 @@ describe("projectsCards", () => {
     // The same project under Seeking people is the project.
     const [plain] = projectsCards({ ...base, rows: [withRole], lens: "people" });
     expect(plain.face.title).toBe("Harbor Mural");
-    expect(plain.face.kicker).toBe("PLANNING");
+    // A plain project's face has no stage up top.
+    expect(plain.face.kicker).toBe("");
     expect(plain.detail.facts?.some((f) => f.label === "Paid role")).toBe(false);
   });
   it("searches the title and description", () => {

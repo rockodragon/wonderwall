@@ -510,8 +510,110 @@ describe("profiles.directory — what it returns and reads", () => {
   });
 });
 
+// The badge on a person's card: every row says `isLeader`, a yes or no, to a
+// visitor as to a member. The admin flag itself never leaves the server.
+describe("profiles.directory — who leads a community", () => {
+  const LEAD = (n: number, hostOrgId: string, userId: string, role: string, status: string): Row => ({
+    _id: `communityMembers:lead${n}`,
+    hostOrgId,
+    userId,
+    role,
+    status,
+  });
+  const led = () =>
+    world(6, {
+      profiles: [profile(50, { name: "Ada Admin", isAdmin: true })],
+      hostOrgs: [{ _id: PUB, name: "Public Circle", slug: "public-circle", kind: "community", status: "active" }],
+      communityMembers: [
+        LEAD(1, PUB, "users:u1", "host", "active"),
+        LEAD(2, PUB, "users:u2", "host", "removed"),
+        LEAD(3, PUB, "users:u3", "moderator", "active"),
+        LEAD(4, PUB, "users:u4", "host", "pending"),
+        LEAD(5, PUB, "users:u5", "member", "active"),
+      ],
+    });
+  const leaders = (people: { name: string; isLeader: boolean }[]) =>
+    people.filter((p) => p.isLeader).map((p) => p.name).sort();
+
+  for (const viewer of [MEMBER, null]) {
+    const who = viewer ? "a member" : "a signed-out visitor";
+
+    it(`marks an admin and an active host, and no one else, for ${who}`, async () => {
+      const { out } = await call(directory, led(), viewer);
+      expect(leaders(out.people)).toEqual(["Ada Admin", "Person 1"]);
+    });
+  }
+
+  it("gives every row a plain true or false", async () => {
+    const { out } = await call(directory, led(), null);
+    expect(out.people.length).toBeGreaterThan(0);
+    for (const p of out.people) expect(typeof p.isLeader).toBe("boolean");
+  });
+
+  it("never sends the admin flag: the admin's row has the badge and nothing of how", async () => {
+    const { out } = await call(directory, led(), null);
+    const admin = out.people.find((p: { name: string }) => p.name === "Ada Admin");
+    expect(admin.isLeader).toBe(true);
+    for (const p of out.people) expect(p).not.toHaveProperty("isAdmin");
+  });
+
+  it("finds them under a search and inside a community too", async () => {
+    const found = (await call(directory, led(), MEMBER, { query: "ada" })).out;
+    expect(leaders(found.people)).toEqual(["Ada Admin"]);
+    // The community's active members: its host, its moderator and a member.
+    const inCommunity = (await call(directory, led(), null, { communitySlug: "public-circle" })).out;
+    expect(names(inCommunity.people)).toEqual(["Person 5", "Person 3", "Person 1"]);
+    expect(leaders(inCommunity.people)).toEqual(["Person 1"]);
+  });
+
+  it("reads the leaders by index: the same whole-table reads as before, nothing more", async () => {
+    expect((await call(directory, led(), MEMBER)).scans.sort()).toEqual(["profiles", "projects"]);
+  });
+
+  it("a host of a community still pending is no leader: applying isn't leading", async () => {
+    const pending = world(2, {
+      hostOrgs: [{ _id: PUB, name: "Applied", slug: "applied", kind: "community", status: "pending" }],
+      communityMembers: [LEAD(1, PUB, "users:u1", "host", "active")],
+    });
+    for (const viewer of [MEMBER, null]) {
+      expect(leaders((await call(directory, pending, viewer)).out.people)).toEqual([]);
+    }
+  });
+
+  it("looks only at the page it returns, not at everyone who matches", async () => {
+    const crowd = world(60, {
+      hostOrgs: [{ _id: PUB, name: "Public Circle", slug: "public-circle", kind: "community", status: "active" }],
+      communityMembers: [LEAD(9, PUB, "users:u60", "host", "active")],
+    });
+    const ctx = makeCtx(crowd, MEMBER);
+    const asked: string[] = [];
+    const query = ctx.db.query;
+    ctx.db.query = (table: string) => (table === "communityMembers" && asked.push(table), query(table));
+    const out = await run(directory, ctx, { limit: 24 });
+    expect(out.people).toHaveLength(24);
+    // One membership read for each of the 24 people on show, not 61.
+    expect(asked).toHaveLength(24);
+    expect(leaders(out.people)).toEqual(["Person 60"]);
+  });
+});
+
 describe("profiles.search — the name picker", () => {
   const tables = world(40);
+
+  it("carries the same leader flag as the directory", async () => {
+    const withLeader = world(3, {
+      profiles: [profile(50, { name: "Ada Admin", isAdmin: true })],
+      hostOrgs: [{ _id: PUB, name: "Public Circle", slug: "public-circle", kind: "community", status: "active" }],
+      communityMembers: [{ _id: "communityMembers:h", hostOrgId: PUB, userId: "users:u1", role: "host", status: "active" }],
+    });
+    for (const viewer of [MEMBER, null]) {
+      const { out } = await call(search, withLeader, viewer, { query: "person 1" });
+      expect(out.map((p: { name: string; isLeader: boolean }) => [p.name, p.isLeader])).toEqual([["Person 1", true]]);
+      const admin = (await call(search, withLeader, viewer, { query: "ada" })).out;
+      expect(admin.map((p: { isLeader: boolean }) => p.isLeader)).toEqual([true]);
+      for (const p of admin) expect(p).not.toHaveProperty("isAdmin");
+    }
+  });
 
   it("finds people by name for a member, up to 30", async () => {
     const { out } = await call(search, tables, MEMBER, { query: "person" });

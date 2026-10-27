@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToString } from "react-dom/server";
 import { StaticRouterProvider, createStaticHandler, createStaticRouter } from "react-router";
 import { getFunctionName } from "convex/server";
-import Settings, { pendingAddressStep } from "./settings";
+import Settings from "./settings";
 import { COVER_ASPECT } from "../lib/coverCrop";
 
 // The settings page on a phone: a tab row that scrolls without a scrollbar,
@@ -117,22 +117,6 @@ describe("the address, in the editor", () => {
     expect(html).toContain("Your public address");
     expect(html).toMatch(/<input[^>]*id="address"/);
     expect(html).not.toMatch(/<div[^>]*id="address"/);
-  });
-});
-
-// What Save Profile does with the address field, before it saves anything:
-// nothing to claim, a name already refused (no second ask, no second
-// message), or a claim for the server to decide.
-describe("Save Profile and the address", () => {
-  it("claims a changed address the rules and the check haven't refused", () => {
-    expect(pendingAddressStep({ handle: "ada.new", unchanged: false, refused: false })).toBe("claim");
-  });
-  it("stops on one already refused, without asking the server again", () => {
-    expect(pendingAddressStep({ handle: "taken", unchanged: false, refused: true })).toBe("refused");
-  });
-  it("leaves a blank or unchanged field alone", () => {
-    expect(pendingAddressStep({ handle: "", unchanged: false, refused: false })).toBe("none");
-    expect(pendingAddressStep({ handle: "ada", unchanged: true, refused: false })).toBe("none");
   });
 });
 

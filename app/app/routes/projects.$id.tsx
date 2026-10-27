@@ -6,8 +6,9 @@
 // sidebar/wordmark/CommunitySwitcher render normally; it queries the
 // CURRENT garden/projects.getProject (same shape listProjects' cards use).
 //
-// StatusSelect and SupportModal are reused directly from routes/projects.tsx
-// (the list page) rather than re-implemented — same convention offerings.
+// StatusSelect and the support sheet (useProjectSupport) are reused directly
+// from routes/projects.tsx (the list page) rather than re-implemented — same
+// convention offerings.
 // $id.tsx already uses for PostOfferingForm/SignupModal.
 //
 // Public (Rick, 2026-10-22; _app.tsx's PUBLIC_PROJECT_DETAIL_PATH): anyone
@@ -19,12 +20,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { Link, useLocation, useNavigate, useParams, useRouteError, useSearchParams } from "react-router";
+import { Link, useLocation, useParams, useRouteError, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { formatCents } from "../../convex/money";
 import { EMBED_PROVIDER_LABEL, toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
-import { VISIBLE_PROJECT_STATUSES } from "../../convex/moderationRules";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { AdminMenu, HiddenNotice } from "../components/AdminMenu";
 import { InviteToThis } from "../components/InviteToThis";
@@ -36,10 +36,10 @@ import { FavoriteButton } from "../components/FavoriteButton";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { ProjectMenu } from "../components/project/ProjectMenu";
 import { StageChip } from "../components/project/StageChip";
-import { resolveStage } from "../lib/stage";
+import { needsPictureOrLink } from "../lib/justPublished";
 import { TabPanel, Tabs } from "../components/project/Tabs";
 import { ProjectUpdates } from "../components/ProjectUpdates";
-import { ProjectModal } from "../components/ProjectModal";
+import { ProjectModal, type ProjectStep } from "../components/ProjectModal";
 import { RichContent } from "../components/RichContent";
 import { RichTextEditor } from "../components/RichTextEditor";
 import { useLocationField } from "../lib/useLocationField";
@@ -48,7 +48,7 @@ import { budgetAmountLabel, budgetKindLabel, budgetLabel } from "../lib/budgetLa
 import { GigSchedule } from "../components/GigSchedule";
 import { projectTabs, readProjectTab, sectionsWithContent, withProjectTab, type ProjectTab } from "../lib/projectTabs";
 import { useBack } from "../lib/useBack";
-import { useCoverPick } from "../lib/useCoverPick";
+import { useCoverPick, type CoverPick } from "../lib/useCoverPick";
 import { isWideCover, useImageAspect } from "../lib/useImageAspect";
 import { uploadToStorage } from "../lib/uploadFile";
 import { INTERESTS } from "../constants/interests";
@@ -57,18 +57,19 @@ import { FF_BACKING } from "../lib/featureFlags";
 import { shortDay } from "../lib/dates";
 import {
   STATUS_LABELS,
-  SupportModal,
   SupportButtons,
   GoalProgress,
   isRaising,
+  useProjectSupport,
   type SupportMode,
 } from "./projects";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { useStartConversation } from "../lib/useStartConversation";
 import { useIsAdmin } from "../lib/useIsAdmin";
 import { useProfileLinks } from "../lib/useProfileLinks";
-import { signupHref, supportDetour } from "../lib/pendingIntent";
+import { signupHref } from "../lib/pendingIntent";
 import { bylineOf } from "../lib/byline";
+import { canSaveProject, isProjectOwner } from "../lib/projectPick";
 import { Byline } from "../components/Byline";
 import { PersonAvatar } from "../components/PersonAvatar";
 import { PortfolioSamplePicker } from "../components/PortfolioSamples";
@@ -234,15 +235,14 @@ export default function ProjectDetail() {
   const roles = useQuery(api.garden.projectTeam.listRoles, id ? { projectId: id as Id<"projects"> } : "skip");
   const updates = useQuery(api.garden.stories.listProjectUpdates, id ? { projectId: id } : "skip");
   const isAdmin = useIsAdmin() === true;
-  const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [supportMode, setSupportMode] = useState<SupportMode | null>(null);
+  const { support: openSupport, modal: supportModal } = useProjectSupport();
   // Lifted so the owner's "Next steps" nudge can open the support editor.
   const [editingSupport, setEditingSupport] = useState(false);
-  // The same three-step modal "Start a project" uses, opened on this project:
-  // the step it opens on, or false. "Add a link" opens it on Show it.
-  const [editingProject, setEditingProject] = useState<false | 1 | 2>(false);
+  // The same four-screen modal "Start a project" uses, opened on this project:
+  // the screen it opens on, or false. "Add a link" opens it on Show it.
+  const [editingProject, setEditingProject] = useState<false | ProjectStep>(false);
   // "Next steps" switches tab, then scrolls to the tabs once they've changed.
   const scrollAfterTab = useRef(false);
   const rawTab = searchParams.get("tab");
@@ -276,14 +276,13 @@ export default function ProjectDetail() {
     );
   }
 
-  const isOwner = !!myProfile && project.userId === myProfile.userId;
+  const isOwner = isProjectOwner(project, myProfile);
   const byline = bylineOf(project);
   // Save for the Shortlist (docs/handoff/favorites-redesign/README.md): a
   // signed-in member who isn't the lead, on a project the browse lists show.
   // favorites.toggle refuses the rest, so the page never offers a save that
   // would fail. Held until the profile loads, so the lead never sees it flash.
-  const canSave =
-    isAuthenticated && myProfile !== undefined && !isOwner && VISIBLE_PROJECT_STATUSES.has(project.status);
+  const canSave = canSaveProject({ signedIn: isAuthenticated, profile: myProfile }, project);
   const raising = isRaising(project);
   const isPassion = project.kind === "passion";
   // No chip for a plain project: "Project" on a project's own page says nothing.
@@ -303,9 +302,9 @@ export default function ProjectDetail() {
   const hasPieces = (project.media?.length ?? 0) > 0;
   const thumb = heroThumb(project);
   const poster = !!thumb && !isWideCover(heroRatio);
-  // Shared as finished with nothing to look at yet: the just-published card
-  // asks for a picture or a link before it offers invites (InviteToThis).
-  const needsMedia = isPassion && resolveStage(project) === "completed" && !thumb && !mediaEmbed && !hasPieces;
+  // Nothing to look at yet, at any stage: the just-published card asks for a
+  // picture or a link before it offers invites (InviteToThis).
+  const needsMedia = needsPictureOrLink({ kind: project.kind, thumb, mediaEmbed, hasPieces });
 
   const hiddenByAdmin = project.status === "hidden";
   const showGoal = raising && (project.goal ?? 0) > 0;
@@ -342,12 +341,7 @@ export default function ProjectDetail() {
   // back to this page (signup.tsx stashes it; _app.tsx replays it).
   // Still checking the token reads as a member, not a visitor: no detour.
   const visitorSignUp = !authLoading && !isAuthenticated ? signupHref(location.pathname + location.search) : null;
-  function support(mode: SupportMode) {
-    if (authLoading) return;
-    const detour = supportDetour(mode, isAuthenticated, location.pathname + location.search);
-    if (detour) navigate(detour);
-    else setSupportMode(mode);
-  }
+  const support = (mode: SupportMode) => openSupport(project, mode);
   // The owner's "Next steps" buttons: show the tab first, then scroll to it.
   function showTab(next: ProjectTab) {
     if (next === tab) {
@@ -369,13 +363,11 @@ export default function ProjectDetail() {
       </div>
 
       {/* Just published: "Invite people", once (components/InviteToThis.tsx). */}
-      <InviteToThis
-        path={`/projects/${project._id}`}
-        title={project.title}
-        owner={isOwner}
-        className="mt-4"
+      <ProjectJustPublished
+        project={project}
+        isOwner={isOwner}
         needsMedia={needsMedia}
-        onAddLink={() => setEditingProject(2)}
+        onAddLink={() => setEditingProject("show")}
       />
 
       {hiddenByAdmin && (
@@ -419,7 +411,7 @@ export default function ProjectDetail() {
             <div className="mb-2">
               <button
                 type="button"
-                onClick={() => setEditingProject(1)}
+                onClick={() => setEditingProject("name")}
                 className="text-[13.5px] font-medium underline underline-offset-2 hover:opacity-80"
                 style={{ color: "var(--garden-citron)" }}
               >
@@ -608,9 +600,7 @@ export default function ProjectDetail() {
         </TabPanel>
       )}
 
-      {supportMode && (
-        <SupportModal project={project} mode={supportMode} onClose={() => setSupportMode(null)} />
-      )}
+      {supportModal}
     </PageShell>
   );
 }
@@ -951,6 +941,69 @@ function AskForSupport({
   );
 }
 
+// The project's picture, in one place: the hero's "Add image" / "Change image"
+// and the just-published card's "Add a picture" both go through here. The
+// cover hook checks the file (image, up to 20MB), frames it 4:5 and hands
+// back a small JPEG; we upload that and save it on the project, and the
+// page's data changes under whoever called.
+function useProjectImage(projectId: Id<"projects">): CoverPick {
+  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+  const saveProjectImage = useMutation((api as any).files.saveProjectImage);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const coverPick = useCoverPick(async (blob) => {
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const storageId = await uploadToStorage(generateUploadUrl, blob);
+      await saveProjectImage({ projectId, storageId });
+    } catch {
+      setUploadError("Upload failed — try again.");
+    } finally {
+      setUploading(false);
+    }
+  });
+
+  return {
+    pick: (file) => {
+      setUploadError(null);
+      coverPick.pick(file);
+    },
+    picker: coverPick.picker,
+    error: coverPick.error || uploadError,
+    busy: uploading || coverPick.busy,
+  };
+}
+
+// The just-published card (components/InviteToThis.tsx) with this project's
+// picture upload behind its "Add a picture". A component of its own so the
+// hook runs after the page has its project.
+function ProjectJustPublished({
+  project,
+  isOwner,
+  needsMedia,
+  onAddLink,
+}: {
+  project: { _id: Id<"projects">; title: string };
+  isOwner: boolean;
+  needsMedia: boolean;
+  onAddLink: () => void;
+}) {
+  const picture = useProjectImage(project._id);
+  return (
+    <InviteToThis
+      path={`/projects/${project._id}`}
+      title={project.title}
+      owner={isOwner}
+      className="mt-4"
+      needsMedia={needsMedia}
+      picture={picture}
+      onAddLink={onAddLink}
+    />
+  );
+}
+
 function ProjectHero({
   thumb,
   poster,
@@ -972,35 +1025,16 @@ function ProjectHero({
   projectId: Id<"projects">;
   isOwner: boolean;
 }) {
-  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
-  const saveProjectImage = useMutation((api as any).files.saveProjectImage);
   const fileRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-
-  // The hook checks the file (image, up to 20MB), frames it 4:5 and hands
-  // back a small JPEG; we upload that.
-  const coverPick = useCoverPick(async (blob) => {
-    setUploading(true);
-    setUploadError(null);
-    try {
-      const storageId = await uploadToStorage(generateUploadUrl, blob);
-      await saveProjectImage({ projectId, storageId });
-    } catch {
-      setUploadError("Upload failed — try again.");
-    } finally {
-      setUploading(false);
-    }
-  });
-  const busy = uploading || coverPick.busy;
-  const imageError = coverPick.error || uploadError;
+  const image = useProjectImage(projectId);
+  const busy = image.busy;
+  const imageError = image.error;
 
   function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    setUploadError(null);
-    coverPick.pick(file);
+    image.pick(file);
   }
 
   if (thumb) {
@@ -1047,7 +1081,7 @@ function ProjectHero({
         {isOwner && (
           <>
             <input ref={fileRef} type="file" accept="image/*" onChange={handleImageUpload} hidden />
-            {coverPick.picker}
+            {image.picker}
             {imageError && (
               <p
                 role="alert"
@@ -1098,7 +1132,7 @@ function ProjectHero({
       {isOwner && (
         <>
           <input ref={fileRef} type="file" accept="image/*" onChange={handleImageUpload} hidden />
-          {coverPick.picker}
+          {image.picker}
           <button
             onClick={() => fileRef.current?.click()}
             disabled={busy}
@@ -1203,7 +1237,7 @@ function InlineEditableMediaLink({ project }: { project: any }) {
       }}
     >
       <MediaLinkField
-        variant="garden"
+        variant="gardenCompact"
         label="Link"
         placeholder="Instagram post or reel, TikTok, YouTube or Vimeo"
         value={draft}
