@@ -31,6 +31,7 @@ import { setPendingIntent } from "../lib/pendingIntent";
 import { MIN_PASSWORD_LENGTH, needsAccount, supportFormProblem } from "../lib/storySupport";
 import "../garden/garden.css";
 import { errorMessage } from "../lib/convexError";
+import { signUpFailedMessage } from "../lib/signUpError";
 import { FF_BACKING } from "../lib/featureFlags";
 
 export function meta() {
@@ -216,11 +217,11 @@ function SupportForm({ projectId, onCancel }: { projectId: Id<"projects">; onCan
         while (!signedInRef.current && Date.now() < deadline) {
           await new Promise((resolve) => setTimeout(resolve, 100));
         }
-      } catch {
+      } catch (err) {
         // A duplicate email throws "Account … already exists" on the server,
         // but production hides server error text, so one message covers both
-        // that and a password the provider rejects.
-        setError("Couldn't make that account. If you already have one, sign in instead.");
+        // that and a password the provider rejects (lib/signUpError.ts).
+        setError(signUpFailedMessage(err));
         setBusy(null);
         return;
       }

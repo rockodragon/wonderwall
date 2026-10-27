@@ -11,6 +11,7 @@ import { codeRequestParams, ensureOAuthHost, oauthReturnTo } from "../lib/oauthH
 import { AgreementsConsent } from "../components/AgreementsConsent";
 import { InviteGate } from "../components/InviteGate";
 import { errorMessage } from "../lib/convexError";
+import { signUpFailedMessage } from "../lib/signUpError";
 import { joinWithInvite } from "../lib/joinWithInvite";
 import { untilSignedIn } from "../lib/untilSignedIn";
 import { rememberedInvite } from "../lib/carriedInvite";
@@ -351,7 +352,7 @@ export default function Signup() {
       navigate("/onboarding", { replace: true });
     } catch (err) {
       console.error("Signup error:", err);
-      setError(errorMessage(err, "Signup failed"));
+      setError(signUpFailedMessage(err));
       posthog?.capture("signup_error", {
         ...analyticsErrorProperties(err),
       });
