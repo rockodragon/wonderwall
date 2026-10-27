@@ -13,23 +13,18 @@ import { stripInlineMarks } from "../lib/richText";
 import { useBrand } from "../brand/brands";
 import { GardenHome } from "../brand/GardenHome";
 
+// The front door's line (CLAIMS.hero) is the page's title and description
+// too, so a shared link says the same thing the page does. On a Garden
+// address the edge swaps the name (brand/gardenHtml.ts).
+const HOME_TITLE = `TheCreative.exchange — ${CLAIMS.hero}`;
+const HOME_DESCRIPTION = `${CLAIMS.hero} ${CLAIMS.join}`;
+
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "TheCreative.exchange — Create better together, building flourishing communities" },
-    {
-      name: "description",
-      content:
-        "Creatives, patrons, hosts and partners in one place. Make good work, find your people, and love your neighbors through your craft.",
-    },
-    {
-      property: "og:title",
-      content: "TheCreative.exchange — Create better together, building flourishing communities",
-    },
-    {
-      property: "og:description",
-      content:
-        "Creatives, patrons, hosts and partners in one place. Make good work, find your people, and love your neighbors through your craft.",
-    },
+    { title: HOME_TITLE },
+    { name: "description", content: HOME_DESCRIPTION },
+    { property: "og:title", content: HOME_TITLE },
+    { property: "og:description", content: HOME_DESCRIPTION },
     { property: "og:type", content: "website" },
     {
       property: "og:image",
@@ -42,15 +37,8 @@ export function meta({}: Route.MetaArgs) {
       content: "https://thecreative.exchange/og-image.png",
     },
     { name: "twitter:card", content: "summary_large_image" },
-    {
-      name: "twitter:title",
-      content: "TheCreative.exchange — Create better together, building flourishing communities",
-    },
-    {
-      name: "twitter:description",
-      content:
-        "Creatives, patrons, hosts and partners in one place. Make good work, find your people, and love your neighbors through your craft.",
-    },
+    { name: "twitter:title", content: HOME_TITLE },
+    { name: "twitter:description", content: HOME_DESCRIPTION },
   ];
 }
 

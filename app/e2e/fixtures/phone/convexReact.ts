@@ -3,7 +3,7 @@
 // resolves. No Convex transport, no production data.
 
 import { getFunctionName, type FunctionReference } from "convex/server";
-import { answers } from "./data";
+import { answers, replies } from "./data";
 
 export class ConvexReactClient {
   constructor(_url: string) {}
@@ -44,10 +44,14 @@ export function useQuery(fn: FunctionReference<"query">, args?: unknown): unknow
 
 const NOOP = async () => undefined;
 
-export function useMutation(_fn: FunctionReference<"mutation">) {
-  return NOOP;
+// A mutation that a screen reads the answer of (a new project's id) gets
+// its sample reply; every other one resolves to nothing.
+export function useMutation(fn: FunctionReference<"mutation">) {
+  const reply = replies[getFunctionName(fn)];
+  return reply === undefined ? NOOP : async () => reply;
 }
 
-export function useAction(_fn: FunctionReference<"action">) {
-  return NOOP;
+export function useAction(fn: FunctionReference<"action">) {
+  const reply = replies[getFunctionName(fn)];
+  return reply === undefined ? NOOP : async (args?: unknown) => (typeof reply === "function" ? reply(args) : reply);
 }

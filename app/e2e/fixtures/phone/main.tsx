@@ -15,6 +15,7 @@ import People from "../../../app/routes/search";
 import { ProfilePage, type ProfileData } from "../../../app/routes/profile";
 import { MyCodePage } from "../../../app/routes/code";
 import Settings from "../../../app/routes/settings";
+import Onboarding from "../../../app/routes/onboarding";
 import { myPage, theirPage } from "./data";
 import "./fixture.css";
 
@@ -40,6 +41,10 @@ function Elsewhere({ what }: { what: string }) {
 }
 
 const router = createBrowserRouter([
+  // Outside the shell, as in the app: /onboarding?fresh walks the screens
+  // a brand-new member sees (data.ts `fresh`); without ?fresh, a member
+  // changing their answers.
+  { path: "onboarding", Component: Onboarding },
   {
     Component: AppLayout,
     children: [

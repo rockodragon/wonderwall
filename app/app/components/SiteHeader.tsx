@@ -7,8 +7,9 @@ import { GardenLockup } from "../brand/GardenMark";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 
 // The public site header — wordmark, the same five items GardenNav carries,
-// and, on the right, Sign in for a visitor or a quiet "Today" link for someone
-// signed in. (It used to show a filled "Go to App" button to a signed-in
+// and, on the right, Sign in and a filled Join for a visitor (Rick,
+// 2026-10-27: the front door asks people to join, so the header does too) or
+// a quiet "Today" link for someone signed in. (It used to show a filled "Go to App" button to a signed-in
 // person — a marketing CTA on pages like a fund's, where the one filled button
 // should be the page's own action. Today is a plain link now, and nothing
 // shows at all while the sign-in state is still loading, so a signed-in person
@@ -94,13 +95,20 @@ export function SiteHeader({
           // Kept in the markup while loading (prerender and first paint read
           // as signed out) but invisible, so it neither flashes for a
           // signed-in person nor shifts the layout when the answer arrives.
-          <Link
-            to="/login"
-            className="px-3 py-2 text-[15px] whitespace-nowrap text-[var(--garden-body)] hover:text-[var(--garden-paper)] font-medium transition-colors"
-            style={isLoading ? { visibility: "hidden" } : undefined}
-          >
-            Sign in
-          </Link>
+          <div className="flex items-center gap-1 sm:gap-2" style={isLoading ? { visibility: "hidden" } : undefined}>
+            <Link
+              to="/login"
+              className="px-3 py-2 text-[15px] whitespace-nowrap text-[var(--garden-body)] hover:text-[var(--garden-paper)] font-medium transition-colors"
+            >
+              Sign in
+            </Link>
+            <Link
+              to="/signup"
+              className="px-3.5 py-2 rounded-lg text-[15px] whitespace-nowrap font-semibold bg-[var(--garden-citron)] text-[var(--garden-ink)] hover:bg-[#FFEA94] transition-colors"
+            >
+              Join
+            </Link>
+          </div>
         )}
         <button
           type="button"

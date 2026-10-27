@@ -1,5 +1,6 @@
 import { useId } from "react";
 import { describeMediaLink } from "../lib/mediaLink";
+import { gardenField } from "./gardenField";
 
 // The "paste a link" field shared by the event forms, the project forms and
 // the project page's inline editor, so they can't drift on copy or on what
@@ -8,7 +9,9 @@ import { describeMediaLink } from "../lib/mediaLink";
 //
 // The hosts sit on two designs: the event modal is Tailwind gray/dark, the
 // garden (projects) surfaces are the --garden-* variables. `variant` picks
-// the tokens; the layout is the same either way.
+// the tokens; the layout is the same either way. Garden has two sizes: the
+// phone-sized one the start-a-project sheet uses (gardenField.ts), and the
+// older compact one the forms around it haven't moved off yet.
 export { describeMediaLink, MEDIA_LINK_PROBLEM } from "../lib/mediaLink";
 
 const STYLES = {
@@ -23,16 +26,16 @@ const STYLES = {
     problem: "mt-1 text-xs text-amber-600 dark:text-amber-400",
   },
   garden: {
+    ...gardenField,
+    problem: "text-sm mt-2 text-amber-400",
+  },
+  gardenCompact: {
     label: "block text-xs uppercase tracking-[0.06em] mb-1.5",
-    labelStyle: { color: "var(--garden-dim)" },
+    labelStyle: gardenField.labelStyle,
     input: "w-full px-3 py-2 rounded-lg border text-sm outline-none",
-    inputStyle: {
-      backgroundColor: "var(--garden-ink)",
-      borderColor: "var(--garden-hairline-raised)",
-      color: "var(--garden-paper)",
-    },
+    inputStyle: gardenField.inputStyle,
     hint: "text-xs mt-1.5",
-    hintStyle: { color: "var(--garden-dim)" },
+    hintStyle: gardenField.hintStyle,
     problem: "text-xs mt-1.5 text-amber-400",
   },
 } as const;

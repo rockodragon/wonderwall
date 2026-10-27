@@ -54,7 +54,7 @@ export function NetworkTab() {
             title="You invited"
             empty={
               network.direct.length === 0
-                ? "No one yet. Send your link to someone whose work you respect."
+                ? "Invite a friend."
                 : undefined
             }
           >

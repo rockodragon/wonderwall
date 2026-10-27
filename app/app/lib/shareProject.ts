@@ -1,7 +1,8 @@
-// Sharing a project is the first thing a new member does (docs/features/
-// activation-onboarding-audit.md, Rick 2026-10-09). The plain logic behind
-// that: the front door's link, the one onboarding screen's choices and exits
-// (routes/onboarding.tsx), and the stashed visit that screen replaces.
+// Sharing a project is the first thing a new member does once their page is
+// set up (docs/features/activation-onboarding-audit.md, Rick 2026-10-09; the
+// profile now comes first, 2026-10-27). The plain logic behind that: the
+// front door's link, the project step's choices (routes/onboarding.tsx), and
+// the title stashed from the front door, which fills that step in.
 
 import { signupHref, takePendingIntent, setPendingIntent } from "./pendingIntent";
 import { isProjectOwner } from "./projectPick";
@@ -39,26 +40,28 @@ export function stashProjectTitle(title: string): boolean {
   return true;
 }
 
-/** The title stashed by stashProjectTitle, read and cleared. A stashed visit
- *  that carries no title is put back for _app.tsx to replay. */
-export function takeStashedProjectTitle(): string | null {
+/** The typed title a "start a project" visit carries, if it has one. */
+function titleIn(path: string): string | null {
+  if (!isShareProjectIntent(path)) return null;
+  return new URL(path, "http://local.test").searchParams.get("title")?.trim() || null;
+}
+
+/** The title stashed by stashProjectTitle, read and left where it is: the
+ *  project step fills itself in from it, possibly after a reload, and
+ *  dropShareProjectIntent clears it when the member leaves. */
+export function peekStashedProjectTitle(): string | null {
   const path = takePendingIntent();
   if (!path) return null;
-  if (isShareProjectIntent(path)) {
-    const title = new URL(path, "http://local.test").searchParams.get("title")?.trim();
-    if (title) return title;
-  }
   setPendingIntent(path);
-  return null;
+  return titleIn(path);
 }
 
 /** True when a visit is stashed with a typed project title in it. */
 export function hasStashedProjectTitle(path: string | null | undefined): boolean {
-  if (!path || !isShareProjectIntent(path)) return false;
-  return !!new URL(path, "http://local.test").searchParams.get("title")?.trim();
+  return !!path && !!titleIn(path);
 }
 
-/** A new account shares its project on the onboarding screen, so the stashed
+/** A new account shares its project on the onboarding screens, so the stashed
  *  "start a project" visit must not open the form a second time on the way
  *  into the app. Any other stashed visit (a ticket, a membership) stays. */
 export function dropShareProjectIntent(): void {
@@ -118,38 +121,4 @@ export function ownsAProject(
 ): boolean | null {
   if (projects === undefined || !profile) return null;
   return projects.some((p) => isProjectOwner(p, profile));
-}
-
-/** The ways off the onboarding screen: a maker shares a project or not
- *  yet; a backer and a partner continue. */
-export type OnboardingExit = "shared" | "not_yet" | "backer" | "partner";
-
-/** The role each exit records. primaryRole is what the app reads as
- *  "onboarding done" (onboardingGate.ts, oauth-callback.tsx), so every exit
- *  sets one. A maker is a creative, which is also what a profile with no
- *  role has always been counted as (convex/garden/stats.ts
- *  isCreativeProfile). */
-export function roleForExit(exit: OnboardingExit): "creative" | "patron" | "partner" {
-  return exit === "backer" ? "patron" : exit === "partner" ? "partner" : "creative";
-}
-
-/** A name is the one thing the screen insists on, and only when the account
- *  has none (a phone sign-in made on the login page). */
-export function hasNameIfNeeded(needsName: boolean, name: string): boolean {
-  return !needsName || name.trim().length > 0;
-}
-
-/** upsertProfile writes every field it is given, so an omitted bio or
- *  location would be blanked. These are the ones the screen doesn't ask
- *  about, passed back as they are. */
-export function keepProfileFields<Address, Coordinates>(profile: {
-  bio?: string;
-  location?: string;
-  locationType?: string;
-  address?: Address;
-  coordinates?: Coordinates;
-  placeId?: string;
-}) {
-  const { bio, location, locationType, address, coordinates, placeId } = profile;
-  return { bio, location, locationType, address, coordinates, placeId };
 }

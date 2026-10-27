@@ -7,3 +7,18 @@ export const JUST_PUBLISHED_PARAM = "new";
 export function justPublished(path: string): string {
   return `${path}${path.includes("?") ? "&" : "?"}${JUST_PUBLISHED_PARAM}=1`;
 }
+
+/** A project with nothing to look at yet: no picture, no pasted link that
+ *  plays, no attached piece. At any stage — a title and a line are enough to
+ *  post from onboarding — its just-published card asks for a picture or a
+ *  link before it offers invites. `thumb` is the page's hero picture, null
+ *  when a link plays or pieces show instead. Passion projects only: a paid
+ *  post is a job, not something to show. */
+export function needsPictureOrLink(project: {
+  kind: string;
+  thumb: string | null | undefined;
+  mediaEmbed: unknown;
+  hasPieces: boolean;
+}): boolean {
+  return project.kind === "passion" && !project.thumb && !project.mediaEmbed && !project.hasPieces;
+}
