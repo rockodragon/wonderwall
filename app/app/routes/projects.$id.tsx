@@ -38,7 +38,10 @@ import { ProjectMenu } from "../components/project/ProjectMenu";
 import { StageChip } from "../components/project/StageChip";
 import { needsPictureOrLink } from "../lib/justPublished";
 import { TabPanel, Tabs } from "../components/project/Tabs";
-import { ProjectUpdates } from "../components/ProjectUpdates";
+import { ProjectUpdates, UpdatesList } from "../components/ProjectUpdates";
+import { EditButton, InlineEditableText } from "../components/InlineEditableText";
+import { PencilIcon } from "../components/icons";
+import { PieceNote } from "../components/PieceNote";
 import { ProjectModal, type ProjectStep } from "../components/ProjectModal";
 import { RichContent } from "../components/RichContent";
 import { RichTextEditor } from "../components/RichTextEditor";
@@ -150,15 +153,6 @@ function DetailCard({ label, children }: { label: string; children: ReactNode })
   );
 }
 
-function PencilIcon({ size = 14 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-      <path d="m15 5 4 4" />
-    </svg>
-  );
-}
-
 function TrashIcon({ size = 14 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -166,19 +160,6 @@ function TrashIcon({ size = 14 }: { size?: number }) {
       <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
       <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
     </svg>
-  );
-}
-
-function EditButton({ onClick, label }: { onClick: () => void; label: string }) {
-  return (
-    <button
-      onClick={onClick}
-      title={label}
-      className="inline-flex items-center justify-center w-6 h-6 rounded-md hover:bg-[rgba(198,198,190,0.15)] transition-colors"
-      style={{ color: "var(--garden-dim)" }}
-    >
-      <PencilIcon size={13} />
-    </button>
   );
 }
 
@@ -523,7 +504,13 @@ export default function ProjectDetail() {
         <InlineEditableStory project={project} isOwner={isOwner} />
 
         {/* Pieces play and sound; they stop when you leave the tab. */}
-        {tab === "about" && hasPieces && <AttachedPieces project={project} />}
+        {tab === "about" && hasPieces && <AttachedPieces project={project} myProfileId={myProfile?._id} />}
+
+        {/* A piece's page shows how it's going under the work, ten at a
+            time (Rick, 2026-10-27). The Updates tab keeps the composer. */}
+        {tab === "about" && hasPieces && (
+          <UpdatesList projectId={project._id} myUserId={myProfile?.userId} heading="Updates" hideWhenEmpty />
+        )}
 
         <InlineEditableLocation project={project} isOwner={isOwner} />
 
@@ -620,80 +607,83 @@ function hostOf(url: string): string {
 // The pieces attached to a project (artifacts.projectId) — the work itself,
 // shown here now that a shared piece IS a project and /works/:id redirects
 // to it (docs/features/project-ia.md). What the hero or the blurb already
-// shows is skipped: a shared image is also the project's photo, and a
-// shared text post is also its blurb.
-function AttachedPieces({ project }: { project: any }) {
-  const pieces = (project.media ?? []).filter((m: any) => {
-    if (m.type === "image" && m.resolvedMediaUrl && m.resolvedMediaUrl === project.resolvedPhotoUrl) return false;
-    if (m.type === "text" && (m.content ?? "").trim() === (project.blurb ?? "").trim()) return false;
-    return true;
-  });
+// shows isn't drawn twice: a shared image is also the project's photo, and a
+// shared text post is also its blurb. The maker's words and voice note
+// (PieceNote) show for every piece, those included.
+function AttachedPieces({ project, myProfileId }: { project: any; myProfileId?: string }) {
+  const pieces: any[] = project.media ?? [];
   if (pieces.length === 0) return null;
-  const frame = { backgroundColor: "var(--garden-ink-raised)" };
   return (
-    <div className="flex flex-col gap-4 mb-6">
-      {pieces.map((m: any) => {
-        const embed = toEmbedUrl(m.mediaUrl ?? undefined);
-        if (embed) {
-          return (
-            <EmbedPlayer key={m._id} embed={embed} title={m.title ?? project.title} className="rounded-2xl overflow-hidden" style={frame} />
-          );
-        }
-        if (m.type === "video" && m.resolvedMediaUrl) {
-          return (
-            <video key={m._id} src={m.resolvedMediaUrl} controls playsInline className="w-full rounded-2xl" style={frame} />
-          );
-        }
-        if (m.type === "audio" && m.resolvedMediaUrl) {
-          return (
-            <div key={m._id} className="rounded-2xl p-4" style={frame}>
-              {m.title && (
-                <p className="text-sm mb-2" style={{ color: "var(--garden-paper)" }}>
-                  {m.title}
-                </p>
-              )}
-              <audio src={m.resolvedMediaUrl} controls className="w-full" />
-            </div>
-          );
-        }
-        if (m.type === "image" && m.resolvedMediaUrl) {
-          return (
-            <img key={m._id} src={m.resolvedMediaUrl} alt={m.title ?? ""} className="w-full max-h-[70vh] object-contain rounded-2xl" style={frame} />
-          );
-        }
-        if (m.type === "text" && m.content) {
-          return (
-            <div key={m._id} className="rounded-2xl p-5 text-[15px] whitespace-pre-wrap" style={{ ...frame, color: "var(--garden-body)" }}>
-              {m.content}
-            </div>
-          );
-        }
-        if (m.mediaUrl) {
-          return (
-            <a
-              key={m._id}
-              href={ensureHttps(m.mediaUrl)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-3 rounded-2xl p-3 hover:opacity-90"
-              style={frame}
-            >
-              {m.ogImageUrl && <img src={m.ogImageUrl} alt="" className="w-20 h-20 rounded-lg object-cover shrink-0" />}
-              <span className="min-w-0">
-                <span className="block text-sm font-medium break-words" style={{ color: "var(--garden-paper)" }}>
-                  {m.title || hostOf(m.mediaUrl)}
-                </span>
-                <span className="block text-[13px]" style={{ color: "var(--garden-muted)" }}>
-                  {hostOf(m.mediaUrl)} ↗
-                </span>
-              </span>
-            </a>
-          );
-        }
-        return null;
-      })}
+    <div className="flex flex-col gap-6 mb-6">
+      {pieces.map((m) => (
+        <div key={m._id} className="flex flex-col gap-3">
+          {!shownAbove(m, project) && <PieceMedia piece={m} project={project} />}
+          <PieceNote piece={m} canEdit={!!myProfileId && m.profileId === myProfileId} />
+        </div>
+      ))}
     </div>
   );
+}
+
+/** A piece the page already shows above: the hero photo, or the blurb. */
+function shownAbove(m: any, project: any): boolean {
+  if (m.type === "image" && m.resolvedMediaUrl && m.resolvedMediaUrl === project.resolvedPhotoUrl) return true;
+  return m.type === "text" && (m.content ?? "").trim() === (project.blurb ?? "").trim();
+}
+
+function PieceMedia({ piece: m, project }: { piece: any; project: any }) {
+  const frame = { backgroundColor: "var(--garden-ink-raised)" };
+  const embed = toEmbedUrl(m.mediaUrl ?? undefined);
+  if (embed) {
+    return <EmbedPlayer embed={embed} title={m.title ?? project.title} className="rounded-2xl overflow-hidden" style={frame} />;
+  }
+  if (m.type === "video" && m.resolvedMediaUrl) {
+    return <video src={m.resolvedMediaUrl} controls playsInline className="w-full rounded-2xl" style={frame} />;
+  }
+  if (m.type === "audio" && m.resolvedMediaUrl) {
+    return (
+      <div className="rounded-2xl p-4" style={frame}>
+        {m.title && (
+          <p className="text-sm mb-2" style={{ color: "var(--garden-paper)" }}>
+            {m.title}
+          </p>
+        )}
+        <audio src={m.resolvedMediaUrl} controls className="w-full" />
+      </div>
+    );
+  }
+  if (m.type === "image" && m.resolvedMediaUrl) {
+    return <img src={m.resolvedMediaUrl} alt={m.title ?? ""} className="w-full max-h-[70vh] object-contain rounded-2xl" style={frame} />;
+  }
+  if (m.type === "text" && m.content) {
+    return (
+      <div className="rounded-2xl p-5 text-[15px] whitespace-pre-wrap" style={{ ...frame, color: "var(--garden-body)" }}>
+        {m.content}
+      </div>
+    );
+  }
+  if (m.mediaUrl) {
+    return (
+      <a
+        href={ensureHttps(m.mediaUrl)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-3 rounded-2xl p-3 hover:opacity-90"
+        style={frame}
+      >
+        {m.ogImageUrl && <img src={m.ogImageUrl} alt="" className="w-20 h-20 rounded-lg object-cover shrink-0" />}
+        <span className="min-w-0">
+          <span className="block text-sm font-medium break-words" style={{ color: "var(--garden-paper)" }}>
+            {m.title || hostOf(m.mediaUrl)}
+          </span>
+          <span className="block text-[13px]" style={{ color: "var(--garden-muted)" }}>
+            {hostOf(m.mediaUrl)} ↗
+          </span>
+        </span>
+      </a>
+    );
+  }
+  return null;
 }
 
 // Shown to the owner of a fresh project that has asked for nothing yet —
@@ -1348,71 +1338,14 @@ function InlineEditableTitle({ project, isOwner }: { project: any; isOwner: bool
 
 function InlineEditableBlurb({ project, isOwner }: { project: any; isOwner: boolean }) {
   const updateProject = useMutation((api as any).garden.projects.updateProject);
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(project.blurb ?? "");
-  const [saving, setSaving] = useState(false);
-
-  async function save() {
-    const trimmed = draft.trim();
-    if (trimmed === (project.blurb ?? "")) {
-      setEditing(false);
-      return;
-    }
-    setSaving(true);
-    try {
-      await updateProject({ projectId: project._id, blurb: trimmed || undefined });
-      setEditing(false);
-    } catch {
-      setDraft(project.blurb ?? "");
-      setEditing(false);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (editing) {
-    return (
-      <div className="mb-6">
-        <textarea
-          autoFocus
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          rows={3}
-          disabled={saving}
-          className="w-full px-3 py-2 rounded-lg border text-sm outline-none resize-none leading-relaxed"
-          style={{ backgroundColor: "var(--garden-ink)", borderColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
-        />
-        <div className="flex items-center gap-2 mt-1.5">
-          <button
-            onClick={save}
-            disabled={saving}
-            className="px-3 py-1 rounded-lg text-xs font-semibold disabled:opacity-50"
-            style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
-          <button
-            onClick={() => { setDraft(project.blurb ?? ""); setEditing(false); }}
-            className="text-xs hover:opacity-80"
-            style={{ color: "var(--garden-dim)" }}
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!project.blurb && !isOwner) return null;
-
   return (
-    <div className="flex items-start gap-1 mb-6">
-      {/* pre-line: the blank lines between paragraphs show as written. */}
-      <p className="text-sm leading-relaxed flex-1 whitespace-pre-line" style={{ color: "var(--garden-body)" }}>
-        {project.blurb || (isOwner ? "No description yet" : "")}
-      </p>
-      {isOwner && <EditButton onClick={() => { setDraft(project.blurb ?? ""); setEditing(true); }} label="Edit description" />}
-    </div>
+    <InlineEditableText
+      value={project.blurb}
+      isOwner={isOwner}
+      onSave={(blurb) => updateProject({ projectId: project._id, blurb: blurb || undefined })}
+      editLabel="Edit description"
+      emptyLabel="No description yet"
+    />
   );
 }
 

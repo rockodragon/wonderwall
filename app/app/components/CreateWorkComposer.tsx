@@ -6,6 +6,9 @@ import confetti from "canvas-confetti";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import { mediaLinkHint } from "../lib/mediaLink";
 import { maxSize, useFileUpload } from "../lib/useFileUpload";
+import type { Id } from "../../convex/_generated/dataModel";
+import { MAX_DESCRIPTION_LENGTH } from "../../convex/pieceNote";
+import { AudioNoteRecorder } from "./AudioNoteRecorder";
 import { PersonAvatar } from "./PersonAvatar";
 
 const WORK_TYPES = [
@@ -41,6 +44,11 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
+  // What the maker says about it, and a voice note (schema.ts artifacts).
+  const [description, setDescription] = useState("");
+  const [audioNoteId, setAudioNoteId] = useState<Id<"_storage"> | null>(null);
+  // Bumped on reset so the recorder starts over with nothing recorded.
+  const [recorderKey, setRecorderKey] = useState(0);
   const [saving, setSaving] = useState(false);
   // A video past the cap belongs on a host, or, for a reel, is a pasted link
   // that plays here.
@@ -56,6 +64,9 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
     setTitle("");
     setContent("");
     setMediaUrl("");
+    setDescription("");
+    setAudioNoteId(null);
+    setRecorderKey((k) => k + 1);
     piece.reset();
     setInProgress(false);
     setIsExpanded(false);
@@ -105,6 +116,8 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
         mediaStorageId:
           uploadedStorageId && !uploadIsCover ? uploadedStorageId : undefined,
         coverStorageId: uploadIsCover ? (uploadedStorageId ?? undefined) : undefined,
+        description: type !== "text" ? description.trim() || undefined : undefined,
+        audioNoteStorageId: audioNoteId ?? undefined,
         inProgress: inProgress || undefined,
       });
 
@@ -126,6 +139,8 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
         has_title: !!title.trim(),
         is_first_work: isFirstWork,
         has_uploaded_file: !!uploadedStorageId,
+        has_description: type !== "text" && !!description.trim(),
+        has_audio_note: !!audioNoteId,
       });
 
       resetForm();
@@ -395,6 +410,27 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
               )}
             </div>
           )}
+
+          {/* A text piece is its own words; anything else can have some. */}
+          {type !== "text" && (
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="A few words about it (optional)"
+              aria-label="Description"
+              rows={2}
+              maxLength={MAX_DESCRIPTION_LENGTH}
+              className="mt-3 w-full px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-base text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+            />
+          )}
+          <div className="mt-3">
+            <AudioNoteRecorder
+              key={recorderKey}
+              generateUploadUrl={generateUploadUrl}
+              onRecorded={(storageId) => setAudioNoteId(storageId)}
+              onRemove={() => setAudioNoteId(null)}
+            />
+          </div>
 
           {/* Footer */}
           {!canSubmit && !saving && (title.trim() || content.trim() || hasMedia) && (

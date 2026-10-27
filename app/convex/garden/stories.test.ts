@@ -2,7 +2,8 @@
 // sponsor-line derivation from rows, plus the owner-only update gate. No
 // Convex — an in-memory Set stands in for the by_storySlug index, mirroring
 // stripeHandlers.test.ts's fake-Db style but scoped to just what
-// resolveAvailableSlug needs.
+// resolveAvailableSlug needs. The paged updates list is the exception: it runs
+// on the in-memory ctx in test-support/convexContext.ts.
 
 import { describe, expect, it } from "vitest";
 import { ConvexError } from "convex/values";
@@ -18,7 +19,11 @@ import {
   type BackerRowForStory,
   type CodeForSponsor,
   type MembershipForSponsor,
+  listProjectUpdates,
+  listProjectUpdatesPage,
 } from "./stories";
+import { makeCtx, run, type Row } from "../../test-support/convexContext";
+import { checkIndexes } from "../../test-support/indexChecks";
 
 describe("slugifyTitle", () => {
   it("kebab-cases a plain title", () => {
@@ -252,5 +257,118 @@ describe("summarizeStoryBackers (the backer line on /story/:slug)", () => {
     expect(summary.names[0]).toBe(`Backer ${STORY_BACKER_NAME_LIMIT + 2}`);
     expect(summary.otherCount).toBe(3);
     expect(summary.count).toBe(STORY_BACKER_NAME_LIMIT + 3);
+  });
+});
+
+describe("listProjectUpdatesPage (the Updates list, ten at a time)", () => {
+  const LEAD = "users:lead";
+  const OTHER = "users:other";
+  const args = { projectId: "projects:p1" };
+  const first = { numItems: 10, cursor: null as string | null };
+
+  /** `count` updates, the nth posted at time n, so the newest is the last. */
+  function world(count: number, projectExtra: Record<string, unknown> = {}): Record<string, Row[]> {
+    return {
+      profiles: [{ _id: "profiles:lead", userId: LEAD, name: "Lena", interests: [] }],
+      projects: [
+        {
+          _id: "projects:p1", userId: LEAD, kind: "passion", title: "Harbor Mural",
+          status: "active", createdAt: 1, updatedAt: 1, ...projectExtra,
+        },
+      ],
+      storyUpdates: Array.from({ length: count }, (_, i) => ({
+        _id: `storyUpdates:u${i + 1}`,
+        _creationTime: i + 1,
+        projectId: "projects:p1",
+        authorUserId: LEAD,
+        body: `Update ${i + 1}`,
+        createdAt: i + 1,
+      })),
+    };
+  }
+  const bodies = (page: { body: string }[]) => page.map((u) => u.body);
+
+  it("gives the newest ten first, and says there is more", async () => {
+    const out = await run(listProjectUpdatesPage, makeCtx(world(25), null), { ...args, paginationOpts: first });
+    expect(bodies(out.page)).toEqual(
+      Array.from({ length: 10 }, (_, i) => `Update ${25 - i}`),
+    );
+    expect(out.isDone).toBe(false);
+  });
+
+  it("walks the cursor through the rest, ten at a time, to the oldest", async () => {
+    const ctx = makeCtx(world(25), null);
+    const one = await run(listProjectUpdatesPage, ctx, { ...args, paginationOpts: first });
+    const two = await run(listProjectUpdatesPage, ctx, {
+      ...args,
+      paginationOpts: { numItems: 10, cursor: one.continueCursor },
+    });
+    expect(bodies(two.page)).toEqual(Array.from({ length: 10 }, (_, i) => `Update ${15 - i}`));
+    expect(two.isDone).toBe(false);
+
+    const three = await run(listProjectUpdatesPage, ctx, {
+      ...args,
+      paginationOpts: { numItems: 10, cursor: two.continueCursor },
+    });
+    expect(bodies(three.page)).toEqual(["Update 5", "Update 4", "Update 3", "Update 2", "Update 1"]);
+    expect(three.isDone).toBe(true);
+  });
+
+  it("is done when exactly ten remain", async () => {
+    const out = await run(listProjectUpdatesPage, makeCtx(world(10), null), { ...args, paginationOpts: first });
+    expect(out.page).toHaveLength(10);
+    expect(out.isDone).toBe(true);
+  });
+
+  it("gives each row its author and the fields the list draws", async () => {
+    const out = await run(listProjectUpdatesPage, makeCtx(world(1), null), { ...args, paginationOpts: first });
+    expect(out.page[0]).toMatchObject({
+      _id: "storyUpdates:u1",
+      body: "Update 1",
+      createdAt: 1,
+      authorUserId: LEAD,
+      author: { name: "Lena", profileId: "profiles:lead" },
+    });
+  });
+
+  it("reads the updates through the project index, not the whole table", async () => {
+    const ctx = makeCtx(world(3), null);
+    const { scans } = checkIndexes(ctx);
+    await run(listProjectUpdatesPage, ctx, { ...args, paginationOpts: first });
+    expect(scans).not.toContain("storyUpdates");
+  });
+
+  it("is an empty, finished page for an id that is not a project", async () => {
+    for (const projectId of ["projects:nope", "not-an-id"]) {
+      const out = await run(listProjectUpdatesPage, makeCtx(world(3), null), { projectId, paginationOpts: first });
+      expect(out).toEqual({ page: [], isDone: true, continueCursor: "" });
+    }
+  });
+
+  it.each([
+    ["someone signed out", null],
+    ["a member who isn't its lead", OTHER],
+  ])("is an empty, finished page for %s when an admin hid the project", async (_label, viewer) => {
+    const out = await run(listProjectUpdatesPage, makeCtx(world(3, { status: "hidden" }), viewer), {
+      ...args,
+      paginationOpts: first,
+    });
+    expect(out).toEqual({ page: [], isDone: true, continueCursor: "" });
+  });
+
+  it("still shows a hidden project's updates to its lead", async () => {
+    const out = await run(listProjectUpdatesPage, makeCtx(world(3, { status: "hidden" }), LEAD), {
+      ...args,
+      paginationOpts: first,
+    });
+    expect(out.page).toHaveLength(3);
+  });
+
+  it("leaves listProjectUpdates giving every update, newest first", async () => {
+    const out = await run(listProjectUpdates, makeCtx(world(25), null), args);
+    expect(out).toHaveLength(25);
+    expect(out[0].body).toBe("Update 25");
+    expect(out[24].body).toBe("Update 1");
+    expect(out[0].author).toMatchObject({ name: "Lena" });
   });
 });

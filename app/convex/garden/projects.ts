@@ -39,7 +39,7 @@ import { placeForViewer, projectVisibleTo, seesProjectAddress } from "./projectV
 import { insertNotification } from "../notify";
 import { isHidden, isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
 import { communityVisibility, isHiddenCommunityId } from "./communityVisibility";
-import { pieceMediaUrl, profileImageUrl, projectPhotoUrl } from "../images";
+import { audioNoteUrl, pieceMediaUrl, profileImageUrl, projectPhotoUrl } from "../images";
 
 // Following fan-out (docs/features/following.md §1 #5): "Name posted Title"
 // to everyone following the poster, once per created row. `userId` is a
@@ -610,6 +610,8 @@ export const getProject = query({
       media.map(async (artifact) => ({
         ...artifact,
         resolvedMediaUrl: await pieceMediaUrl(ctx, artifact),
+        // The maker's spoken note, played under the piece on its page.
+        audioNoteUrl: await audioNoteUrl(ctx, artifact),
       })),
     );
 

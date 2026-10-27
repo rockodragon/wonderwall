@@ -14,7 +14,8 @@
 import { getFunctionName } from "convex/server";
 import { describe, expect, it } from "vitest";
 import { makeCtx, run, type Row } from "../test-support/convexContext";
-import { getMyArtifacts, update, updateOgImage } from "./artifacts";
+import { create, get, getMyArtifacts, remove, setAudioNote, setDescription, update, updateOgImage } from "./artifacts";
+import { MAX_DESCRIPTION_LENGTH } from "./pieceNote";
 
 const ME = "users:me";
 const OTHER = "users:other";
@@ -574,5 +575,114 @@ describe("a fetch that lands after the link changed (updateOgImage)", () => {
     const { ctx, row } = setup([piece({ mediaUrl: SITE })]);
     await run(updateOgImage, ctx, landing());
     expect(row()).toMatchObject(PREVIEW);
+  });
+});
+
+// ——————————————————————————————————————————————————————————————
+// What the maker says about a piece: a description and a spoken note
+// ——————————————————————————————————————————————————————————————
+
+describe("a piece's description", () => {
+  it("is saved trimmed by its owner, and blank clears it", async () => {
+    const { ctx, row } = setup([piece({ type: "image", mediaStorageId: "_storage:pic" })], ["_storage:pic"]);
+    await run(setDescription, ctx, { artifactId: PIECE, description: "  Shot at dawn on the pier.  " });
+    expect(row().description).toBe("Shot at dawn on the pier.");
+    await run(setDescription, ctx, { artifactId: PIECE, description: "   " });
+    expect(row().description).toBeUndefined();
+  });
+
+  it("one past the cap is refused with a reason", async () => {
+    const { ctx, row } = setup([piece()]);
+    await expect(
+      run(setDescription, ctx, { artifactId: PIECE, description: "x".repeat(MAX_DESCRIPTION_LENGTH + 1) }),
+    ).rejects.toMatchObject({ data: { code: "invalid_input", reason: expect.stringContaining(String(MAX_DESCRIPTION_LENGTH)) } });
+    expect(row().description).toBeUndefined();
+  });
+
+  it("someone else's piece is refused, and signed out is refused", async () => {
+    const theirs = setup([piece({ profileId: "profiles:other" })]);
+    await expect(run(setDescription, theirs.ctx, { artifactId: PIECE, description: "mine now" })).rejects.toMatchObject({
+      data: { code: "forbidden" },
+    });
+    expect(theirs.row().description).toBeUndefined();
+    const out = setup([piece()], [], null);
+    await expect(run(setDescription, out.ctx, { artifactId: PIECE, description: "hi" })).rejects.toMatchObject({
+      data: { code: "unauthenticated" },
+    });
+  });
+
+  it("a Settings edit (update) leaves it alone", async () => {
+    const { ctx, row } = setup([piece({ type: "image", mediaStorageId: "_storage:pic", description: "Kept" })], ["_storage:pic"]);
+    await run(update, ctx, titleOnly());
+    expect(row()).toMatchObject({ title: "Renamed", description: "Kept" });
+  });
+});
+
+describe("a piece's spoken note", () => {
+  it("is claimed and saved, and the page gets its address", async () => {
+    const { ctx, row } = setup([piece()], ["_storage:note"]);
+    await run(setAudioNote, ctx, { artifactId: PIECE, storageId: "_storage:note" });
+    expect(row().audioNoteStorageId).toBe("_storage:note");
+    expect(ctx.store.uploadClaims).toMatchObject([{ storageId: "_storage:note", userId: ME }]);
+    expect((await run(get, ctx, { artifactId: PIECE }))?.audioNoteUrl).toBe("https://files.test/note");
+  });
+
+  it("recording again deletes the old file; removing deletes it too", async () => {
+    const { ctx, row } = setup([piece({ audioNoteStorageId: "_storage:old" })], ["_storage:old", "_storage:new"]);
+    await run(setAudioNote, ctx, { artifactId: PIECE, storageId: "_storage:new" });
+    expect(row().audioNoteStorageId).toBe("_storage:new");
+    expect(ctx.deletedFiles).toEqual(["_storage:old"]);
+    await run(setAudioNote, ctx, { artifactId: PIECE });
+    expect(row().audioNoteStorageId).toBeUndefined();
+    expect(ctx.deletedFiles).toEqual(["_storage:old", "_storage:new"]);
+  });
+
+  it("sending the note it already has changes nothing", async () => {
+    const { ctx, row } = setup([piece({ audioNoteStorageId: "_storage:note" })], ["_storage:note"]);
+    await run(setAudioNote, ctx, { artifactId: PIECE, storageId: "_storage:note" });
+    expect(row().audioNoteStorageId).toBe("_storage:note");
+    expect(ctx.deletedFiles).toEqual([]);
+  });
+
+  it("someone else's piece is refused and its note kept", async () => {
+    const { ctx, row } = setup([piece({ profileId: "profiles:other", audioNoteStorageId: "_storage:theirs" })], [
+      "_storage:theirs",
+      "_storage:mine",
+    ]);
+    await expect(run(setAudioNote, ctx, { artifactId: PIECE })).rejects.toMatchObject({ data: { code: "forbidden" } });
+    expect(row().audioNoteStorageId).toBe("_storage:theirs");
+    expect(ctx.deletedFiles).toEqual([]);
+  });
+
+  it("deleting the piece deletes its note with the work and the cover", async () => {
+    const { ctx } = setup(
+      [piece({ mediaStorageId: "_storage:pic", coverStorageId: "_storage:cover", audioNoteStorageId: "_storage:note" })],
+      ["_storage:pic", "_storage:cover", "_storage:note"],
+    );
+    await run(remove, ctx, { artifactId: PIECE });
+    expect(ctx.deletedFiles).toEqual(["_storage:pic", "_storage:cover", "_storage:note"]);
+  });
+});
+
+describe("sharing a piece with words and a note (create)", () => {
+  it("saves the description trimmed and claims the note", async () => {
+    const { ctx } = setup([], ["_storage:pic", "_storage:note"]);
+    const id = await run(create, ctx, {
+      type: "image",
+      mediaStorageId: "_storage:pic",
+      description: "  From the harbor series. ",
+      audioNoteStorageId: "_storage:note",
+    });
+    const saved = ctx.store.artifacts.find((r: Row) => r._id === id) as Row;
+    expect(saved).toMatchObject({ description: "From the harbor series.", audioNoteStorageId: "_storage:note" });
+    expect(ctx.store.uploadClaims.map((c: Row) => c.storageId)).toEqual(["_storage:pic", "_storage:note"]);
+  });
+
+  it("a description past the cap is refused before anything is saved", async () => {
+    const { ctx } = setup([], ["_storage:pic"]);
+    await expect(
+      run(create, ctx, { type: "image", mediaStorageId: "_storage:pic", description: "x".repeat(MAX_DESCRIPTION_LENGTH + 1) }),
+    ).rejects.toMatchObject({ data: { code: "invalid_input" } });
+    expect(ctx.store.artifacts).toEqual([]);
   });
 });

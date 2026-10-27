@@ -27,6 +27,14 @@ vi.mock("convex/react", () => ({
   useMutation: () => async () => {},
   useAction: () => async () => {},
   useConvexAuth: () => ({ isAuthenticated: scene.signedIn, isLoading: false }),
+  // A paged list (the Updates tab, and updates under a piece): the whole
+  // answer as one page.
+  usePaginatedQuery: (ref: unknown, args?: unknown) => ({
+    results: args === "skip" ? [] : ((scene.answers[getFunctionName(ref as never)] as unknown[] | undefined) ?? []),
+    status: "Exhausted",
+    isLoading: false,
+    loadMore: () => {},
+  }),
 }));
 vi.mock("@posthog/react", () => ({ usePostHog: () => undefined }));
 
@@ -95,6 +103,7 @@ function page({
     "garden/projectTeam:getTeam": team ?? { lead, accepted: [], credits: [], acceptingPeople: accepting, ...signedInTeam, ...ownerTeam },
     "garden/projectTeam:listRoles": roles,
     "garden/stories:listProjectUpdates": updates,
+    "garden/stories:listProjectUpdatesPage": updates,
     "garden/support:listSupportForProject": [],
     "favorites:isFavorited": false,
     ...answers,
@@ -306,5 +315,59 @@ describe("the project page while backing is closed (FF_BACKING)", () => {
     });
     expect(tiers).toContain("Stop asking");
     expect(tiers).toContain("patron tiers");
+  });
+});
+
+describe("a shared piece's page (Rick, 2026-10-27)", () => {
+  const photo = "https://media.test/pier.jpg";
+  /** A finished piece: its picture is the hero, so only its words show below. */
+  const piece = (over: Record<string, unknown> = {}) =>
+    bareProject({
+      origin: "portfolio",
+      resolvedPhotoUrl: photo,
+      media: [{ _id: "artifacts:a", profileId: "profiles:lead", type: "image", resolvedMediaUrl: photo, ...over }],
+    });
+  const update = (n: number) => ({
+    _id: `storyUpdates:${n}`,
+    body: `Morning ${n} on the pier.`,
+    createdAt: 1_700_000_000_000 - n,
+    authorUserId: LEAD,
+    author: { name: "Lena Ortiz", imageUrl: null, profileId: "profiles:lead" },
+  });
+  const panelAbout = (html: string) => html.slice(html.indexOf('id="project-panel-about"'));
+
+  it("shows a visitor the maker's words and voice note under the work", () => {
+    const html = page({ viewer: "visitor", project: piece({ description: "Six mornings on the pier.", audioNoteUrl: "https://media.test/note" }) });
+    const about = panelAbout(html);
+    expect(about).toContain("Six mornings on the pier.");
+    expect(about).toContain("Voice note");
+    expect(about).toMatch(/<audio[^>]*src="https:\/\/media.test\/note"/);
+  });
+
+  it("lists its updates under the work, with the Updates heading", () => {
+    const html = page({ viewer: "visitor", project: piece(), updates: [update(1), update(2)] });
+    const about = panelAbout(html);
+    expect(about).toContain("Morning 1 on the pier.");
+    expect(about).toContain("Morning 2 on the pier.");
+    expect(about.indexOf("Morning 1")).toBeLessThan(about.indexOf("Morning 2"));
+  });
+
+  it("adds no Updates section under the work when there are none", () => {
+    const about = panelAbout(page({ viewer: "visitor", project: piece() }));
+    expect(about).not.toContain(">Updates<");
+  });
+
+  it("gives its maker the pencil for the words", () => {
+    expect(page({ viewer: "owner", project: piece() })).toContain("Add a few words about it");
+  });
+
+  it("gives no pencil to someone who didn't make the piece, even its project's lead", () => {
+    const html = page({ viewer: "owner", project: piece({ profileId: "profiles:someone-else" }) });
+    expect(html).not.toContain("Add a few words about it");
+  });
+
+  it("a project with no pieces shows no updates under About (the Updates tab has them)", () => {
+    const about = panelAbout(page({ viewer: "visitor", updates: [update(1)] }));
+    expect(about.split('id="project-panel-')[1] ?? "").not.toContain("Morning 1 on the pier.");
   });
 });

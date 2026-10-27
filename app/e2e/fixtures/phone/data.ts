@@ -274,6 +274,82 @@ const updates = [
   },
 ];
 
+/** A second of quiet as a WAV, so a voice note's player has something to
+ *  load without a file in public/. */
+function quietWav(): string {
+  const rate = 8000;
+  const bytes = new Uint8Array(44 + rate).fill(128);
+  const view = new DataView(bytes.buffer);
+  const text = (at: number, word: string) => [...word].forEach((c, i) => view.setUint8(at + i, c.charCodeAt(0)));
+  text(0, "RIFF");
+  view.setUint32(4, 36 + rate, true);
+  text(8, "WAVEfmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, 1, true); // mono
+  view.setUint32(24, rate, true);
+  view.setUint32(28, rate, true);
+  view.setUint16(32, 1, true);
+  view.setUint16(34, 8, true);
+  text(36, "data");
+  view.setUint32(40, rate, true);
+  return `data:audio/wav;base64,${btoa(String.fromCharCode(...bytes))}`;
+}
+
+/** Two shared pieces as their project pages show them (/projects/p-cafe is
+ *  yours, to see the editing; /projects/p-harbor is Dee's, with a
+ *  description, a voice note and twelve updates, to see "Show more"). */
+const pieceProjects = [
+  project({
+    _id: "p-cafe",
+    userId: "u-me",
+    origin: "portfolio",
+    title: "Cafe opening",
+    resolvedPhotoUrl: "/campaign/cafe.jpg",
+    stage: "completed",
+    creator: { _id: "me", name: me.name, imageUrl: me.imageUrl, interests: me.interests, location: me.location },
+    media: [{ _id: "a-cafe", profileId: "me", type: "image", resolvedMediaUrl: "/campaign/cafe.jpg", mediaStorageId: "s-cafe", order: 0, createdAt: now - 40 * DAY }],
+  }),
+  project({
+    _id: "p-harbor",
+    userId: "u-dee",
+    origin: "portfolio",
+    title: "Harbor Light, a photo series",
+    resolvedPhotoUrl: "/campaign/gallery.jpg",
+    stage: "completed",
+    media: [
+      {
+        _id: "a-harbor",
+        profileId: "dee-alvarez",
+        type: "image",
+        resolvedMediaUrl: "/campaign/gallery.jpg",
+        mediaStorageId: "s-harbor",
+        description: "Shot over six mornings on the Shelter Island pier, before the boats went out.",
+        audioNoteUrl: quietWav(),
+        order: 0,
+        createdAt: now - 10 * DAY,
+      },
+    ],
+  }),
+];
+
+const harborUpdates = Array.from({ length: 12 }, (_, i) => ({
+  _id: `su-${i + 1}`,
+  body: i === 0 ? "Prints are back from the lab. Hanging them Saturday." : `Morning ${12 - i} on the pier.`,
+  createdAt: now - i * DAY - HOUR,
+  authorUserId: "u-dee",
+  author: { name: "Dee Alvarez", imageUrl: "/campaign/dee.jpg", profileId: "dee-alvarez" },
+}));
+
+/** The shared piece a project page asks about, or undefined. */
+const pieceProject = (args: unknown) =>
+  pieceProjects.find((p) => (p as { _id?: string })._id === (args as { projectId?: string } | undefined)?.projectId) as
+    | (Record<string, unknown> & { userId: string; creator: { _id: string; name: string; imageUrl: string } })
+    | undefined;
+
+const updatesFor = (args: unknown) =>
+  (args as { projectId?: string } | undefined)?.projectId === "p-harbor" ? harborUpdates : [];
+
 /** Your own page, with an address, at /profile/me: what the share kit
  *  (components/ProfileShareKit.tsx) opens from. */
 export const myPage = {
@@ -362,8 +438,22 @@ export const answers: Record<string, unknown | ((args: unknown) => unknown)> = {
   "garden/communities:listMyCommunities": [{ ...community, role: "member", status: "active", isHome: true }],
   "garden/communities:listCommunities": [{ ...community, memberCount: 40 }],
   "garden/projects:listProjects": projects,
-  "garden/projectTeam:getTeam": { accepted: [{ userId: "u-marta" }, { userId: "u-june" }] },
-  "garden/projectTeam:listRoles": [{ status: "open" }, { status: "open" }],
+  "garden/projects:getProject": (args: unknown) => {
+    const id = (args as { projectId?: string } | undefined)?.projectId;
+    return [...projects, ...pieceProjects].find((p) => (p as { _id?: string })._id === id) ?? null;
+  },
+  "garden/stories:listProjectUpdates": updatesFor,
+  // Paged by usePaginatedQuery in convexReact.ts.
+  "garden/stories:listProjectUpdatesPage": updatesFor,
+  // A shared piece's page has just its maker; elsewhere, the two-person team
+  // the cards count.
+  "garden/projectTeam:getTeam": (args: unknown) => {
+    const piece = pieceProject(args);
+    if (!piece) return { accepted: [{ userId: "u-marta" }, { userId: "u-june" }] };
+    const { creator, userId } = piece;
+    return { lead: { profileId: creator._id, userId, name: creator.name, imageUrl: creator.imageUrl }, accepted: [], credits: [], acceptingPeople: false };
+  },
+  "garden/projectTeam:listRoles": (args: unknown) => (pieceProject(args) ? [] : [{ status: "open" }, { status: "open" }]),
   "garden/support:listSupportForProject": [],
   "garden/patronTiers:listTiers": [],
   "garden/giving:getMyGiving": { open: [{ amountCents: 500 }] },

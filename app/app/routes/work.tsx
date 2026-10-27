@@ -6,6 +6,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { EmbedPlayer } from "../components/EmbedPlayer";
 import { PersonAvatar } from "../components/PersonAvatar";
+import { PieceNote } from "../components/PieceNote";
 import { ShareButton } from "../components/ShareButton";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import { useBack } from "../lib/useBack";
@@ -331,6 +332,11 @@ export default function WorkDetail() {
                 {artifact.content}
               </p>
             )}
+          </div>
+
+          {/* What the maker says about it, and their voice note. */}
+          <div className="mb-4">
+            <PieceNote piece={artifact} canEdit={artifact.isOwner} />
           </div>
 
           {/* Actions row - always on its own line */}
