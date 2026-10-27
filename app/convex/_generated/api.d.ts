@@ -10,6 +10,8 @@
 
 import type * as admin from "../admin.js";
 import type * as admin_accountToOrganization from "../admin/accountToOrganization.js";
+import type * as admin_duplicates from "../admin/duplicates.js";
+import type * as admin_mergeOrganizations from "../admin/mergeOrganizations.js";
 import type * as admin_mergeUsers from "../admin/mergeUsers.js";
 import type * as adminEmails from "../adminEmails.js";
 import type * as analytics from "../analytics.js";
@@ -28,6 +30,7 @@ import type * as crawlerSeeds from "../crawlerSeeds.js";
 import type * as crons from "../crons.js";
 import type * as csv from "../csv.js";
 import type * as directoryRules from "../directoryRules.js";
+import type * as duplicateRules from "../duplicateRules.js";
 import type * as email_consoleProvider from "../email/consoleProvider.js";
 import type * as email_index from "../email/index.js";
 import type * as email_resendProvider from "../email/resendProvider.js";
@@ -184,6 +187,8 @@ import type {
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   "admin/accountToOrganization": typeof admin_accountToOrganization;
+  "admin/duplicates": typeof admin_duplicates;
+  "admin/mergeOrganizations": typeof admin_mergeOrganizations;
   "admin/mergeUsers": typeof admin_mergeUsers;
   adminEmails: typeof adminEmails;
   analytics: typeof analytics;
@@ -202,6 +207,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   csv: typeof csv;
   directoryRules: typeof directoryRules;
+  duplicateRules: typeof duplicateRules;
   "email/consoleProvider": typeof email_consoleProvider;
   "email/index": typeof email_index;
   "email/resendProvider": typeof email_resendProvider;

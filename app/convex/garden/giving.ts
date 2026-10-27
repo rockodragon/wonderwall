@@ -40,6 +40,7 @@ import { communityVisibility } from "./communityVisibility";
 import { profileImageUrl, projectPhotoUrl } from "../images";
 import { formatCents } from "../money";
 import { hasRealName } from "../names";
+import { followedProfileIds } from "../favorites";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
@@ -805,11 +806,7 @@ export const getMyGiving = query({
 /** Who the viewer follows: profile ids (favorites with targetType "profile"
  * store the PROFILE id) — used to put followed people first in the pickers. */
 async function followedSets(ctx: QueryCtx, userId: Id<"users">) {
-  const favs = await ctx.db
-    .query("favorites")
-    .withIndex("by_userId_type", (q) => q.eq("userId", userId).eq("targetType", "profile"))
-    .collect();
-  return { profileIds: new Set(favs.map((f) => f.targetId)) };
+  return { profileIds: await followedProfileIds(ctx, userId) };
 }
 
 /** People a gift can go to: active members of the gift's community, not

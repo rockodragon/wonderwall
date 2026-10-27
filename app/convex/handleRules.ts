@@ -29,7 +29,7 @@ export const RESERVED_HANDLES: ReadonlySet<string> = new Set(
   (
     "about admin api assets badge brand c campaign claim code communities coverage create demo docs e events exchange faq " +
     "embed favorites for fund garden give grant-program help host ia invite j jobs join legal login media messages " +
-    "oauth-callback offerings offers onboarding opportunities orgs patron people pricing profile projects " +
+    "oauth-callback offerings offers onboarding opportunities orgs patron people pricing profile projects promise " +
     "search settings showcase signup story support tables today unsubscribe works"
   ).split(" "),
 );

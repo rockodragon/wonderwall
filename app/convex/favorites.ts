@@ -41,6 +41,16 @@ function findFavorite(
     .first();
 }
 
+/** The profiles someone follows, by id (a profile favorite is a follow, and
+ * its targetId is the PROFILE id). */
+export async function followedProfileIds(ctx: QueryCtx, userId: Id<"users">): Promise<Set<string>> {
+  const follows = await ctx.db
+    .query("favorites")
+    .withIndex("by_userId_type", (q) => q.eq("userId", userId).eq("targetType", "profile"))
+    .collect();
+  return new Set(follows.map((f) => f.targetId));
+}
+
 /** A save or follow of something gone, hidden, or not what it says it is. */
 const notFound = () => new ConvexError({ code: "not_found", reason: "That isn't here anymore." });
 

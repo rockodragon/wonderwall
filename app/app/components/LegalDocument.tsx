@@ -3,6 +3,8 @@ import { LEGAL_ENTITY } from "../legal/entity";
 
 export type LegalSection = {
   heading: string;
+  /** The section's anchor, for a link straight to it (/legal/terms#promises). */
+  id?: string;
   /** Rendered as <p>, in order, under the heading. */
   paragraphs?: string[];
   /** Bulleted list after the paragraphs. */
@@ -11,6 +13,8 @@ export type LegalSection = {
   trailing?: string[];
   /** A second bulleted list, after `trailing`. */
   trailingBullets?: string[];
+  /** A link at the end of the section, to the plain-words page about it. */
+  link?: { to: string; label: string };
 };
 
 /**
@@ -92,7 +96,7 @@ export function LegalDocument({
 
           <div className="mt-8 space-y-10">
             {sections.map((section, i) => (
-              <section key={section.heading}>
+              <section key={section.heading} id={section.id} className="scroll-mt-6">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                   {i + 1}. {section.heading}
                 </h2>
@@ -101,6 +105,16 @@ export function LegalDocument({
                 {section.trailing && <Paragraphs items={section.trailing} />}
                 {section.trailingBullets && (
                   <Bullets items={section.trailingBullets} />
+                )}
+                {section.link && (
+                  <p className="mt-3">
+                    <Link
+                      to={section.link.to}
+                      className="font-medium text-gray-900 dark:text-white underline underline-offset-4 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                      {section.link.label} →
+                    </Link>
+                  </p>
                 )}
               </section>
             ))}

@@ -87,6 +87,31 @@ describe("accountToOrganization", () => {
     expect(ctx.store.users).toHaveLength(3);
   });
 
+  it("hands the organizations it started and the files it uploaded to David, and clears its other traces", async () => {
+    const ctx = world({
+      organizations: [{ _id: ORG, name: "Abiding Practice", slug: "abiding-practice", createdByUserId: AP }],
+      uploadClaims: [{ _id: "uploadClaims:1", storageId: "_storage:logo", userId: AP, claimedAt: 1 }],
+      nudgeLog: [{ _id: "nudgeLog:1", userId: AP, loopKey: "x", status: "sent", at: 1 }],
+      handleForwards: [{ _id: "handleForwards:1", handle: "ap-old", profileId: "profiles:ap", expiresAt: 9e15 }],
+      favorites: [{ _id: "favorites:1", userId: JO, targetType: "profile", targetId: "profiles:ap" }],
+    });
+    expect(await run(accountToOrganization, ctx, args(false))).toMatchObject({ done: true });
+    const s = ctx.store;
+    expect(s.organizations[0].createdByUserId).toBe(DAVID);
+    expect(s.uploadClaims[0].userId).toBe(DAVID);
+    expect(s.nudgeLog).toEqual([]);
+    expect(s.handleForwards).toEqual([]);
+    expect(s.favorites).toEqual([]);
+  });
+
+  it("refuses when an event shows the account as a host", async () => {
+    const ctx = world({ events: [{ _id: "events:1", organizerId: DAVID, displayHosts: [{ kind: "user", userId: AP }] }] });
+    expect(await run(accountToOrganization, ctx, args(true))).toEqual({
+      blocked: true,
+      blockers: { "events.displayHosts": 1 },
+    });
+  });
+
   it("refuses a runBy who isn't part of the organization", async () => {
     await expect(
       run(accountToOrganization, world(), { userId: AP, organizationId: ORG, runBy: JO, dryRun: true }),

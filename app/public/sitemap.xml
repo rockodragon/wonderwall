@@ -54,6 +54,11 @@
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://thecreative.exchange/promise</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://thecreative.exchange/login</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>

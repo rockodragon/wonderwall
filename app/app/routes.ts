@@ -84,6 +84,10 @@ export default [
     route("about", "routes/about.tsx"),
     route("about/agreements", "routes/about.agreements.tsx"),
     route("about/:audience", "routes/about.$audience.tsx"),
+    // Our promise to creatives: what the site promises every creative, each
+    // pinned to the code that keeps it (constants/promises.ts). Public;
+    // _app.tsx lists "/promise". functions/promise.ts gives it link-preview tags.
+    route("promise", "routes/promise.tsx"),
     // How-to for event hosts: tickets and payment links. Public; _app.tsx lists "/docs".
     route("docs/tickets", "routes/docs.tickets.tsx"),
     // People. /search was its address before it was called People; it
@@ -145,6 +149,9 @@ export default [
     route("admin/activity", "routes/admin.activity.tsx"),
     route("admin/attention", "routes/admin.attention.tsx"),
     route("admin/crawler", "routes/admin.crawler.tsx"),
+    // People and organizations entered twice: compare, pick one, merge
+    // (convex/admin/duplicates.ts).
+    route("admin/duplicates", "routes/admin.duplicates.tsx"),
     // The emails PostHog asks the app to send (docs/features/engagement-loops.md).
     route("admin/engagement-loops", "routes/admin.engagement-loops.tsx"),
     route("admin/garden", "routes/admin.garden.tsx"),

@@ -24,6 +24,7 @@ import { currentUserId, getProfileByUserId, isAdminProfile, requireProfile, requ
 import { insertNotification } from "./notify";
 import { fail } from "./errors";
 import { hasRealName } from "./names";
+import { followedProfileIds } from "./favorites";
 import { claimUpload, deleteStoredFile } from "./uploads";
 
 type Ctx = QueryCtx | MutationCtx;
@@ -164,20 +165,29 @@ function checkTitle(raw: string | undefined | null) {
   return title || undefined;
 }
 
+/** A slug no organization holds, and no merged one's old address forwards
+ * from (orgSlugForwards), so an old link keeps opening what it did. */
 async function uniqueSlug(ctx: MutationCtx, name: string) {
   const base = slugifyOrgName(name);
   for (let n = 1; n < 100; n++) {
     const slug = n === 1 ? base : `${base}-${n}`;
-    const taken = await ctx.db
-      .query("organizations")
-      .withIndex("by_slug", (q) => q.eq("slug", slug))
-      .first();
+    const taken =
+      (await ctx.db
+        .query("organizations")
+        .withIndex("by_slug", (q) => q.eq("slug", slug))
+        .first()) ??
+      (await ctx.db
+        .query("orgSlugForwards")
+        .withIndex("by_slug", (q) => q.eq("slug", slug))
+        .first());
     if (!taken) return slug;
   }
   return `${base}-${Date.now()}`;
 }
 
-/** Find an organization by name, or create it. Never makes a duplicate. */
+/** Find an organization by name, or create it. Never makes a duplicate: the
+ * name of one merged into another (orgSlugForwards) finds the one it was
+ * merged into, so the copy isn't made again. */
 async function findOrCreate(ctx: MutationCtx, userId: Id<"users">, rawName: string) {
   const name = checkName(rawName);
   const existing = await ctx.db
@@ -185,6 +195,12 @@ async function findOrCreate(ctx: MutationCtx, userId: Id<"users">, rawName: stri
     .withIndex("by_nameKey", (q) => q.eq("nameKey", orgNameKey(name)))
     .first();
   if (existing) return { org: existing, created: false };
+  const forward = await ctx.db
+    .query("orgSlugForwards")
+    .withIndex("by_nameKey", (q) => q.eq("nameKey", orgNameKey(name)))
+    .first();
+  const mergedInto = forward ? await ctx.db.get(forward.organizationId) : null;
+  if (mergedInto) return { org: mergedInto, created: false };
   const now = Date.now();
   const id = await ctx.db.insert("organizations", {
     name,
@@ -354,15 +370,28 @@ export async function fillOrgWebsite(
   await refreshMemberCaches(ctx, org._id);
 }
 
+/** The organization at /orgs/<slug>: the one that holds the slug, else the
+ * one an organization merged into it forwards to (orgSlugForwards, written
+ * by admin/mergeOrganizations.ts), so an old link still opens a page. */
+export async function orgBySlug(ctx: Ctx, slug: string): Promise<Doc<"organizations"> | null> {
+  const org = await ctx.db
+    .query("organizations")
+    .withIndex("by_slug", (q) => q.eq("slug", slug))
+    .first();
+  if (org) return org;
+  const forward = await ctx.db
+    .query("orgSlugForwards")
+    .withIndex("by_slug", (q) => q.eq("slug", slug))
+    .first();
+  return forward ? await ctx.db.get(forward.organizationId) : null;
+}
+
 // ——— Queries ———
 
 export const getBySlug = query({
   args: { slug: v.string() },
   handler: async (ctx, { slug }) => {
-    const org = await ctx.db
-      .query("organizations")
-      .withIndex("by_slug", (q) => q.eq("slug", slug))
-      .first();
+    const org = await orgBySlug(ctx, slug);
     if (!org) return null;
 
     const people = [];
@@ -448,12 +477,15 @@ export const search = query({
 });
 
 /** The Organizations tab on People (/people?tab=orgs): every organization,
- * most people first, with the first few faces of its people. Someone who
- * never gave a name (convex/names.ts) has no page yet, so they are neither
- * shown nor counted: the count is the people a visitor could find. */
+ * most people first, with the first few faces of its people and how many of
+ * them the viewer follows. Someone who never gave a name (convex/names.ts)
+ * has no page yet, so they are neither shown nor counted: the count is the
+ * people a visitor could find. */
 export const list = query({
   args: {},
   handler: async (ctx) => {
+    const viewer = await currentUserId(ctx);
+    const followed = viewer ? await followedProfileIds(ctx, viewer) : new Set<string>();
     const orgs = await ctx.db.query("organizations").collect();
     const rows = await Promise.all(
       orgs.map(async (o) => {
@@ -478,6 +510,7 @@ export const list = query({
           location: o.location ?? null,
           logoUrl: await orgLogoUrl(ctx, o),
           peopleCount: named.length,
+          followingCount: named.filter((p) => followed.has(p._id)).length,
           faces,
         };
       }),

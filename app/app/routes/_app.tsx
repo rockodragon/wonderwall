@@ -46,7 +46,8 @@ const PUBLIC_PATH_PREFIXES = ["/about", "/docs", "/communities", "/people", "/se
 // this takes a one-time card payment without one.
 // /give is public too: The Garden's home asks visitors to give, and the page
 // shows them the two ways (use our money, bring your own) before any sign-in.
-const PUBLIC_EXACT_PATHS = ["/projects", "/give"];
+// /promise (Our promise to creatives) is for people deciding whether to join.
+const PUBLIC_EXACT_PATHS = ["/projects", "/give", "/promise"];
 
 // /projects/:id is public (Rick, 2026-10-22), the way a shared post opens on
 // Instagram or TikTok: anyone with the link sees the work, and the page
