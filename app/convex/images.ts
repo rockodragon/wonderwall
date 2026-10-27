@@ -137,6 +137,15 @@ export async function pieceMediaUrl(
   return piece.mediaUrl || null;
 }
 
+/** A piece's spoken note (artifacts.audioNoteStorageId), or null when it has
+ *  none or the file is gone. */
+export async function audioNoteUrl(
+  ctx: StorageCtx,
+  piece: { audioNoteStorageId?: Id<"_storage"> },
+): Promise<string | null> {
+  return await storedOrExternalUrl(ctx, piece.audioNoteStorageId, null);
+}
+
 /** An organization's logo, or null when it has none. */
 export async function orgLogoUrl(
   ctx: StorageCtx,

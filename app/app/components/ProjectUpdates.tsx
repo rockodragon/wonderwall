@@ -9,7 +9,7 @@
 // editing and deleting belong to whoever wrote the row.
 
 import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation, usePaginatedQuery } from "convex/react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -316,6 +316,80 @@ function UpdateCard({ update, canManage }: { update: UpdateRow; canManage: boole
   );
 }
 
+// ————— the list —————
+
+/** How many updates load at first, and with each "Show more". */
+export const UPDATES_PAGE_SIZE = 10;
+
+/**
+ * A project's updates, newest first, UPDATES_PAGE_SIZE at a time with a
+ * "Show more" under them. The one list: the Updates tab and the About tab
+ * both draw it. An author can edit or delete their own row.
+ *
+ * `hideWhenEmpty` draws nothing until there is an update to show (for a place
+ * on the page that is not worth a heading when it has nothing). `heading`
+ * sits above the rows, and only when there are rows. `empty` is what an
+ * empty list says when it isn't hidden.
+ */
+export function UpdatesList({
+  projectId,
+  myUserId,
+  hideWhenEmpty,
+  heading,
+  empty,
+  className,
+}: {
+  projectId: Id<"projects">;
+  /** The signed-in user, so an author can manage their own row. */
+  myUserId?: string;
+  hideWhenEmpty?: boolean;
+  heading?: string;
+  empty?: React.ReactNode;
+  className?: string;
+}) {
+  const { results, status, loadMore } = usePaginatedQuery(
+    api.garden.stories.listProjectUpdatesPage,
+    { projectId },
+    { initialNumItems: UPDATES_PAGE_SIZE },
+  );
+  const rows = results as UpdateRow[];
+  const loadingFirst = status === "LoadingFirstPage";
+
+  if (hideWhenEmpty && (loadingFirst || rows.length === 0)) return null;
+
+  const Root = heading ? "section" : "div";
+  return (
+    <Root className={className} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {heading && rows.length > 0 && <SectionHeading>{heading}</SectionHeading>}
+
+      {loadingFirst ? (
+        <p style={{ margin: 0, fontSize: 14, color: "var(--garden-dim)" }}>Loading…</p>
+      ) : rows.length === 0 ? (
+        empty
+      ) : (
+        <div>
+          {rows.map((update) => (
+            <UpdateCard
+              key={String(update._id)}
+              update={update}
+              canManage={!!myUserId && String(update.authorUserId) === String(myUserId)}
+            />
+          ))}
+        </div>
+      )}
+
+      {status === "CanLoadMore" && (
+        <div>
+          <QuietButton onClick={() => loadMore(UPDATES_PAGE_SIZE)}>Show more</QuietButton>
+        </div>
+      )}
+      {status === "LoadingMore" && (
+        <p style={{ margin: 0, fontSize: 14, color: "var(--garden-dim)" }}>Loading…</p>
+      )}
+    </Root>
+  );
+}
+
 // ————— the section —————
 
 export function ProjectUpdates({
@@ -328,35 +402,35 @@ export function ProjectUpdates({
   /** The signed-in user, so an author can manage their own row. */
   myUserId?: string;
 }) {
-  const updates = useQuery(api.garden.stories.listProjectUpdates, { projectId });
-
   // Nothing posted and nothing the visitor could do about it — the section
   // stays out of the page rather than showing an empty shell.
-  if (!isOwner && (updates === undefined || updates.length === 0)) return null;
+  if (!isOwner) {
+    return (
+      <UpdatesList
+        projectId={projectId}
+        myUserId={myUserId}
+        heading="Updates"
+        hideWhenEmpty
+        className="mb-6"
+      />
+    );
+  }
 
   return (
     <section className="mb-6" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <SectionHeading>Updates</SectionHeading>
 
-      {isOwner && <Composer projectId={projectId} />}
+      <Composer projectId={projectId} />
 
-      {updates === undefined ? (
-        <p style={{ margin: 0, fontSize: 14, color: "var(--garden-dim)" }}>Loading…</p>
-      ) : updates.length === 0 ? (
-        <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "var(--garden-dim)" }}>
-          No updates yet. Supporters and followers see these as you post them.
-        </p>
-      ) : (
-        <div>
-          {(updates as UpdateRow[]).map((update) => (
-            <UpdateCard
-              key={String(update._id)}
-              update={update}
-              canManage={!!myUserId && String(update.authorUserId) === String(myUserId)}
-            />
-          ))}
-        </div>
-      )}
+      <UpdatesList
+        projectId={projectId}
+        myUserId={myUserId}
+        empty={
+          <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "var(--garden-dim)" }}>
+            No updates yet. Supporters and followers see these as you post them.
+          </p>
+        }
+      />
     </section>
   );
 }

@@ -239,6 +239,16 @@ export default defineSchema({
     // cross-post.md).
     coverStorageId: v.optional(v.id("_storage")),
     title: v.optional(v.string()), // optional title for the artifact
+    // What the maker says about the piece, for any type: short plain text
+    // (pieceNote.ts caps it), shown under the work. Its own field, not
+    // `content`: `content` IS the work for a text piece (markdown, mirrored
+    // as its project's blurb), and the Settings edit form clears `content`
+    // on every other type, which would erase a description kept there.
+    description: v.optional(v.string()),
+    // A short spoken note the maker recorded in the browser (MediaRecorder),
+    // played under the work. Deleted with the piece, and when re-recorded
+    // or removed (artifacts.setAudioNote).
+    audioNoteStorageId: v.optional(v.id("_storage")),
     // Site-supplied metadata for a plain "link" artifact, fetched alongside
     // ogImageUrl (convex/artifacts.ts:fetchOgImage). ogTitle is the site's
     // own title (og:title, falling back to <title>) and is never used to

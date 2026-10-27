@@ -10,7 +10,8 @@ import { slugifyTitle, resolveAvailableSlug } from "./garden/stories";
 import { normalizeUrl, isSafeHttpUrl } from "./garden/richText";
 import { parseOgMeta } from "./ogParse";
 import { currentUserId, getProfileByUserId, requireOwnProfileRow, requireProfile, requireUserId } from "./helpers";
-import { pieceMediaUrl, profileImageUrl, storedFileUrl } from "./images";
+import { audioNoteUrl, pieceMediaUrl, profileImageUrl, storedFileUrl } from "./images";
+import { cleanDescription } from "./pieceNote";
 import { claimUpload, deleteStoredFile } from "./uploads";
 
 export const getMyArtifacts = query({
@@ -67,6 +68,7 @@ export const get = query({
     return {
       ...artifact,
       resolvedMediaUrl,
+      audioNoteUrl: await audioNoteUrl(ctx, artifact),
       profile: profile
         ? {
             _id: profile._id,
@@ -143,6 +145,10 @@ export const create = mutation({
     // cover, not the work (docs/features/creator-media-cross-post.md). Stored
     // as `ogImageUrl` so every card reads it like any other preview.
     coverStorageId: v.optional(v.id("_storage")),
+    // What the maker says about the piece, and a note they recorded
+    // (schema.ts `description`, `audioNoteStorageId`).
+    description: v.optional(v.string()),
+    audioNoteStorageId: v.optional(v.id("_storage")),
     // "Still working on it" in the composer. A shared piece is finished
     // work by default, so its project lands in the profile's Portfolio
     // (docs/features/project-ia.md); true leaves the project in progress.
@@ -187,6 +193,8 @@ export const create = mutation({
     }
     await claimUpload(ctx, userId, args.mediaStorageId);
     await claimUpload(ctx, userId, args.coverStorageId);
+    await claimUpload(ctx, userId, args.audioNoteStorageId);
+    const description = cleanDescription(args.description);
 
     // Get current max order
     const existing = await ctx.db
@@ -216,6 +224,8 @@ export const create = mutation({
       mediaStorageId: args.mediaStorageId,
       ogImageUrl: coverUrl ?? undefined,
       coverStorageId: args.coverStorageId,
+      description,
+      audioNoteStorageId: args.audioNoteStorageId,
       order: maxOrder + 1,
       createdAt,
     });
@@ -392,11 +402,42 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     const { userId, row: artifact, profile } = await requireOwnProfileRow(ctx, "artifacts", args.artifactId);
 
-    // Delete associated storage files — the work and any stored cover
+    // Delete associated storage files — the work, any stored cover, and
+    // the maker's spoken note
     await deleteStoredFile(ctx, artifact.mediaStorageId);
     await deleteStoredFile(ctx, artifact.coverStorageId);
+    await deleteStoredFile(ctx, artifact.audioNoteStorageId);
 
     await ctx.db.delete(args.artifactId);
+  },
+});
+
+// The owner's description of a piece, from its page. Blank clears it.
+// `update` (the Settings form) leaves it alone, so neither erases the other.
+export const setDescription = mutation({
+  args: {
+    artifactId: v.id("artifacts"),
+    description: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireOwnProfileRow(ctx, "artifacts", args.artifactId);
+    await ctx.db.patch(args.artifactId, { description: cleanDescription(args.description) });
+  },
+});
+
+// The owner's spoken note on a piece: a new recording replaces the old one
+// (its file is deleted), and no storageId removes it.
+export const setAudioNote = mutation({
+  args: {
+    artifactId: v.id("artifacts"),
+    storageId: v.optional(v.id("_storage")),
+  },
+  handler: async (ctx, args) => {
+    const { userId, row: artifact } = await requireOwnProfileRow(ctx, "artifacts", args.artifactId);
+    if (args.storageId === artifact.audioNoteStorageId) return;
+    await claimUpload(ctx, userId, args.storageId);
+    await deleteStoredFile(ctx, artifact.audioNoteStorageId);
+    await ctx.db.patch(args.artifactId, { audioNoteStorageId: args.storageId });
   },
 });
 

@@ -8,6 +8,7 @@ import AppLayout from "../../../app/routes/_app";
 import Today from "../../../app/routes/today";
 import Events from "../../../app/routes/events";
 import Projects from "../../../app/routes/projects";
+import ProjectDetail from "../../../app/routes/projects.$id";
 import Favorites from "../../../app/routes/favorites";
 import Messages from "../../../app/routes/messages._index";
 import People from "../../../app/routes/search";
@@ -56,7 +57,9 @@ const router = createBrowserRouter([
       { path: "messages", Component: Messages },
       { path: "people", Component: People },
       { path: "search", Component: People },
-      { path: "projects/:id", element: <Elsewhere what="a project" /> },
+      // A project's page; the shared pieces in data.ts are /projects/p-cafe
+      // (yours) and /projects/p-harbor (Dee's, with a voice note).
+      { path: "projects/:id", Component: ProjectDetail },
       { path: "events/:eventId", element: <Elsewhere what="an event" /> },
       // Your own page with an address, and its "Share your profile".
       { path: "profile/me", element: <ProfilePage profile={myPage as unknown as ProfileData} /> },

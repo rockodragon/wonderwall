@@ -2,6 +2,7 @@
 // data.ts by the function's name; every mutation and action is a no-op that
 // resolves. No Convex transport, no production data.
 
+import { useState } from "react";
 import { getFunctionName, type FunctionReference } from "convex/server";
 import { answers, replies } from "./data";
 
@@ -54,4 +55,22 @@ export function useMutation(fn: FunctionReference<"mutation">) {
 export function useAction(fn: FunctionReference<"action">) {
   const reply = replies[getFunctionName(fn)];
   return reply === undefined ? NOOP : async (args?: unknown) => (typeof reply === "function" ? reply(args) : reply);
+}
+
+/** usePaginatedQuery over a sample answer that is the whole list: a page
+ *  grows by `loadMore(n)` the way the real hook's does. */
+export function usePaginatedQuery(
+  fn: FunctionReference<"query">,
+  args: unknown,
+  options: { initialNumItems: number },
+) {
+  const [shown, setShown] = useState(options.initialNumItems);
+  const all = args === "skip" ? undefined : (useQuery(fn, args) as unknown[] | undefined);
+  if (all === undefined) return { results: [], status: "LoadingFirstPage", isLoading: true, loadMore: () => {} };
+  return {
+    results: all.slice(0, shown),
+    status: shown < all.length ? "CanLoadMore" : "Exhausted",
+    isLoading: false,
+    loadMore: (n: number) => setShown((was) => was + n),
+  };
 }

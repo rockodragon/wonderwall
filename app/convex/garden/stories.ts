@@ -11,7 +11,8 @@
 
 import { v } from "convex/values";
 import { ConvexError } from "convex/values";
-import { internalMutation, mutation, query } from "../_generated/server";
+import { paginationOptsValidator } from "convex/server";
+import { internalMutation, mutation, query, type QueryCtx } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { shapeCredits } from "./allocations";
@@ -309,56 +310,97 @@ export const deleteStoryUpdate = mutation({
 });
 
 /**
+ * The project's id when this viewer may see it, else null. The project page
+ * is public: a project not shown to this viewer (admin-hidden, or in a hidden
+ * community), or an id that isn't one, has no updates to them.
+ */
+async function visibleProjectId(ctx: QueryCtx, rawId: string): Promise<Id<"projects"> | null> {
+  const projectId = ctx.db.normalizeId("projects", rawId);
+  if (!projectId) return null;
+  const project = await ctx.db.get(projectId);
+  if (!project || !(await projectVisibleTo(ctx, project, await currentUserId(ctx)))) return null;
+  return projectId;
+}
+
+/**
+ * Update rows as the in-app timeline draws them, in the order given: each
+ * with its author's name, picture and profile id, and its rich body with the
+ * stored files turned into links. Shared by the whole list and by a page of
+ * it, so the two cannot drift.
+ */
+async function shapeProjectUpdates(ctx: QueryCtx, rows: Doc<"storyUpdates">[]) {
+  const authorIds = [...new Set(rows.map((r) => String(r.authorUserId)))];
+  const authorProfiles = await Promise.all(
+    authorIds.map((id) => getProfileByUserId(ctx, id as Id<"users">)),
+  );
+  const authorById = new Map<string, { name: string; imageUrl: string | null; profileId: string }>();
+  for (const profile of authorProfiles) {
+    if (profile) {
+      authorById.set(String(profile.userId), {
+        name: profile.name,
+        imageUrl: await profileImageUrl(ctx, profile),
+        profileId: String(profile._id),
+      });
+    }
+  }
+
+  return await Promise.all(
+    rows.map(async (row) => ({
+      _id: row._id,
+      body: row.body,
+      bodyDoc: await resolveRichDocMedia(ctx.storage, row.bodyDoc),
+      mediaUrl: row.mediaUrl,
+      createdAt: row.createdAt,
+      editedAt: row.editedAt,
+      authorUserId: row.authorUserId,
+      author: authorById.get(String(row.authorUserId)) ?? null,
+    })),
+  );
+}
+
+/**
  * The in-app timeline on /projects/:id. Separate from getStoryPage (which
  * serves the public /story/:slug page and returns a deliberately flattened,
  * Id-free shape for the Pages Function): this one carries row ids, because
  * the author needs to edit and delete from here, and author identity,
  * because the in-app page shows who posted.
+ *
+ * Every update at once, newest first. The page uses it to decide whether the
+ * Updates tab shows; the list itself loads through listProjectUpdatesPage.
  */
 export const listProjectUpdates = query({
   args: { projectId: v.string() },
   handler: async (ctx, args) => {
-    const projectId = ctx.db.normalizeId("projects", args.projectId);
+    const projectId = await visibleProjectId(ctx, args.projectId);
     if (!projectId) return [];
-    // The project page is public: a project not shown to this viewer
-    // (admin-hidden, or in a hidden community) has no updates to them.
-    const project = await ctx.db.get(projectId);
-    if (!project || !(await projectVisibleTo(ctx, project, await currentUserId(ctx)))) return [];
 
     const rows = await ctx.db
       .query("storyUpdates")
       .withIndex("by_projectId", (q) => q.eq("projectId", projectId))
       .collect();
 
-    const authorIds = [...new Set(rows.map((r) => String(r.authorUserId)))];
-    const authorProfiles = await Promise.all(
-      authorIds.map((id) => getProfileByUserId(ctx, id as Id<"users">)),
-    );
-    const authorById = new Map<string, { name: string; imageUrl: string | null; profileId: string }>();
-    for (const profile of authorProfiles) {
-      if (profile) {
-        authorById.set(String(profile.userId), {
-          name: profile.name,
-          imageUrl: await profileImageUrl(ctx, profile),
-          profileId: String(profile._id),
-        });
-      }
-    }
+    return await shapeProjectUpdates(ctx, [...rows].sort((a, b) => b.createdAt - a.createdAt));
+  },
+});
 
-    return await Promise.all(
-      [...rows]
-        .sort((a, b) => b.createdAt - a.createdAt)
-        .map(async (row) => ({
-          _id: row._id,
-          body: row.body,
-          bodyDoc: await resolveRichDocMedia(ctx.storage, row.bodyDoc),
-          mediaUrl: row.mediaUrl,
-          createdAt: row.createdAt,
-          editedAt: row.editedAt,
-          authorUserId: row.authorUserId,
-          author: authorById.get(String(row.authorUserId)) ?? null,
-        })),
-    );
+/**
+ * One page of a project's updates, newest first, for the "Show more" list.
+ * Same visibility as listProjectUpdates; a project this viewer can't see (or
+ * an id that isn't one) is an empty, finished page, not an error.
+ */
+export const listProjectUpdatesPage = query({
+  args: { projectId: v.string(), paginationOpts: paginationOptsValidator },
+  handler: async (ctx, args) => {
+    const projectId = await visibleProjectId(ctx, args.projectId);
+    if (!projectId) return { page: [], isDone: true, continueCursor: "" };
+
+    const result = await ctx.db
+      .query("storyUpdates")
+      .withIndex("by_projectId", (q) => q.eq("projectId", projectId))
+      .order("desc")
+      .paginate(args.paginationOpts);
+
+    return { ...result, page: await shapeProjectUpdates(ctx, result.page) };
   },
 });
 

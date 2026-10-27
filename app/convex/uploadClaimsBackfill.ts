@@ -117,6 +117,7 @@ export const STORED_FILE_FIELDS: readonly FieldSpec[] = [
   spec({ table: "organizations", field: "logoStorageId", shape: "one", owner: (ctx, org) => orgAdmins(ctx, org._id) }),
   spec({ table: "artifacts", field: "mediaStorageId", shape: "one", owner: (ctx, a) => profileOwner(ctx, a.profileId) }),
   spec({ table: "artifacts", field: "coverStorageId", shape: "one", owner: (ctx, a) => profileOwner(ctx, a.profileId) }),
+  spec({ table: "artifacts", field: "audioNoteStorageId", shape: "one", owner: (ctx, a) => profileOwner(ctx, a.profileId) }),
   spec({ table: "wonderings", field: "imageStorageId", shape: "one", owner: (ctx, w) => profileOwner(ctx, w.profileId) }),
   spec({ table: "events", field: "coverImageStorageId", shape: "one", owner: eventCoverOwner }),
   spec({ table: "events", field: "mediaPreviewStorageId", shape: "one", owner: async (_ctx, e) => person(e.organizerId) }),
