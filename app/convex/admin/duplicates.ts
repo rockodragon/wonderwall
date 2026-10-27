@@ -176,12 +176,14 @@ export const findDuplicates = query({
       new Set(dismissals.filter((d) => d.kind === kind).map((d) => d.pairKey));
     const userById = new Map(users.map((u) => [String(u._id), u]));
 
-    const personGroups = groupEdges(
-      personEdges(
-        profiles.map((p) => ({ id: String(p.userId), name: p.name, ...contactOf(userById.get(String(p.userId)) ?? null) })),
-      ),
-      dismissed("person"),
-    );
+    // Every account: by its profile's name, email and phone, and one with no
+    // profile yet by its email and phone alone.
+    const profiled = new Set(profiles.map((p) => String(p.userId)));
+    const accounts = [
+      ...profiles.map((p) => ({ id: String(p.userId), name: p.name, ...contactOf(userById.get(String(p.userId)) ?? null) })),
+      ...users.filter((u) => !profiled.has(String(u._id))).map((u) => ({ id: String(u._id), name: "", ...contactOf(u) })),
+    ];
+    const personGroups = groupEdges(personEdges(accounts), dismissed("person"));
     const orgGroups = groupEdges(
       orgEdges(orgs.map((o) => ({ id: String(o._id), name: o.name }))),
       dismissed("organization"),
@@ -213,7 +215,7 @@ export const findDuplicates = query({
       organizations.push({ key: g.ids.join("+"), reasons: g.reasons.map((r) => REASON_LABEL[r]), members });
     }
 
-    return { people, organizations, checked: { people: profiles.length, organizations: orgs.length } };
+    return { people, organizations, checked: { people: accounts.length, organizations: orgs.length } };
   },
 });
 
@@ -406,15 +408,31 @@ async function planPeopleMerge(
     );
   }
 
-  // Sign-ins, read before the merge moves them.
+  // Sign-ins, read before the merge moves them (mergeUsers signInFate).
   const keepSignIns = await signInsOf(ctx, keepUserId);
-  const keepHasPassword = keepSignIns.some((a) => a.provider === "password");
+  const held = [...keepSignIns];
   const moving: string[] = [];
   const dropping: string[] = [];
+  // Convex Auth writes a sign-in's email or phone onto the account each time
+  // it's used (auth.ts), so a moved one with another address changes what's
+  // on file.
+  const onFile: string[] = [];
   for (let i = 0; i < others.length; i++) {
     for (const a of await signInsOf(ctx, others[i])) {
       const label = describeSignIn(a, otherUsers[i]);
-      (signInFate(a.provider, keepHasPassword) === "moved" ? moving : dropping).push(label);
+      if (signInFate(a, held) === "dropped") {
+        dropping.push(label);
+        continue;
+      }
+      moving.push(label);
+      held.push(a);
+      const email = a.provider === "google" ? otherUsers[i]?.email : a.provider === "email-otp" ? a.providerAccountId : null;
+      if (email && email.toLowerCase() !== keepUser.email?.toLowerCase()) {
+        onFile.push(`If they sign in with ${label}, the email on file for ${keepName} changes to ${email}.`);
+      }
+      if (a.provider === "phone" && keepUser.phone && a.providerAccountId !== keepUser.phone) {
+        onFile.push(`If they sign in with ${label}, the phone number on file for ${keepName} changes to that one.`);
+      }
     }
   }
 
@@ -424,13 +442,23 @@ async function planPeopleMerge(
     for (const [k, n] of Object.entries(from ?? {})) counts[k] = (counts[k] ?? 0) + n;
   };
   let filledNow: string[] | null = null;
+  const talks = { withEachOther: 0, combined: 0 };
   for (const r of report.results) {
     if ("blocked" in r) fail("cannot_merge", blockedReason(r.blockers));
-    if ("dryRun" in r) add(r.blockers);
+    if ("dryRun" in r) {
+      add(r.blockers);
+      // The dry run counts every conversation; the ones that go or are
+      // combined don't move as their own.
+      const c = r.conversations ?? { withEachOther: 0, combined: 0 };
+      counts["conversations.participants"] = (counts["conversations.participants"] ?? 0) - c.withEachOther - c.combined;
+    }
     if ("merged" in r) {
       add(r.contentMoved?.moved);
       filledNow = [...(filledNow ?? []), ...(r.contentMoved?.profileFieldsFilled ?? [])];
     }
+    const c = "dryRun" in r ? r.conversations : "merged" in r ? r.contentMoved?.conversations : undefined;
+    talks.withEachOther += c?.withEachOther ?? 0;
+    talks.combined += c?.combined ?? 0;
   }
 
   const done = !dryRun;
@@ -439,6 +467,16 @@ async function planPeopleMerge(
     movesLine(counts, keepLabel, done),
     fillsLine(filledNow?.filter((k) => !k.startsWith("(")) ?? filled, keepName, wholeProfile, done),
   ];
+  if (talks.combined > 0) {
+    lines.push(
+      `${done ? "Combined" : "Combines"} ${countPhrase(talks.combined, "conversation", "conversations")} the other copy had with people ${keepName} also talks to: each person ends up with one conversation with ${keepName}, all messages kept.`,
+    );
+  }
+  if (talks.withEachOther > 0) {
+    lines.push(
+      `${done ? "Deleted" : "Deletes"} the ${talks.withEachOther === 1 ? "conversation" : "conversations"} between the two copies, with ${talks.withEachOther === 1 ? "its" : "their"} messages: it would be ${keepName} talking to ${keepName}.`,
+    );
+  }
   if (forwarded.length > 0) {
     const addresses = listPhrase(forwarded.map((h) => `@${h}`));
     lines.push(
@@ -465,10 +503,9 @@ async function planPeopleMerge(
     signIn.push(`The other copy's sign-ins, ${listPhrase(moving)}, move over: they keep working, and open ${keepName}'s account from now on.`);
   }
   for (const d of dropping) {
-    signIn.push(
-      `The other copy's ${d} stops working, because ${keepName}'s account already has a password. Sign in with ${keepName}'s own from now on.`,
-    );
+    signIn.push(`The other copy's ${d} is one ${keepName}'s account already has, so it isn't added twice.`);
   }
+  signIn.push(...onFile);
   if (moving.length === 0 && dropping.length === 0) signIn.push("The other copy had no way to sign in.");
   signIn.push("Anyone signed in as the other copy right now is signed out.");
 

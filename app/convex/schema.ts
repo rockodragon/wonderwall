@@ -488,6 +488,8 @@ export default defineSchema({
     usedAt: v.optional(v.number()),
     createdAt: v.number(),
   })
+    // admin/mergeUsers.ts reads a person's rows by it.
+    .index("by_usedBy", ["usedBy"])
     .index("by_code", ["code"])
     .index("by_inviterId", ["inviterId"]),
 
@@ -674,6 +676,8 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
+    // admin/mergeUsers.ts reads a person's rows by it.
+    .index("by_userId", ["userId"])
     .index("by_application", ["applicationId"])
     // Upsert lookup: an admin has at most one vote per application.
     .index("by_application_and_user", ["applicationId", "userId"]),
@@ -795,6 +799,8 @@ export default defineSchema({
     digestedAt: v.optional(v.number()),
     createdAt: v.number(),
   })
+    // admin/mergeUsers.ts reads a person's rows by it.
+    .index("by_relatedUserId", ["relatedUserId"])
     .index("by_userId", ["userId"])
     .index("by_userId_readAt", ["userId", "readAt"])
     // Global range scan for retention sweeps (notificationRetention.ts):
@@ -1591,6 +1597,8 @@ export default defineSchema({
     status: v.string(), // "pledged" | "confirmed"
     createdAt: v.number(),
   })
+    // admin/mergeUsers.ts reads a person's rows by it.
+    .index("by_userId", ["userId"])
     .index("by_offeringId", ["offeringId"])
     .index("by_offeringId_userId", ["offeringId", "userId"]),
 
@@ -1666,7 +1674,10 @@ export default defineSchema({
     previousStatus: v.optional(v.string()),
     recordedByUserId: v.optional(v.id("users")),
     createdAt: v.number(),
-  }).index("by_tableId_userId", ["tableId", "userId"]),
+  })
+    // admin/mergeUsers.ts reads a person's rows by it.
+    .index("by_userId", ["userId"])
+    .index("by_tableId_userId", ["tableId", "userId"]),
 
   tableCheckoutHolds: defineTable({
     tableId: v.id("gardenTables"),
@@ -1683,6 +1694,8 @@ export default defineSchema({
     paymentIntentId: v.optional(v.string()),
     classPaymentId: v.optional(v.id("classPayments")),
   })
+    // admin/mergeUsers.ts reads a person's rows by it.
+    .index("by_userId", ["userId"])
     .index("by_tableId", ["tableId"])
     .index("by_tableId_userId", ["tableId", "userId"])
     .index("by_stripeCheckoutSessionId", ["stripeCheckoutSessionId"]),
@@ -1695,6 +1708,8 @@ export default defineSchema({
     recordedByUserId: v.id("users"),
     recordedAt: v.number(),
   })
+    // admin/mergeUsers.ts reads a person's rows by it.
+    .index("by_userId", ["userId"])
     .index("by_eventId", ["eventId"])
     .index("by_eventId_userId", ["eventId", "userId"]),
 
@@ -1713,6 +1728,8 @@ export default defineSchema({
     status: v.string(), // "going" | "out"
     createdAt: v.number(),
   })
+    // admin/mergeUsers.ts reads a person's rows by it.
+    .index("by_userId", ["userId"])
     .index("by_sessionId", ["sessionId"])
     .index("by_sessionId_userId", ["sessionId", "userId"]),
 
@@ -1728,6 +1745,8 @@ export default defineSchema({
     email: v.string(),
     createdAt: v.number(),
   })
+    // admin/mergeUsers.ts reads a person's rows by it.
+    .index("by_userId", ["userId"])
     .index("by_eventId", ["eventId"])
     .index("by_eventId_userId", ["eventId", "userId"]),
 
@@ -1956,6 +1975,8 @@ export default defineSchema({
     transferredAt: v.optional(v.number()),
     createdAt: v.number(),
   })
+    // admin/mergeUsers.ts reads a person's rows by it.
+    .index("by_giverUserId", ["giverUserId"])
     .index("by_stripeRef", ["stripeRef"])
     .index("by_payeeUserId", ["payeeUserId"])
     .index("by_memberGiftId", ["memberGiftId"]),
@@ -2096,6 +2117,8 @@ export default defineSchema({
     transferredAt: v.optional(v.number()),
     createdAt: v.number(),
   })
+    // admin/mergeUsers.ts reads a person's rows by it.
+    .index("by_backerUserId", ["backerUserId"])
     .index("by_stripeRef", ["stripeRef"])
     .index("by_payeeUserId", ["payeeUserId"])
     .index("by_supportId", ["supportId"])
@@ -2128,6 +2151,8 @@ export default defineSchema({
     period: v.string(), // "YYYY-MM", UTC — same convention as backingPayments
     createdAt: v.number(),
   })
+    // admin/mergeUsers.ts reads a person's rows by it.
+    .index("by_buyerUserId", ["buyerUserId"])
     .index("by_status", ["status"])
     .index("by_offeringId", ["offeringId"])
     .index("by_payeeUserId", ["payeeUserId"])
@@ -2219,6 +2244,8 @@ export default defineSchema({
     deliveredAt: v.optional(v.number()), // absent = still pending
     createdAt: v.number(),
   })
+    // admin/mergeUsers.ts reads a person's rows by it.
+    .index("by_userId", ["userId"])
     // eq(announcementId).eq(deliveredAt, undefined) is the batch cursor —
     // same undefined-in-index pattern as notifications.by_userId_readAt.
     .index("by_announcementId_deliveredAt", ["announcementId", "deliveredAt"])
@@ -2488,7 +2515,10 @@ export default defineSchema({
     storageId: v.id("_storage"),
     userId: v.id("users"),
     claimedAt: v.number(),
-  }).index("by_storageId", ["storageId"]),
+  })
+    // admin/mergeUsers.ts reads a person's rows by it.
+    .index("by_userId", ["userId"])
+    .index("by_storageId", ["storageId"]),
 
   // Two people or two organizations an admin said are NOT the same one, on
   // /admin/duplicates (admin/duplicates.ts), so the pair isn't suggested

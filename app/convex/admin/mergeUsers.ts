@@ -21,8 +21,20 @@ import { isCurrent } from "../organizationRules";
 import { maskPhone } from "../phone";
 
 /** A field that points at an account: one id, a list of ids (`array`), or
- * an event's "shown as host" list (`hostRefs`, events.displayHosts). */
-export type RefField = { table: string; field: string; array?: boolean; hostRefs?: boolean };
+ * an event's "shown as host" list (`hostRefs`, events.displayHosts).
+ * `index` is the table's index that starts with the field (after `where`'s
+ * fixed fields), so a merge reads only the rows that point at an account; a
+ * field with none is read from its whole table, once per merge (MergeReads).
+ * mergeUsers.test.ts checks every index named here, and pins the fields
+ * read whole, so a new unindexed one gets noticed. */
+export type RefField = {
+  table: string;
+  field: string;
+  array?: boolean;
+  hostRefs?: boolean;
+  index?: string;
+  where?: Record<string, string>;
+};
 
 // Every table with a `v.id("users")` field whose rows count as "real
 // content" on an account (i.e. NOT just the account's own empty profile or
@@ -32,118 +44,118 @@ export type RefField = { table: string; field: string; array?: boolean; hostRefs
 // fails when the schema has one this list doesn't name. eventCoHosts isn't
 // here: it mirrors events.coHostIds, and repoint re-syncs it from that.
 export const USER_ID_FIELDS: RefField[] = [
-  { table: "wonderingResponses", field: "responderId" },
-  { table: "events", field: "organizerId" },
+  { table: "wonderingResponses", field: "responderId", index: "by_responderId" },
+  { table: "events", field: "organizerId", index: "by_organizerId" },
   { table: "events", field: "coHostIds", array: true },
-  { table: "eventApplications", field: "applicantId" },
-  { table: "invites", field: "inviterId" },
-  { table: "invites", field: "usedBy" },
-  { table: "profileViews", field: "viewerId" },
-  { table: "profileLikes", field: "userId" },
-  { table: "artifactLikes", field: "userId" },
-  { table: "favorites", field: "userId" },
+  { table: "eventApplications", field: "applicantId", index: "by_applicantId" },
+  { table: "invites", field: "inviterId", index: "by_inviterId" },
+  { table: "invites", field: "usedBy", index: "by_usedBy" },
+  { table: "profileViews", field: "viewerId", index: "by_viewerId" },
+  { table: "profileLikes", field: "userId", index: "by_userId" },
+  { table: "artifactLikes", field: "userId", index: "by_userId" },
+  { table: "favorites", field: "userId", index: "by_userId" },
   { table: "waitlist", field: "approvedBy" },
   { table: "showcaseApplications", field: "decidedBy" },
-  { table: "showcaseVotes", field: "userId" },
-  { table: "jobs", field: "posterId" },
-  { table: "jobInterests", field: "userId" },
+  { table: "showcaseVotes", field: "userId", index: "by_userId" },
+  { table: "jobs", field: "posterId", index: "by_posterId" },
+  { table: "jobInterests", field: "userId", index: "by_userId" },
   { table: "conversations", field: "participants", array: true },
-  { table: "messages", field: "senderId" },
-  { table: "blocks", field: "blockerId" },
-  { table: "blocks", field: "blockedId" },
-  { table: "notifications", field: "userId" },
-  { table: "notifications", field: "relatedUserId" },
-  { table: "reports", field: "reporterId" },
-  { table: "reports", field: "reportedUserId" },
+  { table: "messages", field: "senderId", index: "by_senderId" },
+  { table: "blocks", field: "blockerId", index: "by_blockerId" },
+  { table: "blocks", field: "blockedId", index: "by_blockedId" },
+  { table: "notifications", field: "userId", index: "by_userId" },
+  { table: "notifications", field: "relatedUserId", index: "by_relatedUserId" },
+  { table: "reports", field: "reporterId", index: "by_reporterId" },
+  { table: "reports", field: "reportedUserId", index: "by_reportedUserId" },
   { table: "reports", field: "reviewedBy" },
   { table: "crawlerRuns", field: "triggeredBy" },
-  { table: "hostOrgs", field: "ownerUserId" },
-  { table: "communityMembers", field: "userId" },
-  { table: "billingCustomers", field: "userId" },
-  { table: "memberships", field: "userId" },
-  { table: "coverageRedemptions", field: "userId" },
-  { table: "projects", field: "userId" },
-  { table: "projectMembers", field: "userId" },
-  { table: "projectMembers", field: "invitedByUserId" },
-  { table: "projectSupport", field: "supporterUserId" },
-  { table: "offerings", field: "userId" },
+  { table: "hostOrgs", field: "ownerUserId", index: "by_ownerUserId" },
+  { table: "communityMembers", field: "userId", index: "by_userId" },
+  { table: "billingCustomers", field: "userId", index: "by_userId" },
+  { table: "memberships", field: "userId", index: "by_userId" },
+  { table: "coverageRedemptions", field: "userId", index: "by_userId" },
+  { table: "projects", field: "userId", index: "by_userId" },
+  { table: "projectMembers", field: "userId", index: "by_userId_status" },
+  { table: "projectMembers", field: "invitedByUserId", index: "by_invitedByUserId" },
+  { table: "projectSupport", field: "supporterUserId", index: "by_supporterUserId" },
+  { table: "offerings", field: "userId", index: "by_userId" },
   { table: "offerings", field: "pausedBy" },
   { table: "offeringReports", field: "reporterId" },
   { table: "offeringReports", field: "resolvedBy" },
-  { table: "offeringSignups", field: "userId" },
-  { table: "gardenTables", field: "hostUserId" },
-  { table: "tableMemberships", field: "userId" },
-  { table: "sessionRsvps", field: "userId" },
-  { table: "eventRsvps", field: "userId" },
-  { table: "ticketPurchases", field: "userId" },
-  { table: "grantContributions", field: "userId" },
+  { table: "offeringSignups", field: "userId", index: "by_userId" },
+  { table: "gardenTables", field: "hostUserId", index: "by_hostUserId" },
+  { table: "tableMemberships", field: "userId", index: "by_userId" },
+  { table: "sessionRsvps", field: "userId", index: "by_userId" },
+  { table: "eventRsvps", field: "userId", index: "by_userId" },
+  { table: "ticketPurchases", field: "userId", index: "by_userId" },
+  { table: "grantContributions", field: "userId", index: "by_userId" },
   { table: "externalTicketExceptions", field: "resolvedByUserId" },
-  { table: "grantProposals", field: "userId" },
+  { table: "grantProposals", field: "userId", index: "by_userId_status" },
   { table: "grantProposals", field: "decidedByUserId" },
-  { table: "productPurchases", field: "userId" },
-  { table: "backingPayments", field: "payeeUserId" },
-  { table: "backingPayments", field: "backerUserId" },
-  { table: "classPayments", field: "payeeUserId" },
-  { table: "classPayments", field: "buyerUserId" },
-  { table: "creativePayouts", field: "payeeUserId" },
+  { table: "productPurchases", field: "userId", index: "by_userId" },
+  { table: "backingPayments", field: "payeeUserId", index: "by_payeeUserId" },
+  { table: "backingPayments", field: "backerUserId", index: "by_backerUserId" },
+  { table: "classPayments", field: "payeeUserId", index: "by_payeeUserId" },
+  { table: "classPayments", field: "buyerUserId", index: "by_buyerUserId" },
+  { table: "creativePayouts", field: "payeeUserId", index: "by_payeeUserId" },
   { table: "creativePayouts", field: "recordedByUserId" },
   { table: "storyUpdates", field: "authorUserId" },
   { table: "announcements", field: "senderUserId" },
-  { table: "announcementRecipients", field: "userId" },
+  { table: "announcementRecipients", field: "userId", index: "by_userId" },
   { table: "gigSeries", field: "hostUserId" },
-  { table: "gigSlots", field: "bookedUserId" },
-  { table: "gigResponses", field: "userId" },
-  { table: "emailPreferences", field: "userId" },
-  { table: "phoneLinkCodes", field: "userId" },
-  { table: "phoneLinkStarts", field: "userId" },
+  { table: "gigSlots", field: "bookedUserId", index: "by_bookedUserId_startsAt" },
+  { table: "gigResponses", field: "userId", index: "by_userId_status" },
+  { table: "emailPreferences", field: "userId", index: "by_userId" },
+  { table: "phoneLinkCodes", field: "userId", index: "by_userId" },
+  { table: "phoneLinkStarts", field: "userId", index: "by_userId_startedAt" },
   // Missing until the duplicates page (2026-10-26): a merge left these
   // pointing at the deleted account — its organizations, the Tables it
   // hosts, its gifts, the events that show it as a host, its uploads.
   { table: "events", field: "displayHosts", hostRefs: true },
-  { table: "eventWaitlist", field: "userId" },
+  { table: "eventWaitlist", field: "userId", index: "by_userId" },
   { table: "organizations", field: "createdByUserId" },
-  { table: "orgPositions", field: "userId" },
+  { table: "orgPositions", field: "userId", index: "by_userId" },
   { table: "gardenTables", field: "coHostIds", array: true },
   { table: "gardenTables", field: "pausedByUserId" },
-  { table: "tableMembershipHistory", field: "userId" },
+  { table: "tableMembershipHistory", field: "userId", index: "by_userId" },
   { table: "tableMembershipHistory", field: "recordedByUserId" },
-  { table: "tableCheckoutHolds", field: "userId" },
+  { table: "tableCheckoutHolds", field: "userId", index: "by_userId" },
   { table: "tableCheckoutHolds", field: "payeeUserId" },
-  { table: "tableAttendance", field: "userId" },
+  { table: "tableAttendance", field: "userId", index: "by_userId" },
   { table: "tableAttendance", field: "recordedByUserId" },
   { table: "apGiftSubscriptions", field: "userId" },
-  { table: "memberGifts", field: "userId" },
-  { table: "memberGifts", field: "recipientUserId" },
-  { table: "giftPayments", field: "payeeUserId" },
-  { table: "giftPayments", field: "giverUserId" },
+  { table: "memberGifts", field: "userId", index: "by_userId" },
+  { table: "memberGifts", field: "recipientUserId", index: "by_recipientUserId" },
+  { table: "giftPayments", field: "payeeUserId", index: "by_payeeUserId" },
+  { table: "giftPayments", field: "giverUserId", index: "by_giverUserId" },
   { table: "updates", field: "createdBy" },
-  { table: "updateReads", field: "userId" },
+  { table: "updateReads", field: "userId", index: "by_userId_updateId" },
   { table: "engagementLoops", field: "updatedBy" },
-  { table: "nudgeLog", field: "userId" },
+  { table: "nudgeLog", field: "userId", index: "by_userId_at" },
   // Who uploaded a file (uploads.ts): the kept account can replace the
   // pictures it now holds.
-  { table: "uploadClaims", field: "userId" },
+  { table: "uploadClaims", field: "userId", index: "by_userId" },
   { table: "duplicateDismissals", field: "dismissedByUserId" },
 ];
 
 // Tables that reference the source's PROFILE id rather than their user id
 // directly — resolved via the source's own `profiles` row.
-export const PROFILE_ID_FIELDS: { table: string; field: string }[] = [
-  { table: "attributes", field: "profileId" },
-  { table: "links", field: "profileId" },
-  { table: "artifacts", field: "profileId" },
-  { table: "wonderings", field: "profileId" },
-  { table: "profileViews", field: "profileId" },
-  { table: "profileLikes", field: "profileId" },
-  { table: "jobs", field: "profileId" },
+export const PROFILE_ID_FIELDS: RefField[] = [
+  { table: "attributes", field: "profileId", index: "by_profileId" },
+  { table: "links", field: "profileId", index: "by_profileId" },
+  { table: "artifacts", field: "profileId", index: "by_profileId" },
+  { table: "wonderings", field: "profileId", index: "by_profileId" },
+  { table: "profileViews", field: "profileId", index: "by_profileId" },
+  { table: "profileLikes", field: "profileId", index: "by_profileId" },
+  { table: "jobs", field: "profileId", index: "by_profileId" },
   { table: "jobInterests", field: "profileId" },
   { table: "gigResponses", field: "profileId" },
-  { table: "orgPositions", field: "profileId" },
-  { table: "handleForwards", field: "profileId" },
+  { table: "orgPositions", field: "profileId", index: "by_profileId" },
+  { table: "handleForwards", field: "profileId", index: "by_profileId" },
   // A "profile" favorite is a follow, and its targetId is the followed
   // person's profile id (only a profile favorite can hold one): the
   // source's followers.
-  { table: "favorites", field: "targetId" },
+  { table: "favorites", field: "targetId", index: "by_target", where: { targetType: "profile" } },
 ];
 
 /** Whether `row` points at `value` through `ref`. */
@@ -154,14 +166,53 @@ export function refersTo(row: any, ref: Pick<RefField, "field" | "array" | "host
   return cell === value;
 }
 
-/** Every row of a table, read once per scan (the scan only reads). */
-async function rowsOf(ctx: MutationCtx, table: string, cache: Map<string, any[]>): Promise<any[]> {
-  let rows = cache.get(table);
-  if (!rows) {
-    rows = await ctx.db.query(table as any).collect();
-    cache.set(table, rows);
+/** What one merge reads, kept inside Convex's limit on what a mutation may
+ * read: a field with an index reads just the rows that point at an account;
+ * a table with a field that has none is read whole once per merge, and the
+ * merge's writes go through here so that copy stays in step. */
+export class MergeReads {
+  private readonly whole = new Map<string, any[]>();
+  constructor(private readonly ctx: MutationCtx) {}
+
+  /** The rows of `ref.table` whose `ref.field` points at `value`. */
+  async pointingAt(ref: RefField, value: string): Promise<any[]> {
+    if (ref.index) {
+      return await this.ctx.db
+        .query(ref.table as any)
+        .withIndex(ref.index as any, (q: any) => {
+          let range = q;
+          for (const [key, fixed] of Object.entries(ref.where ?? {})) range = range.eq(key, fixed);
+          return range.eq(ref.field, value);
+        })
+        .collect();
+    }
+    return (await this.table(ref.table)).filter((row) => refersTo(row, ref, value));
   }
-  return rows;
+
+  /** A whole table, read the first time it's asked for. */
+  async table(table: string): Promise<any[]> {
+    let rows = this.whole.get(table);
+    if (!rows) {
+      rows = await this.ctx.db.query(table as any).collect();
+      this.whole.set(table, rows);
+    }
+    return rows;
+  }
+
+  async patch(table: string, id: string, fields: Record<string, unknown>): Promise<void> {
+    await this.ctx.db.patch(id as any, fields as any);
+    const kept = this.whole.get(table)?.find((r) => r._id === id);
+    if (kept) Object.assign(kept, fields);
+  }
+
+  async delete(table: string, id: string): Promise<void> {
+    await this.ctx.db.delete(id as any);
+    const rows = this.whole.get(table);
+    if (rows) {
+      const at = rows.findIndex((r) => r._id === id);
+      if (at >= 0) rows.splice(at, 1);
+    }
+  }
 }
 
 /** Everything beyond a source account's own (possibly nonexistent) empty
@@ -170,13 +221,13 @@ async function rowsOf(ctx: MutationCtx, table: string, cache: Map<string, any[]>
  * safe to merge without `force`. */
 async function scanForContent(
   ctx: MutationCtx,
+  reads: MergeReads,
   userId: Id<"users">,
 ): Promise<{ profile: Doc<"profiles"> | null; blockers: Record<string, number> }> {
   const blockers: Record<string, number> = {};
-  const cache = new Map<string, any[]>();
 
   for (const ref of USER_ID_FIELDS) {
-    const count = (await rowsOf(ctx, ref.table, cache)).filter((r) => refersTo(r, ref, userId)).length;
+    const count = (await reads.pointingAt(ref, userId)).length;
     if (count > 0) blockers[`${ref.table}.${ref.field}`] = count;
   }
 
@@ -184,7 +235,7 @@ async function scanForContent(
 
   if (profile) {
     for (const ref of PROFILE_ID_FIELDS) {
-      const count = (await rowsOf(ctx, ref.table, cache)).filter((r) => refersTo(r, ref, profile._id)).length;
+      const count = (await reads.pointingAt(ref, profile._id)).length;
       if (count > 0) blockers[`${ref.table}.${ref.field}`] = count;
     }
   }
@@ -226,54 +277,144 @@ const DEDUPE_KEYS: Record<string, string[]> = {
 
 // One Stripe customer per account: two can't be combined by re-pointing,
 // so a merge where both sides have one stops and says so.
-const ONE_PER_ACCOUNT_BLOCKING = ["billingCustomers"];
+const ONE_PER_ACCOUNT_BLOCKING = USER_ID_FIELDS.filter((f) => f.table === "billingCustomers");
 
-/** Re-points every row in `table` whose `field` is `from` to `to`, dropping
- * rows that would duplicate one the target already has. Returns
- * [moved, dropped]. */
+/** Re-points every row whose `ref.field` is `from` to `to`, dropping rows
+ * that would duplicate one the target already has. Returns [moved,
+ * dropped]. */
 async function repoint(
   ctx: MutationCtx,
-  { table, field, array, hostRefs }: RefField,
+  reads: MergeReads,
+  ref: RefField,
   from: string,
   to: string,
 ): Promise<[number, number]> {
-  const rows: any[] = await ctx.db.query(table as any).collect();
+  const { table, field, array, hostRefs } = ref;
+  const rows = await reads.pointingAt(ref, from);
+  if (rows.length === 0) return [0, 0];
   const dedupe = DEDUPE_KEYS[`${table}.${field}`];
+  // The target's own rows, and each one moved in this pass: what a moved
+  // row would repeat.
+  const theirs = dedupe ? [...(await reads.pointingAt(ref, to))] : [];
   let moved = 0;
   let dropped = 0;
   for (const row of rows) {
     if (hostRefs) {
       const next = swapDisplayHost(row[field], "user", from, to);
       if (!next) continue;
-      await ctx.db.patch(row._id, { [field]: next } as any);
+      await reads.patch(table, row._id, { [field]: next });
       moved++;
       continue;
     }
     if (array) {
-      if (!Array.isArray(row[field]) || !row[field].includes(from)) continue;
-      const next = [...new Set(row[field].map((x: string) => (x === from ? to : x)))];
-      await ctx.db.patch(row._id, { [field]: next } as any);
+      const next = [...new Set((row[field] as string[]).map((x) => (x === from ? to : x)))];
+      await reads.patch(table, row._id, { [field]: next });
       // A co-host list carries its eventCoHosts rows with it (eventHosts.ts).
       if (table === "events" && field === "coHostIds") await syncCoHosts(ctx, row._id, next as Id<"users">[]);
       moved++;
       continue;
     }
-    if (row[field] !== from) continue;
-    if (dedupe) {
-      const clash = rows.find(
-        (other) => other[field] === to && dedupe.every((k) => other[k] === row[k]),
-      );
-      if (clash) {
-        await ctx.db.delete(row._id);
-        dropped++;
-        continue;
-      }
+    if (dedupe && theirs.some((other) => dedupe.every((k) => other[k] === row[k]))) {
+      await reads.delete(table, row._id);
+      dropped++;
+      continue;
     }
-    await ctx.db.patch(row._id, { [field]: to } as any);
-    row[field] = to; // later rows in this pass dedupe against it
+    await reads.patch(table, row._id, { [field]: to });
+    theirs.push({ ...row, [field]: to });
     moved++;
   }
   return [moved, dropped];
+}
+
+/** What a merge does with the other copy's conversations: one with the kept
+ * account is a conversation with yourself, so it goes, its messages with it;
+ * one with someone the kept account also talks to is combined into the kept
+ * account's, which takes the older start and every message. */
+type ConversationPlan = {
+  withEachOther: Doc<"conversations">[];
+  combine: { keep: Doc<"conversations">; drop: Doc<"conversations"> }[];
+};
+
+async function planConversations(
+  reads: MergeReads,
+  sourceUserId: Id<"users">,
+  targetUserId: Id<"users">,
+): Promise<ConversationPlan> {
+  // participants is a list, so the table is read whole (once per merge).
+  const all = (await reads.table("conversations")) as Doc<"conversations">[];
+  const plan: ConversationPlan = { withEachOther: [], combine: [] };
+  const used = new Set<string>();
+  for (const c of all.filter((x) => x.participants.includes(sourceUserId))) {
+    const others = c.participants.filter((p) => p !== sourceUserId && p !== targetUserId);
+    if (others.length === 0) {
+      plan.withEachOther.push(c);
+      continue;
+    }
+    const same = (x: Doc<"conversations">) =>
+      x._id !== c._id &&
+      !used.has(x._id) &&
+      x.participants.includes(targetUserId) &&
+      !x.participants.includes(sourceUserId) &&
+      others.every((o) => x.participants.includes(o)) &&
+      x.participants.length === c.participants.length;
+    const theirs = all.find(same);
+    if (!theirs) continue;
+    used.add(theirs._id);
+    used.add(c._id);
+    plan.combine.push({ keep: theirs, drop: c });
+  }
+  return plan;
+}
+
+/** The notices that open a conversation (messaging.ts links them to
+ * /messages/<id>), among those of `userIds`. */
+async function noticesOpening(ctx: MutationCtx, userIds: readonly Id<"users">[], conversationId: string) {
+  const link = `/messages/${conversationId}`;
+  const out: Doc<"notifications">[] = [];
+  for (const userId of new Set(userIds)) {
+    const mine = await ctx.db
+      .query("notifications")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .collect();
+    out.push(...mine.filter((n) => n.linkUrl === link));
+  }
+  return out;
+}
+
+async function applyConversationPlan(
+  ctx: MutationCtx,
+  reads: MergeReads,
+  plan: ConversationPlan,
+  sourceUserId: Id<"users">,
+  targetUserId: Id<"users">,
+): Promise<void> {
+  for (const c of plan.withEachOther) {
+    for (const m of await ctx.db
+      .query("messages")
+      .withIndex("by_conversationId", (q) => q.eq("conversationId", c._id))
+      .collect()) {
+      await ctx.db.delete(m._id);
+    }
+    for (const n of await noticesOpening(ctx, [sourceUserId, targetUserId], c._id)) await ctx.db.delete(n._id);
+    await reads.delete("conversations", c._id);
+  }
+  for (const { keep, drop } of plan.combine) {
+    for (const m of await ctx.db
+      .query("messages")
+      .withIndex("by_conversationId", (q) => q.eq("conversationId", drop._id))
+      .collect()) {
+      await ctx.db.patch(m._id, { conversationId: keep._id });
+    }
+    await reads.patch("conversations", keep._id, {
+      lastMessageAt: Math.max(keep.lastMessageAt, drop.lastMessageAt),
+      createdAt: Math.min(keep.createdAt, drop.createdAt),
+    });
+    const people = [...drop.participants, ...keep.participants, targetUserId];
+    for (const n of await noticesOpening(ctx, people, drop._id)) {
+      await ctx.db.patch(n._id, { linkUrl: `/messages/${keep._id}` });
+    }
+    await reads.delete("conversations", drop._id);
+  }
 }
 
 // Profile fields never copied between accounts: identity and bookkeeping.
@@ -352,17 +493,31 @@ async function mergeProfiles(
   return { targetProfileId: targetProfile._id, filled: Object.keys(patch) };
 }
 
+type SignIn = { provider: string; providerAccountId: string };
+
 /** What a merge does with one of the source's sign-ins: it moves to the
- * target, so it opens the kept account from then on — except a password
- * when the target already has one, which would collide and is dropped. */
-export function signInFate(provider: string, targetHasPassword: boolean): "moved" | "dropped" {
-  return provider === "password" && targetHasPassword ? "dropped" : "moved";
+ * target, so it opens the kept account from then on. @convex-dev/auth finds
+ * a sign-in by its provider and account (the providerAndAccountId index),
+ * never by its user, so the kept account can hold two passwords for two
+ * addresses, or two Google accounts. Only a sign-in the target already has,
+ * the same provider and account, would repeat; that one is dropped. */
+export function signInFate(account: SignIn, targetAccounts: readonly SignIn[]): "moved" | "dropped" {
+  const same = targetAccounts.some(
+    (t) => t.provider === account.provider && t.providerAccountId === account.providerAccountId,
+  );
+  return same ? "dropped" : "moved";
 }
 
 export type SourceReport =
   | { sourceUserId: Id<"users">; skipped: string }
   | { sourceUserId: Id<"users">; blocked: true; blockers: Record<string, number> }
-  | { sourceUserId: Id<"users">; dryRun: true; blockers: Record<string, number>; wouldMerge: boolean }
+  | {
+      sourceUserId: Id<"users">;
+      dryRun: true;
+      blockers: Record<string, number>;
+      wouldMerge: boolean;
+      conversations?: ConversationCounts;
+    }
   | {
       sourceUserId: Id<"users">;
       merged: true;
@@ -370,8 +525,22 @@ export type SourceReport =
       copiedEmailVerification: boolean;
       movedPhoneMasked: string | null;
       forced: boolean;
-      contentMoved?: { moved: Record<string, number>; droppedDuplicates: Record<string, number>; profileFieldsFilled: string[] };
+      contentMoved?: {
+        moved: Record<string, number>;
+        droppedDuplicates: Record<string, number>;
+        profileFieldsFilled: string[];
+        conversations: ConversationCounts;
+      };
     };
+
+/** With moveContent: conversations between the two copies deleted, and
+ * pairs with the same person combined into one. */
+export type ConversationCounts = { withEachOther: number; combined: number };
+
+const conversationCounts = (plan: ConversationPlan): ConversationCounts => ({
+  withEachOther: plan.withEachOther.length,
+  combined: plan.combine.length,
+});
 
 export type MergeUsersArgs = {
   targetUserId: Id<"users">;
@@ -402,6 +571,7 @@ export async function runMergeUsers(
   { targetUserId, sourceUserIds, dryRun, force, moveContent }: MergeUsersArgs,
 ): Promise<{ targetUserId: Id<"users">; results: SourceReport[] }> {
   const results: SourceReport[] = [];
+  const reads = new MergeReads(ctx);
 
   for (const sourceUserId of sourceUserIds) {
     if (sourceUserId === targetUserId) {
@@ -409,7 +579,7 @@ export async function runMergeUsers(
       continue;
     }
 
-    const { profile, blockers } = await scanForContent(ctx, sourceUserId);
+    const { profile, blockers } = await scanForContent(ctx, reads, sourceUserId);
     const hasContent = Object.keys(blockers).length > 0;
 
     if (hasContent && !force && !moveContent) {
@@ -419,11 +589,12 @@ export async function runMergeUsers(
 
     if (moveContent) {
       const clashes: Record<string, number> = {};
-      for (const table of ONE_PER_ACCOUNT_BLOCKING) {
-        const rows: any[] = await ctx.db.query(table as any).collect();
-        if (rows.some((r) => r.userId === sourceUserId) && rows.some((r) => r.userId === targetUserId)) {
-          clashes[`${table} (both accounts have one)`] = 1;
-        }
+      for (const ref of ONE_PER_ACCOUNT_BLOCKING) {
+        const [source, target] = await Promise.all([
+          reads.pointingAt(ref, sourceUserId),
+          reads.pointingAt(ref, targetUserId),
+        ]);
+        if (source.length > 0 && target.length > 0) clashes[`${ref.table} (both accounts have one)`] = 1;
       }
       if (Object.keys(clashes).length > 0) {
         results.push({ sourceUserId, blocked: true, blockers: clashes });
@@ -431,8 +602,16 @@ export async function runMergeUsers(
       }
     }
 
+    const conversations = moveContent ? await planConversations(reads, sourceUserId, targetUserId) : null;
+
     if (dryRun) {
-      results.push({ sourceUserId, dryRun: true, blockers, wouldMerge: true });
+      results.push({
+        sourceUserId,
+        dryRun: true,
+        blockers,
+        wouldMerge: true,
+        ...(conversations ? { conversations: conversationCounts(conversations) } : {}),
+      });
       continue;
     }
 
@@ -468,8 +647,11 @@ export async function runMergeUsers(
         if (!tp.startYear && sp.startYear) patch.startYear = sp.startYear;
         if (Object.keys(patch).length > 0) await ctx.db.patch(tp._id, patch);
       }
+      // Before the lists move: a conversation between the two copies, or
+      // two with the same person (planConversations).
+      await applyConversationPlan(ctx, reads, conversations!, sourceUserId, targetUserId);
       for (const ref of USER_ID_FIELDS) {
-        note(`${ref.table}.${ref.field}`, await repoint(ctx, ref, sourceUserId, targetUserId));
+        note(`${ref.table}.${ref.field}`, await repoint(ctx, reads, ref, sourceUserId, targetUserId));
       }
       let profileFieldsFilled: string[] = [];
       if (profile) {
@@ -477,7 +659,7 @@ export async function runMergeUsers(
         profileFieldsFilled = filled;
         if (targetProfileId !== profile._id) {
           for (const ref of PROFILE_ID_FIELDS) {
-            note(`${ref.table}.${ref.field}`, await repoint(ctx, ref, profile._id, targetProfileId));
+            note(`${ref.table}.${ref.field}`, await repoint(ctx, reads, ref, profile._id, targetProfileId));
           }
         }
         // Following or liking the other copy is now following or liking
@@ -520,17 +702,24 @@ export async function runMergeUsers(
       }
       // A block between the two accounts is now a person blocking
       // themselves; drop it.
-      for (const b of await ctx.db.query("blocks").collect()) {
-        if (b.blockerId === targetUserId && b.blockedId === targetUserId) await ctx.db.delete(b._id);
+      for (const b of await ctx.db
+        .query("blocks")
+        .withIndex("by_blocker_blocked", (q) => q.eq("blockerId", targetUserId).eq("blockedId", targetUserId))
+        .collect()) {
+        await ctx.db.delete(b._id);
       }
-      contentMoved = { moved, droppedDuplicates, profileFieldsFilled };
+      contentMoved = {
+        moved,
+        droppedDuplicates,
+        profileFieldsFilled,
+        conversations: conversationCounts(conversations!),
+      };
     }
 
     const targetAccounts = await ctx.db
       .query("authAccounts")
       .withIndex("userIdAndProvider", (q) => q.eq("userId", targetUserId))
       .collect();
-    const targetHasPassword = targetAccounts.some((a) => a.provider === "password");
 
     const sourceAccounts = await ctx.db
       .query("authAccounts")
@@ -550,9 +739,9 @@ export async function runMergeUsers(
         .collect();
       for (const code of codes) await ctx.db.delete(code._id);
 
-      if (signInFate(account.provider, targetHasPassword) === "dropped") {
-        // Target already has a password account — the source's would
-        // collide, so it's dropped rather than moved.
+      if (signInFate(account, targetAccounts) === "dropped") {
+        // The target already has this very sign-in: a second copy of it
+        // would repeat it, so it's dropped rather than moved.
         await ctx.db.delete(account._id);
         continue;
       }
@@ -581,9 +770,12 @@ export async function runMergeUsers(
     if (copiedEmailVerification) {
       targetPatch.emailVerificationTime = sourceUser!.emailVerificationTime;
     }
-    if (movedPhone) {
+    // The moved phone sign-in's number, only where the target has none of
+    // its own (or has this one, unverified): a phone sign-in works by its
+    // account either way.
+    if (movedPhone && (!targetUser?.phone || targetUser.phone === movedPhone)) {
       targetPatch.phone = movedPhone;
-      targetPatch.phoneVerificationTime = Date.now();
+      if (!targetUser?.phoneVerificationTime) targetPatch.phoneVerificationTime = Date.now();
     }
     if (Object.keys(targetPatch).length > 0) {
       await ctx.db.patch(targetUserId, targetPatch);

@@ -189,6 +189,17 @@ describe("findDuplicates", () => {
     expect(found.organizations).toEqual([]);
   });
 
+  it("finds an account with no profile yet by its email", async () => {
+    const ctx = asAdmin();
+    ctx.store.users.push({ _id: "users:bare", email: "Sarah@Old.example", _creationTime: 40 });
+    const found = await run(findDuplicates, ctx);
+    expect(found.checked.people).toBe(9);
+    const group = found.people.find((g: any) => g.members.some((m: any) => m.userId === "users:bare"));
+    expect(group.reasons).toEqual(["Same name", "Same email"]);
+    expect(group.members.map((m: any) => m.userId)).toEqual([SARAH_OLD, SARAH, "users:bare"]);
+    expect(group.members[2]).toMatchObject({ name: "(no name)", unfinished: true, profileId: null });
+  });
+
   it("“Not duplicates” refuses ids that aren't there", async () => {
     expect(await refusal(run(dismissDuplicates, asAdmin(), { kind: "person", ids: [SARAH, "users:ghost"] }))).toMatchObject({
       code: "not_found",
@@ -225,8 +236,8 @@ describe("merging people", () => {
       ],
       signIn: [
         "sarah shreves's own sign-in stays as it is: password (sarah@example.com).",
-        "The other copy's sign-in, Google (sarah@old.example), moves over: it keeps working, and opens sarah shreves's account from now on.",
-        "The other copy's password (sarah@old.example) stops working, because sarah shreves's account already has a password. Sign in with sarah shreves's own from now on.",
+        "The other copy's sign-ins, Google (sarah@old.example) and password (sarah@old.example), move over: they keep working, and open sarah shreves's account from now on.",
+        "If they sign in with Google (sarah@old.example), the email on file for sarah shreves changes to sarah@old.example.",
         "Anyone signed in as the other copy right now is signed out.",
       ],
       warnings: ["This can't be undone."],
@@ -249,8 +260,10 @@ describe("merging people", () => {
     expect(s.projects[0].userId).toBe(SARAH);
     expect(s.favorites.map((f: Row) => f.targetId)).toEqual(["profiles:sarah", "profiles:sarah"]);
     expect(s.orgPositions[0]).toMatchObject({ userId: SARAH, profileId: "profiles:sarah" });
+    // Both passwords stay: one for each address.
     expect(s.authAccounts.filter((a: Row) => a.userId === SARAH).map((a: Row) => a._id)).toEqual([
       "authAccounts:1",
+      "authAccounts:2",
       "authAccounts:3",
     ]);
     // The old @address forwards; the kept profile keeps its own.
@@ -260,6 +273,40 @@ describe("merging people", () => {
       bio: "Painter in San Diego.",
       imageUrl: "https://x/sarah.jpg",
     });
+  });
+
+  it("merges only the copies picked, and leaves the rest of the group as it is", async () => {
+    const SARAH3 = "users:sarah3";
+    const ctx = asAdmin();
+    ctx.store.users.push({ _id: SARAH3, email: "sarah@third.example", _creationTime: 9 });
+    ctx.store.profiles.push(profile("profiles:sarah3", SARAH3, "Sarah Shreves", { createdAt: 30 }));
+    expect((await run(findDuplicates, ctx)).people[1].members.map((m: any) => m.userId)).toEqual([SARAH_OLD, SARAH, SARAH3]);
+    await run(mergePeople, ctx, { keepUserId: SARAH, mergeUserIds: [SARAH_OLD] });
+    expect(ctx.store.users.map((u: Row) => u._id)).toContain(SARAH3);
+    expect(ctx.store.profiles.find((p: Row) => p.userId === SARAH3)).toMatchObject({ name: "Sarah Shreves" });
+    expect((await run(findDuplicates, ctx)).people.find((g: any) => g.members.some((m: any) => m.userId === SARAH3)).members.map((m: any) => m.userId)).toEqual([SARAH, SARAH3]);
+  });
+
+  it("says what happens to conversations: the one between the copies goes, two with one person become one", async () => {
+    const ctx = asAdmin({
+      conversations: [
+        { _id: "conversations:self", participants: [SARAH_OLD, SARAH], lastMessageAt: 3, createdAt: 1 },
+        { _id: "conversations:fan-old", participants: [SARAH_OLD, FAN], lastMessageAt: 3, createdAt: 1 },
+        { _id: "conversations:fan", participants: [FAN, SARAH], lastMessageAt: 4, createdAt: 2 },
+        { _id: "conversations:member", participants: [SARAH_OLD, MEMBER], lastMessageAt: 4, createdAt: 2 },
+      ],
+    });
+    const plan = await run(previewPeopleMerge, ctx, { keepUserId: SARAH, mergeUserIds: [SARAH_OLD] });
+    expect(plan.lines[0]).toContain("1 conversation");
+    expect(plan.lines).toContain(
+      "Combines 1 conversation the other copy had with people sarah shreves also talks to: each person ends up with one conversation with sarah shreves, all messages kept.",
+    );
+    expect(plan.lines).toContain(
+      "Deletes the conversation between the two copies, with its messages: it would be sarah shreves talking to sarah shreves.",
+    );
+    const done = await run(mergePeople, ctx, { keepUserId: SARAH, mergeUserIds: [SARAH_OLD] });
+    expect(done.lines[0]).toContain("1 conversation");
+    expect(ctx.store.conversations.map((c: Row) => c._id).sort()).toEqual(["conversations:fan", "conversations:member"]);
   });
 
   it("a refusal from mergeUsers comes back as a reason, and nothing changes", async () => {

@@ -9,6 +9,7 @@ import { makeCtx, run, type Row } from "../../test-support/convexContext";
 import { addByName, createForHosting, getBySlug } from "../organizations";
 import { mergeOrganizations, ORG_ID_FIELDS, orgFill } from "./mergeOrganizations";
 import { schemaFieldsPointingAt } from "../../test-support/schemaFields";
+import { checkIndexes, indexFields } from "../../test-support/indexChecks";
 
 const KEEP = "organizations:grove-full";
 const OLD = "organizations:grove-short";
@@ -77,6 +78,15 @@ const rows = (store: Record<string, Row[]>) =>
 describe("ORG_ID_FIELDS", () => {
   it('names every field that points at an organization (v.id("organizations") in schema.ts)', () => {
     expect(ORG_ID_FIELDS.map((f) => `${f.table}.${f.field}`).sort()).toEqual(schemaFieldsPointingAt("organizations"));
+  });
+
+  it("reads each by its index; only events (displayHosts, a list) whole, once", async () => {
+    for (const f of ORG_ID_FIELDS.filter((x) => x.index)) expect(indexFields(f.table, f.index!)[0]).toBe(f.field);
+    expect(ORG_ID_FIELDS.filter((f) => !f.index).map((f) => `${f.table}.${f.field}`)).toEqual(["events.displayHosts"]);
+    const ctx = world();
+    const { scans } = checkIndexes(ctx);
+    await merge(ctx);
+    expect(scans).toEqual(["events"]);
   });
 });
 

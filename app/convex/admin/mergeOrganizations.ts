@@ -37,12 +37,14 @@ import { positionsOfOrg, syncProfileOrgCache } from "../organizations";
 import { orgNameKey } from "../organizationRules";
 
 /** Every field that points at an organization (grep `v.id("organizations")`
- * in schema.ts; mergeOrganizations.test.ts fails on one this list misses). */
-export const ORG_ID_FIELDS: { table: string; field: string; hostRefs?: boolean }[] = [
-  { table: "orgPositions", field: "organizationId" },
-  { table: "projects", field: "organizationId" },
+ * in schema.ts; mergeOrganizations.test.ts fails on one this list misses),
+ * with the index the merge reads it by. events.displayHosts has none: the
+ * events table is read whole, once. */
+export const ORG_ID_FIELDS: { table: string; field: string; hostRefs?: boolean; index?: string }[] = [
+  { table: "orgPositions", field: "organizationId", index: "by_organizationId" },
+  { table: "projects", field: "organizationId", index: "by_organizationId" },
   { table: "events", field: "displayHosts", hostRefs: true },
-  { table: "orgSlugForwards", field: "organizationId" },
+  { table: "orgSlugForwards", field: "organizationId", index: "by_organizationId" },
 ];
 
 /** The target's fields a merge fills from the source when the target has

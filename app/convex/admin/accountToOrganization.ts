@@ -23,7 +23,7 @@ import type { MutationCtx } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
 import { isCurrent } from "../organizationRules";
 import { getProfileByUserId } from "../helpers";
-import { PROFILE_ID_FIELDS, refersTo as pointsAt, USER_ID_FIELDS } from "./mergeUsers";
+import { MergeReads, PROFILE_ID_FIELDS, USER_ID_FIELDS } from "./mergeUsers";
 
 /** References this tool moves or removes itself. invites.usedBy stays: the
  * invite was used, and clearing it would let it be used again. */
@@ -93,18 +93,20 @@ export const accountToOrganization = internalMutation({
     }
 
     // ——— What would be left pointing at the account ———
+    // Read the way mergeUsers reads: by index where the field has one.
+    const reads = new MergeReads(ctx);
     const blockers: Record<string, number> = {};
     for (const ref of USER_ID_FIELDS) {
       const key = `${ref.table}.${ref.field}`;
       if (HANDLED_USER_FIELDS.has(key)) continue;
-      const n = (await rowsWhere(ctx, ref.table, (row) => pointsAt(row, ref, userId))).length;
+      const n = (await reads.pointingAt(ref, userId)).length;
       if (n) blockers[key] = n;
     }
     if (profile) {
-      for (const { table, field } of PROFILE_ID_FIELDS) {
-        const key = `${table}.${field}`;
+      for (const ref of PROFILE_ID_FIELDS) {
+        const key = `${ref.table}.${ref.field}`;
         if (HANDLED_PROFILE_FIELDS.has(key)) continue;
-        const n = (await rowsWhere(ctx, table, refersTo(field, profile._id))).length;
+        const n = (await reads.pointingAt(ref, profile._id)).length;
         if (n) blockers[key] = n;
       }
     }
