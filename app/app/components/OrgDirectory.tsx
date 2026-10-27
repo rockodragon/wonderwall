@@ -3,13 +3,15 @@ import { useMemo } from "react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { filterOrgs } from "../lib/browse/orgFilter";
+import { DIRECTORY_CARD, DIRECTORY_CARD_PICTURE, DIRECTORY_CARD_WORDS } from "./directoryCard";
 import { OrgLogo } from "./OrgLogo";
-import { PeopleFaces } from "./PeopleFaces";
 
 // The Organizations tab on People (/people?tab=orgs;
-// docs/features/organizations.md). Same footprint as a person card, with a
-// square logo where a person has a round photo, and the first few faces of
-// its people — you see who, not just how many.
+// docs/features/organizations.md). The same card as a person's
+// (directoryCard.ts), the logo where their photo is, and one quiet line of
+// who's there: how
+// many people, and how many of them you follow (Rick, 2026-10-27: the faces
+// made the cards busy).
 
 export function OrgDirectory({ query }: { query: string }) {
   const orgs = useQuery(api.organizations.list);
@@ -45,14 +47,13 @@ export function OrgDirectory({ query }: { query: string }) {
           <Link
             key={o._id}
             to={`/orgs/${o.slug}`}
-            className={`flex ${ORG_CARD_MIN_H} items-start gap-3 p-4 rounded-xl border transition-colors min-w-0 hover:border-[var(--app-accent)]`}
+            className={DIRECTORY_CARD}
             style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)" }}
           >
-            {/* Top-aligned with the name: a card taller than its words (the
-                grid gives every card in a row the row's height) used to leave
-                the logo floating halfway down. */}
-            <OrgLogo name={o.name} logoUrl={o.logoUrl} size="sm" />
-            <div className="min-w-0 flex-1">
+            <div className={DIRECTORY_CARD_PICTURE}>
+              <OrgLogo name={o.name} logoUrl={o.logoUrl} size="fill" />
+            </div>
+            <div className={DIRECTORY_CARD_WORDS}>
               <h3 className="font-medium text-sm leading-snug break-words line-clamp-2" title={o.name} style={{ color: "var(--app-text)" }}>
                 {o.name}
               </h3>
@@ -61,9 +62,11 @@ export function OrgDirectory({ query }: { query: string }) {
                   {line}
                 </p>
               )}
-              <div className={FACES_IN_A_CARD}>
-                <PeopleFaces faces={o.faces} count={o.peopleCount} />
-              </div>
+              {o.peopleCount > 0 && (
+                <p className="text-xs truncate mt-1.5" style={{ color: "var(--app-text-muted)" }}>
+                  {peopleLine(o.peopleCount, o.followingCount ?? 0)}
+                </p>
+              )}
             </div>
           </Link>
         );
@@ -72,13 +75,8 @@ export function OrgDirectory({ query }: { query: string }) {
   );
 }
 
-/** As short as a person card (routes/search.tsx), so a row of organizations
- * with nobody listed yet still reads as cards. */
-const ORG_CARD_MIN_H = "min-h-[5.625rem]";
-
-/** PeopleFaces in a narrow card. It is shared with the desk's opened card,
- * where its faces and "N people" flow along one wide line; here the faces
- * take the full width, so the count always starts a line of its own instead
- * of sitting beside a name, and a face can be no wider than the card, so a
- * long name ends in an ellipsis inside it. */
-const FACES_IN_A_CARD = "[&_ul]:w-full [&_li]:max-w-full";
+/** "2 you follow · 4 people", or "4 people" when you follow none of them. */
+function peopleLine(count: number, following: number): string {
+  const people = `${count} ${count === 1 ? "person" : "people"}`;
+  return following > 0 ? `${following} you follow · ${people}` : people;
+}

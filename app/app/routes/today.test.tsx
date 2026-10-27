@@ -145,3 +145,40 @@ describe("Share a project on a phone's Today", () => {
     expect(html).not.toContain('aria-label="Start a project"');
   });
 });
+
+// An open project on a phone: its picture square and full width across the
+// top of the card, then the title, its maker's name in plain words, and no
+// "See →": the whole card opens it. No border; the card's own ground and the
+// gap between cards set them apart.
+describe("an open project on Today", () => {
+  const project = (id: string, title: string) => ({
+    _id: id,
+    userId: `u-${id}`,
+    kind: "passion",
+    status: "active",
+    title,
+    media: [],
+    createdAt: NOW,
+    creator: { _id: `profile-${id}`, name: "MG Smith", imageUrl: null },
+  });
+
+  it("puts a square picture full width on top, names its maker under the title, and says no See", async () => {
+    scene.answers = {
+      "profiles:getMyProfile": { _id: "me", userId: "u-me", name: "Me", bio: "", imageUrl: null },
+      "garden/projects:listProjects": [project("a", "Featured one"), project("b", "Songs of Safety"), project("c", "Third")],
+    };
+    const html = await today();
+    const row = html.match(/<a [^>]*href="\/projects\/b"[^>]*>.*?<\/a>/)?.[0] ?? "";
+    expect(row).not.toBe("");
+    expect(row).not.toContain("See →");
+    const link = row.match(/^<a [^>]*class="([^"]*)"/)?.[1].split(" ") ?? [];
+    expect(link).toEqual(expect.arrayContaining(["block", "overflow-hidden", "rounded-xl"]));
+    expect(link).not.toContain("border");
+    expect(link.some((c) => /^p-\d/.test(c))).toBe(false);
+    expect(row).toContain("aspect-square");
+    expect(row).not.toContain("aspect-[4/5]");
+    const title = row.indexOf("Songs of Safety");
+    expect(row.indexOf(">MG Smith<")).toBeGreaterThan(title);
+    expect(row).toMatch(/<p class="[^"]*text-sm[^"]*"[^>]*>MG Smith<\/p>/);
+  });
+});
