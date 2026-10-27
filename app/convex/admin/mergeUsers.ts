@@ -103,7 +103,6 @@ export const USER_ID_FIELDS: RefField[] = [
   { table: "eventWaitlist", field: "userId" },
   { table: "organizations", field: "createdByUserId" },
   { table: "orgPositions", field: "userId" },
-  { table: "gardenTables", field: "hostUserId" },
   { table: "gardenTables", field: "coHostIds", array: true },
   { table: "gardenTables", field: "pausedByUserId" },
   { table: "tableMembershipHistory", field: "userId" },
@@ -280,24 +279,43 @@ async function repoint(
 // Profile fields never copied between accounts: identity and bookkeeping.
 const PROFILE_FIELDS_NOT_COPIED = new Set(["_id", "_creationTime", "userId", "createdAt", "updatedAt"]);
 
+// Fields that only make sense together. A group is filled from the source
+// only when the target has none of it, and then as a whole: a photo is an
+// upload or a pasted link (the upload wins where both are set, so filling
+// just one would replace the target's own photo), a location is its text
+// and its map data, a payout account is its id and its status, the
+// organization shown with the name is its name and its link, an invite
+// link is its slug and its count.
+const PROFILE_FILL_GROUPS: readonly (readonly string[])[] = [
+  ["imageStorageId", "imageUrl"],
+  ["location", "locationType", "address", "coordinates", "placeId"],
+  ["stripeConnectAccountId", "stripeConnectPayoutsEnabled", "stripeConnectDetailsSubmitted", "stripeConnectUpdatedAt"],
+  ["orgName", "orgUrl"],
+  ["inviteSlug", "inviteUsageCount"],
+];
+
+const isEmptyValue = (value: unknown) =>
+  value === undefined || value === null || value === "" || (Array.isArray(value) && value.length === 0);
+
 /** The fields the target's profile leaves empty that the source's has, with
  * the source's values: what mergeProfiles writes, and what the duplicates
- * page's preview lists. The target's own values always win. A name that is
- * still the sign-up placeholder (names.ts) counts as empty. */
+ * page's preview lists. The target's own values always win, a group of
+ * fields (PROFILE_FILL_GROUPS) as one. A name that is still the sign-up
+ * placeholder (names.ts) counts as empty. */
 export function profileFill(
   sourceProfile: Record<string, unknown>,
   targetProfile: Record<string, unknown>,
 ): Record<string, unknown> {
   const patch: Record<string, unknown> = {};
+  const grouped = new Set(PROFILE_FILL_GROUPS.flat());
+  for (const group of PROFILE_FILL_GROUPS) {
+    if (!group.every((key) => isEmptyValue(targetProfile[key]))) continue;
+    for (const key of group) if (!isEmptyValue(sourceProfile[key])) patch[key] = sourceProfile[key];
+  }
   for (const [key, value] of Object.entries(sourceProfile)) {
-    if (PROFILE_FIELDS_NOT_COPIED.has(key)) continue;
+    if (PROFILE_FIELDS_NOT_COPIED.has(key) || grouped.has(key)) continue;
     const current = targetProfile[key];
-    const empty =
-      current === undefined ||
-      current === null ||
-      current === "" ||
-      (Array.isArray(current) && current.length === 0) ||
-      (key === "name" && !hasRealName(current as string));
+    const empty = isEmptyValue(current) || (key === "name" && !hasRealName(current as string));
     if (key === "name" && !hasRealName(value as string)) continue;
     if (empty && value !== undefined) patch[key] = value;
   }
@@ -430,14 +448,26 @@ export async function runMergeUsers(
         if (d) droppedDuplicates[key] = d;
       };
       // The kept account's own organizations, before any move in.
-      const ownPositions = new Set(
-        (
-          await ctx.db
-            .query("orgPositions")
-            .withIndex("by_userId", (q) => q.eq("userId", targetUserId))
-            .collect()
-        ).map((p) => p._id),
-      );
+      const ownPositionRows = await ctx.db
+        .query("orgPositions")
+        .withIndex("by_userId", (q) => q.eq("userId", targetUserId))
+        .collect();
+      const ownPositions = new Set(ownPositionRows.map((p) => p._id));
+      // Listed at one organization from both copies: the kept place stays
+      // (repoint drops the other), an admin there if either was, with the
+      // other's title and start year when it has none.
+      for (const sp of await ctx.db
+        .query("orgPositions")
+        .withIndex("by_userId", (q) => q.eq("userId", sourceUserId))
+        .collect()) {
+        const tp = ownPositionRows.find((p) => p.organizationId === sp.organizationId);
+        if (!tp) continue;
+        const patch: Partial<Doc<"orgPositions">> = {};
+        if (sp.isAdmin && !tp.isAdmin) patch.isAdmin = true;
+        if (!tp.title && sp.title) patch.title = sp.title;
+        if (!tp.startYear && sp.startYear) patch.startYear = sp.startYear;
+        if (Object.keys(patch).length > 0) await ctx.db.patch(tp._id, patch);
+      }
       for (const ref of USER_ID_FIELDS) {
         note(`${ref.table}.${ref.field}`, await repoint(ctx, ref, sourceUserId, targetUserId));
       }

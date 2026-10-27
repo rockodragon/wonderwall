@@ -16,6 +16,8 @@ describe("the lists name every field that points at an account", () => {
     const handledElsewhere = ["profiles.userId", "eventCoHosts.userId"];
     const listed = USER_ID_FIELDS.map((f) => `${f.table}.${f.field}`);
     expect([...new Set([...listed, ...handledElsewhere])].sort()).toEqual(schemaFieldsPointingAt("users"));
+    // Each once: a repeat would be counted and moved twice.
+    expect(new Set(listed).size).toBe(listed.length);
   });
 
   it("v.id(\"profiles\"), and the follows that hold a profile id as text", () => {
@@ -126,6 +128,19 @@ describe("mergeUsers with moveContent", () => {
     expect(kept.orgName).toBe("Abiding Practice");
   });
 
+  it("listed at one organization from both copies: the kept place stays an admin if either was", async () => {
+    const ctx = world();
+    const srcAp = ctx.store.orgPositions.find((p: Row) => p._id === "orgPositions:src-ap");
+    Object.assign(srcAp, { isAdmin: true, title: "Founder", startYear: 2015 });
+    await merge(ctx);
+    expect(ctx.store.orgPositions.find((p: Row) => p._id === "orgPositions:tgt-ap")).toMatchObject({
+      isAdmin: true,
+      title: "Founder",
+      startYear: 2015,
+    });
+    expect(ctx.store.orgPositions.some((p: Row) => p._id === "orgPositions:src-ap")).toBe(false);
+  });
+
   it("swaps the other copy for the kept one in an event's hosts, listed once", async () => {
     const ctx = world();
     await merge(ctx);
@@ -187,6 +202,23 @@ describe("profileFill / signInFate", () => {
       interests: ["Art"],
       location: "SD",
     });
+  });
+  it("fields that go together are filled together, and only into an empty group", () => {
+    // The kept copy's pasted photo stays: the other's upload would show over it.
+    expect(profileFill({ imageStorageId: "_storage:a" }, { imageUrl: "https://x/me.jpg" })).toEqual({});
+    expect(profileFill({ imageStorageId: "_storage:a", imageUrl: "https://x/old.jpg" }, {})).toEqual({
+      imageStorageId: "_storage:a",
+      imageUrl: "https://x/old.jpg",
+    });
+    // A location's text and map data stay one place.
+    expect(profileFill({ location: "SD", coordinates: { lat: 1, lng: 2 } }, { coordinates: { lat: 3, lng: 4 } })).toEqual({});
+    // A payout account and its status come as one.
+    expect(
+      profileFill(
+        { stripeConnectAccountId: "acct_old", stripeConnectPayoutsEnabled: true },
+        { stripeConnectAccountId: "acct_new" },
+      ),
+    ).toEqual({});
   });
   it("a placeholder name never replaces a real one", () => {
     expect(profileFill({ name: "New User" }, { name: "" })).toEqual({});
