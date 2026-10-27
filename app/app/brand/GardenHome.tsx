@@ -31,6 +31,7 @@ import { api } from "../../convex/_generated/api";
 import { PersonAvatar } from "../components/PersonAvatar";
 import { SiteHeader } from "../components/SiteHeader";
 import { CLAIMS } from "../constants/claims";
+import { PROMISE_PATH, TERMS_PROMISE_LINK } from "../constants/promises";
 import { buildDeskCards, type DeskCard } from "../desk/deskCards";
 import { toDeskInput } from "../desk/deskInput";
 import { DESK_PATH } from "../desk/deskState";
@@ -250,7 +251,6 @@ export function GardenHome() {
             id="gh-patrons"
             title="Partners and patrons"
             flip
-            more={{ to: "/for/patrons", label: "Reimagining what it means to be a patron" }}
             visual={<Ways />}
           >
             You're wanted here too.
@@ -299,6 +299,17 @@ export function GardenHome() {
               </div>
             )}
             <div className="mt-10">{join}</div>
+            {/* What joining promises, for anyone who wants to read it first. */}
+            <p className="m-0 mt-5">
+              <Link
+                to={PROMISE_PATH}
+                className={`inline-flex items-center gap-1.5 rounded text-[15px] no-underline underline-offset-4 hover:underline ${FOCUS_RING_CLASS}`}
+                style={{ color: DESK.textQuiet }}
+              >
+                {TERMS_PROMISE_LINK}
+                <ArrowRight size={14} aria-hidden />
+              </Link>
+            </p>
           </div>
         </section>
       </main>
@@ -381,23 +392,35 @@ function Row({
   );
 }
 
-/** Patron and Partner, a plain panel each with CLAIMS' own sentence (money
- *  words are never written here). Stacked until there's room for two. */
+/** Patron and Partner, a panel each with CLAIMS' own sentence (money words
+ *  are never written here), each opening its own page (Rick, 2026-10-27:
+ *  "if you click on patron, it should go there"). Stacked until there's
+ *  room for two. */
 function Ways() {
   const ways = [
-    { name: "Partner", line: CLAIMS.partner },
-    { name: "Patron", line: CLAIMS.patron },
+    { name: "Partner", line: CLAIMS.partner, to: "/for/partners", more: "For community partners" },
+    { name: "Patron", line: CLAIMS.patron, to: "/for/patrons", more: "Reimagining what it means to be a patron" },
   ];
   return (
     <ul className="m-0 grid max-w-[560px] list-none gap-4 p-0 xl:grid-cols-2" aria-label="Ways to be part of The Garden">
       {ways.map((w) => (
-        <li key={w.name} className="min-w-0 rounded-xl border p-5" style={{ background: DESK.panel, borderColor: DESK.lineStrong }}>
-          <h3 className="m-0 text-[17px] font-medium" style={{ color: DESK.text }}>
-            {w.name}
-          </h3>
-          <p className="m-0 mt-2 text-[15px]" style={{ lineHeight: 1.5, color: DESK.textSoft, textWrap: "pretty" }}>
-            {w.line}
-          </p>
+        <li key={w.name} className="min-w-0">
+          <Link
+            to={w.to}
+            className={`block h-full rounded-xl border border-[#333333] p-5 no-underline transition-colors hover:border-[#FFE066] ${FOCUS_RING_CLASS}`}
+            style={{ background: DESK.panel }}
+          >
+            <h3 className="m-0 text-[17px] font-medium" style={{ color: DESK.text }}>
+              {w.name}
+            </h3>
+            <p className="m-0 mt-2 text-[15px]" style={{ lineHeight: 1.5, color: DESK.textSoft, textWrap: "pretty" }}>
+              {w.line}
+            </p>
+            <p className="m-0 mt-3 inline-flex items-center gap-1.5 text-[15px]" style={{ color: DESK.textQuiet }}>
+              {w.more}
+              <ArrowRight size={14} aria-hidden />
+            </p>
+          </Link>
         </li>
       ))}
     </ul>
