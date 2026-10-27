@@ -1,3 +1,4 @@
+import { analyticsErrorProperties } from "../lib/posthog";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { usePostHog } from "@posthog/react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
@@ -181,7 +182,7 @@ export default function Signup() {
         await redeemInvite({ slug: creditSlug });
       } catch (err) {
         posthog?.capture("invite_redemption_failed", {
-          error: err instanceof Error ? err.message : "Unknown error",
+          ...analyticsErrorProperties(err),
           invite_slug: creditSlug,
         });
       }
@@ -190,7 +191,7 @@ export default function Signup() {
       await generateSlug({});
     } catch (err) {
       posthog?.capture("invite_slug_generation_failed", {
-        error: err instanceof Error ? err.message : "Unknown error",
+        ...analyticsErrorProperties(err),
       });
     }
   }
@@ -226,7 +227,7 @@ export default function Signup() {
     } catch (err) {
       setPhoneError(errorMessage(err, "Couldn't send a code. Try again."));
       posthog?.capture("phone_signup_code_send_error", {
-        error: err instanceof Error ? err.message : "Unknown error",
+        ...analyticsErrorProperties(err),
         invite_slug: inviteSlug,
       });
     } finally {
@@ -259,7 +260,7 @@ export default function Signup() {
         );
       } catch (err) {
         posthog?.capture("phone_signup_profile_error", {
-          error: err instanceof Error ? err.message : "Unknown error",
+          ...analyticsErrorProperties(err),
         });
       }
 
@@ -274,7 +275,7 @@ export default function Signup() {
     } catch (err) {
       setPhoneError("That code didn't work. Check it and try again.");
       posthog?.capture("phone_signup_verify_error", {
-        error: err instanceof Error ? err.message : "Unknown error",
+        ...analyticsErrorProperties(err),
         invite_slug: inviteSlug,
       });
       setPhoneLoading(false);
@@ -326,7 +327,7 @@ export default function Signup() {
         } catch (err) {
           console.error("❌ Failed to redeem invite:", err);
           posthog?.capture("invite_redemption_failed", {
-            error: err instanceof Error ? err.message : "Unknown error",
+            ...analyticsErrorProperties(err),
             invite_slug: creditSlug,
           });
         }
@@ -339,7 +340,7 @@ export default function Signup() {
       } catch (err) {
         console.error("❌ Failed to generate invite slug:", err);
         posthog?.capture("invite_slug_generation_failed", {
-          error: err instanceof Error ? err.message : "Unknown error",
+          ...analyticsErrorProperties(err),
         });
       }
 
@@ -352,7 +353,7 @@ export default function Signup() {
       console.error("Signup error:", err);
       setError(errorMessage(err, "Signup failed"));
       posthog?.capture("signup_error", {
-        error: err instanceof Error ? err.message : "Unknown error",
+        ...analyticsErrorProperties(err),
       });
       setLoading(false);
     }
@@ -388,7 +389,7 @@ export default function Signup() {
     } catch (err) {
       setError("Failed to sign up with Google");
       posthog?.capture("google_signup_error", {
-        error: err instanceof Error ? err.message : "Unknown error",
+        ...analyticsErrorProperties(err),
       });
       setGoogleLoading(false);
     }

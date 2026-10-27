@@ -18,6 +18,8 @@ import { getDefaultCommunity } from "./garden/defaultCommunity";
 import { resolveSenderCommunity } from "./email/senderCommunity";
 import { profileImageUrl } from "./images";
 import { hasRealName } from "./names";
+import { trackEvent } from "./posthog";
+import { assertNotBlocked } from "./blocks";
 
 function generateCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -312,11 +314,22 @@ export const redeemBySlug = mutation({
     const inviterProfile = await findInviterProfile(ctx, args.slug);
 
     if (!inviterProfile) fail("not_found", "Invalid invite link");
+    if (inviterProfile.userId === userId) fail("invalid_input", "You can't use your own invite.");
+
+    // One acceptance per pair, including aliases for the same inviter. The
+    // indexed read and write share a transaction, so concurrent retries also
+    // cannot increment credit or re-create a follow the member removed.
+    const accepted = await ctx.db
+      .query("invites")
+      .withIndex("by_inviterId_usedBy", (q) => q.eq("inviterId", inviterProfile.userId).eq("usedBy", userId))
+      .first();
+    if (accepted) return true;
+    await assertNotBlocked(ctx, inviterProfile.userId, userId);
 
     const usageCount = inviterProfile.inviteUsageCount || 0;
 
     // Create an invite record (for backward compatibility with stats)
-    await ctx.db.insert("invites", {
+    const inviteId = await ctx.db.insert("invites", {
       inviterId: inviterProfile.userId,
       code: args.slug, // Store slug as code for now
       usedBy: userId,
@@ -349,6 +362,13 @@ export const redeemBySlug = mutation({
     const joinedCommunity = await resolveSenderCommunity(ctx, {
       communityId: (await getDefaultCommunity(ctx))?._id,
       userId: inviterProfile.userId,
+    });
+    await trackEvent(ctx, "invite_redeemed", userId, {
+      invite_id: inviteId,
+      inviter_user_id: inviterProfile.userId,
+      inviter_profile_id: inviterProfile._id,
+      community_id: joinedCommunity?._id ?? null,
+      interaction_source: "invite_slug",
     });
     const placeName = joinedCommunity?.name ?? "TheCreative.exchange";
     const newUserImageUrl = (await profileImageUrl(ctx, newUserProfile)) ?? undefined;

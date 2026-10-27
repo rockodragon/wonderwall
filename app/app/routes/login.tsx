@@ -10,6 +10,7 @@ import { useBrand } from "../brand/brands";
 import { GardenLockupThemed } from "../brand/GardenMark";
 import { errorMessage } from "../lib/convexError";
 import { signupHref } from "../lib/pendingIntent";
+import { analyticsErrorProperties } from "../lib/posthog";
 
 export function meta() {
   return [
@@ -93,14 +94,13 @@ export default function Login() {
     try {
       await signIn("password", { email, password, flow: "signIn" });
 
-      // Identify user and capture login event
-      posthog?.identify(email, { email });
+      // The root auth observer identifies by Convex user id after sign-in.
       posthog?.capture("user_logged_in", { method: "password" });
       // Redirect happens automatically via useEffect when auth state updates
     } catch (err) {
       setError("Invalid email or password");
       posthog?.capture("login_error", {
-        error: err instanceof Error ? err.message : "Unknown error",
+        ...analyticsErrorProperties(err),
       });
       setLoading(false);
     }
@@ -125,7 +125,7 @@ export default function Login() {
     } catch (err) {
       setPhoneError(errorMessage(err, "Couldn't send a code. Try again."));
       posthog?.capture("phone_code_send_error", {
-        error: err instanceof Error ? err.message : "Unknown error",
+        ...analyticsErrorProperties(err),
       });
     } finally {
       setPhoneLoading(false);
@@ -139,13 +139,12 @@ export default function Login() {
 
     try {
       await signIn("phone", { phone, code });
-      posthog?.identify(phone, { phone });
       posthog?.capture("user_logged_in", { method: "phone" });
       // Redirect happens automatically via useEffect when auth state updates
     } catch (err) {
       setPhoneError("That code didn't work. Check it and try again.");
       posthog?.capture("phone_code_verify_error", {
-        error: err instanceof Error ? err.message : "Unknown error",
+        ...analyticsErrorProperties(err),
       });
       setPhoneLoading(false);
     }
@@ -167,7 +166,7 @@ export default function Login() {
     } catch (err) {
       setError("Failed to sign in with Google");
       posthog?.capture("google_login_error", {
-        error: err instanceof Error ? err.message : "Unknown error",
+        ...analyticsErrorProperties(err),
       });
       setGoogleLoading(false);
     }

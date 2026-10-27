@@ -170,7 +170,7 @@ function EmailStep({ loop, day, onOpen }: { loop: Loop; day: number; onOpen: () 
             {loop.subject}
           </span>
           <span className={`mt-1 block ${admin.meta}`}>
-            {loop.enabled ? `${loop.last30.sent} sent · ${loop.last30.shared} shared, last 30 days` : "Off. Not sending."}
+            {loop.enabled ? `${loop.last30.sent} accepted · ${loop.last30.shared} shared, last 30 days` : "Off. Not sending."}
           </span>
         </span>
         <span className="inline-flex shrink-0 items-center gap-0.5 text-[13.5px] font-medium text-[color:var(--app-text-muted)] transition-colors group-hover:text-[color:var(--app-text)]">
@@ -394,7 +394,9 @@ function Results({ loop }: { loop: Loop }) {
         </div>
       </div>
       <dl className="mt-3 grid grid-cols-3 gap-2">
-        <Stat label="Sent" value={counts.sent} />
+        <Stat label="Accepted" value={counts.sent} />
+        <Stat label="Queued" value={counts.queued} />
+        <Stat label="Failed" value={counts.failed} />
         <Stat label="Shared" value={counts.shared} />
         <Stat label="Skipped" value={counts.skipped} />
       </dl>
@@ -408,7 +410,7 @@ function Results({ loop }: { loop: Loop }) {
           ))}
         </ul>
       )}
-      <p className={`mt-3 ${admin.hint}`}>Shared: posted a project within 7 days of the email.</p>
+      <p className={`mt-3 ${admin.hint}`}>Accepted means the email provider accepted the request. Shared means a project was posted within 7 days afterward; this does not establish that the email caused it.</p>
     </section>
   );
 }

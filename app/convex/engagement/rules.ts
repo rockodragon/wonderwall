@@ -105,7 +105,7 @@ export function isPostedProject(project: { origin?: string }): boolean {
 
 // ——— Counts for the admin page ———
 
-export type LogEntry = { status: "sent" | "skipped"; reason?: string; at: number };
+export type LogEntry = { status: "sent" | "skipped" | "queued" | "failed" | "suppressed" | "cancelled"; reason?: string; at: number };
 
 export type WindowCounts = {
   sent: number;
@@ -124,7 +124,7 @@ export function countLog(rows: readonly LogEntry[], now: number, days: number): 
     if (row.at <= since) continue;
     if (row.status === "sent") {
       sent += 1;
-    } else {
+    } else if (row.status === "skipped" || row.status === "suppressed" || row.status === "cancelled") {
       skipped += 1;
       const reason = row.reason ?? "unknown";
       byReason.set(reason, (byReason.get(reason) ?? 0) + 1);

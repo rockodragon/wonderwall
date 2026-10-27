@@ -24,30 +24,22 @@ export function isExpired(
   return now - n.createdAt > UNREAD_RETENTION_MS;
 }
 
-// Rows examined per rule, per invocation. Keeps each run's transaction
-// small; sweepExpiredNotifications reschedules itself when a scan comes
-// back full, so one nightly tick still eventually clears everything.
+// Both ranges contain only expired rows, so a full batch always makes
+// deletion progress before scheduling the next bounded transaction.
 const BATCH_SIZE = 500;
 
 // Nightly sweep (see crons.ts). Deletes in two index-scoped passes instead
 // of one full-table filter:
 //
 // 1. Read rows older than 30 days: `by_readAt` is a range index on readAt
-//    alone, so `gt(0).lt(cutoff)` walks only rows with a defined readAt
+//    alone, so `gte(0).lt(cutoff)` walks only rows with a defined readAt
 //    below the cutoff — undefined (unread) readAt values sort before 0 in
-//    Convex's index ordering, so `gt("readAt", 0)` excludes them without a
+//    Convex's index ordering, so `gte("readAt", 0)` excludes them without a
 //    second filter pass.
 //
-// 2. Unread rows older than 90 days: there is no index on
-//    (readAt=undefined, createdAt) — `by_userId_readAt` is scoped per user,
-//    not global, so it can't drive a cross-user range scan. Instead this
-//    scans the table in its default order (`_creationTime` ascending, via
-//    `.order("asc")` with no index), which is a safe proxy for `createdAt`
-//    because both are stamped from `Date.now()` in the same insert
-//    (`createNotification` in notifications.ts) — the oldest rows by
-//    `_creationTime` are exactly the oldest rows by `createdAt`. `isExpired`
-//    is applied per row so any already-expired read rows this scan happens
-//    to touch are cleaned up too (harmless overlap with pass 1).
+// 2. Unread rows older than 90 days: the global composite range constrains
+//    readAt to undefined before ranging on createdAt. Recent survivors and
+//    recently-read older notifications never hide expired unread rows.
 export const sweepExpiredNotifications = internalMutation({
   args: {},
   handler: async (ctx) => {
@@ -58,25 +50,24 @@ export const sweepExpiredNotifications = internalMutation({
     // Pass 1: expired read notifications, via the by_readAt range index.
     const oldRead = await ctx.db
       .query("notifications")
-      .withIndex("by_readAt", (q) => q.gt("readAt", 0).lt("readAt", readCutoff))
+      .withIndex("by_readAt", (q) => q.gte("readAt", 0).lt("readAt", readCutoff))
       .take(BATCH_SIZE);
     for (const n of oldRead) {
       await ctx.db.delete(n._id);
       deletedCount++;
     }
 
-    // Pass 2: expired unread notifications, via a bounded oldest-first scan
-    // (see comment above for why this is the sound choice absent an index).
-    const oldest = await ctx.db.query("notifications").order("asc").take(BATCH_SIZE);
-    for (const n of oldest) {
-      if (isExpired({ readAt: n.readAt, createdAt: n.createdAt }, now)) {
-        await ctx.db.delete(n._id);
-        deletedCount++;
-      }
+    const oldUnread = await ctx.db
+      .query("notifications")
+      .withIndex("by_readAt_createdAt", (q) => q.eq("readAt", undefined).lt("createdAt", now - UNREAD_RETENTION_MS))
+      .take(BATCH_SIZE);
+    for (const n of oldUnread) {
+      await ctx.db.delete(n._id);
+      deletedCount++;
     }
 
     const hitBatchLimit =
-      oldRead.length === BATCH_SIZE || oldest.length === BATCH_SIZE;
+      oldRead.length === BATCH_SIZE || oldUnread.length === BATCH_SIZE;
     if (hitBatchLimit) {
       await ctx.scheduler.runAfter(
         0,

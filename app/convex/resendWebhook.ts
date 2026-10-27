@@ -13,6 +13,7 @@
 // overwrites a later status a replay might race against).
 
 // ——— Locally-typed Resend payload shapes ———
+import { acceptsProviderEvent, type ProviderStatus } from "./emailContactPolicy";
 
 export interface ResendBounceLike {
   type?: string; // e.g. "Permanent" | "Transient"
@@ -25,6 +26,8 @@ export interface ResendEventDataLike {
   to?: string[];
   subject?: string;
   bounce?: ResendBounceLike;
+  failed?: { reason?: string };
+  suppressed?: { type?: string; message?: string };
 }
 
 export interface ResendWebhookEvent {
@@ -37,22 +40,27 @@ export interface ResendWebhookEvent {
 
 export interface DeliveryStatusRow {
   providerId: string;
-  status: "sent" | "delivered" | "delayed" | "bounced" | "complained";
+  status: ProviderStatus;
+  lastProviderEventAt?: number;
 }
 
 export interface ResendWebhookDb {
+  recordEvent?(event: {
+    providerId: string; eventKey: string; status: ProviderStatus; eventAt: number;
+    detail?: string; recipients: string[];
+  }): Promise<{ unknown?: boolean; duplicate?: boolean }>;
   getDelivery(providerId: string): Promise<DeliveryStatusRow | null>;
   updateDelivery(
     providerId: string,
     patch: {
-      status: "sent" | "delivered" | "delayed" | "bounced" | "complained";
+      status: ProviderStatus;
       lastEventAt: number;
       detail?: string;
     },
   ): Promise<{ unknown: boolean }>;
   addSuppression(row: {
     email: string;
-    reason: "bounced" | "complained";
+    reason: "bounced" | "complained" | "suppressed";
     providerId?: string;
   }): Promise<void>;
 }
@@ -78,6 +86,7 @@ export async function handleResendEvent(
   event: ResendWebhookEvent,
   db: ResendWebhookDb,
   now: number,
+  eventId?: string,
 ): Promise<HandleResendEventResult> {
   const providerId = event.data.email_id;
 
@@ -87,6 +96,8 @@ export async function handleResendEvent(
     case "email.delivery_delayed":
     case "email.bounced":
     case "email.complained":
+    case "email.failed":
+    case "email.suppressed":
       break;
     default:
       return { ignored: true };
@@ -94,24 +105,54 @@ export async function handleResendEvent(
 
   if (!providerId) return { ignored: true };
 
+  const parsedTime = event.created_at ? Date.parse(event.created_at) : NaN;
+  const eventAt = Number.isFinite(parsedTime) ? parsedTime : now;
+  const status: ProviderStatus = event.type === "email.sent" ? "sent"
+    : event.type === "email.delivered" ? "delivered"
+    : event.type === "email.delivery_delayed" ? "delayed"
+    : event.type === "email.bounced" ? "bounced"
+    : event.type === "email.failed" ? "failed"
+    : event.type === "email.suppressed" ? "suppressed" : "complained";
+  const detail = event.data.failed?.reason ?? event.data.suppressed?.type ?? event.data.bounce?.message ?? event.data.bounce?.subType ?? event.data.bounce?.type;
+  // Suppression is independent of delivery ordering and remains true if a
+  // complaint arrives before the send response has persisted its provider id.
+  if (event.type === "email.complained" || event.type === "email.suppressed" || (event.type === "email.bounced" && event.data.bounce?.type === "Permanent")) {
+    for (const email of normalizedRecipients(event.data)) {
+      await db.addSuppression({ email, reason: event.type === "email.complained" ? "complained" : event.type === "email.suppressed" ? "suppressed" : "bounced", providerId });
+    }
+  }
+  if (db.recordEvent) {
+    const recorded = await db.recordEvent({
+      providerId, eventKey: eventId ?? `${providerId}:${event.type}:${event.created_at ?? eventAt}`,
+      status, eventAt, ...(detail ? { detail } : {}), recipients: normalizedRecipients(event.data),
+    });
+    return recorded.unknown ? { unknown: true } : { ok: true, status };
+  }
+
   const existing = await db.getDelivery(providerId);
   if (!existing) return { unknown: true };
+  if (!acceptsProviderEvent(existing, { status, eventAt })) return { ok: true, status: existing.status };
+
+  if (status === "failed" || status === "suppressed") {
+    await db.updateDelivery(providerId, { status, lastEventAt: eventAt, ...(detail ? { detail } : {}) });
+    return { ok: true, status };
+  }
 
   if (event.type === "email.sent") {
     // Never regress a later status back to "sent" — a delayed replay of the
     // sent event after a bounce/delivered has already landed is a no-op.
     if (existing.status !== "sent") return { ok: true, status: existing.status };
-    await db.updateDelivery(providerId, { status: "sent", lastEventAt: now });
+    await db.updateDelivery(providerId, { status: "sent", lastEventAt: eventAt });
     return { ok: true, status: "sent" };
   }
 
   if (event.type === "email.delivered") {
-    await db.updateDelivery(providerId, { status: "delivered", lastEventAt: now });
+    await db.updateDelivery(providerId, { status: "delivered", lastEventAt: eventAt });
     return { ok: true, status: "delivered" };
   }
 
   if (event.type === "email.delivery_delayed") {
-    await db.updateDelivery(providerId, { status: "delayed", lastEventAt: now });
+    await db.updateDelivery(providerId, { status: "delayed", lastEventAt: eventAt });
     return { ok: true, status: "delayed" };
   }
 
@@ -120,26 +161,18 @@ export async function handleResendEvent(
     const detail = bounce?.message ?? bounce?.subType ?? bounce?.type;
     await db.updateDelivery(providerId, {
       status: "bounced",
-      lastEventAt: now,
+      lastEventAt: eventAt,
       ...(detail ? { detail } : {}),
     });
     // Only a permanent (hard) bounce suppresses the address — a transient
     // one (mailbox full, greylisted) may well deliver on retry, so it's
     // recorded as "bounced" but not blocked going forward.
-    if (bounce?.type === "Permanent") {
-      for (const email of normalizedRecipients(event.data)) {
-        await db.addSuppression({ email, reason: "bounced", providerId });
-      }
-    }
     return { ok: true, status: "bounced" };
   }
 
   // email.complained
   {
-    await db.updateDelivery(providerId, { status: "complained", lastEventAt: now });
-    for (const email of normalizedRecipients(event.data)) {
-      await db.addSuppression({ email, reason: "complained", providerId });
-    }
+    await db.updateDelivery(providerId, { status: "complained", lastEventAt: eventAt });
     return { ok: true, status: "complained" };
   }
 }

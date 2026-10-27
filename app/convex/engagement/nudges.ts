@@ -15,7 +15,7 @@ import { normalizeEmail } from "../emailDeliveries";
 import { getOrCreatePreferences } from "../emailPreferences";
 import { getUserEmail, scheduleNotificationEmail } from "../emailHelpers";
 import { requireAdminCtx } from "../helpers";
-import { trackEvent } from "../posthog";
+import { getLoopRow } from "./settings";
 import {
   buildNudgeEmail,
   checkLoopText,
@@ -42,10 +42,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const DIGEST_SCAN = 50;
 
 async function loadLoop(ctx: QueryCtx, key: string): Promise<EffectiveLoop | null> {
-  const row = await ctx.db
-    .query("engagementLoops")
-    .withIndex("by_key", (q) => q.eq("key", key))
-    .first();
+  const row = await getLoopRow(ctx, key);
   return resolveLoop(key, row);
 }
 
@@ -103,7 +100,7 @@ async function gatherFacts(
     .query("nudgeLog")
     .withIndex("by_loopKey_userId", (q) => q.eq("loopKey", loop.key).eq("userId", userId))
     .collect();
-  facts.alreadySent = thisLoop.some((r) => r.status === "sent");
+  facts.alreadySent = thisLoop.some((r) => r.status !== "skipped");
 
   const lastDay = await ctx.db
     .query("nudgeLog")
@@ -121,7 +118,7 @@ async function gatherFacts(
   return facts;
 }
 
-export type AttemptResult = { status: "sent" } | { status: "skipped"; reason: SkipReason };
+export type AttemptResult = { status: "queued" } | { status: "skipped"; reason: SkipReason | string };
 
 /** One scheduled nudge (scheduleSignupNudges): decide, send or skip, log it.
  * A user id that no longer resolves (a deleted account) is a skip
@@ -152,14 +149,22 @@ export const attemptNudge = internalMutation({
 
     // decideNudge only sends for a person that exists.
     const recipient = userId as Id<"users">;
-    await scheduleNotificationEmail(ctx, {
+    const nudgeLogId = await ctx.db.insert("nudgeLog", { loopKey: loop.key, userId: recipient, status: "queued", at: now });
+    const scheduled = await scheduleNotificationEmail(ctx, {
       userId: recipient,
       category: loop.category,
       ...buildNudgeEmail(loop),
+      contact: {
+        dedupeKey: `signup:${loop.key}:${recipient}`, journeyKey: loop.key,
+        journeyRunId: `${loop.key}:${recipient}`, goal: "no_project", nudgeLogId,
+      },
     });
-    await ctx.db.insert("nudgeLog", { loopKey: loop.key, userId: recipient, status: "sent", at: now });
-    await trackEvent(ctx, "nudge_sent", recipient, { loop: loop.key });
-    return { status: "sent" };
+    if (scheduled.status === "skipped") {
+      await ctx.db.patch(nudgeLogId, { status: "skipped", reason: scheduled.reason });
+      return { status: "skipped", reason: scheduled.reason };
+    }
+    await ctx.db.patch(nudgeLogId, { contactId: scheduled.contactId });
+    return { status: "queued" };
   },
 });
 
@@ -167,6 +172,8 @@ export const attemptNudge = internalMutation({
 
 type WindowView = {
   sent: number;
+  queued: number;
+  failed: number;
   skipped: number;
   reasons: { reason: string; label: string; count: number }[];
   /** Sends followed by a project the same person created within 7 days. */
@@ -204,6 +211,8 @@ export const adminOverview = query({
 
       const windowFor = (days: number): WindowView => ({
         ...countLog(rows, now, days),
+        queued: rows.filter(r => r.at > now - days * DAY_MS && r.status === "queued").length,
+        failed: rows.filter(r => r.at > now - days * DAY_MS && r.status === "failed").length,
         shared: countShared(
           sends.filter((s) => s.at > now - days * DAY_MS),
           projectTimes,

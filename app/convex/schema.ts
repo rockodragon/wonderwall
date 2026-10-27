@@ -103,6 +103,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_userId", ["userId"])
+    .index("by_createdAt", ["createdAt"])
     .index("by_stripeConnectAccountId", ["stripeConnectAccountId"])
     .index("by_name", ["name"])
     .index("by_inviteSlug", ["inviteSlug"])
@@ -491,7 +492,10 @@ export default defineSchema({
     // admin/mergeUsers.ts reads a person's rows by it.
     .index("by_usedBy", ["usedBy"])
     .index("by_code", ["code"])
-    .index("by_inviterId", ["inviterId"]),
+    .index("by_inviterId", ["inviterId"])
+    .index("by_inviterId_usedBy", ["inviterId", "usedBy"])
+    .index("by_usedAt", ["usedAt"])
+    .index("by_usedBy", ["usedBy"]),
 
   // Embeddings for semantic search
   embeddings: defineTable({
@@ -544,6 +548,7 @@ export default defineSchema({
     userId: v.id("users"), // the favoriter / follower — a users id
     targetType: v.string(), // "profile" | "event" | "project" | "role" (favorites.ts's favoriteTargetTypeValidator)
     targetId: v.string(), // profiles._id, events._id, projects._id or projectRoles._id — for "profile" this is the PROFILE id, not the user id
+    origin: v.optional(v.union(v.literal("user"), v.literal("invite"))),
     createdAt: v.number(),
   })
     .index("by_userId", ["userId"])
@@ -752,6 +757,32 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_lastMessageAt", ["lastMessageAt"]),
 
+  // Metadata only: indexed conversation participation and response state.
+  // Legacy threads are eligible for reminders only after an exact bounded seed.
+  conversationParticipants: defineTable({
+    conversationId: v.id("conversations"),
+    userId: v.id("users"),
+    otherUserId: v.id("users"),
+    lastMessageAt: v.number(),
+    lastInboundAt: v.optional(v.number()),
+    lastOutboundAt: v.optional(v.number()),
+    firstInboundAt: v.optional(v.number()),
+    firstOutboundAt: v.optional(v.number()),
+    firstReplyAt: v.optional(v.number()),
+    readThroughAt: v.optional(v.number()),
+    lastReadAt: v.optional(v.number()),
+    awaitingReplySince: v.optional(v.number()),
+    unreadSince: v.optional(v.number()),
+    historyComplete: v.boolean(),
+  })
+    .index("by_userId_conversationId", ["userId", "conversationId"])
+    .index("by_conversationId", ["conversationId"])
+    .index("by_userId_lastMessageAt", ["userId", "lastMessageAt"])
+    .index("by_userId_awaitingReplySince", ["userId", "awaitingReplySince"])
+    .index("by_userId_unreadSince", ["userId", "unreadSince"])
+    .index("by_unreadSince", ["unreadSince"])
+    .index("by_awaitingReplySince", ["awaitingReplySince"]),
+
   // Direct messaging - Messages
   messages: defineTable({
     conversationId: v.id("conversations"),
@@ -762,7 +793,9 @@ export default defineSchema({
   })
     .index("by_conversationId", ["conversationId"])
     .index("by_senderId", ["senderId"])
-    .index("by_conversationId_createdAt", ["conversationId", "createdAt"]),
+    .index("by_conversationId_createdAt", ["conversationId", "createdAt"])
+    .index("by_conversationId_senderId_createdAt", ["conversationId", "senderId", "createdAt"])
+    .index("by_conversationId_senderId_readAt_createdAt", ["conversationId", "senderId", "readAt", "createdAt"]),
 
   // User blocking
   blocks: defineTable({
@@ -806,7 +839,8 @@ export default defineSchema({
     // Global range scan for retention sweeps (notificationRetention.ts):
     // find read notifications older than N days across all users. Neither
     // existing index supports this — by_userId_readAt is scoped per user.
-    .index("by_readAt", ["readAt"]),
+    .index("by_readAt", ["readAt"])
+    .index("by_readAt_createdAt", ["readAt", "createdAt"]),
 
   // Content/user reports for admin review
   reports: defineTable({
@@ -2399,7 +2433,8 @@ export default defineSchema({
   nudgeLog: defineTable({
     loopKey: v.string(),
     userId: v.optional(v.id("users")),
-    status: v.union(v.literal("sent"), v.literal("skipped")),
+    status: v.union(v.literal("sent"), v.literal("skipped"), v.literal("queued"), v.literal("failed"), v.literal("suppressed"), v.literal("cancelled")),
+    contactId: v.optional(v.id("emailDeliveries")),
     reason: v.optional(v.string()), // why it was skipped (rules.ts's SkipReason)
     at: v.number(),
   })
@@ -2427,12 +2462,17 @@ export default defineSchema({
   // emails.sendNotificationEmail right after a successful send — the
   // console provider returns no id, so nothing is recorded for it.
   emailDeliveries: defineTable({
-    providerId: v.string(), // Resend email id
+    providerId: v.optional(v.string()), // Assigned after provider acceptance.
     provider: v.string(),
     to: v.string(), // normalized lowercase
     subject: v.string(),
     category: v.optional(v.string()),
     status: v.union(
+      v.literal("queued"),
+      v.literal("accepted"),
+      v.literal("failed"),
+      v.literal("suppressed"),
+      v.literal("cancelled"),
       v.literal("sent"),
       v.literal("delivered"),
       v.literal("delayed"),
@@ -2441,17 +2481,78 @@ export default defineSchema({
     ),
     lastEventAt: v.number(),
     detail: v.optional(v.string()), // bounce/complaint reason text, short
+    recipientUserId: v.optional(v.id("users")),
+    dedupeKey: v.optional(v.string()),
+    journeyKey: v.optional(v.string()),
+    journeyRunId: v.optional(v.string()),
+    sourceType: v.optional(v.string()),
+    sourceId: v.optional(v.string()),
+    policy: v.optional(v.union(v.literal("standard"), v.literal("transactional"), v.literal("first_cheer"))),
+    goal: v.optional(v.union(v.literal("no_project"), v.literal("unread_message"))),
+    conversationId: v.optional(v.id("conversations")),
+    messageId: v.optional(v.id("messages")),
+    blockedUserId: v.optional(v.id("users")),
+    nudgeLogId: v.optional(v.id("nudgeLog")),
+    attempts: v.optional(v.number()),
+    lastAttemptAt: v.optional(v.number()),
+    nextAttemptAt: v.optional(v.number()),
+    leaseUntil: v.optional(v.number()),
+    cooldownAt: v.optional(v.number()),
+    acceptedAt: v.optional(v.number()),
+    lastProviderEventAt: v.optional(v.number()),
+    lastProviderEventId: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_providerId", ["providerId"])
-    .index("by_to_createdAt", ["to", "createdAt"]),
+    .index("by_to_createdAt", ["to", "createdAt"])
+    .index("by_dedupeKey", ["dedupeKey"])
+    .index("by_recipientUserId_createdAt", ["recipientUserId", "createdAt"])
+    .index("by_recipientUserId_cooldownAt", ["recipientUserId", "cooldownAt"]),
+
+  emailDeliveryEvents: defineTable({
+    providerId: v.string(),
+    eventKey: v.string(),
+    status: v.string(),
+    eventAt: v.number(),
+    detail: v.optional(v.string()),
+    recipients: v.array(v.string()),
+    receivedAt: v.number(),
+    appliedAt: v.optional(v.number()),
+  }).index("by_eventKey", ["eventKey"]).index("by_providerId", ["providerId"]),
+
+  // Durable domain-event outbox. Retries keep occurrence time and UUID.
+  productEvents: defineTable({
+    eventId: v.string(),
+    event: v.string(),
+    userId: v.string(),
+    properties: v.optional(v.record(v.string(), v.union(v.string(), v.number(), v.boolean(), v.null()))),
+    occurredAt: v.number(),
+    status: v.union(v.literal("queued"), v.literal("sending"), v.literal("accepted"), v.literal("failed")),
+    attempts: v.number(),
+    nextAttemptAt: v.optional(v.number()),
+    leaseUntil: v.optional(v.number()),
+    lastError: v.optional(v.string()),
+    acceptedAt: v.optional(v.number()),
+  }).index("by_eventId", ["eventId"]).index("by_status_occurredAt", ["status", "occurredAt"]),
+
+  // Operator decisions contain no private conversation content.
+  engagementAttention: defineTable({
+    candidateKey: v.string(),
+    userId: v.id("users"),
+    reason: v.string(),
+    ownerId: v.optional(v.id("users")),
+    snoozedUntil: v.optional(v.number()),
+    reviewedAt: v.optional(v.number()),
+    updatedAt: v.number(),
+    updatedBy: v.id("users"),
+  }).index("by_candidateKey", ["candidateKey"]).index("by_userId", ["userId"]),
 
   // Addresses that have hard-bounced or complained — checked before every
   // send (emails.sendNotificationEmail) so we stop mailing them. Written by
   // the /resend/webhook route.
   emailSuppressions: defineTable({
     email: v.string(), // normalized lowercase
-    reason: v.union(v.literal("bounced"), v.literal("complained")),
+    reason: v.union(v.literal("bounced"), v.literal("complained"), v.literal("suppressed")),
     providerId: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_email", ["email"]),
