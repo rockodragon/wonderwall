@@ -78,6 +78,17 @@ describe("DetailPanel for a person", () => {
     expect(html).toContain(">Ana Reyes<");
     expect(html).not.toContain("community leader");
   });
+
+  it("doesn't repeat their photo by the name: the card already shows it", () => {
+    const html = render({ ...person(false), image: "https://example.com/ana.jpg" } as DeskCard);
+    expect(html).not.toContain("<img");
+    expect(html).not.toContain(">A<");
+  });
+
+  it("shows their initial in a square when there's no photo", () => {
+    const html = render(person(false));
+    expect(html).toMatch(/rounded-xl[^>]*>A</);
+  });
 });
 
 describe("DetailPanel layout", () => {
