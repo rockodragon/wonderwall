@@ -232,7 +232,10 @@ export function DetailPanel({
               follows the column so that is rare: see TITLE_SIZE. */}
           {card.kind === "person" ? (
             <div className="flex items-center gap-3">
-              <PersonAvatar name={card.detail.title} imageUrl={profile?.imageUrl ?? card.image} />
+              {/* Their photo already fills the card beside this, so a second,
+                  smaller copy would only repeat it. With no photo, their initial
+                  stands in, square like a profile photo. */}
+              {!card.image && <PersonAvatar name={card.detail.title} imageUrl={profile?.imageUrl} shape="tile" />}
               {/* A leader's sprout goes under their name, as on the card's face. */}
               <div className="flex min-w-0 flex-col items-start gap-2">
                 <h2 style={TITLE_STYLE}>
