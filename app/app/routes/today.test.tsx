@@ -1,15 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToString } from "react-dom/server";
-import { StaticRouterProvider, createStaticHandler, createStaticRouter } from "react-router";
+import { MemoryRouter, StaticRouterProvider, createStaticHandler, createStaticRouter } from "react-router";
 import { subscribeNow } from "../hooks/useNow";
 import { NOW, follow, sampleShortlist, shortlist } from "../lib/shortlist/fixtures";
-import Today from "./today";
+import Today, { ProjectRow } from "./today";
 
 // Today on a phone (a server render has no window, so it isn't desktop). The
 // Shortlist query answers with `scene.data`, any other query named in
 // `scene.answers` with that; everything else Today reads is still loading,
 // which it draws as skeletons.
-const scene = vi.hoisted(() => ({ data: undefined as unknown, answers: {} as Record<string, unknown> }));
+const scene = vi.hoisted(() => ({ data: undefined as unknown, answers: {} as Record<string, unknown>, signedIn: true }));
 
 vi.mock("convex/react", async () => {
   const { getFunctionName } = await import("convex/server");
@@ -19,13 +19,24 @@ vi.mock("convex/react", async () => {
       return name === "shortlist:getMine" ? scene.data : scene.answers[name];
     },
     useMutation: () => async () => {},
+    useAction: () => async () => {},
+    useConvexAuth: () => ({ isAuthenticated: scene.signedIn, isLoading: false }),
   };
 });
+vi.mock("@posthog/react", () => ({ usePostHog: () => undefined }));
+
+// Backing is off by default (FF_BACKING). Today is drawn with it open, so the
+// Back this button on a raising project stays covered.
+vi.mock("../lib/featureFlags", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../lib/featureFlags")>()),
+  FF_BACKING: true,
+}));
 
 let off = () => {};
 beforeEach(() => {
   scene.data = sampleShortlist();
   scene.answers = {};
+  scene.signedIn = true;
   vi.useFakeTimers({ now: NOW, toFake: ["setInterval", "clearInterval", "Date"] });
   off = subscribeNow(() => {});
 });
@@ -146,12 +157,14 @@ describe("Share a project on a phone's Today", () => {
   });
 });
 
-// An open project on a phone: its picture square and full width across the
-// top of the card, then the title, its maker's name in plain words, and no
-// "See →": the whole card opens it. No border; the card's own ground and the
-// gap between cards set them apart.
+// An open project on Today is a feed post (docs: Rick, 2026-10-27). On a
+// phone, top to bottom: who made it, the picture edge to edge, the title, a
+// line or two, the status line, and the actions as its last row. No card, no
+// border; space alone sets posts apart. Wide, the same pieces sit on a grid
+// with the picture beside the words.
 describe("an open project on Today", () => {
-  const project = (id: string, title: string) => ({
+  const me = { _id: "me", userId: "u-me", name: "Me", bio: "", imageUrl: null };
+  const project = (id: string, title: string, extra: Record<string, unknown> = {}) => ({
     _id: id,
     userId: `u-${id}`,
     kind: "passion",
@@ -160,25 +173,219 @@ describe("an open project on Today", () => {
     media: [],
     createdAt: NOW,
     creator: { _id: `profile-${id}`, name: "MG Smith", imageUrl: null },
+    ...extra,
+  });
+  // The first project with a goal and a picture is the Featured one (lib/
+  // projectPick.ts), so this one is it; the posts are the rest.
+  const featured = project("a", "Featured one", { goal: 500, resolvedPhotoUrl: "/cover-a.jpg" });
+
+  /** Today with these as the open projects, and the post for `id`. */
+  async function post(id: string, projects: Record<string, unknown>[], answers: Record<string, unknown> = {}) {
+    scene.answers = { "profiles:getMyProfile": me, "garden/projects:listProjects": [featured, ...projects], ...answers };
+    const html = await today();
+    const chunk = html.split("<article").find((c) => c.includes(`href="/projects/${id}"`) && !c.includes('href="/projects/a"'));
+    if (!chunk) throw new Error(`no post for ${id}`);
+    return "<article" + chunk.slice(0, chunk.indexOf("</article>") + "</article>".length);
+  }
+  const at = (html: string, needle: string | RegExp) => {
+    const found = typeof needle === "string" ? html.indexOf(needle) : html.search(needle);
+    expect(found, `${needle} is in the post`).toBeGreaterThan(-1);
+    return found;
+  };
+
+  const full = project("b", "Songs of Safety", {
+    blurb: "Twelve new hymns, recorded live with a room full of neighbors.",
+    resolvedPhotoUrl: "/cover-b.jpg",
+    community: { name: "The Garden", slug: "the-garden" },
+    goal: 1000,
+    raisedCents: 32000,
+    raiseByDate: NOW + 5 * 86400000 - 1000,
+    supportCount: 3,
+    raising: true,
   });
 
-  it("puts a square picture full width on top, names its maker under the title, and says no See", async () => {
-    scene.answers = {
-      "profiles:getMyProfile": { _id: "me", userId: "u-me", name: "Me", bio: "", imageUrl: null },
-      "garden/projects:listProjects": [project("a", "Featured one"), project("b", "Songs of Safety"), project("c", "Third")],
-    };
+  it("reads top to bottom: the maker, the picture, the title, the blurb, the status line, the actions", async () => {
+    const html = await post("b", [full]);
+    const order = [
+      at(html, ">MG Smith<"),
+      at(html, '<img src="/cover-b.jpg"'),
+      at(html, "<h3"),
+      at(html, "Twelve new hymns"),
+      at(html, "$320 of $1,000"),
+      at(html, 'aria-label="Cheer"'),
+    ];
+    expect(order).toEqual([...order].sort((x, y) => x - y));
+    expect(new Set(order).size).toBe(order.length);
+    expect(html).not.toContain("See →");
+  });
+
+  it("names the maker in a 36px square, with the community under the name, and links to their page", async () => {
+    const html = await post("b", [full]);
+    const header = html.match(/<a [^>]*href="\/profile\/profile-b"[^>]*>.*?<\/a>/)?.[0] ?? "";
+    expect(header).toContain("h-9 w-9");
+    expect(header).toContain("rounded-xl");
+    expect(header).toMatch(/<span class="block text-\[15px\] font-semibold[^"]*"[^>]*>MG Smith<\/span>/);
+    expect(header).toMatch(/<span class="block text-\[13px\][^"]*"[^>]*>in The Garden<\/span>/);
+  });
+
+  it("is an organization's logo and page when it was posted as one, and says nothing of a community it hasn't", async () => {
+    const org = project("c", "Harbor Light show", { creator: undefined, organization: { name: "Harbor Light", slug: "harbor-light", logoUrl: null } });
+    const html = await post("c", [org]);
+    expect(html).toContain('href="/orgs/harbor-light"');
+    expect(html).toContain(">Harbor Light<");
+    expect(html).not.toContain(" in ");
+  });
+
+  it("has two links, the maker and the picture with the words, and no link or button inside another", async () => {
+    const html = await post("b", [full]);
+    expect(html.match(/<a /g)).toHaveLength(2);
+    expect(html).toContain('href="/profile/profile-b"');
+    const link = html.match(/<a [^>]*href="\/projects\/b"[^>]*>.*?<\/a>/)?.[0] ?? "";
+    for (const inside of ['<img src="/cover-b.jpg"', "<h3", "Twelve new hymns", "$320 of $1,000"]) expect(link).toContain(inside);
+    // The actions are outside every link.
+    expect(link).not.toContain("<button");
+    expect(html.slice(html.lastIndexOf("</a>"))).toContain('aria-label="Cheer"');
+    // Scanned tag by tag: nothing opens inside an open link or button.
+    let open: string | null = null;
+    for (const [tag] of html.matchAll(/<\/?(?:a|button)\b/g)) {
+      const name = tag.replace(/[</]/g, "");
+      if (tag.startsWith("</")) open = null;
+      else {
+        expect(open, `<${name}> opened inside <${open}>`).toBeNull();
+        open = name;
+      }
+    }
+  });
+
+  it("puts a square picture edge to edge, with no card or border around the post", async () => {
+    const html = await post("b", [full]);
+    expect(html).toContain("aspect-square");
+    expect(html).not.toContain("aspect-[4/5]");
+    expect(html.match(/<div class="[^"]*-mx-4[^"]*sm:mx-0[^"]*"/)).not.toBeNull();
+    const article = html.match(/<article class="([^"]*)"/)![1].split(" ");
+    expect(article.filter((c) => /^(?:md:)?(?:bg-|border|rounded|p[xytbrl]?-\d)/.test(c))).toEqual([]);
+  });
+
+  it("sets the posts apart by 24px of space and nothing else", async () => {
+    scene.answers = { "profiles:getMyProfile": me, "garden/projects:listProjects": [featured, full, project("d", "Third")] };
     const html = await today();
-    const row = html.match(/<a [^>]*href="\/projects\/b"[^>]*>.*?<\/a>/)?.[0] ?? "";
-    expect(row).not.toBe("");
-    expect(row).not.toContain("See →");
-    const link = row.match(/^<a [^>]*class="([^"]*)"/)?.[1].split(" ") ?? [];
-    expect(link).toEqual(expect.arrayContaining(["block", "overflow-hidden", "rounded-xl"]));
-    expect(link).not.toContain("border");
-    expect(link.some((c) => /^p-\d/.test(c))).toBe(false);
-    expect(row).toContain("aspect-square");
-    expect(row).not.toContain("aspect-[4/5]");
-    const title = row.indexOf("Songs of Safety");
-    expect(row.indexOf(">MG Smith<")).toBeGreaterThan(title);
-    expect(row).toMatch(/<p class="[^"]*text-sm[^"]*"[^>]*>MG Smith<\/p>/);
+    expect(html).toMatch(/<div class="space-y-6 md:space-y-20"><article/);
+  });
+
+  it("shows the blurb on a phone, two lines of it", async () => {
+    const html = await post("b", [full]);
+    const blurb = html.match(/<p class="([^"]*)"[^>]*>Twelve new hymns/)![1].split(" ");
+    expect(blurb).toContain("line-clamp-2");
+    expect(blurb).not.toContain("hidden");
+    expect(blurb).not.toContain("md:block");
+  });
+
+  it("shows the status line at 13px, then the days left", async () => {
+    const html = await post("b", [full]);
+    expect(html).toMatch(/<p class="[^"]*text-\[13px\][^"]*"[^>]*>[^<]*· \$320 of \$1,000 · 5 days left<\/p>/);
+  });
+
+  it("draws nothing twice for the two screen sizes", async () => {
+    const html = await post("b", [full]);
+    expect(html).not.toContain("md:hidden");
+    expect(html.match(/>Songs of Safety</g)).toHaveLength(1);
+    expect(html.match(/aria-label="Cheer"/g)).toHaveLength(1);
+    expect(html.match(/Twelve new hymns/g)).toHaveLength(1);
+  });
+
+  it("sets the title on the abstract cover when there's no picture, and not again below", async () => {
+    const bare = project("e", "Songs of Safety", { blurb: "Twelve new hymns." });
+    const html = await post("e", [bare]);
+    expect(html).not.toContain("<img");
+    expect(html).toContain('<svg viewBox="0 0 160 100"');
+    expect(html.match(/>Songs of Safety</g)).toHaveLength(1);
+    const title = html.match(/<h3 class="([^"]*)"/)![1].split(" ");
+    expect(title).toContain("text-[34px]");
+    expect(title).toContain("font-bold");
+    // On the cover: it takes the picture's own grid cell, bottom-left, ahead of the blurb.
+    const block = html.match(/<div class="([^"]*)"[^>]*><h3/)![1].split(" ");
+    expect(block).toEqual(expect.arrayContaining(["col-start-1", "row-start-1", "self-end"]));
+    expect(html.indexOf("<h3")).toBeLessThan(html.indexOf("Twelve new hymns"));
+  });
+
+  it("puts the title under the picture, at 17px, when there is one", async () => {
+    const html = await post("b", [full]);
+    expect(html.indexOf("<img")).toBeLessThan(html.indexOf("<h3"));
+    const title = html.match(/<h3 class="([^"]*)"/)![1].split(" ");
+    expect(title).toEqual(expect.arrayContaining(["text-[17px]", "font-semibold"]));
+  });
+
+  it("closes the post with the actions: the heart and its count, Back this, Save at the far right", async () => {
+    scene.answers = {};
+    const html = await post("b", [full]);
+    const row = html.slice(html.lastIndexOf("</a>"));
+    expect(row).toMatch(/aria-label="Cheer"[^>]*>/);
+    expect(row).toContain(">3<");
+    expect(row).toContain('aria-label="Back this"');
+    expect(row).toContain('aria-label="Save Songs of Safety"');
+    expect(row.indexOf("Cheer")).toBeLessThan(row.indexOf("Back this"));
+    expect(row.indexOf("Back this")).toBeLessThan(row.indexOf("Save Songs of Safety"));
+    expect(row).toMatch(/<div class="ml-auto[^"]*"><button/);
+    // Every one a 44px target.
+    expect(row.match(/<button[^>]*class="[^"]*\bw-11 h-11\b/g)).toHaveLength(2);
+    expect(row.match(/<button[^>]*class="[^"]*\bh-11 w-11\b/g)).toHaveLength(1);
+  });
+
+  it("offers Back this only while the project is raising", async () => {
+    const calm = project("f", "No ask here", { resolvedPhotoUrl: "/cover-f.jpg", raising: false });
+    const html = await post("f", [calm]);
+    expect(html).toContain('aria-label="Cheer"');
+    expect(html).not.toContain("Back this");
+  });
+
+  it("offers no Save on your own project", async () => {
+    const mine = project("g", "Mine", { userId: "u-me" });
+    const html = await post("g", [mine]);
+    expect(html).toContain('aria-label="Cheer"');
+    expect(html).not.toContain("Save");
+  });
+
+  it("offers no Save to a signed-out visitor, nor before the profile has loaded", async () => {
+    scene.signedIn = false;
+    expect(await post("b", [full])).not.toContain("Save");
+    scene.signedIn = true;
+    expect(await post("b", [full], { "profiles:getMyProfile": undefined })).not.toContain("Save");
+  });
+
+  it("offers Cheer on a passion project only, and Save beside it", () => {
+    const row = (p: Record<string, unknown>) =>
+      renderToString(
+        <MemoryRouter>
+          <ProjectRow project={p as never} flip={false} viewer={{ signedIn: true, profile: me }} onSupport={() => {}} />
+        </MemoryRouter>,
+      );
+    expect(row(full)).toContain('aria-label="Cheer"');
+    const paid = row({ ...full, kind: "paid", gig: null, budgetType: "amount", budget: 300 });
+    expect(paid).not.toContain('aria-label="Cheer"');
+    expect(paid).not.toContain("Back this");
+    expect(paid).toContain('aria-label="Save Songs of Safety"');
+  });
+
+  it("keeps the wide layout: a 320px picture beside the words, the sides swapping, the maker and actions in the words' column", async () => {
+    const wide = (flip: boolean) =>
+      renderToString(
+        <MemoryRouter>
+          <ProjectRow project={full as never} flip={flip} viewer={{ signedIn: true, profile: me }} onSupport={() => {}} />
+        </MemoryRouter>,
+      );
+    const plain = wide(false);
+    expect(plain.match(/<article class="([^"]*)"/)![1]).toContain("md:grid-cols-[320px_minmax(0,1fr)]");
+    const flipped = wide(true);
+    expect(flipped.match(/<article class="([^"]*)"/)![1]).toContain("md:grid-cols-[minmax(0,1fr)_320px]");
+    // The words (maker, badges, title, blurb, status, actions) sit in the
+    // second column, then the first when flipped; the picture takes the other.
+    expect(plain.match(/md:col-start-2/g)!.length).toBe(6);
+    expect(plain.match(/md:col-start-1/g)).toHaveLength(1);
+    expect(flipped.match(/md:col-start-1/g)!.length).toBe(6);
+    expect(flipped.match(/md:col-start-2/g)).toHaveLength(1);
+    // The badges and the 30px title are still there, once.
+    expect(plain).toContain(">Passion<");
+    expect(plain).toContain("md:text-[30px]");
+    expect(plain.match(/>Songs of Safety</g)).toHaveLength(1);
   });
 });

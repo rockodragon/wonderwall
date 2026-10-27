@@ -1,5 +1,5 @@
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 import { HireFlow } from "../components/HireFlow";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
@@ -99,18 +99,7 @@ export default function Projects() {
   // 2026-10-09): a visitor has none yet. Signup brings them back to the form.
   const startProject = () => (isAuthenticated ? setShowPassionForm(true) : navigate(shareProjectHref(false)));
   const hireSomeone = withAccount(() => setHiring(true));
-  const [supporting, setSupporting] = useState<{ project: any; mode: SupportMode } | null>(null);
-  // Cheering needs an account; backing doesn't: the sheet opens for a
-  // visitor on a one-time payment (the server takes a guest's one-time
-  // backing, not a monthly one).
-  // Until the token check settles a member reads as signed out, so a tap
-  // then does nothing rather than send them to sign up or a guest's sheet.
-  const support = (project: any, mode: SupportMode) => {
-    if (authLoading) return;
-    const detour = supportDetour(mode, isAuthenticated, `/projects${window.location.search}`);
-    if (detour) navigate(detour);
-    else setSupporting({ project, mode });
-  };
+  const { support, modal: supportModal } = useProjectSupport();
   const [searchParams, setSearchParams] = useSearchParams();
   // /projects?new=project (the palette's "Start a project") opens the start
   // flow once, then drops the param so a refresh doesn't open it again. Signed
@@ -415,13 +404,7 @@ export default function Projects() {
           initialStage={readStartStage(searchParams)}
         />
       )}
-      {supporting && (
-        <SupportModal
-          project={supporting.project}
-          mode={supporting.mode}
-          onClose={() => setSupporting(null)}
-        />
-      )}
+      {supportModal}
     </div>
   );
 }
@@ -931,10 +914,13 @@ export function SupportButtons({
   raising: boolean;
   onSupport: (mode: SupportMode) => void;
   count?: number;
-  size?: "sm" | "md";
+  size?: "sm" | "md" | "post";
 }) {
-  const box = size === "sm" ? "w-9 h-9" : "w-10 h-10";
-  const icon = size === "sm" ? 20 : 22;
+  // `post` is a feed post's action row (Today): 44px targets, a bigger
+  // heart, and the count in the page's own text colour at 15px semibold.
+  const post = size === "post";
+  const box = post ? "w-11 h-11" : size === "sm" ? "w-9 h-9" : "w-10 h-10";
+  const icon = post ? 26 : size === "sm" ? 20 : 22;
   const click = (mode: SupportMode) => (e: React.MouseEvent) => {
     // Cards are links; a button inside one must not also navigate.
     e.preventDefault();
@@ -949,14 +935,18 @@ export function SupportButtons({
         aria-label="Cheer"
         title="Cheer"
         className={`${box} inline-flex items-center justify-center rounded-full transition-opacity hover:opacity-80`}
-        style={{ color: "var(--garden-paper)" }}
+        style={{ color: post ? "var(--app-text)" : "var(--garden-paper)" }}
       >
         <Heart size={icon} aria-hidden="true" />
       </button>
       {count > 0 && (
         <span
-          className="text-[13.5px] tabular-nums pr-1"
-          style={{ color: "var(--garden-muted)", fontFamily: "var(--garden-font-mono)" }}
+          className={post ? "text-[15px] font-semibold tabular-nums pr-2" : "text-[13.5px] tabular-nums pr-1"}
+          style={
+            post
+              ? { color: "var(--app-text)" }
+              : { color: "var(--garden-muted)", fontFamily: "var(--garden-font-mono)" }
+          }
         >
           {count}
           <span className="sr-only"> {count === 1 ? "supporter" : "supporters"}</span>
@@ -1548,4 +1538,32 @@ export function SupportModal({
       </div>
     </div>
   );
+}
+
+/**
+ * Cheering or backing a project from a list: the one place that decides what
+ * a tap does (the Projects page, a project's own page and Today's posts all
+ * use it). Cheering needs an account, so a signed-out visitor goes to sign up
+ * and comes back to this page (pendingIntent.supportDetour); backing doesn't,
+ * the sheet opens for a visitor on a one-time payment (the server takes a
+ * guest's one-time backing, not a monthly one). Until the token check settles
+ * a member reads as signed out, so a tap then does nothing rather than send
+ * them to sign up or a guest's sheet. `modal` is the sheet once one is open,
+ * else null: render it anywhere on the page.
+ */
+export function useProjectSupport() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
+  const [supporting, setSupporting] = useState<{ project: any; mode: SupportMode } | null>(null);
+  const support = (project: any, mode: SupportMode) => {
+    if (authLoading) return;
+    const detour = supportDetour(mode, isAuthenticated, location.pathname + location.search);
+    if (detour) navigate(detour);
+    else setSupporting({ project, mode });
+  };
+  const modal = supporting ? (
+    <SupportModal project={supporting.project} mode={supporting.mode} onClose={() => setSupporting(null)} />
+  ) : null;
+  return { support, modal };
 }

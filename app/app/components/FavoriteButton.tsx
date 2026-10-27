@@ -14,6 +14,10 @@ interface FavoriteButtonProps {
   /** What a save is of, named in its accessible name ("Save Cellist"),
    *  where several Save buttons share a page. */
   name?: string;
+  /** `icon` is a save on a post (Today): the bare bookmark in a 44px
+   *  button, filled once saved, no words. Only a save (project, role) has
+   *  one; a follow keeps its pill. The default is the worded pill. */
+  look?: "pill" | "icon";
 }
 
 // Every target but an event gets a worded pill: what pressing it does, the
@@ -39,6 +43,7 @@ export function FavoriteButton({
   size = "md",
   showCount = false,
   name,
+  look = "pill",
 }: FavoriteButtonProps) {
   const posthog = usePostHog();
   // One call at a time: a double click would save and unsave. The button
@@ -114,6 +119,23 @@ export function FavoriteButton({
     ) : null;
     const status = isFavorited ? words.done : words.idle;
     const ariaLabel = isSave ? (name ? `${status} ${name}` : status) : undefined;
+
+    // The post's look: same handler, same pending and error behaviour, same
+    // name; only the face differs.
+    if (isSave && look === "icon") {
+      return withError(
+        <button
+          onClick={handleClick}
+          aria-disabled={pending || undefined}
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full transition-opacity hover:opacity-80"
+          style={{ color: "var(--app-text)" }}
+          title={isFavorited ? words.undo : words.idle}
+          aria-label={ariaLabel}
+        >
+          <BookmarkSimple size={24} weight={isFavorited ? "fill" : "regular"} aria-hidden="true" />
+        </button>,
+      );
+    }
 
     // "Following" is a status, not a call to action, so it is quiet: no
     // fill, a raised hairline, muted text. It only speaks up when you point at
