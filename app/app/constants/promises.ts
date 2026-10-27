@@ -81,19 +81,14 @@ function waysToGetPaid(backing: boolean): string {
     : "People can buy tickets to your events, sign up for your classes and hire you, right from your profile.";
 }
 
-/** The promises, in the order the page lists them. */
+/** The promises, in the order the page lists (and numbers) them: most
+ *  important first. Your work stays yours (ownership, then AI and selling,
+ *  the fear that brings artists here); then what being here does for you
+ *  (getting paid, reaching followers, being found); then how we treat you
+ *  (a person decides, your location stays private); and last the promise
+ *  that holds the rest in place. */
 export function creativePromises(site: PromiseSite, backing: boolean = FF_BACKING): CreativePromise[] {
   return [
-    {
-      id: "photoLocation",
-      title: "We remove your photo's location.",
-      body: "Phones hide where a photo was taken inside the file. We delete that before it uploads, and keep your name and copyright.",
-    },
-    {
-      id: "personDecides",
-      title: "A person decides any removal.",
-      body: "If we ever take down your work or close your account, a person on our team makes that call, not a computer, and tells you why. If the law forces us to act at once, a person reviews it right after.",
-    },
     {
       id: "youOwnIt",
       title: "You own your work.",
@@ -105,16 +100,6 @@ export function creativePromises(site: PromiseSite, backing: boolean = FF_BACKIN
       body: "We don't let anyone else use it either.",
     },
     {
-      id: "cantChange",
-      title: "These promises can't be changed on you.",
-      body: `We can't change them unless you agree. If another company ever buys us, it has to keep them.`,
-    },
-    {
-      id: "findable",
-      title: "People can find you.",
-      body: `Your profile at ${site.domain}${profilePath("yourname")} can be found by Google and by AI search tools like ChatGPT search. You can turn that off. AI training bots are blocked either way.`,
-    },
-    {
       id: "getPaid",
       title: "You can get paid here.",
       body: waysToGetPaid(backing),
@@ -123,6 +108,26 @@ export function creativePromises(site: PromiseSite, backing: boolean = FF_BACKIN
       id: "followers",
       title: "Your followers hear from you.",
       body: "When you post a project or an event, the people who follow you get a notice. No algorithm picks who sees it.",
+    },
+    {
+      id: "findable",
+      title: "People can find you.",
+      body: `Your profile at ${site.domain}${profilePath("yourname")} can be found by Google and by AI search tools like ChatGPT search. You can turn that off. AI training bots are blocked either way.`,
+    },
+    {
+      id: "personDecides",
+      title: "A person decides any removal.",
+      body: "If we ever take down your work or close your account, a person on our team makes that call, not a computer, and tells you why. If the law forces us to act at once, a person reviews it right after.",
+    },
+    {
+      id: "photoLocation",
+      title: "We remove your photo's location.",
+      body: "Phones hide where a photo was taken inside the file. We delete that before it uploads, and keep your name and copyright.",
+    },
+    {
+      id: "cantChange",
+      title: "These promises can't be changed on you.",
+      body: `We can't change them unless you agree. If another company ever buys us, it has to keep them.`,
     },
   ];
 }

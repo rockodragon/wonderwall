@@ -61,14 +61,14 @@ const plain = (html: string) =>
 describe("the promises themselves", () => {
   it("are the eight that are true today, in order", () => {
     expect(creativePromises(EXCHANGE).map((p) => p.id)).toEqual([
-      "photoLocation",
-      "personDecides",
       "youOwnIt",
       "noAiNoSale",
-      "cantChange",
-      "findable",
       "getPaid",
       "followers",
+      "findable",
+      "personDecides",
+      "photoLocation",
+      "cantChange",
     ]);
   });
 
