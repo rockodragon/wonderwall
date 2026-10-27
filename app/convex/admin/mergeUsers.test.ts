@@ -14,8 +14,18 @@ import { mergeUsers, PROFILE_ID_FIELDS, profileFill, signInFate, USER_ID_FIELDS,
 describe("the lists name every field that points at an account", () => {
   it("v.id(\"users\")", () => {
     // profiles.userId is the profile itself (mergeProfiles); eventCoHosts
-    // mirrors events.coHostIds and is re-synced from it.
-    const handledElsewhere = ["profiles.userId", "eventCoHosts.userId"];
+    // mirrors events.coHostIds and is re-synced from it; conversation
+    // summaries are redone from the moved conversations
+    // (resummarizeConversations); emailDeliveries.blockedUserId is a send's
+    // sender, kept as it was in a log that grows with every email and has no
+    // index on it.
+    const handledElsewhere = [
+      "profiles.userId",
+      "eventCoHosts.userId",
+      "conversationParticipants.userId",
+      "conversationParticipants.otherUserId",
+      "emailDeliveries.blockedUserId",
+    ];
     const listed = USER_ID_FIELDS.map((f) => `${f.table}.${f.field}`);
     expect([...new Set([...listed, ...handledElsewhere])].sort()).toEqual(schemaFieldsPointingAt("users"));
     // Each once: a repeat would be counted and moved twice.
@@ -41,6 +51,7 @@ const READ_WHOLE = [
   "crawlerRuns",
   "creativePayouts",
   "duplicateDismissals",
+  "engagementAttention",
   "engagementLoops",
   "events",
   "externalTicketExceptions",
@@ -295,6 +306,50 @@ describe("mergeUsers with moveContent", () => {
     ]);
     expect(ctx.store.messages.map((m: Row) => m.conversationId)).toEqual(["conversations:kept", "conversations:kept"]);
     expect(ctx.store.notifications[0]).toMatchObject({ userId: TGT, linkUrl: "/messages/conversations:kept" });
+  });
+
+  it("redoes the conversation summaries: moved, combined and deleted conversations", async () => {
+    const summary = (id: string, conversationId: string, userId: string, otherUserId: string, extra: Record<string, number> = {}) => ({
+      _id: `conversationParticipants:${id}`, conversationId, userId, otherUserId, lastMessageAt: 1, historyComplete: true, ...extra,
+    });
+    const ctx = world({
+      conversations: [
+        { _id: "conversations:self", participants: [SRC, TGT], lastMessageAt: 5, createdAt: 1 },
+        { _id: "conversations:old", participants: [SRC, FAN], lastMessageAt: 9, createdAt: 1 },
+        { _id: "conversations:kept", participants: [FAN, TGT], lastMessageAt: 7, createdAt: 4 },
+        { _id: "conversations:moved", participants: [SRC, FAN2], lastMessageAt: 3, createdAt: 2 },
+      ],
+      messages: [
+        { _id: "messages:1", conversationId: "conversations:old", senderId: FAN, content: "a", createdAt: 9 },
+        { _id: "messages:2", conversationId: "conversations:kept", senderId: TGT, content: "b", createdAt: 7 },
+        { _id: "messages:3", conversationId: "conversations:moved", senderId: SRC, content: "c", createdAt: 3 },
+      ],
+      conversationParticipants: [
+        summary("self-src", "conversations:self", SRC, TGT),
+        summary("self-tgt", "conversations:self", TGT, SRC),
+        summary("old-src", "conversations:old", SRC, FAN),
+        summary("old-fan", "conversations:old", FAN, SRC),
+        summary("kept-tgt", "conversations:kept", TGT, FAN, { lastMessageAt: 7, lastReadAt: 7 }),
+        summary("kept-fan", "conversations:kept", FAN, TGT, { lastMessageAt: 7 }),
+        summary("moved-src", "conversations:moved", SRC, FAN2, { lastMessageAt: 3, lastReadAt: 3 }),
+        summary("moved-fan2", "conversations:moved", FAN2, SRC, { lastMessageAt: 3 }),
+      ],
+    });
+    await merge(ctx, true);
+    expect(ctx.store.conversationParticipants).toHaveLength(8);
+    await merge(ctx);
+    const rows = ctx.store.conversationParticipants.map((r: Row) => [r._id, r.conversationId, r.userId, r.otherUserId]);
+    expect(rows.sort()).toEqual([
+      ["conversationParticipants:kept-fan", "conversations:kept", FAN, TGT],
+      ["conversationParticipants:kept-tgt", "conversations:kept", TGT, FAN],
+      ["conversationParticipants:moved-fan2", "conversations:moved", FAN2, TGT],
+      ["conversationParticipants:moved-src", "conversations:moved", TGT, FAN2],
+    ]);
+    const kept = ctx.store.conversationParticipants.find((r: Row) => r._id === "conversationParticipants:kept-tgt");
+    // Recomputed with the message that moved in, its read state kept.
+    expect(kept).toMatchObject({ lastMessageAt: 9, lastInboundAt: 9, lastReadAt: 7, historyComplete: true });
+    const moved = ctx.store.conversationParticipants.find((r: Row) => r._id === "conversationParticipants:moved-src");
+    expect(moved).toMatchObject({ lastOutboundAt: 3, lastReadAt: 3, historyComplete: true });
   });
 
   it("a dry run of several copies reports exactly what the merge then moves, drops and combines", async () => {
