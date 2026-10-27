@@ -1,11 +1,11 @@
 import { Microphone } from "@phosphor-icons/react";
-import { useSpeechSupported } from "../lib/useSpeech";
+import { useSpokenInputSupported } from "../lib/useSpokenInput";
 
 // "Talk instead": a round 44px microphone. At rest it is a paper icon on ink
 // (about 17:1); listening is a filled citron circle with an ink icon (about
 // 14:1), and aria-pressed says it to a screen reader. It draws nothing where
-// the browser can't listen (Firefox, some in-app browsers), so the page never
-// offers what won't work. The words come from useSpeech.
+// the browser has no microphone to offer, so the page never offers what won't
+// work. The words come from useSpokenInput.
 export function MicButton({
   listening,
   onStart,
@@ -17,7 +17,7 @@ export function MicButton({
   onStop: () => void;
   className?: string;
 }) {
-  const supported = useSpeechSupported();
+  const supported = useSpokenInputSupported();
   if (!supported) return null;
   return (
     <button

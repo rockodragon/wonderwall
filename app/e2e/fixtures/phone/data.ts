@@ -476,6 +476,8 @@ export const answers: Record<string, unknown | ((args: unknown) => unknown)> = {
 export const replies: Record<string, unknown | ((args: unknown) => unknown)> = {
   "profiles:upsertProfile": "me",
   "garden/projects:createPassionProject": { projectId: "p-new" },
+  // Onboarding's mic in Brave or Firefox: what a recording is written down as.
+  "onboardingAssist:transcribe": { text: "I photograph people at work around San Diego." },
   // Onboarding's mic: what the pick would come back with for any transcript.
   "onboardingAssist:pickFromSpeech": (args: unknown) => ({
     interests: ["Photography", "Filmmaking"],

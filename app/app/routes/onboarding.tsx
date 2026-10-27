@@ -47,7 +47,7 @@ import { useBack } from "../lib/useBack";
 import { useFileUpload } from "../lib/useFileUpload";
 import { claimPendingAddress, useHandleCheck } from "../lib/useHandleCheck";
 import { useLocationField } from "../lib/useLocationField";
-import { useSpeech, useSpeechSupported } from "../lib/useSpeech";
+import { useSpokenInput, useSpokenInputSupported, type SpokenInput } from "../lib/useSpokenInput";
 
 // What a new account sees, one question to a screen (Rick, 2026-10-27: new
 // members only answered "what are you into" and were sent to post a project,
@@ -391,16 +391,18 @@ function Heading({ children }: { children: ReactNode }) {
  *  MAX_TRANSCRIPT, kept here because that module is the server's. */
 const SPOKEN_MAX = 1500;
 
-/** Talk instead. While the browser listens, the words go into the field as
- *  they're said (`onWords`); once it stops (a tap on Stop, or silence), the
- *  whole of what was said goes to `onSaid`, which may tidy or sort it. A new
- *  start begins a fresh transcript. */
+/** Talk instead. Where the browser listens itself, the words go into the
+ *  field as they're said (`onWords`). Once the turn is over (a tap on Stop, or
+ *  silence, and a recording written down in Brave or Firefox), the whole of
+ *  what was said goes into the field and then to `onSaid`, which may tidy or
+ *  sort it. A new start begins a fresh transcript. */
 function useSpoken(
-  speech: ReturnType<typeof useSpeech>,
+  speech: SpokenInput,
   onWords: (said: string) => void,
   onSaid?: (said: string) => void | Promise<void>,
 ) {
   const was = useRef(false);
+  const busy = speech.listening || speech.working;
   useEffect(() => {
     if (speech.listening) onWords(speech.transcript);
     // onWords is an inline setter; the words are what matter.
@@ -408,11 +410,14 @@ function useSpoken(
   }, [speech.listening, speech.transcript]);
   useEffect(() => {
     const said = speech.transcript.trim().slice(0, SPOKEN_MAX);
-    if (was.current && !speech.listening && said && onSaid) void onSaid(said);
-    was.current = speech.listening;
-    // Runs on the edge of listening only; the transcript is complete by then.
+    if (was.current && !busy && said) {
+      onWords(said);
+      if (onSaid) void onSaid(said);
+    }
+    was.current = busy;
+    // Runs on the edge of the turn only; the transcript is complete by then.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [speech.listening]);
+  }, [busy]);
   return {
     start: () => {
       speech.reset();
@@ -441,7 +446,7 @@ function SpokenTextarea({
   onStart: () => void;
   onStop: () => void;
 }) {
-  const canListen = useSpeechSupported();
+  const canListen = useSpokenInputSupported();
   const hint = !canListen ? placeholder : listening ? "Listening… tap the mic to stop" : `Talk or type. ${placeholder}`;
   return (
     <div className="relative mt-1">
@@ -802,7 +807,7 @@ function AboutStep({
   // said; when listening ends, pickFromSpeech tidies the line and lights the
   // pills that fit, so nobody hunts through them. Nothing is saved until
   // Continue, same as typing.
-  const speech = useSpeech();
+  const speech = useSpokenInput();
   const pickFromSpeech = useAction(api.onboardingAssist.pickFromSpeech);
   const [sorting, setSorting] = useState(false);
   const [micError, setMicError] = useState("");
@@ -872,7 +877,7 @@ function AboutStep({
           onStart={heard.start}
           onStop={speech.stop}
         />
-        <SpokenNote working={sorting} error={speech.error ?? micError} />
+        <SpokenNote working={sorting || speech.working} error={speech.error ?? micError} />
       </div>
 
       {role === "partner" ? (
@@ -992,7 +997,7 @@ function ProjectStep({
   const [error, setError] = useState("");
   // Talk instead: what they say is the description, as said; no sorting
   // to do here.
-  const speech = useSpeech();
+  const speech = useSpokenInput();
   const heard = useSpoken(speech, (said) => set("blurb", said));
 
   async function share(e: FormEvent) {
@@ -1074,7 +1079,7 @@ function ProjectStep({
           onStart={heard.start}
           onStop={speech.stop}
         />
-        <SpokenNote working={false} error={speech.error} />
+        <SpokenNote working={speech.working} error={speech.error} />
       </div>
 
       <div className="mt-8">

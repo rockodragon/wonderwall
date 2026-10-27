@@ -2,10 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MicButton } from "./MicButton";
 
-// Whether the browser can listen is useSpeech's to say (a test here has no
-// browser); the button is only what is drawn from it.
+// Whether the browser can take speech is useSpokenInput's to say (a test here
+// has no browser); the button is only what is drawn from it.
 const support = vi.hoisted(() => ({ supported: true }));
-vi.mock("../lib/useSpeech", () => ({ useSpeechSupported: () => support.supported }));
+vi.mock("../lib/useSpokenInput", () => ({ useSpokenInputSupported: () => support.supported }));
 
 const noop = () => {};
 const draw = (props: Partial<Parameters<typeof MicButton>[0]> = {}) =>
@@ -17,7 +17,7 @@ describe("MicButton", () => {
     support.supported = true;
   });
 
-  it("draws nothing where the browser can't listen", () => {
+  it("draws nothing where the browser has no microphone to offer", () => {
     support.supported = false;
     expect(draw()).toBe("");
     expect(draw({ listening: true })).toBe("");
