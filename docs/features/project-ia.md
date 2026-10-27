@@ -55,7 +55,7 @@ A project is raising when it is not a gig and has any of: a goal, the `raising` 
 | **Seeking people** | `people` | A project with at least one open role (paid or volunteer), plus a paid-kind posting declared Volunteer. |
 | **Jobs and gigs** | `work` | A paid posting that is not Volunteer (one-off jobs and recurring gigs), plus a project with an open role that pays (only a role that declared its pay, the way its card prints it). |
 
-Search, the interest tags and **Stage** combine with any chip. Stage is a "Stage ▾" menu after the chips: Any stage, Planning, Forming team, Working, Released (`?stage=planning|forming|working|releasing`). It reads as the chosen stage once one is set, and it is hidden under Jobs and gigs (its param is dropped there). Raising is not a stage option: it is Seeking funding.
+Search, the interest tags and **Stage** combine with any chip. Stage is a "Stage ▾" menu after the chips: Any stage, Planning, Forming team, Working, Completed (`?stage=planning|forming|working|completed`; an old `?stage=releasing` link lands on Completed, and a project stored as `releasing` matches it). It reads as the chosen stage once one is set, and it is hidden under Jobs and gigs (its param is dropped there). Raising is not a stage option: it is Seeking funding.
 
 **What a card says it is, in its first line** (`lib/projectKind.ts`; the /projects badge, the desk card's kicker and the opened card's kicker):
 

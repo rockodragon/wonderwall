@@ -121,6 +121,12 @@ describe("the phone's bottom bar", () => {
     expect(await shell("/projects/abc123/edit")).toBe("");
   });
 
+  it("keeps a signed-out visitor on /promise: it is for people deciding whether to join", async () => {
+    scene.signedIn = false;
+    expect(await shell("/promise")).toContain('aria-label="Places"');
+    expect(await shell("/promises")).toBe("");
+  });
+
   it("never asks for the Shortlist while the palette is on: Today reads its own", async () => {
     await shell();
     expect(scene.asked).toEqual(["skip"]);

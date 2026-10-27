@@ -13,8 +13,9 @@
 //   show       Projects' chip: funding | people | work (Seeking funding,
 //              Seeking people, Jobs and gigs). Absent = Projects. The same
 //              ?show= as the /projects page.
-//   stage      Projects' Stage menu: planning | forming | working | releasing
-//              (not under Jobs and gigs). The same ?stage= as /projects.
+//   stage      Projects' Stage menu: planning | forming | working | completed
+//              (not under Jobs and gigs). The same ?stage= as /projects. An
+//              old ?stage=releasing lands on completed.
 //   interests  People's Discipline multi-select
 //
 // The desk's old Projects | Work toggle (?tab=work) and ?stage=gigs|roles|

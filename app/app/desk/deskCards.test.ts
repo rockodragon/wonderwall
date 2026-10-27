@@ -591,13 +591,20 @@ describe("projectFacts", () => {
   });
   it("reads the stage with the page's own words", () => {
     expect(projectFacts(project("c", { stage: "forming" }), money)[0]).toEqual({ label: "Stage", value: "Forming team" });
-    expect(projectFacts(project("d", { stage: "releasing" }), money)[0]).toEqual({ label: "Stage", value: "Released" });
+    // A stored releasing is Completed now: Released is gone.
+    expect(projectFacts(project("d", { stage: "releasing" }), money)[0]).toEqual({ label: "Stage", value: "Completed" });
+    expect(projectFacts(project("e", { stage: "completed" }), money)[0]).toEqual({ label: "Stage", value: "Completed" });
   });
   it("gives paid work its pay, and no stage it didn't set", () => {
     const job = project("j", { kind: "paid", budgetType: "range", budget: 300, budgetMax: 600 });
     expect(projectFacts(job, money)).toEqual([{ label: "Pay", value: "$300–600" }]);
     expect(projectFacts({ ...job, stage: "working" }, money)).toEqual([
       { label: "Stage", value: "Working" },
+      { label: "Pay", value: "$300–600" },
+    ]);
+    // A paid post stored as releasing did set its stage: it reads Completed.
+    expect(projectFacts({ ...job, stage: "releasing" }, money)).toEqual([
+      { label: "Stage", value: "Completed" },
       { label: "Pay", value: "$300–600" },
     ]);
   });

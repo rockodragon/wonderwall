@@ -23,7 +23,7 @@ import type { MutationCtx } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
 import { isCurrent } from "../organizationRules";
 import { getProfileByUserId } from "../helpers";
-import { PROFILE_ID_FIELDS, USER_ID_FIELDS } from "./mergeUsers";
+import { MergeReads, PROFILE_ID_FIELDS, USER_ID_FIELDS } from "./mergeUsers";
 
 /** References this tool moves or removes itself. invites.usedBy stays: the
  * invite was used, and clearing it would let it be used again. */
@@ -41,8 +41,20 @@ const HANDLED_USER_FIELDS = new Set([
   "profileViews.viewerId",
   "communityMembers.userId",
   "emailPreferences.userId",
+  // Named in mergeUsers' lists since 2026-10-26; this tool already removed
+  // or now moves them.
+  "orgPositions.userId",
+  "updateReads.userId",
+  "nudgeLog.userId",
+  "organizations.createdByUserId",
+  "uploadClaims.userId",
 ]);
-const HANDLED_PROFILE_FIELDS = new Set(["profileViews.profileId"]);
+const HANDLED_PROFILE_FIELDS = new Set([
+  "profileViews.profileId",
+  "orgPositions.profileId",
+  "favorites.targetId",
+  "handleForwards.profileId",
+]);
 
 async function rowsWhere(ctx: MutationCtx, table: string, test: (row: any) => boolean): Promise<any[]> {
   return (await ctx.db.query(table as any).collect()).filter(test);
@@ -81,18 +93,20 @@ export const accountToOrganization = internalMutation({
     }
 
     // ——— What would be left pointing at the account ———
+    // Read the way mergeUsers reads: by index where the field has one.
+    const reads = new MergeReads(ctx);
     const blockers: Record<string, number> = {};
-    for (const { table, field, array } of USER_ID_FIELDS) {
-      const key = `${table}.${field}`;
+    for (const ref of USER_ID_FIELDS) {
+      const key = `${ref.table}.${ref.field}`;
       if (HANDLED_USER_FIELDS.has(key)) continue;
-      const n = (await rowsWhere(ctx, table, refersTo(field, userId, array))).length;
+      const n = (await reads.pointingAt(ref, userId)).length;
       if (n) blockers[key] = n;
     }
     if (profile) {
-      for (const { table, field } of PROFILE_ID_FIELDS) {
-        const key = `${table}.${field}`;
+      for (const ref of PROFILE_ID_FIELDS) {
+        const key = `${ref.table}.${ref.field}`;
         if (HANDLED_PROFILE_FIELDS.has(key)) continue;
-        const n = (await rowsWhere(ctx, table, refersTo(field, profile._id))).length;
+        const n = (await reads.pointingAt(ref, profile._id)).length;
         if (n) blockers[key] = n;
       }
     }
@@ -142,6 +156,14 @@ export const accountToOrganization = internalMutation({
     for (const row of await rowsWhere(ctx, "notifications", refersTo("relatedUserId", userId))) {
       await ctx.db.patch(row._id, { relatedUserId: runBy });
     }
+    // The organizations it started, and the pictures it uploaded (the
+    // projects' photos among them): runBy can replace them now.
+    for (const row of await rowsWhere(ctx, "organizations", refersTo("createdByUserId", userId))) {
+      await ctx.db.patch(row._id, { createdByUserId: runBy });
+    }
+    for (const row of await rowsWhere(ctx, "uploadClaims", refersTo("userId", userId))) {
+      await ctx.db.patch(row._id, { userId: runBy });
+    }
     for (const conversation of conversations) {
       const other = conversation.participants.find((p) => p !== userId);
       const messages = await ctx.db
@@ -188,11 +210,14 @@ export const accountToOrganization = internalMutation({
       ["communityMembers", refersTo("userId", userId)],
       ["emailPreferences", refersTo("userId", userId)],
       ["updateReads", refersTo("userId", userId)],
+      ["nudgeLog", refersTo("userId", userId)],
     ];
     if (profile) {
       gone.push(
         ["favorites", (r) => r.targetType === "profile" && r.targetId === profile._id],
         ["profileViews", refersTo("profileId", profile._id)],
+        ["orgPositions", refersTo("profileId", profile._id)],
+        ["handleForwards", refersTo("profileId", profile._id)],
       );
     }
     for (const [table, test] of gone) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decideCreateOrUpdateUser } from "./authLinking";
+import { decideCreateOrUpdateUser, passwordsToRevoke } from "./authLinking";
 
 const base = {
   isGoogleOAuth: true,
@@ -68,5 +68,27 @@ describe("decideCreateOrUpdateUser", () => {
         decideCreateOrUpdateUser({ ...otp, isEmailOtp: false, isGoogleOAuth: false }),
       ).toBe("create");
     });
+  });
+});
+
+describe("passwordsToRevoke", () => {
+  const accounts = [
+    { _id: "authAccounts:a", provider: "password", providerAccountId: "Sarah@Example.com" },
+    { _id: "authAccounts:b", provider: "password", providerAccountId: "sarah@old.example" },
+    { _id: "authAccounts:g", provider: "google", providerAccountId: "sarah@example.com" },
+    { _id: "authAccounts:c", provider: "email-otp", providerAccountId: "sarah@old.example" },
+  ];
+
+  it("revokes a password registered with the address just proven, case aside", () => {
+    // The pre-account-takeover guard: someone else set up a password with
+    // this address; its owner proving it drops that password.
+    expect(passwordsToRevoke(accounts, " sarah@example.com ").map((a) => a._id)).toEqual(["authAccounts:a"]);
+  });
+
+  it("keeps a password registered with another address (two merged copies' passwords)", () => {
+    // A code sign-in with the merged-in copy's address drops only that copy's
+    // password, never the kept account's own.
+    expect(passwordsToRevoke(accounts, "sarah@old.example").map((a) => a._id)).toEqual(["authAccounts:b"]);
+    expect(passwordsToRevoke(accounts, "someone@else.example")).toEqual([]);
   });
 });

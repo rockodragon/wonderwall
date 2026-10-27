@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { PLATFORM_AGREEMENTS } from "../constants/agreements";
 import { CLAIMS } from "../constants/claims";
+import { PROMISE_HEADLINE, PROMISE_PATH } from "../constants/promises";
 import { FF_V2 } from "../lib/featureFlags";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 
@@ -160,6 +161,14 @@ export default function About() {
       <SectionLabel>Community agreements</SectionLabel>
       <AgreementList />
       <p style={{ ...ledeStyle, margin: "20px 0 0" }}>Each community can add its own agreements.</p>
+
+      <SectionLabel>Our promise to creatives</SectionLabel>
+      <p style={{ ...statementStyle, margin: 0 }}>{PROMISE_HEADLINE}</p>
+      <p style={ledeStyle}>
+        <Link to={PROMISE_PATH} style={{ color: "var(--garden-citron)" }}>
+          Read our promise →
+        </Link>
+      </p>
     </AboutShell>
   );
 }

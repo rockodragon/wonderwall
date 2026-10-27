@@ -17,7 +17,7 @@ import { coverOf, fundingOf, moneyOf, pickProjects, type PickableProject } from 
 import { gigPhrase, leadRoles, projectKindLabel, rolePay, type GigLike, type OpenRoleLike } from "../lib/projectKind";
 import { GARDEN_SLUG } from "../lib/communitySlugs";
 import { richDocExcerpt } from "../lib/richText";
-import { isStage, resolveStage, stageLabel } from "../lib/stage";
+import { canonicalStage, resolveStage, stageLabel } from "../lib/stage";
 import type { DeskCommunity, DeskCardId, DeskView } from "./deskState";
 import { hashSeed } from "../components/AbstractCover";
 import { actionTarget, updateCardId } from "../lib/updates";
@@ -558,7 +558,7 @@ export function projectFacts(
   const facts: DeskFact[] = [];
   const lead = leadRoles(p, opts.onJobsAndGigs ?? false);
   if (lead.length > 0) facts.push({ label: lead.length === 1 ? "Paid role" : "Paid roles", value: paidRolesLine(lead) });
-  if (p.kind !== "paid" || isStage(p.stage)) facts.push({ label: "Stage", value: stageLabel(resolveStage(p)) });
+  if (p.kind !== "paid" || canonicalStage(p.stage)) facts.push({ label: "Stage", value: stageLabel(resolveStage(p)) });
   const when = p.kind === "paid" ? gigPhrase(p.gig) : null;
   if (when) facts.push({ label: "Schedule", value: when });
   const funding = fundingLine(p, money) ?? (p.kind === "passion" && isRaising(p) ? "Open to backing" : null);
