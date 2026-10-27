@@ -16,7 +16,10 @@ node node_modules/vite/bin/vite.js --config e2e/phone-fixture.vite.config.ts
 ```
 
 Then open http://127.0.0.1:8802/today in a 390px-wide window (or the
-`phone-preview` entry in `.claude/launch.json`). A query with no sample
+`phone-preview` entry in `.claude/launch.json`). Onboarding is at
+`/onboarding?fresh` as a brand-new member sees it (a name from Google and
+nothing else; every address but "dee" is free), or `/onboarding` as a
+member changing their answers. A query with no sample
 answer warns once in the console and stays loading, which is also how the
 screen draws before the real answer arrives.
 

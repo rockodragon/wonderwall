@@ -135,6 +135,37 @@ export async function conversationReminderEligibility(
 }
 
 /** Operator-run bounded migration. Continue with the returned cursor. */
+/** Brings summaries in step after an operator tool moved `from`'s
+ * conversations to `to` (admin/mergeUsers.ts, admin/accountToOrganization.ts):
+ * a deleted conversation's summaries go; `from`'s passes to `to` (keeping
+ * its read state) unless `to` already has one there; each survivor is
+ * recomputed from the messages, which may have moved in from another. */
+export async function resummarizeConversations(
+  ctx: MutationCtx,
+  conversationIds: Iterable<Id<"conversations">>,
+  from: Id<"users">,
+  to: Id<"users">,
+) {
+  for (const conversationId of new Set(conversationIds)) {
+    const rows = await ctx.db.query("conversationParticipants")
+      .withIndex("by_conversationId", q => q.eq("conversationId", conversationId))
+      .collect();
+    const conversation = await ctx.db.get(conversationId);
+    const live = conversation && conversation.participants.length > 1 ? conversation : null;
+    const seen = new Set<Id<"users">>();
+    for (const row of rows.sort((a, b) => Number(b.userId === to) - Number(a.userId === to))) {
+      const userId = row.userId === from ? to : row.userId;
+      if (!live || !live.participants.includes(userId) || seen.has(userId)) {
+        await ctx.db.delete(row._id);
+        continue;
+      }
+      seen.add(userId);
+      await ctx.db.patch(row._id, { userId, historyComplete: false });
+    }
+    if (live) await ensureConversationSummaries(ctx, live);
+  }
+}
+
 export const backfillConversationSummaries = internalMutation({
   args: { cursor: v.optional(v.string()) },
   handler: async (ctx, args) => {

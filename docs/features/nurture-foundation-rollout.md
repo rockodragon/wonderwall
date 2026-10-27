@@ -1,0 +1,39 @@
+# Nurturing foundation rollout
+
+This change adds three things: reliable interaction and delivery records, an admin attention queue, and one unread-message reminder. It does not create the native app. The new reminder defaults to **off**; no deployment or production email is part of this implementation.
+
+## Measurement
+
+The browser identifies a signed-in member by their Convex user ID through `PostHogIdentify`. Account switching and signed-out reloads reset a persisted identity. The legacy analytics hook delegates to that same SDK; public Convex capture/identify/batch actions are retired and authenticate old clients before returning a retired result. Refresh old tabs after rollout.
+
+Authoritative mutations write a durable `productEvents` outbox. Events retain a UUID and occurrence time across five bounded delivery attempts. A lease recovers a crashed worker; missing configuration and exhausted retries remain visible as failed rows. Provider acceptance means the capture request succeeded, not proof an insight or cohort was populated. Domain events are `user_signed_up`, `project_created`, `message_sent`, `first_reply`, `conversation_read`, `follow_created`, `follow_removed`, `invite_redeemed` and `nudge_sent`. Inspect failed outbox rows before trusting totals. Do not run a bulk replay without preserving their event UUIDs.
+
+Message events contain conversation/message identifiers, counts and timestamps, never the body. `first_reply` means the initially contacted member's first response. A read acknowledges observed inbound IDs while the document is visible and focused. `readThroughAt` is the latest observed timestamp, not proof every earlier message was read. Old clients without an explicit read boundary acknowledge zero rows.
+
+Profile favorites remain the follow authority. New deliberate follows have `origin: user`; invite-created mutual follows have `origin: invite`; historical unknown origins stay unknown. Repeated slug redemption cannot inflate invite counts or recreate deliberately removed follows. Legacy one-time-code acceptance, camera-scan attribution, guest RSVP reconciliation and attendance attribution remain separate follow-ups under `wonderwall-udsw.7`.
+
+## Contact and delivery
+
+`emailDeliveries` is the shared contact ledger. Queueing, provider acceptance and delivery are separate states. Each contact keeps source IDs, a journey run ID, attempts and provider IDs. Current preferences, suppression, account existence, blocks, goal state and the standard 24-hour contact gap are checked immediately before dispatch. Transactional mail and the existing first-cheer welcome policy are explicit exceptions. Old sends without recipient IDs cannot be reconstructed into a member's contact history; direct transactional/guest-email paths retain their existing semantics.
+
+Resend retries use the contact ID as the idempotency key. Automatic retries stop after three attempts and before the provider's 24-hour key window expires. Signed webhook events are persisted independently of their send response, deduplicated by Svix event ID and replayed when the provider ID is attached. Late sent/delayed events cannot erase terminal outcomes. Bounce/complaint/suppression safety is applied even when a webhook precedes the send response. Asynchronous `email.failed` and `email.suppressed` are tracked too. See the [Resend failure](https://resend.com/docs/webhooks/emails/failed), [suppression](https://resend.com/docs/webhooks/emails/suppressed) and [idempotency](https://resend.com/docs/dashboard/emails/idempotency-keys) references.
+
+The existing engagement page labels provider acceptance as **Accepted**, and shows queued and failed attempts. A subsequent posted project is an association, not a causal lift estimate. For unread reminders, join the journey's conversation/message source and accepted time to later read/reply events. Do not interpret an email open or a sent request as successful activation. Controlled rollout and a holdout are needed before estimating lift.
+
+One recovery limit remains tracked in `wonderwall-udsw.10`: if a provider accepted a request but its response was lost, and the member then reads or opts out before retry, stopping the retry cannot prove the original email was never accepted. Contact-tagged webhook recovery or an explicit unknown-outcome state needs evaluation. Do not interpret cancellation after an attempted request as proof no email was sent.
+
+## Safe rollout order
+
+1. Review and merge the measurement/delivery branch before the attention branch. Deploy backend schema/functions before the frontend. Schema additions are compatible with existing rows; `providerId` becomes optional for queued contacts. Let new indexes finish backfilling.
+2. Confirm the intended deployment has `POSTHOG_API_KEY`, `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, `SITE_URL` and `CONVEX_SITE_URL`. Confirm the frontend public PostHog key and backend key point to the same project. No secret values should be logged.
+3. Keep `unread_message` disabled. Configure the signed Resend webhook for `email.sent`, `email.delivered`, `email.delivery_delayed`, `email.failed`, `email.suppressed`, `email.bounced`, and `email.complained`. Do not change live account configuration as part of a code review.
+4. Run the internal `engagement/conversations:backfillConversationSummaries` migration with `{}`. Continue sequentially with each returned `cursor` until `isDone: true`. Each page covers at most 20 conversations with bounded indexed first/last-message reads. It is safe to rerun from the start. The migration records completion in the `conversation_summary_backfill` settings row; new-member and accepted-invite inactivity checks remain unknown until completion. Do not mark that row complete by hand.
+5. Open `/admin/attention`. It offers unanswered conversations, new members and accepted invites; claim, review and snooze actions write operator metadata only. Each page scans at most 25 sources and can be empty while later pages exist. New-member/invite checks cover 14 days after a 24-hour wait. Legacy unknown follow origin or a per-person sample above 25 is excluded from inactivity claims. Message contents and recipient addresses are not exposed.
+6. Use controlled accounts to verify two-way messages, visible reads, repeat invites, deliberate versus invite follows, opt-out after queueing, blocks and goal completion. Match outbox UUIDs in the correct PostHog project and match accepted contacts to signed provider events. Use test-mode/provider fixtures before authorizing a real recipient. This live verification remains tracked as `wonderwall-udsw.8`.
+7. Enable the one unread-message reminder only after the previous checks and a rollout decision. Its hourly worker scans 25 summaries per page with a fixed cutoff and schedules continuation even when a page yields no eligible contacts. One dedupe key covers an unanswered episode, including partial reads. A read/reply/source change before dispatch cancels the contact. Disable the switch to stop future claims and cancel queued ones when they next check eligibility.
+
+Rollback the UI or disable the reminder; preserve ledger/outbox rows for diagnosis. Existing signup loops retain their existing default state. No new campaign, SMS path, external nurture vendor or follow graph is introduced.
+
+## Local validation
+
+After rebasing onto current main: 265 test files / 4,678 tests passed, React Router type generation and TypeScript passed, and the production build passed. This includes identity, read-boundary/visibility, retention continuation, follow/invite replay, admin authorization, queue coverage, reminder cancellation, delivery lease/retry and webhook ordering tests. Live PostHog ingestion and provider delivery remain unverified by this session.

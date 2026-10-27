@@ -47,6 +47,50 @@ function render(card: DeskCard) {
   );
 }
 
+describe("DetailPanel for a person", () => {
+  const person = (leader: boolean): DeskCard =>
+    ({
+      id: "person:ana",
+      kind: "person",
+      href: "/profile/ana",
+      profileId: "ana",
+      ...(leader ? { leader: true } : {}),
+      face: { kicker: "", title: "Ana Reyes", foot: "Photography" },
+      detail: {
+        meta: "PHOTOGRAPHY",
+        title: "Ana Reyes",
+        host: null,
+        description: "",
+        aside: null,
+        action: { kind: "link", label: "See profile", href: "/profile/ana" },
+      },
+    }) as unknown as DeskCard;
+
+  it("keeps a leader's badge when the card opens, under their name (the face's words go)", () => {
+    const html = render(person(true));
+    expect(html).toContain(">community leader<");
+    expect(html.indexOf(">Ana Reyes<")).toBeLessThan(html.indexOf(">community leader<"));
+    expect(html).toContain("text-[#fb7185]");
+  });
+
+  it("has none for anyone else", () => {
+    const html = render(person(false));
+    expect(html).toContain(">Ana Reyes<");
+    expect(html).not.toContain("community leader");
+  });
+
+  it("doesn't repeat their photo by the name: the card already shows it", () => {
+    const html = render({ ...person(false), image: "https://example.com/ana.jpg" } as DeskCard);
+    expect(html).not.toContain("<img");
+    expect(html).not.toContain(">A<");
+  });
+
+  it("shows their initial in a square when there's no photo", () => {
+    const html = render(person(false));
+    expect(html).toMatch(/rounded-xl[^>]*>A</);
+  });
+});
+
 describe("DetailPanel layout", () => {
   it("reads the same text, with each meta item its own unit", () => {
     const html = render(event());

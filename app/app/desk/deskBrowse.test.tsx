@@ -63,7 +63,7 @@ describe("DeskFilterBar", () => {
     expect(html).toContain('placeholder="Search projects"');
     // Stage is a menu, not a row of pills, and it is closed.
     expect(html).toMatch(/aria-haspopup="true"[^>]*>Stage</);
-    for (const label of ["Planning", "Forming team", "Released", "Any stage"]) expect(html).not.toContain(`>${label}<`);
+    for (const label of ["Planning", "Forming team", "Completed", "Released", "Any stage"]) expect(html).not.toContain(`>${label}<`);
     expect(html).not.toContain(">Raising<");
   });
 
@@ -79,7 +79,10 @@ describe("DeskFilterBar", () => {
     expect(html).toMatch(/aria-pressed="true"[^>]*>Seeking funding</);
     expect(html).toMatch(/aria-pressed="false"[^>]*>Projects</);
     expect(html).toMatch(/aria-haspopup="true"[^>]*>Planning</);
-    expect(bar("projects", "&stage=releasing")).toMatch(/aria-haspopup="true"[^>]*>Released</);
+    expect(bar("projects", "&stage=completed")).toMatch(/aria-haspopup="true"[^>]*>Completed</);
+    // An old ?stage=releasing link lands on Completed.
+    expect(bar("projects", "&stage=releasing")).toMatch(/aria-haspopup="true"[^>]*>Completed</);
+    expect(bar("projects", "&stage=releasing")).not.toContain("Released");
     expect(bar("projects", "&show=people&stage=forming")).toMatch(/aria-haspopup="true"[^>]*>Forming team</);
     expect(bar("projects", "&show=people")).toMatch(/aria-pressed="true"[^>]*>Seeking people</);
   });

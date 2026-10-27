@@ -23,8 +23,8 @@ const me = {
   location: "San Diego, CA",
 };
 
-function person(name: string, image: string, interests: string[], orgName?: string) {
-  return { _id: name.toLowerCase().replace(/\s+/g, "-"), name, imageUrl: image, interests, orgName, location: "San Diego, CA", wondering: null };
+function person(name: string, image: string, interests: string[], orgName?: string, isLeader = false) {
+  return { _id: name.toLowerCase().replace(/\s+/g, "-"), name, imageUrl: image, interests, orgName, location: "San Diego, CA", wondering: null, isLeader };
 }
 
 /** The sample Shortlist, with what a few of the people followed last posted:
@@ -60,10 +60,13 @@ function shortlistWithPosts() {
 }
 
 const people = [
-  person("Dee Alvarez", "/campaign/dee.jpg", ["Photography", "Film"], "Abiding Practice"),
+  // Dee, June and Alexandra lead a community (the sprout badge); Alexandra's
+  // long name is there to see it give way to the badge.
+  person("Dee Alvarez", "/campaign/dee.jpg", ["Photography", "Film"], "Abiding Practice", true),
   person("Marta Reyes", "/campaign/marta.jpg", ["Painting", "Murals"]),
-  person("June Park", "/campaign/june.jpg", ["Music", "Songwriting"], "The Grove"),
+  person("June Park", "/campaign/june.jpg", ["Music", "Songwriting"], "The Grove", true),
   person("Ade Okafor", "/campaign/ade.jpg", ["Design", "Illustration"]),
+  person("Alexandra Montgomery-Villanueva", "/campaign/shua.jpg", ["Film", "Editing"], "Harbor Light Collective of San Diego", true),
   person("Shua Lim", "/campaign/shua.jpg", ["Film", "Editing"]),
 ];
 
@@ -109,6 +112,8 @@ const projects = [
     resolvedPhotoUrl: "/campaign/pair.jpg",
     goal: 800,
     raisedCents: 12000,
+    raiseByDate: now + 9 * DAY,
+    supportCount: 7,
     interests: ["Murals"],
     creator: { _id: "u-marta", name: "Marta Reyes", imageUrl: "/campaign/marta.jpg", interests: ["Murals"], location: "San Diego" },
   }),
@@ -120,6 +125,19 @@ const projects = [
     interests: ["Music"],
     stage: "working",
     creator: { _id: "u-june", name: "June Park", imageUrl: "/campaign/june.jpg", interests: ["Music"], location: "San Diego" },
+  }),
+  // No picture, and posted as an organization: Today's post sets the title on
+  // the abstract cover, and the maker's square is the logo's initial.
+  project({
+    _id: "p-gardenwalk",
+    title: "Saturday Garden Walk: a neighborhood listening tour",
+    blurb: "Four stops, one hour each, with a field recorder and whoever wants to come along.",
+    goal: 1200,
+    raisedCents: 0,
+    supportCount: 2,
+    interests: ["Music"],
+    stage: "planning",
+    organization: { name: "Abiding Practice", slug: "abiding-practice" },
   }),
   project({
     _id: "p-jazz",
@@ -303,11 +321,27 @@ const myProjects = [
   raising: false,
 }));
 
+/** A brand-new account, as Google hands it over: a name and nothing else.
+ *  `?fresh` in the address (/onboarding?fresh) is this person, so the
+ *  onboarding screens can be walked as a new member sees them. */
+const fresh = { _id: "me", userId: "u-me", name: "Rick Moy", interests: [], isAdmin: false, plan: "free", attributes: {} };
+const isFresh = () => new URLSearchParams(window.location.search).has("fresh");
+
 export const answers: Record<string, unknown | ((args: unknown) => unknown)> = {
   "garden/projectTeam:listAffiliations": myProjects,
   "invites:getInviteStats": null,
-  "profiles:getMyProfile": me,
+  "profiles:getMyProfile": () => (isFresh() ? fresh : me),
+  // Onboarding's address check: everything is free but "dee".
+  "handles:checkHandle": (args: unknown) => {
+    const handle = String((args as { handle?: string } | undefined)?.handle ?? "");
+    return handle === "dee" ? { ok: false, handle, reason: "Taken." } : { ok: true, handle };
+  },
   "profiles:getProfile": myPage,
+  // People › Organizations: one you follow people in, one you don't.
+  "organizations:list": [
+    { _id: "org-harbor", name: "Harbor Light Collective", slug: "harbor-light", category: "Collective", tagline: null, location: null, logoUrl: null, peopleCount: 4, followingCount: 2, faces: [] },
+    { _id: "org-tide", name: "Tidewater Center for the Arts", slug: "tidewater", category: "Nonprofit", tagline: null, location: "Fallbrook", logoUrl: "/campaign/church.jpg", peopleCount: 2, followingCount: 0, faces: [] },
+  ],
   // Settings → Profile's Work & Portfolio: the same work your page shows.
   "artifacts:getMyArtifacts": [
     ...myPage.artifacts.map((a) => ({ ...a, title: "Cafe opening" })),
@@ -337,7 +371,7 @@ export const answers: Record<string, unknown | ((args: unknown) => unknown)> = {
   "events:search": [],
   "favorites:getMyFavorites": {
     // The people the sample Shortlist follows, so Following has them too.
-    profiles: shortlistWithPosts().people.map((p) => ({ profile: { _id: p.profileId, name: p.name, imageUrl: p.imageUrl, interests: p.interests } })),
+    profiles: shortlistWithPosts().people.map((p) => ({ profile: { _id: p.profileId, name: p.name, imageUrl: p.imageUrl, interests: p.interests, isLeader: p.name === "Theo Okafor" } })),
     events: [{ event: upcoming[0] }, { event: upcoming[2] }, { event: past[0] }],
   },
   "favorites:isFavorited": false,
@@ -345,4 +379,16 @@ export const answers: Record<string, unknown | ((args: unknown) => unknown)> = {
   "updates:listMine": updates,
   "updates:listPastMine": [],
   "invites:getMyInviteLink": { slug: "rick" },
+};
+
+/** What a mutation answers, by name, where a screen reads the answer; the
+ *  rest resolve to nothing. Nothing is saved anywhere. */
+export const replies: Record<string, unknown | ((args: unknown) => unknown)> = {
+  "profiles:upsertProfile": "me",
+  "garden/projects:createPassionProject": { projectId: "p-new" },
+  // Onboarding's mic: what the pick would come back with for any transcript.
+  "onboardingAssist:pickFromSpeech": (args: unknown) => ({
+    interests: ["Photography", "Filmmaking"],
+    line: String((args as { transcript?: string } | undefined)?.transcript ?? "").slice(0, 140),
+  }),
 };

@@ -139,6 +139,8 @@ export function LocationAutocomplete({
         }
         break;
       case "Escape":
+        // Handled here, so a sheet around the box (SheetExit) stays open.
+        e.preventDefault();
         setIsOpen(false);
         setHighlightedIndex(-1);
         break;

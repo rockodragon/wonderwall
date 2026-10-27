@@ -1,50 +1,44 @@
 import { describe, expect, it } from "vitest";
-import { cutAtWord, forShelf } from "./GardenHome";
-import type { DeskCard } from "../desk/deskCards";
-
-const card = (kind: DeskCard["kind"], kicker: string, title: string): DeskCard =>
-  ({
-    id: `${kind}:1`,
-    kind,
-    sections: ["all"],
-    note: kind === "fund",
-    tone: "#222",
-    image: null,
-    face: { kicker, title, foot: "Fallbrook" },
-    detail: { meta: "", title, host: null, description: "", aside: null, action: null },
-    href: "/x",
-  }) as DeskCard;
-
-describe("forShelf", () => {
-  it("puts an event's date on its chip, not the face", () => {
-    const { card: c, stamp } = forShelf(card("event", "NOV 7", "The Art of Creating You"));
-    expect(stamp).toBe("NOV 7");
-    expect(c.face.kicker).toBe("");
-    expect(c.face.title).toBe("The Art of Creating You");
-  });
-
-  it("drops a project's stage and keeps the fund's name", () => {
-    expect(forShelf(card("project", "PLANNING", "Bloom")).card.face.kicker).toBe("");
-    expect(forShelf(card("project", "PLANNING", "Bloom")).stamp).toBeUndefined();
-    const fund = forShelf({ ...card("fund", "THE SOPHIA GRANT FUND", "$10,075"), detail: { ...card("fund", "", "").detail, title: "The Sophia Grant Fund" } });
-    expect(fund.card.face.kicker).toBe("");
-    expect(fund.label).toBe("The Sophia Grant Fund");
-  });
-
-  it("ends a long title at a whole word", () => {
-    const { card: c } = forShelf(card("project", "PLANNING", "Short film exploring connectedness in unlikely mission fields"));
-    expect(c.face.title).toBe("Short film exploring…");
-  });
-
-  it("keeps a title that fits its three lines", () => {
-    expect(forShelf(card("event", "OCT 30", "Chuck Butler & Friends in Concert")).card.face.title).toBe("Chuck Butler & Friends in Concert");
-    expect(forShelf(card("event", "NOV 6", "A Creative Renaissance is Beginning")).card.face.title).toBe("A Creative Renaissance is Beginning");
-  });
-});
+import { cutAtWord, monthGrid, whatsOn } from "./GardenHome";
 
 describe("cutAtWord", () => {
   it("keeps whole words and drops trailing punctuation", () => {
     expect(cutAtWord("Help design, build and plant The Garden together", 20)).toBe("Help design, build…");
     expect(cutAtWord("Supercalifragilisticexpialidocious", 10)).toBe("Supercalif…");
+  });
+});
+
+describe("whatsOn", () => {
+  it("says what's going on, from real counts only", () => {
+    expect(whatsOn({ projects: 34, events: 3, fund: "$10,420" })).toBe("34 projects · 3 events coming up · $10,420 to grant");
+    expect(whatsOn({ projects: 1, events: 1 })).toBe("1 project · 1 event coming up");
+  });
+
+  it("leaves out what hasn't loaded, or is nothing", () => {
+    expect(whatsOn({ projects: undefined, events: 0, fund: "$10,420" })).toBe("$10,420 to grant");
+    expect(whatsOn({})).toBe("");
+  });
+});
+
+describe("monthGrid", () => {
+  const now = new Date(2026, 9, 27, 12); // Tuesday, October 27, 2026
+
+  it("lays out the month: Sunday first, every day, today known", () => {
+    const grid = monthGrid(now, []);
+    expect(grid.label).toBe("October 2026");
+    expect(grid.lead).toBe(4); // October 1, 2026 is a Thursday
+    expect(grid.days).toBe(31);
+    expect(grid.today).toBe(27);
+    expect(grid.marked.size).toBe(0);
+  });
+
+  it("marks the days with an event this month, and not other months", () => {
+    const grid = monthGrid(now, [
+      new Date(2026, 9, 31, 19).getTime(),
+      new Date(2026, 9, 31, 21).getTime(),
+      new Date(2026, 10, 7, 18).getTime(),
+      new Date(2025, 9, 2, 18).getTime(),
+    ]);
+    expect([...grid.marked]).toEqual([31]);
   });
 });

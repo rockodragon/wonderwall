@@ -14,3 +14,14 @@ export function formatDollars(dollars: number): string {
 export function formatCents(cents: number): string {
   return formatDollars(cents / 100);
 }
+
+/** A stated currency in major units, as used by an applicant's rate
+ * proposal. Dollar amounts retain the app's existing display convention. */
+export function formatCurrency(amount: number, currency: string): string {
+  if (currency === "USD") return formatDollars(amount);
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}

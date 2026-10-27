@@ -5,6 +5,7 @@ import { hasRealName } from "./names";
 import { insertNotification } from "./notify";
 import type { Id } from "./_generated/dataModel";
 import { communityVisibility } from "./garden/communityVisibility";
+import { isCommunityLeader } from "./garden/communityLeader";
 import { eventVisibilityChecker } from "./garden/eventVisibility";
 import { isAcceptingPeople } from "./garden/projectTeam";
 import { VISIBLE_PROJECT_STATUSES } from "./moderationRules";
@@ -39,6 +40,16 @@ function findFavorite(
       q.eq("userId", userId).eq("targetType", target.targetType).eq("targetId", target.targetId),
     )
     .first();
+}
+
+/** The profiles someone follows, by id (a profile favorite is a follow, and
+ * its targetId is the PROFILE id). */
+export async function followedProfileIds(ctx: QueryCtx, userId: Id<"users">): Promise<Set<string>> {
+  const follows = await ctx.db
+    .query("favorites")
+    .withIndex("by_userId_type", (q) => q.eq("userId", userId).eq("targetType", "profile"))
+    .collect();
+  return new Set(follows.map((f) => f.targetId));
 }
 
 /** A save or follow of something gone, hidden, or not what it says it is. */
@@ -268,6 +279,8 @@ export const getMyFavorites = query({
             name: profile.name,
             imageUrl,
             interests: profile.interests,
+            // The badge on their card (garden/communityLeader.ts).
+            isLeader: await isCommunityLeader(ctx, profile.userId, profile),
           },
           wondering: wondering
             ? {

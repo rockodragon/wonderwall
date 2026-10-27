@@ -6,14 +6,18 @@
 
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import { gardenField } from "./gardenField";
 
 export function PostAsPicker({
   value,
   onChange,
+  roomy,
 }: {
   /** The organization's id, or "" for the person themselves. */
   value: string;
   onChange: (organizationId: string) => void;
+  /** The phone-sized look of the start-a-project sheet (gardenField.ts). */
+  roomy?: boolean;
 }) {
   const orgs = useQuery(api.organizations.mine);
   const me = useQuery(api.profiles.getMyProfile);
@@ -23,7 +27,10 @@ export function PostAsPicker({
   const choices = [{ id: "", name: me?.name ?? "You" }, ...current.map((o) => ({ id: String(o.organizationId), name: o.name }))];
   return (
     <div>
-      <div className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
+      <div
+        className={roomy ? gardenField.label : "block text-xs uppercase tracking-[0.06em] mb-1.5"}
+        style={{ color: "var(--garden-dim)" }}
+      >
         Posted by
       </div>
       <div role="radiogroup" aria-label="Posted by" className="flex flex-wrap gap-2">
@@ -36,9 +43,9 @@ export function PostAsPicker({
               role="radio"
               aria-checked={selected}
               onClick={() => onChange(c.id)}
-              className="px-3 py-1.5 rounded-full border font-medium"
+              className={`${roomy ? "px-4 py-2" : "px-3 py-1.5"} rounded-full border font-medium`}
               style={{
-                fontSize: 13.5,
+                fontSize: roomy ? 14 : 13.5,
                 ...(selected
                   ? { backgroundColor: "var(--garden-citron)", borderColor: "var(--garden-citron)", color: "var(--garden-ink)" }
                   : { borderColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }),

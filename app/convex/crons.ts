@@ -3,6 +3,9 @@ import { internal } from "./_generated/api";
 
 const crons = cronJobs();
 
+// Missing unread_message settings mean off; rollout is an explicit admin action.
+crons.hourly("unread-message-reminder", { minuteUTC: 20 }, internal.engagement.unreadReminder.runUnreadReminder, {});
+
 // Check for scheduled crawls every hour
 crons.hourly(
   "check-scheduled-crawls",

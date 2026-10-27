@@ -16,7 +16,7 @@
 
 import { query } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
-import { resolveStage, type Stage } from "../../app/lib/stage";
+import { resolveStage, type Stage } from "../stages";
 import { eventHasEnded } from "../eventWindow";
 import { requireOperator } from "../helpers";
 import { HIDDEN_STATUS, isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
@@ -94,8 +94,9 @@ function firstTimes<T>(
 
 const self = (t: number) => t;
 
-/** Stages that mean the work is done (app/lib/stage.ts). */
-const FINISHED_STAGES: ReadonlySet<Stage> = new Set<Stage>(["completed", "releasing"]);
+/** Stages that mean the work is done (stages.ts). Completed is the one: a
+ * project stored as "releasing" resolves to it, so it is counted here too. */
+const FINISHED_STAGES: ReadonlySet<Stage> = new Set<Stage>(["completed"]);
 /** Stages that mean the work stopped short. */
 const STOPPED_STAGES: ReadonlySet<Stage> = new Set<Stage>(["paused", "cancelled"]);
 

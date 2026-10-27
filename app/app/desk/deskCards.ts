@@ -10,13 +10,14 @@
 import type { PostThumb } from "../components/shortlist/rowModel";
 import { CLAIMS } from "../constants/claims";
 import { isRaising } from "../lib/browse/projectsFilter";
+import { bylineOf, type ProjectByline } from "../lib/byline";
 import { hostNamesLine, type EventHost, hostLabels, type HostLabel } from "../lib/eventHosts";
 import { ctaLabel, eventCta, type EventCta, type EventTierLike } from "../lib/eventCta";
 import { coverOf, fundingOf, moneyOf, pickProjects, type PickableProject } from "../lib/projectPick";
 import { gigPhrase, leadRoles, projectKindLabel, rolePay, type GigLike, type OpenRoleLike } from "../lib/projectKind";
 import { GARDEN_SLUG } from "../lib/communitySlugs";
 import { richDocExcerpt } from "../lib/richText";
-import { isStage, resolveStage, stageLabel } from "../lib/stage";
+import { canonicalStage, resolveStage, stageLabel } from "../lib/stage";
 import type { DeskCommunity, DeskCardId, DeskView } from "./deskState";
 import { hashSeed } from "../components/AbstractCover";
 import { actionTarget, updateCardId } from "../lib/updates";
@@ -88,6 +89,10 @@ export type DeskCard = {
     /** A person you follow: what they last posted, under their name
      *  (deskBrowseCards.ts activityCard): its picture, title and when. */
     post?: { title: string | null; status: string; thumb: PostThumb | null };
+    /** A project's maker (lib/byline.ts): their small picture and name end
+     *  the foot, after whatever `foot` says (a paid role's pay). Without
+     *  one, the foot is all the words. */
+    by?: ProjectByline;
   };
   detail: {
     meta: string;
@@ -124,6 +129,9 @@ export type DeskCard = {
   celebrationType?: string;
   /** People only: the profile to ask for a bio when the card opens. */
   profileId?: string;
+  /** People only: they lead a community, so the card wears the sprout badge
+   *  (components/LeaderBadge.tsx). Absent for everyone else. */
+  leader?: true;
   /** A Shortlist role or project: the project, whose id picks the cover
    *  when there's no picture (a role's card wears its project's). */
   projectId?: string;
@@ -159,9 +167,9 @@ export type DeskProjectInput = PickableProject & {
   stage?: string;
   raisedCents?: number | null;
   location?: string | null;
-  creator?: { name: string } | null;
+  creator?: { _id: string; name: string; imageUrl?: string | null } | null;
   /** Posted as an organization: its name stands in for the person's. */
-  organization?: { name: string } | null;
+  organization?: { name: string; slug: string; logoUrl?: string | null } | null;
   community?: { name: string; slug: string } | null;
   budgetType?: string;
   /** The server's own read of "asking for backing" (a goal, the raising
@@ -178,6 +186,8 @@ export type DeskPersonInput = {
   name: string;
   imageUrl?: string | null;
   interests?: readonly string[] | null;
+  /** Leads a community: the People view's cards wear the badge. */
+  isLeader?: boolean;
 };
 
 /** An organization as api.organizations.list returns it: the same rows the
@@ -553,7 +563,7 @@ export function projectFacts(
   const facts: DeskFact[] = [];
   const lead = leadRoles(p, opts.onJobsAndGigs ?? false);
   if (lead.length > 0) facts.push({ label: lead.length === 1 ? "Paid role" : "Paid roles", value: paidRolesLine(lead) });
-  if (p.kind !== "paid" || isStage(p.stage)) facts.push({ label: "Stage", value: stageLabel(resolveStage(p)) });
+  if (p.kind !== "paid" || canonicalStage(p.stage)) facts.push({ label: "Stage", value: stageLabel(resolveStage(p)) });
   const when = p.kind === "paid" ? gigPhrase(p.gig) : null;
   if (when) facts.push({ label: "Schedule", value: when });
   const funding = fundingLine(p, money) ?? (p.kind === "passion" && isRaising(p) ? "Open to backing" : null);
@@ -568,11 +578,15 @@ export function projectFacts(
 }
 
 /**
- * A project on the desk. The first line says what it is (lib/projectKind):
- * "JOB", "RECURRING GIG · FRIDAYS 8–10PM", "VOLUNTEER", or the stage for a
- * project. On the Jobs and gigs list a project with a paid role leads with
- * that role and its pay instead: "ROLE ON HARBOR MURAL · PAID", the role as
- * the title, its pay in the foot.
+ * A project on the desk. Paid work says what it is on its first line
+ * (lib/projectKind): "JOB", "RECURRING GIG · FRIDAYS 8–10PM", "VOLUNTEER". A
+ * project says nothing there: the stage is not the first thing (it is in the
+ * opened card's facts), so its face has no kicker, as an organization's has
+ * none. On the Jobs and gigs list a project with a paid role leads with that
+ * role and its pay instead: "ROLE ON HARBOR MURAL · PAID", the role as the
+ * title, its pay in the foot. The foot ends with the maker (`by`), their
+ * small picture and name, whoever posted it (an organization, else the
+ * person): lib/byline.ts says who.
  */
 export function projectCard(
   p: DeskProjectInput,
@@ -584,9 +598,12 @@ export function projectCard(
   const onJobsAndGigs = opts.onJobsAndGigs ?? false;
   const role = leadRoles(p, onJobsAndGigs)[0] ?? null;
   const kind = projectKindLabel(p, { onJobsAndGigs }).toUpperCase();
-  const kicker = p.kind === "paid" || role ? kind : stageLabel(resolveStage(p)).toUpperCase();
-  const owner = p.organization?.name ?? p.creator?.name ?? null;
+  const kicker = p.kind === "paid" || role ? kind : "";
+  const by = bylineOf(p);
   const title = role ? role.title : p.title;
+  // The maker has their own place on the foot; the community stands in only
+  // when nobody is named.
+  const where = by ? null : (p.community?.name ?? null);
 
   return {
     id,
@@ -598,12 +615,13 @@ export function projectCard(
     face: {
       kicker,
       title,
-      foot: role ? ([rolePay(role), owner ?? p.community?.name].filter(Boolean).join(" · ") || null) : (owner ?? p.community?.name ?? null),
+      foot: role ? ([rolePay(role), where].filter(Boolean).join(" · ") || null) : where,
+      ...(by ? { by } : {}),
     },
     detail: {
       meta: `${kind} · ${(p.community?.name ?? "The Garden").toUpperCase()}`,
       title,
-      host: owner ? `By ${owner}` : null,
+      host: by ? `By ${by.name}` : null,
       description: plainText(p.blurb || richDocExcerpt(p.body, 400)),
       aside: null,
       facts: projectFacts(p, money, { onJobsAndGigs }),
@@ -636,6 +654,7 @@ export function personCard(p: DeskPersonInput): DeskCard {
     },
     href: `/profile/${p._id}`,
     profileId: p._id,
+    ...(p.isLeader ? { leader: true as const } : {}),
   };
 }
 

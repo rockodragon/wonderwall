@@ -194,7 +194,7 @@ export function PaidProjectForm({
             />
           </div>
           <MediaLinkField
-            variant="garden"
+            variant="gardenCompact"
             label="Or paste a link (optional)"
             placeholder="Instagram post or reel, TikTok, YouTube or Vimeo"
             value={mediaUrl}

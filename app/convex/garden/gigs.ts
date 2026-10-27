@@ -27,11 +27,11 @@ import { ruleOf, summarizeGig } from "./gigSummary";
 import { can } from "./capabilities";
 import { assertCanPure, getGardenUser } from "./entitlements";
 import { escapeHtml } from "../email/template";
-import { pieceMediaUrl, profileImageUrl } from "../images";
+import { profileImageUrl } from "../images";
+import { portfolioSamples, validatePortfolioSampleIds as validateClips } from "../portfolioSamples";
 import { formatCents } from "../money";
 import {
   HORIZON_WEEKS,
-  MAX_CLIPS,
   MAX_NOTE_LENGTH,
   PAID_METHODS,
   addDays,
@@ -296,21 +296,6 @@ function validateNote(note: string | undefined): string | undefined {
     throw new ConvexError({ code: "note_too_long", reason: `Keep the note under ${MAX_NOTE_LENGTH} characters.` });
   }
   return trimmed;
-}
-
-/** Every clip must be the responder's own portfolio piece. */
-async function validateClips(ctx: Ctx, profileId: Id<"profiles">, clipIds: Id<"artifacts">[]): Promise<Id<"artifacts">[]> {
-  const unique = [...new Set(clipIds.map(String))] as unknown as Id<"artifacts">[];
-  if (unique.length > MAX_CLIPS) {
-    throw new ConvexError({ code: "too_many_clips", reason: `Attach up to ${MAX_CLIPS} clips.` });
-  }
-  for (const id of unique) {
-    const artifact = await ctx.db.get(id);
-    if (!artifact || String(artifact.profileId) !== String(profileId)) {
-      throw new ConvexError({ code: "bad_clip", reason: "Clips have to be pieces from your own portfolio." });
-    }
-  }
-  return unique;
 }
 
 async function responsesForSlot(ctx: Ctx, slotId: Id<"gigSlots">, status: ResponseStatus): Promise<Doc<"gigResponses">[]> {
@@ -1290,19 +1275,7 @@ export const listResponders = query({
     for (const r of rows) {
       const person = await resolvePerson(ctx, r.userId);
       if (!person) continue;
-      const clips = [];
-      for (const id of r.clipIds) {
-        const a = await ctx.db.get(id);
-        if (!a) continue;
-        clips.push({
-          artifactId: a._id,
-          type: a.type,
-          title: a.title ?? null,
-          mediaUrl: await pieceMediaUrl(ctx, a),
-          linkUrl: a.mediaUrl ?? null,
-          ogImageUrl: a.ogImageUrl ?? null,
-        });
-      }
+      const clips = await portfolioSamples(ctx, r.clipIds);
       // How many other dates on this series they're already booked for —
       // a venue building a rotation wants to know.
       const theirRows = await ctx.db

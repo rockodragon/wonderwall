@@ -1160,6 +1160,7 @@ describe("getMine — requests waiting on you", () => {
         person: { profileId: null, name: "Bo Nophoto", imageUrl: null, interests: [] },
         message: null,
         at: 410,
+        nextAction: { kind: "review", since: 410, href: "/projects/projects%3Amine?tab=team&candidate=projectMembers%3AboAsks" },
       },
       {
         key: "request:project:projectMembers:alexAsks",
@@ -1180,8 +1181,60 @@ describe("getMine — requests waiting on you", () => {
         },
         message: "I cut docs.",
         at: 400,
+        nextAction: { kind: "review", since: 400, href: "/projects/projects%3Amine?tab=team&candidate=projectMembers%3AalexAsks" },
       },
     ]);
+  });
+});
+
+describe("getMine — application next actions", () => {
+  it("hands the conversational turn between the producer and applicant without copying private details", async () => {
+    const world = WORLD();
+    world.messages = [{ _id: "messages:question", projectMemberId: "projectMembers:alexAsks", conversationId: "conversations:crew", senderId: ME, createdAt: 500, content: "Can you make Friday?" }];
+    const producer = (await mine(ME, world)).data;
+    const application = producer.requests.find((r: any) => r.requestId === "projectMembers:alexAsks");
+    expect(application.nextAction).toMatchObject({ kind: "waiting", since: 500, href: "/messages/conversations%3Acrew?application=projectMembers%3AalexAsks" });
+    const applicant = (await mine(ALEX, world)).data;
+    const waiting = applicant.projects.find((r: any) => r.projectId === "projects:mine");
+    expect(waiting.nextAction.kind).toBe("reply");
+    expect(waiting.nextAction).not.toHaveProperty("content");
+    world.messages.push({ _id: "messages:answer", projectMemberId: "projectMembers:alexAsks", conversationId: "conversations:crew", senderId: ALEX, createdAt: 510, content: "Yes" });
+    expect((await mine(ME, world)).data.requests.find((r: any) => r.requestId === "projectMembers:alexAsks").nextAction.kind).toBe("reply");
+    expect((await mine(ALEX, world)).data.projects.find((r: any) => r.projectId === "projects:mine").nextAction.kind).toBe("waiting");
+  });
+
+  it("ignores unrelated and pre-reapplication messages and clears actions when the request ends", async () => {
+    const world = WORLD();
+    world.messages = [
+      { _id: "messages:old", projectMemberId: "projectMembers:alexAsks", conversationId: "conversations:crew", senderId: ALEX, createdAt: 399 },
+      { _id: "messages:unrelated", conversationId: "conversations:crew", senderId: ALEX, createdAt: 800 },
+    ];
+    expect((await mine(ME, world)).data.requests.find((r: any) => r.requestId === "projectMembers:alexAsks").nextAction.kind).toBe("review");
+    const row = world.projectMembers.find((r) => r._id === "projectMembers:alexAsks")!;
+    row.reviewStage = "considering";
+    row.reviewUpdatedAt = 600;
+    const reviewed = (await mine(ME, world)).data.requests.find((r: any) => r.requestId === row._id);
+    expect(reviewed.nextAction).toMatchObject({ kind: "decide", since: 600 });
+    expect(reviewed).not.toHaveProperty("reviewStage");
+    row.status = "accepted";
+    const accepted = (await mine(ALEX, world)).data;
+    expect(accepted.requests).toEqual([]);
+    expect(accepted.projects.find((r: any) => r.projectId === "projects:mine")).not.toHaveProperty("nextAction");
+  });
+
+  it("does not turn blocked applicants or inaccessible contexts into actionable replies", async () => {
+    const blockedWorld = WORLD();
+    blockedWorld.blocks = [{ _id: "blocks:pair", blockerId: ALEX, blockedId: ME, createdAt: 500 }];
+    const blockedData = (await mine(ME, blockedWorld)).data;
+    expect(blockedData.requests.some((r: any) => r.requestId === "projectMembers:alexAsks")).toBe(false);
+    expect(blockedData.projects.find((r: any) => r.projectId === "projects:mine").pendingRequests).toBe(1);
+
+    const hiddenWorld = WORLD();
+    hiddenWorld.projects.find((r) => r._id === "projects:mine")!.status = "hidden";
+    hiddenWorld.messages = [{ _id: "messages:answer", projectMemberId: "projectMembers:alexAsks", conversationId: "conversations:crew", senderId: ALEX, createdAt: 500 }];
+    const hiddenData = (await mine(ME, hiddenWorld)).data;
+    expect(hiddenData.requests.find((r: any) => r.requestId === "projectMembers:alexAsks").nextAction).toMatchObject({ kind: "review" });
+    expect((await mine(ALEX, hiddenWorld)).data.projects.some((r: any) => r.projectId === "projects:mine")).toBe(false);
   });
 });
 

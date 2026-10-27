@@ -14,6 +14,58 @@ import { hasRealName } from "./names";
 import { fail } from "./errors";
 import { trackEvent } from "./posthog";
 import { ensureConversationSummaries, firstUnansweredUnread, getParticipantSummary, recordMessageSummary } from "./engagement/conversations";
+import { projectVisibleTo } from "./garden/projectVisibility";
+
+export interface ProjectConversationContext {
+  projectMemberId: Id<"projectMembers">;
+  projectId: Id<"projects">;
+  projectTitle: string;
+  role: string;
+}
+
+/** A recruitment context belongs only to the applicant and the project lead.
+ * Never project the application note, work samples, availability or proposed
+ * terms into a conversation header. The ordinary project visibility rule
+ * applies to both participants, including after a community is hidden. */
+export async function conversationProjectContext(
+  ctx: QueryCtx,
+  memberId: Id<"projectMembers">,
+  participants: readonly Id<"users">[],
+): Promise<ProjectConversationContext | null> {
+  if (participants.length !== 2) return null;
+  const member = await ctx.db.get(memberId);
+  if (!member?.userId) return null;
+  const project = await ctx.db.get(member.projectId);
+  if (!project || project.userId === member.userId) return null;
+  if (!participants.includes(member.userId) || !participants.includes(project.userId)) return null;
+  if (!(await projectVisibleTo(ctx, project, member.userId)) || !(await projectVisibleTo(ctx, project, project.userId))) return null;
+  return { projectMemberId: member._id, projectId: project._id, projectTitle: project.title, role: member.role };
+}
+
+async function requireProjectConversationContext(
+  ctx: QueryCtx,
+  memberId: Id<"projectMembers"> | undefined,
+  participants: readonly Id<"users">[],
+): Promise<ProjectConversationContext | null> {
+  if (!memberId) return null;
+  const context = await conversationProjectContext(ctx, memberId, participants);
+  if (!context) fail("not_found", "That project conversation isn't available to both of you.");
+  return context;
+}
+
+/** One pair thread can cover several projects. Keep the most recently opened
+ * context last, so opening the ordinary thread can recover it after a reload. */
+async function rememberProjectContext(
+  ctx: MutationCtx,
+  conversation: Doc<"conversations">,
+  context: ProjectConversationContext | null,
+): Promise<void> {
+  if (!context || conversation.projectMemberIds?.at(-1) === context.projectMemberId) return;
+  const previous = conversation.projectMemberIds ?? [];
+  await ctx.db.patch(conversation._id, {
+    projectMemberIds: [...previous.filter(id => id !== context.projectMemberId), context.projectMemberId],
+  });
+}
 
 // The conversation between two people, if they have one. conversations has
 // no index on participants, so this reads the table.
@@ -81,6 +133,7 @@ export function coldLimitMessage(isMember: boolean): string {
 export const getOrCreateConversation = mutation({
   args: {
     otherUserId: v.id("users"),
+    projectMemberId: v.optional(v.id("projectMembers")),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
@@ -98,11 +151,14 @@ export const getOrCreateConversation = mutation({
       throw new ConvexError({ code: "blocked" });
     }
 
+    const projectContext = await requireProjectConversationContext(ctx, args.projectMemberId, [userId, args.otherUserId]);
+
     // Check if conversation already exists
     const existing = await findConversation(ctx, userId, args.otherUserId);
 
     if (existing) {
-      return existing;
+      await rememberProjectContext(ctx, existing, projectContext);
+      return await ctx.db.get(existing._id);
     }
 
     // Create new conversation
@@ -111,6 +167,7 @@ export const getOrCreateConversation = mutation({
       participants: [userId, args.otherUserId],
       lastMessageAt: now,
       createdAt: now,
+      ...(projectContext ? { projectMemberIds: [projectContext.projectMemberId] } : {}),
     });
 
     const conversation = await ctx.db.get(conversationId);
@@ -127,6 +184,7 @@ export const sendMessage = mutation({
   args: {
     recipientId: v.id("users"),
     content: v.string(),
+    projectMemberId: v.optional(v.id("projectMembers")),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
@@ -156,6 +214,8 @@ export const sendMessage = mutation({
     if (block === "b_blocked_a") {
       throw new ConvexError("You can't message this person.");
     }
+
+    const projectContext = await requireProjectConversationContext(ctx, args.projectMemberId, [userId, args.recipientId]);
 
     const senderProfile = await getProfileByUserId(ctx, userId);
 
@@ -221,6 +281,7 @@ export const sendMessage = mutation({
     }
     const currentConversation = await ctx.db.get(conversationId);
     if (!currentConversation) fail("not_found", "That conversation isn't available.");
+    await rememberProjectContext(ctx, currentConversation, projectContext);
     const summaries = await ensureConversationSummaries(ctx, currentConversation);
 
     // One email per unanswered unread burst. Older unread messages that the
@@ -234,6 +295,7 @@ export const sendMessage = mutation({
       senderId: userId,
       content: trimmedContent,
       createdAt: now,
+      ...(projectContext ? { projectMemberId: projectContext.projectMemberId, projectRole: projectContext.role } : {}),
     });
 
     // Update conversation's lastMessageAt
@@ -451,6 +513,8 @@ export const getMessages = query({
     if (!conversation.participants.includes(userId)) {
       return { messages: [], nextCursor: null };
     }
+    const otherUserId = conversation.participants.find(id => id !== userId);
+    if (!otherUserId || await blockBetween(ctx, userId, otherUserId)) return { messages: [], nextCursor: null };
 
     const limit = args.limit ?? 50;
 
@@ -486,6 +550,11 @@ export const getMessages = query({
     const messagesOldestFirst = pageMessages.reverse();
 
     // Get sender profiles for each message
+    const projectContexts = new Map<Id<"projectMembers">, Promise<ProjectConversationContext | null>>();
+    const contextOf = (id: Id<"projectMembers">) => {
+      if (!projectContexts.has(id)) projectContexts.set(id, conversationProjectContext(ctx, id, conversation.participants));
+      return projectContexts.get(id)!;
+    };
     const messagesWithSenderInfo = await Promise.all(
       messagesOldestFirst.map(async (message) => {
         const senderProfile = await getProfileByUserId(ctx, message.senderId);
@@ -495,8 +564,11 @@ export const getMessages = query({
           senderImageUrl = await profileImageUrl(ctx, senderProfile);
         }
 
+        const { projectMemberId, projectRole, ...messageFields } = message;
+        const projectContext = projectMemberId ? await contextOf(projectMemberId) : null;
         return {
-          ...message,
+          ...messageFields,
+          ...(projectContext ? { projectMemberId, projectContext: { ...projectContext, role: projectRole ?? projectContext.role } } : {}),
           sender: senderProfile
             ? {
                 userId: message.senderId,
@@ -540,6 +612,7 @@ export const getConversation = query({
     // Get the other participant
     const otherUserId = conversation.participants.find((p) => p !== userId);
     if (!otherUserId) return null;
+    if (await blockBetween(ctx, userId, otherUserId)) return null;
 
     // Get other participant's profile
     const otherProfile = await getProfileByUserId(ctx, otherUserId);
@@ -548,11 +621,13 @@ export const getConversation = query({
 
     // Resolve profile image URL
     const imageUrl = await profileImageUrl(ctx, otherProfile);
+    const contexts = await Promise.all((conversation.projectMemberIds ?? []).map(id => conversationProjectContext(ctx, id, conversation.participants)));
 
     return {
       _id: conversation._id,
       createdAt: conversation.createdAt,
       lastMessageAt: conversation.lastMessageAt,
+      projectContexts: contexts.filter((context): context is ProjectConversationContext => context !== null),
       participant: {
         userId: otherUserId,
         profileId: otherProfile._id,

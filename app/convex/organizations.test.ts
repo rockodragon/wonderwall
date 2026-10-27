@@ -66,7 +66,7 @@ describe("the organization list", () => {
     createdAt,
   });
 
-  function listWorld() {
+  function listWorld(viewer: string | null = null, favorites: { _id: string; [field: string]: unknown }[] = []) {
     return makeCtx(
       {
         profiles: [
@@ -87,8 +87,9 @@ describe("the organization list", () => {
           position("theo", "organizations:ap", "profiles:theo", 4),
           position("halo", "organizations:halo", "profiles:unfinished", 5),
         ],
+        favorites,
       },
-      null,
+      viewer,
     );
   }
 
@@ -97,6 +98,16 @@ describe("the organization list", () => {
     const ap = rows.find((r: { slug: string }) => r.slug === "abiding-practice");
     expect(ap.faces.map((f: { name: string }) => f.name)).toEqual(["Audrey Hill", "Theo Okafor"]);
     expect(ap.peopleCount).toBe(2);
+  });
+
+  // The card says how many of its people you follow, not whose faces.
+  it("counts the people there you follow, and none for a visitor", async () => {
+    const follow = (id: string, targetId: string) => ({ _id: `favorites:${id}`, userId: "users:viewer", targetType: "profile", targetId, createdAt: 1 });
+    const signedIn = await run(list, listWorld("users:viewer", [follow("f1", "profiles:theo"), follow("f2", "profiles:unfinished")]));
+    expect(signedIn.find((r: { slug: string }) => r.slug === "abiding-practice").followingCount).toBe(1);
+    expect(signedIn.find((r: { slug: string }) => r.slug === "halo-touring").followingCount).toBe(0);
+    const visitor = await run(list, listWorld());
+    expect(visitor.find((r: { slug: string }) => r.slug === "abiding-practice").followingCount).toBe(0);
   });
 
   it("counts nobody at an organization whose only person is unnamed, and sorts by the named count", async () => {

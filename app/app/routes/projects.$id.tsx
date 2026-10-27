@@ -6,8 +6,9 @@
 // sidebar/wordmark/CommunitySwitcher render normally; it queries the
 // CURRENT garden/projects.getProject (same shape listProjects' cards use).
 //
-// StatusSelect and SupportModal are reused directly from routes/projects.tsx
-// (the list page) rather than re-implemented — same convention offerings.
+// StatusSelect and the support sheet (useProjectSupport) are reused directly
+// from routes/projects.tsx (the list page) rather than re-implemented — same
+// convention offerings.
 // $id.tsx already uses for PostOfferingForm/SignupModal.
 //
 // Public (Rick, 2026-10-22; _app.tsx's PUBLIC_PROJECT_DETAIL_PATH): anyone
@@ -19,12 +20,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { Link, useLocation, useNavigate, useParams, useRouteError, useSearchParams } from "react-router";
+import { Link, useLocation, useParams, useRouteError, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { formatCents } from "../../convex/money";
 import { EMBED_PROVIDER_LABEL, toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
-import { VISIBLE_PROJECT_STATUSES } from "../../convex/moderationRules";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { AdminMenu, HiddenNotice } from "../components/AdminMenu";
 import { InviteToThis } from "../components/InviteToThis";
@@ -36,10 +36,10 @@ import { FavoriteButton } from "../components/FavoriteButton";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { ProjectMenu } from "../components/project/ProjectMenu";
 import { StageChip } from "../components/project/StageChip";
-import { resolveStage } from "../lib/stage";
+import { needsPictureOrLink } from "../lib/justPublished";
 import { TabPanel, Tabs } from "../components/project/Tabs";
 import { ProjectUpdates } from "../components/ProjectUpdates";
-import { ProjectModal } from "../components/ProjectModal";
+import { ProjectModal, type ProjectStep } from "../components/ProjectModal";
 import { RichContent } from "../components/RichContent";
 import { RichTextEditor } from "../components/RichTextEditor";
 import { useLocationField } from "../lib/useLocationField";
@@ -48,7 +48,7 @@ import { budgetAmountLabel, budgetKindLabel, budgetLabel } from "../lib/budgetLa
 import { GigSchedule } from "../components/GigSchedule";
 import { projectTabs, readProjectTab, sectionsWithContent, withProjectTab, type ProjectTab } from "../lib/projectTabs";
 import { useBack } from "../lib/useBack";
-import { useCoverPick } from "../lib/useCoverPick";
+import { useCoverPick, type CoverPick } from "../lib/useCoverPick";
 import { isWideCover, useImageAspect } from "../lib/useImageAspect";
 import { uploadToStorage } from "../lib/uploadFile";
 import { INTERESTS } from "../constants/interests";
@@ -57,20 +57,26 @@ import { FF_BACKING } from "../lib/featureFlags";
 import { shortDay } from "../lib/dates";
 import {
   STATUS_LABELS,
-  SupportModal,
   SupportButtons,
   GoalProgress,
   isRaising,
+  useProjectSupport,
   type SupportMode,
 } from "./projects";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { useStartConversation } from "../lib/useStartConversation";
 import { useIsAdmin } from "../lib/useIsAdmin";
 import { useProfileLinks } from "../lib/useProfileLinks";
-import { signupHref, supportDetour } from "../lib/pendingIntent";
+import { signupHref } from "../lib/pendingIntent";
 import { bylineOf } from "../lib/byline";
+import { canSaveProject, isProjectOwner } from "../lib/projectPick";
 import { Byline } from "../components/Byline";
 import { PersonAvatar } from "../components/PersonAvatar";
+import { PortfolioSamplePicker } from "../components/PortfolioSamples";
+import { ApplicationReview } from "../components/project/ApplicationReview";
+import { SubmittedApplication, type ApplicationEvidenceData } from "../components/project/ApplicationEvidence";
+import { MAX_AVAILABILITY_LENGTH, type ReviewStage } from "../../convex/garden/recruitment";
+import { MAX_WORK_SAMPLES } from "../../convex/portfolioSampleRules";
 
 // Loader-less (client-only useQuery, same as communities.$slug.tsx and
 // offerings.$id.tsx) — `data` is never actually populated; this just
@@ -229,15 +235,14 @@ export default function ProjectDetail() {
   const roles = useQuery(api.garden.projectTeam.listRoles, id ? { projectId: id as Id<"projects"> } : "skip");
   const updates = useQuery(api.garden.stories.listProjectUpdates, id ? { projectId: id } : "skip");
   const isAdmin = useIsAdmin() === true;
-  const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [supportMode, setSupportMode] = useState<SupportMode | null>(null);
+  const { support: openSupport, modal: supportModal } = useProjectSupport();
   // Lifted so the owner's "Next steps" nudge can open the support editor.
   const [editingSupport, setEditingSupport] = useState(false);
-  // The same three-step modal "Start a project" uses, opened on this project:
-  // the step it opens on, or false. "Add a link" opens it on Show it.
-  const [editingProject, setEditingProject] = useState<false | 1 | 2>(false);
+  // The same four-screen modal "Start a project" uses, opened on this project:
+  // the screen it opens on, or false. "Add a link" opens it on Show it.
+  const [editingProject, setEditingProject] = useState<false | ProjectStep>(false);
   // "Next steps" switches tab, then scrolls to the tabs once they've changed.
   const scrollAfterTab = useRef(false);
   const rawTab = searchParams.get("tab");
@@ -271,14 +276,13 @@ export default function ProjectDetail() {
     );
   }
 
-  const isOwner = !!myProfile && project.userId === myProfile.userId;
+  const isOwner = isProjectOwner(project, myProfile);
   const byline = bylineOf(project);
   // Save for the Shortlist (docs/handoff/favorites-redesign/README.md): a
   // signed-in member who isn't the lead, on a project the browse lists show.
   // favorites.toggle refuses the rest, so the page never offers a save that
   // would fail. Held until the profile loads, so the lead never sees it flash.
-  const canSave =
-    isAuthenticated && myProfile !== undefined && !isOwner && VISIBLE_PROJECT_STATUSES.has(project.status);
+  const canSave = canSaveProject({ signedIn: isAuthenticated, profile: myProfile }, project);
   const raising = isRaising(project);
   const isPassion = project.kind === "passion";
   // No chip for a plain project: "Project" on a project's own page says nothing.
@@ -298,9 +302,9 @@ export default function ProjectDetail() {
   const hasPieces = (project.media?.length ?? 0) > 0;
   const thumb = heroThumb(project);
   const poster = !!thumb && !isWideCover(heroRatio);
-  // Shared as finished with nothing to look at yet: the just-published card
-  // asks for a picture or a link before it offers invites (InviteToThis).
-  const needsMedia = isPassion && resolveStage(project) === "completed" && !thumb && !mediaEmbed && !hasPieces;
+  // Nothing to look at yet, at any stage: the just-published card asks for a
+  // picture or a link before it offers invites (InviteToThis).
+  const needsMedia = needsPictureOrLink({ kind: project.kind, thumb, mediaEmbed, hasPieces });
 
   const hiddenByAdmin = project.status === "hidden";
   const showGoal = raising && (project.goal ?? 0) > 0;
@@ -337,12 +341,7 @@ export default function ProjectDetail() {
   // back to this page (signup.tsx stashes it; _app.tsx replays it).
   // Still checking the token reads as a member, not a visitor: no detour.
   const visitorSignUp = !authLoading && !isAuthenticated ? signupHref(location.pathname + location.search) : null;
-  function support(mode: SupportMode) {
-    if (authLoading) return;
-    const detour = supportDetour(mode, isAuthenticated, location.pathname + location.search);
-    if (detour) navigate(detour);
-    else setSupportMode(mode);
-  }
+  const support = (mode: SupportMode) => openSupport(project, mode);
   // The owner's "Next steps" buttons: show the tab first, then scroll to it.
   function showTab(next: ProjectTab) {
     if (next === tab) {
@@ -364,13 +363,11 @@ export default function ProjectDetail() {
       </div>
 
       {/* Just published: "Invite people", once (components/InviteToThis.tsx). */}
-      <InviteToThis
-        path={`/projects/${project._id}`}
-        title={project.title}
-        owner={isOwner}
-        className="mt-4"
+      <ProjectJustPublished
+        project={project}
+        isOwner={isOwner}
         needsMedia={needsMedia}
-        onAddLink={() => setEditingProject(2)}
+        onAddLink={() => setEditingProject("show")}
       />
 
       {hiddenByAdmin && (
@@ -414,7 +411,7 @@ export default function ProjectDetail() {
             <div className="mb-2">
               <button
                 type="button"
-                onClick={() => setEditingProject(1)}
+                onClick={() => setEditingProject("name")}
                 className="text-[13.5px] font-medium underline underline-offset-2 hover:opacity-80"
                 style={{ color: "var(--garden-citron)" }}
               >
@@ -603,9 +600,7 @@ export default function ProjectDetail() {
         </TabPanel>
       )}
 
-      {supportMode && (
-        <SupportModal project={project} mode={supportMode} onClose={() => setSupportMode(null)} />
-      )}
+      {supportModal}
     </PageShell>
   );
 }
@@ -946,6 +941,69 @@ function AskForSupport({
   );
 }
 
+// The project's picture, in one place: the hero's "Add image" / "Change image"
+// and the just-published card's "Add a picture" both go through here. The
+// cover hook checks the file (image, up to 20MB), frames it 4:5 and hands
+// back a small JPEG; we upload that and save it on the project, and the
+// page's data changes under whoever called.
+function useProjectImage(projectId: Id<"projects">): CoverPick {
+  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+  const saveProjectImage = useMutation((api as any).files.saveProjectImage);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const coverPick = useCoverPick(async (blob) => {
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const storageId = await uploadToStorage(generateUploadUrl, blob);
+      await saveProjectImage({ projectId, storageId });
+    } catch {
+      setUploadError("Upload failed — try again.");
+    } finally {
+      setUploading(false);
+    }
+  });
+
+  return {
+    pick: (file) => {
+      setUploadError(null);
+      coverPick.pick(file);
+    },
+    picker: coverPick.picker,
+    error: coverPick.error || uploadError,
+    busy: uploading || coverPick.busy,
+  };
+}
+
+// The just-published card (components/InviteToThis.tsx) with this project's
+// picture upload behind its "Add a picture". A component of its own so the
+// hook runs after the page has its project.
+function ProjectJustPublished({
+  project,
+  isOwner,
+  needsMedia,
+  onAddLink,
+}: {
+  project: { _id: Id<"projects">; title: string };
+  isOwner: boolean;
+  needsMedia: boolean;
+  onAddLink: () => void;
+}) {
+  const picture = useProjectImage(project._id);
+  return (
+    <InviteToThis
+      path={`/projects/${project._id}`}
+      title={project.title}
+      owner={isOwner}
+      className="mt-4"
+      needsMedia={needsMedia}
+      picture={picture}
+      onAddLink={onAddLink}
+    />
+  );
+}
+
 function ProjectHero({
   thumb,
   poster,
@@ -967,35 +1025,16 @@ function ProjectHero({
   projectId: Id<"projects">;
   isOwner: boolean;
 }) {
-  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
-  const saveProjectImage = useMutation((api as any).files.saveProjectImage);
   const fileRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-
-  // The hook checks the file (image, up to 20MB), frames it 4:5 and hands
-  // back a small JPEG; we upload that.
-  const coverPick = useCoverPick(async (blob) => {
-    setUploading(true);
-    setUploadError(null);
-    try {
-      const storageId = await uploadToStorage(generateUploadUrl, blob);
-      await saveProjectImage({ projectId, storageId });
-    } catch {
-      setUploadError("Upload failed — try again.");
-    } finally {
-      setUploading(false);
-    }
-  });
-  const busy = uploading || coverPick.busy;
-  const imageError = coverPick.error || uploadError;
+  const image = useProjectImage(projectId);
+  const busy = image.busy;
+  const imageError = image.error;
 
   function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    setUploadError(null);
-    coverPick.pick(file);
+    image.pick(file);
   }
 
   if (thumb) {
@@ -1042,7 +1081,7 @@ function ProjectHero({
         {isOwner && (
           <>
             <input ref={fileRef} type="file" accept="image/*" onChange={handleImageUpload} hidden />
-            {coverPick.picker}
+            {image.picker}
             {imageError && (
               <p
                 role="alert"
@@ -1093,7 +1132,7 @@ function ProjectHero({
       {isOwner && (
         <>
           <input ref={fileRef} type="file" accept="image/*" onChange={handleImageUpload} hidden />
-          {coverPick.picker}
+          {image.picker}
           <button
             onClick={() => fileRef.current?.click()}
             disabled={busy}
@@ -1198,7 +1237,7 @@ function InlineEditableMediaLink({ project }: { project: any }) {
       }}
     >
       <MediaLinkField
-        variant="garden"
+        variant="gardenCompact"
         label="Link"
         placeholder="Instagram post or reel, TikTok, YouTube or Vimeo"
         value={draft}
@@ -1710,7 +1749,7 @@ function SignUpToFollow({ to }: { to: string }) {
 }
 
 // The profile page's Message button, on a compact team row.
-function MessageButton({ userId }: { userId: string }) {
+function MessageButton({ userId, projectMemberId }: { userId: string; projectMemberId?: string }) {
   const { start, starting, error } = useStartConversation();
 
   return (
@@ -1721,7 +1760,7 @@ function MessageButton({ userId }: { userId: string }) {
         </span>
       )}
       <button
-        onClick={() => start(userId)}
+        onClick={() => start(userId, undefined, projectMemberId ? { projectMemberId } : undefined)}
         disabled={starting}
         className="text-xs underline underline-offset-2 hover:opacity-80 disabled:opacity-50 whitespace-nowrap"
         style={{ color: "var(--garden-citron)" }}
@@ -2365,7 +2404,7 @@ function ViewerTeamActions({
   visitorSignUp,
 }: {
   project: any;
-  mine: { memberId: string; status: string; role: string } | undefined;
+  mine: ({ memberId: string; status: string; role: string } & ApplicationEvidenceData) | undefined;
   leadName: string;
   /** See RolesSection's `apply`. */
   apply?: { allowed: boolean; reason: string | null; upgradePath: string | null };
@@ -2433,7 +2472,9 @@ function ViewerTeamActions({
       ) : null}
 
       {mine?.status === "pending" && (
-        <div className="flex items-center gap-3 text-sm" style={{ color: "var(--garden-body)" }}>
+        <>
+        <SubmittedApplication evidence={mine} role={mine.role} messageButton={<MessageButton userId={project.userId} projectMemberId={mine.memberId} />} />
+        <div className="flex items-center gap-3 text-sm mt-3" style={{ color: "var(--garden-body)" }}>
           <span>{mine.role ? `Requested as ${mine.role}` : "Requested"}</span>
           <button
             disabled={busy}
@@ -2444,6 +2485,7 @@ function ViewerTeamActions({
             Withdraw
           </button>
         </div>
+        </>
       )}
 
       {mine?.status === "invited" && (
@@ -2508,7 +2550,13 @@ function JoinRequestModal({
   onClose: () => void;
 }) {
   const requestToJoin = useMutation(api.garden.projectTeam.requestToJoin);
+  const myArtifacts = useQuery(api.artifacts.getMyArtifacts);
   const [role, setRole] = useState(preset?.title ?? "");
+  const [workSampleIds, setWorkSampleIds] = useState<Id<"artifacts">[]>([]);
+  const [availability, setAvailability] = useState("");
+  const [rateAmount, setRateAmount] = useState("");
+  const [rateCurrency, setRateCurrency] = useState("USD");
+  const [rateUnit, setRateUnit] = useState<"hour" | "day" | "fixed">("day");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -2529,6 +2577,9 @@ function JoinRequestModal({
         role: role.trim(),
         message: message.trim() || undefined,
         roleId: preset?.roleId as Id<"projectRoles"> | undefined,
+        workSampleIds,
+        availability: availability.trim() || undefined,
+        rateProposal: rateAmount.trim() ? { amount: Number(rateAmount), currency: rateCurrency, unit: rateUnit } : undefined,
       });
       setDone(true);
     } catch (err) {
@@ -2544,7 +2595,7 @@ function JoinRequestModal({
       style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
     >
       <div
-        className="w-full max-w-md rounded-2xl border p-6 m-auto"
+        className="w-full max-w-xl rounded-2xl border p-6 m-auto"
         style={{ backgroundColor: "var(--garden-ink-raised)", borderColor: "var(--garden-hairline)" }}
       >
         <h2
@@ -2613,6 +2664,40 @@ function JoinRequestModal({
                 }}
               />
             </div>
+            <fieldset className="flex flex-col gap-2">
+              <legend className="text-xs uppercase tracking-[0.06em] mb-2" style={{ color: "var(--garden-dim)" }}>Work samples (optional, up to 3)</legend>
+              <p className="text-xs" style={{ color: "var(--garden-dim)" }}>Choose work that shows your fit. Tell the lead what you contributed in your note.</p>
+              <PortfolioSamplePicker samples={myArtifacts} selected={workSampleIds} onChange={setWorkSampleIds} maximum={MAX_WORK_SAMPLES} />
+            </fieldset>
+            <label className="flex flex-col gap-1.5 text-xs" style={{ color: "var(--garden-dim)" }}>
+              Availability (optional)
+              <textarea
+                value={availability}
+                onChange={(event) => setAvailability(event.target.value)}
+                maxLength={MAX_AVAILABILITY_LENGTH}
+                rows={2}
+                placeholder="Dates you can work, time zone, and how much time you can commit"
+                className="w-full px-3 py-2 rounded-lg border text-sm outline-none resize-none"
+                style={{ backgroundColor: "var(--garden-ink)", borderColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
+              />
+            </label>
+            <fieldset>
+              <legend className="text-xs uppercase tracking-[0.06em] mb-2" style={{ color: "var(--garden-dim)" }}>Your rate proposal (optional)</legend>
+              <div className="grid grid-cols-3 gap-2">
+                <label className="text-xs flex flex-col gap-1" style={{ color: "var(--garden-dim)" }}>Amount
+                  <input type="number" min="0.01" step="0.01" value={rateAmount} onChange={(event) => setRateAmount(event.target.value)} placeholder="500" className="w-full rounded-lg border px-2 py-2 text-sm" style={{ backgroundColor: "var(--garden-ink)", borderColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }} />
+                </label>
+                <label className="text-xs flex flex-col gap-1" style={{ color: "var(--garden-dim)" }}>Currency
+                  <input value={rateCurrency} onChange={(event) => setRateCurrency(event.target.value.toUpperCase())} maxLength={3} pattern="[A-Za-z]{3}" required={!!rateAmount.trim()} className="w-full rounded-lg border px-2 py-2 text-sm" style={{ backgroundColor: "var(--garden-ink)", borderColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }} />
+                </label>
+                <label className="text-xs flex flex-col gap-1" style={{ color: "var(--garden-dim)" }}>Rate basis
+                  <select value={rateUnit} onChange={(event) => setRateUnit(event.target.value as typeof rateUnit)} className="w-full rounded-lg border px-2 py-2 text-sm" style={{ backgroundColor: "var(--garden-ink)", borderColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}>
+                    <option value="hour">Per hour</option><option value="day">Per day</option><option value="fixed">Fixed total</option>
+                  </select>
+                </label>
+              </div>
+              <p className="text-xs mt-2" style={{ color: "var(--garden-dim)" }}>A starting point for discussion. Applying does not confirm a paid engagement.</p>
+            </fieldset>
             {error && <p className="text-sm text-red-400">{error}</p>}
             <div className="flex gap-2 justify-end pt-2">
               <button
@@ -2653,6 +2738,7 @@ function LeadTeamTools({
 }) {
   const decideRequest = useMutation(api.garden.projectTeam.decideRequest);
   const removeMember = useMutation(api.garden.projectTeam.removeMember);
+  const setReviewStage = useMutation(api.garden.projectTeam.setReviewStage);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   // A short note back to the applicant, mostly for declines ("not the right
@@ -2661,12 +2747,12 @@ function LeadTeamTools({
   // request's draft is independent.
   const [decisionNotes, setDecisionNotes] = useState<Record<string, string>>({});
 
-  async function run(memberId: string, action: () => Promise<unknown>) {
+  async function run(memberId: string, action: () => Promise<unknown>, clearNote = true) {
     setBusyId(memberId);
     setError("");
     try {
       await action();
-      setDecisionNotes((prev) => {
+      if (clearNote) setDecisionNotes((prev) => {
         const next = { ...prev };
         delete next[memberId];
         return next;
@@ -2681,92 +2767,15 @@ function LeadTeamTools({
   return (
     <div className="pt-4 mt-2.5 flex flex-col gap-4" style={{ borderTop: "1px solid var(--garden-hairline)" }}>
       {pending && pending.length > 0 && (
-        <div>
-          <p className="text-xs uppercase tracking-[0.06em] mb-2" style={{ color: "var(--garden-dim)" }}>
-            Requests
-          </p>
-          <div className="flex flex-col gap-2">
-            {pending.map((r: any) => (
-              <div key={r.memberId} className="flex flex-col gap-1.5 text-sm">
-                <div className="flex items-start gap-2">
-                  <PersonAvatar name={r.name} imageUrl={r.imageUrl} size="xs" tone="garden" />
-                  <div className="flex-1 min-w-0">
-                    <Link to={`/profile/${r.profileId}`} className="hover:opacity-80" style={{ color: "var(--garden-paper)" }}>
-                      {r.name}
-                    </Link>
-                    {r.role && <span style={{ color: "var(--garden-dim)" }}> — {r.role}</span>}
-                    {r.message && (
-                      <p className="text-xs mt-0.5" style={{ color: "var(--garden-dim)" }}>
-                        "{r.message}"
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 pl-7 flex-wrap">
-                  <button
-                    disabled={busyId === r.memberId}
-                    onClick={() =>
-                      run(r.memberId, () =>
-                        decideRequest({ memberId: r.memberId, accept: true, message: decisionNotes[r.memberId]?.trim() || undefined }),
-                      )
-                    }
-                    className="text-xs px-2.5 py-1 rounded-lg font-semibold whitespace-nowrap disabled:opacity-50"
-                    style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
-                  >
-                    Accept
-                  </button>
-                  <button
-                    disabled={busyId === r.memberId}
-                    onClick={() =>
-                      run(r.memberId, () =>
-                        decideRequest({ memberId: r.memberId, accept: false, message: decisionNotes[r.memberId]?.trim() || undefined }),
-                      )
-                    }
-                    className="text-xs underline underline-offset-2 hover:opacity-80 disabled:opacity-50 whitespace-nowrap"
-                    style={{ color: "var(--garden-dim)" }}
-                  >
-                    Decline
-                  </button>
-                  {/* The note is optional and mostly for declines, so it's a
-                      link until wanted — an open box on every request made the
-                      list read as a form. A key present in decisionNotes (even
-                      "") is what marks it open; run() clears it after. */}
-                  {!(r.memberId in decisionNotes) && (
-                    <button
-                      type="button"
-                      onClick={() => setDecisionNotes((prev) => ({ ...prev, [r.memberId]: "" }))}
-                      className="hover:opacity-80 whitespace-nowrap"
-                      style={{ color: "var(--garden-dim)", fontSize: 13 }}
-                    >
-                      Add a note
-                    </button>
-                  )}
-                </div>
-                {r.memberId in decisionNotes && (
-                  <div className="pl-7">
-                    <input
-                      type="text"
-                      autoFocus
-                      value={decisionNotes[r.memberId] ?? ""}
-                      onChange={(e) =>
-                        setDecisionNotes((prev) => ({ ...prev, [r.memberId]: e.target.value.slice(0, 500) }))
-                      }
-                      placeholder="Note back to them — sent with Accept or Decline"
-                      maxLength={500}
-                      className="w-full px-2.5 py-1.5 rounded-lg border outline-none"
-                      style={{
-                        backgroundColor: "var(--garden-ink)",
-                        borderColor: "var(--garden-hairline-raised)",
-                        color: "var(--garden-paper)",
-                        fontSize: 14,
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+        <ApplicationReview
+          candidates={pending}
+          busyId={busyId}
+          notes={decisionNotes}
+          onNote={(memberId, note) => setDecisionNotes((previous) => ({ ...previous, [memberId]: note }))}
+          onStage={(memberId, stage: ReviewStage) => run(memberId, () => setReviewStage({ memberId: memberId as Id<"projectMembers">, stage }), false)}
+          onDecision={(memberId, accept) => run(memberId, () => decideRequest({ memberId: memberId as Id<"projectMembers">, accept, message: decisionNotes[memberId]?.trim() || undefined }))}
+          messageButton={(candidate) => candidate.userId ? <MessageButton userId={candidate.userId} projectMemberId={candidate.memberId} /> : null}
+        />
       )}
 
       {invited && invited.length > 0 && (

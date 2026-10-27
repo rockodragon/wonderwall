@@ -16,8 +16,10 @@ import { signupHref } from "../lib/pendingIntent";
 import { useDirectory, type DirectoryPerson } from "../lib/useDirectory";
 import { LocationIcon } from "../components/icons";
 import { InviteButton } from "../components/InviteCTA";
+import { LeaderBadge } from "../components/LeaderBadge";
 import { OrgDirectory } from "../components/OrgDirectory";
 import { PersonAvatar } from "../components/PersonAvatar";
+import { DIRECTORY_CARD, DIRECTORY_CARD_PICTURE, DIRECTORY_CARD_WORDS } from "../components/directoryCard";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 
 // People has two tabs (docs/features/organizations.md): people, and the
@@ -350,28 +352,32 @@ export default function Search() {
   );
 }
 
-/** Every person card is this tall: room for its three one-line rows (name,
- * organization, what they do) beside the 48px face, so a row of four never
- * has one card taller than the rest. */
-const PROFILE_CARD_MIN_H = "min-h-[5.625rem]";
-
 function ProfileCard({ profile }: { profile: DirectoryPerson }) {
   const distLabel = distanceLabel(profile._distance);
 
   return (
     <Link
       to={`/profile/${profile._id}`}
-      className={`group flex ${PROFILE_CARD_MIN_H} items-center gap-3 p-4 rounded-xl border transition-colors hover:border-[var(--app-accent)]`}
+      className={DIRECTORY_CARD}
       style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)" }}
     >
-      <PersonAvatar name={profile.name} imageUrl={profile.imageUrl} size="card" tone="strong" />
+      {/* The photo runs to the card's edge, top to bottom (directoryCard.ts). */}
+      <div className={DIRECTORY_CARD_PICTURE}>
+        <PersonAvatar name={profile.name} imageUrl={profile.imageUrl} size="fill" shape="flush" tone="strong" />
+      </div>
       {/* One line each, cut short with an ellipsis: a long name wrapping to
           a second line made its whole row of cards taller. The full name is
           on the profile, and in the tooltip. */}
-      <div className="min-w-0 flex-1">
-        <h3 className="font-medium text-sm leading-snug truncate" title={profile.name} style={{ color: "var(--app-text)" }}>
-          {profile.name}
-        </h3>
+      <div className={DIRECTORY_CARD_WORDS}>
+        {/* A leader's sprout sits after the name, which gives way to it
+            (truncate): the card has no room for the words, and one more line
+            would make its whole row of cards taller. */}
+        <div className="flex min-w-0 items-center gap-1.5">
+          <h3 className="font-medium text-sm leading-snug truncate" title={profile.name} style={{ color: "var(--app-text)" }}>
+            {profile.name}
+          </h3>
+          {profile.isLeader && <LeaderBadge compact />}
+        </div>
         {profile.orgName && (
           <p className="text-xs truncate mt-0.5" style={{ color: "var(--app-text-muted)" }}>
             {profile.orgName}

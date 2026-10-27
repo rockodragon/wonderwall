@@ -1,4 +1,5 @@
 import { LegalDocument, type LegalSection } from "../components/LegalDocument";
+import { PROMISE_PATH, TERMS_PROMISES_ANCHOR, TERMS_PROMISE_LINK } from "../constants/promises";
 import { LEGAL_ENTITY } from "../legal/entity";
 
 const { company, product, shortName, contactEmail, jurisdiction, courts } =
@@ -107,9 +108,13 @@ const SECTIONS: LegalSection[] = [
   },
   {
     heading: "Our promises to creatives",
+    // /promise says these in plain words, and links back here.
+    id: TERMS_PROMISES_ANCHOR,
+    link: { to: PROMISE_PATH, label: TERMS_PROMISE_LINK },
     paragraphs: [
       "Three parts of these Terms are promises to you: we do not use Your Content to train artificial intelligence models; we do not sell or license Your Content; and a person on our team decides before we remove Your Content or end your account, and tells you why.",
       "Where the law requires us to act at once, or to stop serious harm to someone, we may act first, and a person will review it promptly after.",
+      "Spam, and accounts created by automated means, are not covered by the promise that a person decides: we may remove them automatically.",
       "We will not change these promises for you unless you agree.",
     ],
   },

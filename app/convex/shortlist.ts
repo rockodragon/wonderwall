@@ -30,6 +30,8 @@ import type { BudgetDeclaration } from "../app/lib/budgetLabel";
 import { coverOf } from "../app/lib/projectPick";
 import { resolveStage } from "../app/lib/stage";
 import { hasEnded } from "../app/lib/shortlist/needsYou";
+import { recruitmentNextAction } from "../app/lib/shortlist/recruitment";
+import { blockedUserIds } from "./blocks";
 import type {
   ClosedReason,
   EventRelation,
@@ -48,6 +50,7 @@ import { isEventHost } from "./eventHosts";
 import { communityVisibility } from "./garden/communityVisibility";
 import { eventVisibilityChecker } from "./garden/eventVisibility";
 import { isProjectFinished } from "./garden/projectTeam";
+import { projectVisibleTo } from "./garden/projectVisibility";
 import { projectKind } from "./garden/projectsPublic";
 import { isGivenSupport, supportCadence, supportKind } from "./garden/support";
 import { isHidden, isPostedProject, isShownProject } from "./moderationRules";
@@ -304,6 +307,34 @@ export const getMine = query({
     if (!userId) return { projects: [], requests: [], events: [], people: [] };
     const read = readers(ctx);
     const now = Date.now();
+    const blocked = await blockedUserIds(ctx, userId);
+
+    // Bounded, application-specific read: no scan of the pair's messages,
+    // and a reused application row cannot revive an earlier conversation.
+    const latestRecruitmentMessage = once(async (memberId: Id<"projectMembers">) =>
+      ctx.db.query("messages")
+        .withIndex("by_projectMemberId_createdAt", (q) => q.eq("projectMemberId", memberId))
+        .order("desc")
+        .first(),
+    );
+    async function pendingAction(project: Doc<"projects">, member: Doc<"projectMembers">) {
+      const otherId = userId === project.userId ? member.userId : project.userId;
+      if (!otherId || blocked.has(otherId)) return undefined;
+      // A producer can still review/decline an application after visibility
+      // changes, but must not be sent to a context the applicant cannot open.
+      const canDiscuss = !!member.userId && await projectVisibleTo(ctx, project, member.userId);
+      const message = canDiscuss ? await latestRecruitmentMessage(member._id) : null;
+      return recruitmentNextAction({
+        viewerId: userId!,
+        leadId: project.userId,
+        projectId: project._id,
+        memberId: member._id,
+        createdAt: member.createdAt,
+        reviewStage: member.reviewStage,
+        reviewUpdatedAt: member.reviewUpdatedAt,
+        latestMessage: message && message.createdAt >= member.createdAt ? message : null,
+      });
+    }
 
     const saved = (targetType: "project" | "role" | "event" | "profile") =>
       ctx.db
@@ -384,7 +415,7 @@ export const getMine = query({
       relation: ProjectRelation,
       since: number,
       role: { posting: Doc<"projectRoles"> | null; title: string } | null,
-      extra: Pick<ShortlistProject, "pendingRequests" | "backing" | "closedReason"> = {},
+      extra: Pick<ShortlistProject, "pendingRequests" | "backing" | "closedReason" | "nextAction"> = {},
     ): Promise<ShortlistProject> {
       const [lead, coverUrl, isGig] = await Promise.all([
         read.person(project.userId),
@@ -476,10 +507,11 @@ export const getMine = query({
           const row = await projectRow(project, "closed", project.createdAt, null, { closedReason: "finished" });
           return { row, requests: [] };
         }
-        const pending = await ctx.db
+        const pendingRows = await ctx.db
           .query("projectMembers")
           .withIndex("by_projectId_status", (q) => q.eq("projectId", project._id).eq("status", "pending"))
           .collect();
+        const pending = pendingRows.filter((row) => !row.userId || !blocked.has(row.userId));
         const requests = await Promise.all(
           pending.map(async (row): Promise<ShortlistRequest> => {
             const posting = row.roleId ? await read.role(row.roleId) : null;
@@ -498,6 +530,7 @@ export const getMine = query({
               person: person ?? { profileId: null, name: row.name, imageUrl: null, interests: [] },
               message: row.message ?? null,
               at: row.createdAt,
+              nextAction: await pendingAction(project, row),
             };
           }),
         );
@@ -514,7 +547,10 @@ export const getMine = query({
       if (!project || !(await canOpenProject(project))) return null;
       const posting = row.roleId ? await read.role(row.roleId) : null;
       const { relation, ...extra } = memberRelation(row.status, isProjectFinished(project));
-      return projectRow(project, relation, row.respondedAt ?? row.createdAt, { posting, title: row.role }, extra);
+      return projectRow(project, relation, row.respondedAt ?? row.createdAt, { posting, title: row.role }, {
+        ...extra,
+        ...(relation === "waiting" ? { nextAction: await pendingAction(project, row) } : {}),
+      });
     });
 
     // ——— Backing: one row per project, from all the member gave it ———

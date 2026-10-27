@@ -121,6 +121,9 @@ const GPTS = [23.4, 10.4, 21.7, 8.3, 19.1, 7, 16.2, 7, 10.8, 7, 6.6, 11.2, 6.6, 
 const END = 5.0;
 /** The site plays the 5s design timeline in 2s. */
 export const GROW_SPEED = 2.5;
+/** The two leaves, drawn open; the grow scales them up from nothing. */
+const LEAF_R = "M16 16c0-4.6 2.8-7.6 7.6-7.6 0 4.6-2.8 7.6-7.6 7.6z";
+const LEAF_L = "M16 19.5c-4.6 0-7.4-3-7.4-7.6 4.6 0 7.4 3 7.4 7.6z";
 const PLAYED_KEY = "garden-grow-played-on";
 
 const toD = (a: number[]) => {
@@ -237,8 +240,8 @@ export function GardenGrow({ size, ground, surface }: { size: number; ground: Gr
       <g ref={ref("group")} transform={first.groupTransform}>
         <path ref={ref("stem")} d={first.stemD} stroke={color} pathLength={1} strokeDasharray="1 1" strokeDashoffset={first.stemOffset} />
         <path ref={ref("knock")} d={first.stemD} stroke={surface} pathLength={1} strokeDasharray="1 1" strokeDashoffset={first.stemOffset} opacity={0} />
-        <path ref={ref("leafR")} d="M16 16c0-4.6 2.8-7.6 7.6-7.6 0 4.6-2.8 7.6-7.6 7.6z" fill={color} transform="translate(16 16) scale(0.0001) translate(-16 -16)" />
-        <path ref={ref("leafL")} d="M16 19.5c-4.6 0-7.4-3-7.4-7.6 4.6 0 7.4 3 7.4 7.6z" fill={color} transform="translate(16 19.5) scale(0.0001) translate(-16 -19.5)" />
+        <path ref={ref("leafR")} d={LEAF_R} fill={color} transform="translate(16 16) scale(0.0001) translate(-16 -16)" />
+        <path ref={ref("leafL")} d={LEAF_L} fill={color} transform="translate(16 19.5) scale(0.0001) translate(-16 -19.5)" />
       </g>
     </svg>
   );

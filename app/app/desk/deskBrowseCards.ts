@@ -43,13 +43,21 @@ export type ProfileRow = {
   interests: string[];
   coordinates?: LatLng | null;
   _distance?: number;
+  /** Leads a community: the card wears the sprout badge. */
+  isLeader?: boolean;
 };
 
 /** A person card for the directory. personCard says FOLLOWING, which is only
  * true of people the member follows; everyone else carries no label (the
  * view already says People), and the opened card leads with their discipline. */
 export function directoryCard(p: ProfileRow, followed: boolean): DeskCard {
-  const card = personCard({ _id: String(p._id), name: p.name, imageUrl: p.imageUrl ?? null, interests: p.interests });
+  const card = personCard({
+    _id: String(p._id),
+    name: p.name,
+    imageUrl: p.imageUrl ?? null,
+    interests: p.interests,
+    isLeader: p.isLeader,
+  });
   const kicker = followed ? card.face.kicker : "";
   const meta = followed ? card.face.kicker : (p.interests[0] ?? "").toUpperCase();
   const away = distanceLabel(p._distance);

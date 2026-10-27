@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { Fragment, useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { FF_DESK } from "../lib/featureFlags";
@@ -23,6 +23,7 @@ const PALETTE_CLEAR = "md:pl-28 lg:pl-4";
 export default function ConversationView() {
   const { conversationId } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -37,6 +38,12 @@ export default function ConversationView() {
       ? { conversationId: conversationId as Id<"conversations"> }
       : "skip",
   );
+  const projectContexts = conversation?.projectContexts ?? [];
+  const requestedContext = searchParams.get("application");
+  const activeProjectContext = requestedContext === "general"
+    ? null
+    : projectContexts.find(context => context.projectMemberId === (requestedContext ?? projectContexts.at(-1)?.projectMemberId)) ?? null;
+  const unavailableProjectContext = requestedContext !== null && requestedContext !== "general" && !activeProjectContext;
 
   const messagesData = useQuery(
     api.messaging.getMessages,
@@ -71,7 +78,7 @@ export default function ConversationView() {
   }, []);
 
   async function handleSend() {
-    if (!message.trim() || !conversation?.participant.userId || sending) return;
+    if (!message.trim() || !conversation?.participant.userId || sending || unavailableProjectContext) return;
 
     setSending(true);
     setSendError(null);
@@ -79,6 +86,7 @@ export default function ConversationView() {
       await sendMessage({
         recipientId: conversation.participant.userId,
         content: message.trim(),
+        ...(activeProjectContext ? { projectMemberId: activeProjectContext.projectMemberId } : {}),
       });
       setMessage("");
       inputRef.current?.focus();
@@ -301,6 +309,46 @@ export default function ConversationView() {
             )}
           </div>
         </div>
+        {(projectContexts.length > 0 || unavailableProjectContext) && (
+          <div className={`${COLUMN} mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm`}>
+            <label className="flex items-center gap-2 min-w-0" style={{ color: "var(--app-text-dim)" }}>
+              About
+              <select
+                aria-label="Conversation project and role"
+                value={unavailableProjectContext ? "unavailable" : activeProjectContext?.projectMemberId ?? "general"}
+                onChange={event => setSearchParams(previous => {
+                  const next = new URLSearchParams(previous);
+                  next.set("application", event.target.value);
+                  return next;
+                }, { replace: true })}
+                className="min-w-0 max-w-[16rem] sm:max-w-sm rounded-lg border px-2 py-1.5"
+                style={{ backgroundColor: "var(--app-surface)", color: "var(--app-text)", borderColor: "var(--app-hairline)" }}
+              >
+                {unavailableProjectContext && <option value="unavailable" disabled>Project context unavailable</option>}
+                <option value="general">General conversation</option>
+                {projectContexts.map(context => (
+                  <option key={context.projectMemberId} value={context.projectMemberId}>
+                    {context.role ? `${context.role} on ` : ""}{context.projectTitle}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {activeProjectContext && (
+              <Link
+                to={`/projects/${activeProjectContext.projectId}?tab=team`}
+                className="underline underline-offset-2"
+                style={{ color: "var(--app-text-muted)" }}
+              >
+                View project
+              </Link>
+            )}
+          </div>
+        )}
+        {unavailableProjectContext && (
+          <p role="status" className={`${COLUMN} mt-2 text-sm`} style={{ color: "var(--app-text-dim)" }}>
+            This project conversation is no longer available. Choose another context or General conversation to send a message.
+          </p>
+        )}
       </div>
 
       {/* Messages */}
@@ -368,6 +416,14 @@ export default function ConversationView() {
                             }
                       }
                     >
+                      {msg.projectContext && (
+                        <Link
+                          to={`/projects/${msg.projectContext.projectId}?tab=team`}
+                          className="block text-xs mb-1 underline underline-offset-2 opacity-75"
+                        >
+                          About {msg.projectContext.role ? `${msg.projectContext.role} on ` : ""}{msg.projectContext.projectTitle}
+                        </Link>
+                      )}
                       {msg.content}
                     </p>
                   </div>
@@ -416,7 +472,7 @@ export default function ConversationView() {
             />
             <button
               onClick={handleSend}
-              disabled={!message.trim() || sending}
+              disabled={!message.trim() || sending || unavailableProjectContext}
               className="p-3 rounded-full hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
               style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
               aria-label="Send message"

@@ -6,15 +6,13 @@ import {
   START_STAGES,
   dropShareProjectIntent,
   ownsAProject,
+  peekStashedProjectTitle,
   readStartStage,
+  spendStartLink,
   withFinishedStage,
-  hasNameIfNeeded,
   isShareProjectIntent,
-  keepProfileFields,
-  roleForExit,
   shareProjectHref,
   stashProjectTitle,
-  takeStashedProjectTitle,
   hasStashedProjectTitle,
 } from "./shareProject";
 
@@ -97,77 +95,19 @@ describe("START_STAGES", () => {
   });
 });
 
-describe("roleForExit", () => {
-  it("records a partner for the space-or-resources door", () => {
-    expect(roleForExit("partner")).toBe("partner");
-  });
-  it("records a creative for sharing and for Not yet", () => {
-    expect(roleForExit("shared")).toBe("creative");
-    expect(roleForExit("not_yet")).toBe("creative");
-  });
-
-  it("records a patron for someone here to back creatives", () => {
-    expect(roleForExit("backer")).toBe("patron");
-  });
-});
-
-describe("hasNameIfNeeded", () => {
-  it("asks for nothing when the account has a name", () => {
-    expect(hasNameIfNeeded(false, "")).toBe(true);
-  });
-
-  it("asks for a real name when it has none", () => {
-    expect(hasNameIfNeeded(true, "")).toBe(false);
-    expect(hasNameIfNeeded(true, "  ")).toBe(false);
-    expect(hasNameIfNeeded(true, "Ana")).toBe(true);
-  });
-});
-
-describe("keepProfileFields", () => {
-  it("passes back what the screen doesn't ask about, so saving can't blank it", () => {
-    const address = { city: "San Diego", stateCode: "CA" };
-    const coordinates = { lat: 32.7, lng: -117.1 };
-    const profile = {
-      name: "Not passed back",
-      bio: "Painter",
-      location: "San Diego, CA",
-      locationType: "city",
-      address,
-      coordinates,
-      placeId: "abc",
-    };
-    expect(keepProfileFields(profile)).toEqual({
-      bio: "Painter",
-      location: "San Diego, CA",
-      locationType: "city",
-      address,
-      coordinates,
-      placeId: "abc",
-    });
-  });
-
-  it("passes back nothing for a profile with none of it", () => {
-    expect(keepProfileFields({})).toEqual({
-      bio: undefined,
-      location: undefined,
-      locationType: undefined,
-      address: undefined,
-      coordinates: undefined,
-      placeId: undefined,
-    });
-  });
-});
-
 describe("stashed project title", () => {
   beforeEach(() => {
     vi.stubGlobal("localStorage", fakeStorage());
   });
 
-  it("carries a typed title through the stash, once", () => {
+  it("carries a typed title through the stash, until the member leaves", () => {
     expect(stashProjectTitle("  Mural on 5th & Main ")).toBe(true);
     expect(isShareProjectIntent(localStorage.getItem("pendingIntent"))).toBe(true);
-    expect(takeStashedProjectTitle()).toBe("Mural on 5th & Main");
-    expect(takeStashedProjectTitle()).toBeNull();
+    // Read as often as a reload needs; nothing is used up.
+    expect(peekStashedProjectTitle()).toBe("Mural on 5th & Main");
+    expect(peekStashedProjectTitle()).toBe("Mural on 5th & Main");
+    dropShareProjectIntent();
+    expect(peekStashedProjectTitle()).toBeNull();
   });
 
   it("stashes nothing for an empty title", () => {
@@ -175,12 +115,19 @@ describe("stashed project title", () => {
     expect(localStorage.getItem("pendingIntent")).toBeNull();
   });
 
-  it("puts back a stashed visit that has no title", () => {
+  it("reads nothing, and moves nothing, when the stashed visit has no title", () => {
     setPendingIntent("/events/abc");
-    expect(takeStashedProjectTitle()).toBeNull();
+    expect(peekStashedProjectTitle()).toBeNull();
     expect(takePendingIntent()).toBe("/events/abc");
+    setPendingIntent(SHARE_PROJECT_PATH);
+    expect(peekStashedProjectTitle()).toBeNull();
+    expect(takePendingIntent()).toBe(SHARE_PROJECT_PATH);
     expect(hasStashedProjectTitle(SHARE_PROJECT_PATH)).toBe(false);
     expect(hasStashedProjectTitle(`${SHARE_PROJECT_PATH}&title=x`)).toBe(true);
+  });
+
+  it("reads nothing when nothing is stashed", () => {
+    expect(peekStashedProjectTitle()).toBeNull();
   });
 });
 
@@ -196,6 +143,41 @@ describe("withFinishedStage / readStartStage", () => {
     expect(readStartStage(new URLSearchParams("stage=working"))).toBe("working");
     expect(readStartStage(new URLSearchParams("stage=finished"))).toBeUndefined();
     expect(readStartStage(new URLSearchParams("new=project"))).toBeUndefined();
+  });
+});
+
+describe("spendStartLink", () => {
+  const spend = (query: string) => {
+    const { stage, rest } = spendStartLink(new URLSearchParams(query));
+    return { stage, rest: rest.toString() };
+  };
+
+  it("hands the form the start stage and leaves neither ?new nor ?stage in the URL", () => {
+    expect(spend("new=project&stage=completed")).toEqual({ stage: "completed", rest: "" });
+    expect(spend("new=project&stage=working")).toEqual({ stage: "working", rest: "" });
+  });
+
+  it("keeps every other param, such as the chip and a typed title", () => {
+    expect(spend("show=people&new=project&stage=completed&title=Zine")).toEqual({
+      stage: "completed",
+      rest: "show=people&title=Zine",
+    });
+  });
+
+  it("has no start stage when the link names none, or one a project can't be in", () => {
+    expect(spend("new=project")).toEqual({ stage: undefined, rest: "" });
+    expect(spend("new=project&stage=finished")).toEqual({ stage: undefined, rest: "" });
+  });
+
+  it("leaves a ?stage= with no start link alone: that is the Stage menu's own choice", () => {
+    expect(spend("stage=completed")).toEqual({ stage: undefined, rest: "stage=completed" });
+    expect(spend("show=funding&stage=working")).toEqual({ stage: undefined, rest: "show=funding&stage=working" });
+  });
+
+  it("does not change the params it was given", () => {
+    const params = new URLSearchParams("new=project&stage=completed");
+    spendStartLink(params);
+    expect(params.toString()).toBe("new=project&stage=completed");
   });
 });
 

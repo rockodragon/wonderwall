@@ -20,6 +20,7 @@ export function startConversationError(err: unknown): string {
 }
 
 type TrackProps = Record<string, unknown>;
+export type ConversationProjectContext = { projectMemberId: string };
 
 /** `start(userId)` opens the conversation and navigates to it; `error` is the
  * line to show when it can't (`clearError` takes it down). `starting` stays
@@ -29,7 +30,9 @@ type TrackProps = Record<string, unknown>;
  * - `onOpened` runs once the conversation exists, just before we go to it
  *   (a celebration card marks itself done there).
  * - `track` is the PostHog "conversation_started" payload; `start` can add
- *   to it per person. Nothing is sent when neither has anything. */
+ *   to it per person. Nothing is sent when neither has anything.
+ * - `start`'s optional third argument links an authenticated application
+ *   context to the same pair thread, then selects it in the composer. */
 export function useStartConversation({ onOpened, track }: { onOpened?: () => void; track?: TrackProps } = {}) {
   const getOrCreateConversation = useMutation(api.messaging.getOrCreateConversation);
   const navigate = useNavigate();
@@ -38,18 +41,21 @@ export function useStartConversation({ onOpened, track }: { onOpened?: () => voi
   const [error, setError] = useState<string | null>(null);
   const inFlight = useRef(false);
 
-  async function start(userId: string, trackMore?: TrackProps) {
+  async function start(userId: string, trackMore?: TrackProps, context?: ConversationProjectContext) {
     if (inFlight.current) return;
     inFlight.current = true;
     setStarting(true);
     setError(null);
     try {
-      const conversation = await getOrCreateConversation({ otherUserId: userId as Id<"users"> });
+      const conversation = await getOrCreateConversation({
+        otherUserId: userId as Id<"users">,
+        ...(context ? { projectMemberId: context.projectMemberId as Id<"projectMembers"> } : {}),
+      });
       if (!conversation) throw new Error("No conversation");
       const props = { ...track, ...trackMore };
       if (Object.keys(props).length > 0) posthog?.capture("conversation_started", props);
       onOpened?.();
-      navigate(`/messages/${conversation._id}`);
+      navigate(`/messages/${conversation._id}${context ? `?application=${encodeURIComponent(context.projectMemberId)}` : ""}`);
     } catch (err) {
       setError(startConversationError(err));
       inFlight.current = false;

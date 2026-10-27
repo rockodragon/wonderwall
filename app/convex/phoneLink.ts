@@ -8,7 +8,7 @@ import { ConvexError, v } from "convex/values";
 import { internalAction, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { currentUserId, requireUserId } from "./helpers";
-import { normalizePhone } from "./phone";
+import { maskPhone, normalizePhone } from "./phone";
 import { sendSms } from "./smsSender";
 import {
   CODE_TTL_MS,
@@ -20,11 +20,6 @@ import {
   isOverStartLimit,
 } from "./phoneLinkCore";
 import { GARDEN_NAME, PLATFORM_NAME, isGardenHost } from "./garden/brandHosts";
-
-/** Masks everything but the last 4 digits, e.g. "+16195550100" -> "•••• 0100". */
-function maskPhone(phone: string): string {
-  return `•••• ${phone.slice(-4)}`;
-}
 
 export const getMyPhone = query({
   args: {},

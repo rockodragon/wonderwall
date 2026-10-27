@@ -345,7 +345,7 @@ export default function OrgEdit() {
             autoCapitalize="none"
             value={websiteUrl}
             maxLength={200}
-            placeholder="abidingpractice.org"
+            placeholder="yourstudio.com"
             onChange={(e) => setWebsiteUrl(e.target.value)}
             className={inputClass}
             style={inputStyle}
