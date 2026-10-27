@@ -36,10 +36,10 @@ import { FavoriteButton } from "../components/FavoriteButton";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { ProjectMenu } from "../components/project/ProjectMenu";
 import { StageChip } from "../components/project/StageChip";
-import { resolveStage } from "../lib/stage";
+import { needsPictureOrLink } from "../lib/justPublished";
 import { TabPanel, Tabs } from "../components/project/Tabs";
 import { ProjectUpdates } from "../components/ProjectUpdates";
-import { ProjectModal } from "../components/ProjectModal";
+import { ProjectModal, type ProjectStep } from "../components/ProjectModal";
 import { RichContent } from "../components/RichContent";
 import { RichTextEditor } from "../components/RichTextEditor";
 import { useLocationField } from "../lib/useLocationField";
@@ -48,7 +48,7 @@ import { budgetAmountLabel, budgetKindLabel, budgetLabel } from "../lib/budgetLa
 import { GigSchedule } from "../components/GigSchedule";
 import { projectTabs, readProjectTab, sectionsWithContent, withProjectTab, type ProjectTab } from "../lib/projectTabs";
 import { useBack } from "../lib/useBack";
-import { useCoverPick } from "../lib/useCoverPick";
+import { useCoverPick, type CoverPick } from "../lib/useCoverPick";
 import { isWideCover, useImageAspect } from "../lib/useImageAspect";
 import { uploadToStorage } from "../lib/uploadFile";
 import { INTERESTS } from "../constants/interests";
@@ -235,9 +235,9 @@ export default function ProjectDetail() {
   const [supportMode, setSupportMode] = useState<SupportMode | null>(null);
   // Lifted so the owner's "Next steps" nudge can open the support editor.
   const [editingSupport, setEditingSupport] = useState(false);
-  // The same three-step modal "Start a project" uses, opened on this project:
-  // the step it opens on, or false. "Add a link" opens it on Show it.
-  const [editingProject, setEditingProject] = useState<false | 1 | 2>(false);
+  // The same four-screen modal "Start a project" uses, opened on this project:
+  // the screen it opens on, or false. "Add a link" opens it on Show it.
+  const [editingProject, setEditingProject] = useState<false | ProjectStep>(false);
   // "Next steps" switches tab, then scrolls to the tabs once they've changed.
   const scrollAfterTab = useRef(false);
   const rawTab = searchParams.get("tab");
@@ -298,9 +298,9 @@ export default function ProjectDetail() {
   const hasPieces = (project.media?.length ?? 0) > 0;
   const thumb = heroThumb(project);
   const poster = !!thumb && !isWideCover(heroRatio);
-  // Shared as finished with nothing to look at yet: the just-published card
-  // asks for a picture or a link before it offers invites (InviteToThis).
-  const needsMedia = isPassion && resolveStage(project) === "completed" && !thumb && !mediaEmbed && !hasPieces;
+  // Nothing to look at yet, at any stage: the just-published card asks for a
+  // picture or a link before it offers invites (InviteToThis).
+  const needsMedia = needsPictureOrLink({ kind: project.kind, thumb, mediaEmbed, hasPieces });
 
   const hiddenByAdmin = project.status === "hidden";
   const showGoal = raising && (project.goal ?? 0) > 0;
@@ -364,13 +364,11 @@ export default function ProjectDetail() {
       </div>
 
       {/* Just published: "Invite people", once (components/InviteToThis.tsx). */}
-      <InviteToThis
-        path={`/projects/${project._id}`}
-        title={project.title}
-        owner={isOwner}
-        className="mt-4"
+      <ProjectJustPublished
+        project={project}
+        isOwner={isOwner}
         needsMedia={needsMedia}
-        onAddLink={() => setEditingProject(2)}
+        onAddLink={() => setEditingProject("show")}
       />
 
       {hiddenByAdmin && (
@@ -414,7 +412,7 @@ export default function ProjectDetail() {
             <div className="mb-2">
               <button
                 type="button"
-                onClick={() => setEditingProject(1)}
+                onClick={() => setEditingProject("name")}
                 className="text-[13.5px] font-medium underline underline-offset-2 hover:opacity-80"
                 style={{ color: "var(--garden-citron)" }}
               >
@@ -946,6 +944,69 @@ function AskForSupport({
   );
 }
 
+// The project's picture, in one place: the hero's "Add image" / "Change image"
+// and the just-published card's "Add a picture" both go through here. The
+// cover hook checks the file (image, up to 20MB), frames it 4:5 and hands
+// back a small JPEG; we upload that and save it on the project, and the
+// page's data changes under whoever called.
+function useProjectImage(projectId: Id<"projects">): CoverPick {
+  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+  const saveProjectImage = useMutation((api as any).files.saveProjectImage);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const coverPick = useCoverPick(async (blob) => {
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const storageId = await uploadToStorage(generateUploadUrl, blob);
+      await saveProjectImage({ projectId, storageId });
+    } catch {
+      setUploadError("Upload failed — try again.");
+    } finally {
+      setUploading(false);
+    }
+  });
+
+  return {
+    pick: (file) => {
+      setUploadError(null);
+      coverPick.pick(file);
+    },
+    picker: coverPick.picker,
+    error: coverPick.error || uploadError,
+    busy: uploading || coverPick.busy,
+  };
+}
+
+// The just-published card (components/InviteToThis.tsx) with this project's
+// picture upload behind its "Add a picture". A component of its own so the
+// hook runs after the page has its project.
+function ProjectJustPublished({
+  project,
+  isOwner,
+  needsMedia,
+  onAddLink,
+}: {
+  project: { _id: Id<"projects">; title: string };
+  isOwner: boolean;
+  needsMedia: boolean;
+  onAddLink: () => void;
+}) {
+  const picture = useProjectImage(project._id);
+  return (
+    <InviteToThis
+      path={`/projects/${project._id}`}
+      title={project.title}
+      owner={isOwner}
+      className="mt-4"
+      needsMedia={needsMedia}
+      picture={picture}
+      onAddLink={onAddLink}
+    />
+  );
+}
+
 function ProjectHero({
   thumb,
   poster,
@@ -967,35 +1028,16 @@ function ProjectHero({
   projectId: Id<"projects">;
   isOwner: boolean;
 }) {
-  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
-  const saveProjectImage = useMutation((api as any).files.saveProjectImage);
   const fileRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-
-  // The hook checks the file (image, up to 20MB), frames it 4:5 and hands
-  // back a small JPEG; we upload that.
-  const coverPick = useCoverPick(async (blob) => {
-    setUploading(true);
-    setUploadError(null);
-    try {
-      const storageId = await uploadToStorage(generateUploadUrl, blob);
-      await saveProjectImage({ projectId, storageId });
-    } catch {
-      setUploadError("Upload failed — try again.");
-    } finally {
-      setUploading(false);
-    }
-  });
-  const busy = uploading || coverPick.busy;
-  const imageError = coverPick.error || uploadError;
+  const image = useProjectImage(projectId);
+  const busy = image.busy;
+  const imageError = image.error;
 
   function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    setUploadError(null);
-    coverPick.pick(file);
+    image.pick(file);
   }
 
   if (thumb) {
@@ -1042,7 +1084,7 @@ function ProjectHero({
         {isOwner && (
           <>
             <input ref={fileRef} type="file" accept="image/*" onChange={handleImageUpload} hidden />
-            {coverPick.picker}
+            {image.picker}
             {imageError && (
               <p
                 role="alert"
@@ -1093,7 +1135,7 @@ function ProjectHero({
       {isOwner && (
         <>
           <input ref={fileRef} type="file" accept="image/*" onChange={handleImageUpload} hidden />
-          {coverPick.picker}
+          {image.picker}
           <button
             onClick={() => fileRef.current?.click()}
             disabled={busy}
@@ -1198,7 +1240,7 @@ function InlineEditableMediaLink({ project }: { project: any }) {
       }}
     >
       <MediaLinkField
-        variant="garden"
+        variant="gardenCompact"
         label="Link"
         placeholder="Instagram post or reel, TikTok, YouTube or Vimeo"
         value={draft}

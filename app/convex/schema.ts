@@ -494,8 +494,7 @@ export default defineSchema({
     .index("by_code", ["code"])
     .index("by_inviterId", ["inviterId"])
     .index("by_inviterId_usedBy", ["inviterId", "usedBy"])
-    .index("by_usedAt", ["usedAt"])
-    .index("by_usedBy", ["usedBy"]),
+    .index("by_usedAt", ["usedAt"]),
 
   // Embeddings for semantic search
   embeddings: defineTable({

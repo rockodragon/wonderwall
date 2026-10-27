@@ -11,6 +11,10 @@ Every sentence we say about money is defined here, word for word. Do not write a
 | Name | The sentence |
 |---|---|
 | **what it is** | creatives.exchange is where creatives find paid work, get backed by people who believe in them, and apply for grants. |
+| **hero** | Where creatives find their people, paid work, and support. (The front door's headline. "Support" is the patrons and the grants. It describes the platform, see "Never say" #4.) |
+| **hero, garden** | The Garden is where connections take root and creative opportunities grow. (Rick's words, 2026-10-27; The Garden's front door.) |
+| **hero, garden line** | Find your people, get hired, and get paid with a community rooted in faith that helps you flourish. (Under it.) |
+| **grant fund, home** | The Garden operates a grant fund to support community projects every month. There are advisor grants and member-directed grants. (Rick's words, 2026-10-27, The Garden's front door; "Total available: $…" follows it from the fund itself.) |
 | **join** | Joining is free. |
 | **backing** | When someone backs you for $100, you get $90. The other $10 runs the platform. |
 | **backing, short** | You keep 90% of what a backer gives you. |

@@ -303,10 +303,21 @@ const myProjects = [
   raising: false,
 }));
 
+/** A brand-new account, as Google hands it over: a name and nothing else.
+ *  `?fresh` in the address (/onboarding?fresh) is this person, so the
+ *  onboarding screens can be walked as a new member sees them. */
+const fresh = { _id: "me", userId: "u-me", name: "Rick Moy", interests: [], isAdmin: false, plan: "free", attributes: {} };
+const isFresh = () => new URLSearchParams(window.location.search).has("fresh");
+
 export const answers: Record<string, unknown | ((args: unknown) => unknown)> = {
   "garden/projectTeam:listAffiliations": myProjects,
   "invites:getInviteStats": null,
-  "profiles:getMyProfile": me,
+  "profiles:getMyProfile": () => (isFresh() ? fresh : me),
+  // Onboarding's address check: everything is free but "dee".
+  "handles:checkHandle": (args: unknown) => {
+    const handle = String((args as { handle?: string } | undefined)?.handle ?? "");
+    return handle === "dee" ? { ok: false, handle, reason: "Taken." } : { ok: true, handle };
+  },
   "profiles:getProfile": myPage,
   // People › Organizations: one you follow people in, one you don't.
   "organizations:list": [
@@ -350,4 +361,16 @@ export const answers: Record<string, unknown | ((args: unknown) => unknown)> = {
   "updates:listMine": updates,
   "updates:listPastMine": [],
   "invites:getMyInviteLink": { slug: "rick" },
+};
+
+/** What a mutation answers, by name, where a screen reads the answer; the
+ *  rest resolve to nothing. Nothing is saved anywhere. */
+export const replies: Record<string, unknown | ((args: unknown) => unknown)> = {
+  "profiles:upsertProfile": "me",
+  "garden/projects:createPassionProject": { projectId: "p-new" },
+  // Onboarding's mic: what the pick would come back with for any transcript.
+  "onboardingAssist:pickFromSpeech": (args: unknown) => ({
+    interests: ["Photography", "Filmmaking"],
+    line: String((args as { transcript?: string } | undefined)?.transcript ?? "").slice(0, 140),
+  }),
 };

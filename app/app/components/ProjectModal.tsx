@@ -10,18 +10,48 @@ import { describeMediaLink, MediaLinkField } from "./MediaLinkField";
 import { useLocationField } from "../lib/useLocationField";
 import { errorMessage } from "../lib/convexError";
 import type { Stage } from "../lib/stage";
+import { START_STAGES, type StartStage } from "../lib/shareProject";
 import { FocusBackdrop } from "./FocusBackdrop";
+import { gardenField } from "./gardenField";
+import { SheetExit } from "./SheetExit";
 
-// One modal for starting AND editing a project, in three short steps — the
-// same shape as the event modal (CreateEventModal): name it -> show it ->
-// where it lives. Pass `edit` to open it on an existing project.
+// One modal for starting AND editing a project, in four short screens, each
+// one thing: what it is called, a few words about it, a link to it, and the
+// details. Nothing about inviting people: that comes after the project is up.
+// Pass `edit` to open it on an existing project.
 //
-// Every field's state lives up here and all three panels stay mounted
+// Every field's state lives up here and all four panels stay mounted
 // (hidden when inactive), so Back never loses anything and the community
 // picker's one-time pre-fill can't overwrite a later choice.
 
-const STEPS = ["Name it", "Show it", "Where it lives"] as const;
-type Step = 1 | 2 | 3;
+export const PROJECT_STEPS = [
+  { id: "name", title: "What are you making?", editTitle: "Title" },
+  { id: "about", title: "Say a bit about it", editTitle: "About it" },
+  { id: "show", title: "Show it", editTitle: "Show it" },
+  { id: "details", title: "Details", editTitle: "Details" },
+] as const;
+export type ProjectStep = (typeof PROJECT_STEPS)[number]["id"];
+
+const stepIndex = (step: ProjectStep) => PROJECT_STEPS.findIndex((s) => s.id === step);
+export const stepAfter = (step: ProjectStep): ProjectStep =>
+  PROJECT_STEPS[Math.min(stepIndex(step) + 1, PROJECT_STEPS.length - 1)].id;
+export const stepBefore = (step: ProjectStep): ProjectStep => PROJECT_STEPS[Math.max(stepIndex(step) - 1, 0)].id;
+
+/** The screen's heading (Rick, 2026-10-27: the form's name isn't repeated
+ *  on every screen; the step's question takes that space). A new project
+ *  asks; finished work says "made"; an edit names the field. */
+export const stepTitle = (step: ProjectStep, finished: boolean, edit = false) =>
+  edit
+    ? PROJECT_STEPS[stepIndex(step)].editTitle
+    : finished && step === "name"
+      ? "What did you make?"
+      : PROJECT_STEPS[stepIndex(step)].title;
+
+/** The stage a new project posts in: the one the link asked for, else the
+ *  one picked on the first screen, else none (the server starts it in
+ *  Planning). */
+export const postedStage = (asked: Stage | undefined, picked: StartStage | undefined): Stage | undefined =>
+  asked ?? picked;
 
 /** An existing project, to edit with the same steps as create. */
 export type ProjectEditTarget = {
@@ -40,13 +70,19 @@ export type ProjectEditTarget = {
   organizationId?: Id<"organizations">;
 };
 
-const labelClass = "block text-xs uppercase tracking-[0.06em] mb-1.5";
-const inputClass = "w-full px-3 py-2 rounded-lg border text-sm outline-none";
-const inputStyle = {
-  backgroundColor: "var(--garden-ink)",
-  borderColor: "var(--garden-hairline-raised)",
-  color: "var(--garden-paper)",
-};
+/** A pill the person taps on or off: a stage, an interest. */
+function pillStyle(active: boolean) {
+  return {
+    fontFamily: "var(--garden-font-body)",
+    backgroundColor: active ? "var(--garden-citron)" : "var(--garden-ink)",
+    color: active ? "var(--garden-ink)" : "var(--garden-muted)",
+    border: `1px solid ${active ? "var(--garden-citron)" : "var(--garden-hairline-raised)"}`,
+  };
+}
+const PILL = "px-3.5 py-2 rounded-full text-sm font-medium transition-colors";
+// 44px tall: the pair has to fit under the sheet on a phone, with the
+// browser's own bar below it.
+const BUTTON = "min-h-11 rounded-lg text-[15px] disabled:opacity-50";
 
 export function ProjectModal({
   onClose,
@@ -55,6 +91,7 @@ export function ProjectModal({
   initialTitle,
   initialStage,
   initialStep,
+  inUrl,
 }: {
   onClose: () => void;
   /** Create only: where to go once the project exists. */
@@ -65,19 +102,24 @@ export function ProjectModal({
   /** Create only: the stage the project starts in, when the link asked for
    *  one (lib/shareProject.ts readStartStage). Finished work posts as a
    *  completed project, which is the profile's Portfolio; the heading says
-   *  so. */
+   *  so. Without one, the first screen asks. */
   initialStage?: Stage;
-  /** The step to open on: the project page's "Add a picture or link" opens
-   *  an edit on Show it. */
-  initialStep?: Step;
+  /** The screen to open on: the project page's "Add a link" opens an edit
+   *  on "show". */
+  initialStep?: ProjectStep;
+  /** True when the sheet is open because of the address (the Canvas's
+   *  ?create=project), so the browser's Back already closes it
+   *  (SheetExit.tsx). */
+  inUrl?: boolean;
 }) {
   const createPassionProject = useMutation(api.garden.projects.createPassionProject);
   const updateProject = useMutation(api.garden.projects.updateProject);
   const uid = useId();
   const finished = !edit && initialStage === "completed";
 
-  const [step, setStep] = useState<Step>(initialStep ?? 1);
+  const [step, setStep] = useState<ProjectStep>(initialStep ?? "name");
   const [title, setTitle] = useState(edit?.title ?? initialTitle ?? "");
+  const [pickedStage, setPickedStage] = useState<StartStage | undefined>(undefined);
   const [blurb, setBlurb] = useState(edit?.blurb ?? "");
   const [mediaUrl, setMediaUrl] = useState(edit?.mediaUrl ?? "");
   const location = useLocationField(edit);
@@ -91,6 +133,11 @@ export function ProjectModal({
   // changeable to "No community — just me".
   const defaultHostOrgId = useDefaultEventCommunity();
   const bodyRef = useRef<HTMLDivElement>(null);
+
+  const first = step === "name";
+  const last = step === "details";
+  // The first screen asks where it is, unless the link already said.
+  const asksStage = !edit && !initialStage;
 
   // The page behind shouldn't scroll under a sheet that fills the phone.
   useEffect(() => {
@@ -111,29 +158,27 @@ export function ProjectModal({
 
   function goNext() {
     setError("");
-    if (step === 1) {
-      if (!title.trim()) return;
-      setStep(2);
-    } else if (step === 2) {
+    if (step === "name" && !title.trim()) return;
+    if (step === "show") {
       const link = describeMediaLink(mediaUrl);
       if (link.state === "invalid") {
         setError(link.message);
         return;
       }
-      setStep(3);
     }
+    setStep(stepAfter(step));
   }
 
   async function submit() {
     setError("");
     if (!title.trim()) {
-      setStep(1);
+      setStep("name");
       setError("Give it a title.");
       return;
     }
     const link = describeMediaLink(mediaUrl);
     if (link.state === "invalid") {
-      setStep(2);
+      setStep("show");
       setError(link.message);
       return;
     }
@@ -163,7 +208,7 @@ export function ProjectModal({
       }
       const result = await createPassionProject({
         title: title.trim(),
-        stage: initialStage,
+        stage: postedStage(initialStage, pickedStage),
         blurb: blurb.trim() || undefined,
         mediaUrl: link.state === "ok" ? link.url : undefined,
         ...(remote ? {} : location.toArgs()),
@@ -182,42 +227,65 @@ export function ProjectModal({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (step < 3) goNext();
+    if (!last) goNext();
     else if (!saving) void submit();
   }
 
-  // Enter in a text box on the last step shouldn't save from inside the
+  // Enter in a text box on the last screen shouldn't save from inside the
   // location search.
   function handleFormKeyDown(e: React.KeyboardEvent<HTMLFormElement>) {
-    if (step === 3 && e.key === "Enter" && e.target instanceof HTMLInputElement) e.preventDefault();
+    if (last && e.key === "Enter" && e.target instanceof HTMLInputElement) e.preventDefault();
   }
 
-  const primaryDisabled = step === 1 ? !title.trim() : step === 3 ? saving : false;
-  const secondaryClass = "px-4 py-2.5 rounded-lg border text-[13.5px] font-medium disabled:opacity-50";
+  const panel = (id: ProjectStep) => `flex flex-col gap-6${step === id ? "" : " hidden"}`;
+  const primaryDisabled = first ? !title.trim() : last ? saving : false;
+  const secondaryStyle = { borderColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" };
 
   return (
     <FocusBackdrop>
+      {/* Escape and the browser's Back close it, unless it is saving. */}
+      <SheetExit onExit={() => !saving && onClose()} inUrl={inUrl} />
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby={`${uid}-heading`}
-        className="flex flex-col w-full h-[100dvh] sm:h-auto sm:max-h-[90vh] sm:max-w-md sm:rounded-2xl sm:border shadow-2xl"
+        className="flex flex-col w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-md sm:rounded-2xl sm:border shadow-2xl"
         style={{ backgroundColor: "var(--garden-ink-raised)", borderColor: "var(--garden-hairline)" }}
       >
-        <div className="px-5 sm:px-6 pt-5 pb-4 flex-shrink-0">
-          <div className="flex items-center justify-between">
+        {/* The stepper, then the screen's question. The sheet's name is in
+            the first question ("What are you making?"), not over every screen. */}
+        <div className="px-5 sm:px-6 pt-4 pb-3 flex-shrink-0">
+          <div
+            className="flex gap-1.5"
+            role="progressbar"
+            aria-label={`Step ${stepIndex(step) + 1} of ${PROJECT_STEPS.length}`}
+            aria-valuemin={1}
+            aria-valuemax={PROJECT_STEPS.length}
+            aria-valuenow={stepIndex(step) + 1}
+          >
+            {PROJECT_STEPS.map((s, i) => (
+              <div
+                key={s.id}
+                className="h-1 flex-1 rounded-full"
+                style={{
+                  backgroundColor: i <= stepIndex(step) ? "var(--garden-citron)" : "var(--garden-hairline-raised)",
+                }}
+              />
+            ))}
+          </div>
+          <div className="mt-4 flex items-start justify-between gap-3">
             <h2
               id={`${uid}-heading`}
-              className="text-xl font-semibold"
-              style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
+              className="text-2xl font-semibold leading-tight"
+              style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)", textWrap: "balance" }}
             >
-              {edit ? "Edit project" : finished ? "Share your work" : "Start a project"}
+              {stepTitle(step, finished, !!edit)}
             </h2>
             <button
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="-mr-2 w-10 h-10 flex items-center justify-center rounded-lg"
+              className="-mr-2.5 -mt-1.5 w-11 h-11 flex-shrink-0 flex items-center justify-center rounded-lg"
               style={{ color: "var(--garden-dim)" }}
             >
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -225,50 +293,53 @@ export function ProjectModal({
               </svg>
             </button>
           </div>
-          <div className="flex gap-1.5 mt-3" aria-hidden="true">
-            {[1, 2, 3].map((n) => (
-              <div
-                key={n}
-                className="h-1 flex-1 rounded-full"
-                style={{ backgroundColor: n <= step ? "var(--garden-citron)" : "var(--garden-hairline-raised)" }}
-              />
-            ))}
-          </div>
-          <p className="mt-2 text-sm" style={{ color: "var(--garden-dim)" }}>
-            {step} of 3 · {STEPS[step - 1]}
-          </p>
         </div>
 
         <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="flex flex-col flex-1 min-h-0">
-          <div ref={bodyRef} className="flex-1 min-h-0 px-5 sm:px-6 pb-4 overflow-y-auto">
-            {/* Step 1 — name it */}
-            <div className={step === 1 ? "flex flex-col gap-4" : "hidden"}>
-              {!edit && (
-                <p className="text-sm" style={{ color: "var(--garden-dim)" }}>
-                  {finished
-                    ? "Say what you made. A link to it comes next."
-                    : "Say what you're making. Once it's up, you can add the people you need and ask for support from its page."}
-                </p>
-              )}
-              <PostAsPicker value={organizationId} onChange={setOrganizationId} />
+          <div ref={bodyRef} className="flex-1 min-h-0 px-5 sm:px-6 pt-2 pb-6 overflow-y-auto">
+            {/* What are you making? */}
+            <div data-step="name" className={panel("name")}>
               <div>
-                <label htmlFor={`${uid}-title`} className={labelClass} style={{ color: "var(--garden-dim)" }}>
+                <label htmlFor={`${uid}-title`} className={gardenField.label} style={gardenField.labelStyle}>
                   Title
                 </label>
                 <input
                   id={`${uid}-title`}
-                  autoFocus
+                  autoFocus={first}
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="A short film about my grandmother's garden"
-                  className={inputClass}
-                  style={inputStyle}
+                  className={gardenField.input}
+                  style={gardenField.inputStyle}
                 />
               </div>
+              {asksStage && (
+                <div role="group" aria-label="Where it is" className="flex flex-wrap gap-2">
+                  {START_STAGES.map((s) => {
+                    const on = pickedStage === s.value;
+                    return (
+                      <button
+                        key={s.value}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => setPickedStage(on ? undefined : s.value)}
+                        className={PILL}
+                        style={pillStyle(on)}
+                      >
+                        {s.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Say a bit about it */}
+            <div data-step="about" className={panel("about")}>
               <div>
-                <label htmlFor={`${uid}-blurb`} className={labelClass} style={{ color: "var(--garden-dim)" }}>
-                  What is it
+                <label htmlFor={`${uid}-blurb`} className={gardenField.label} style={gardenField.labelStyle}>
+                  What is it (optional)
                 </label>
                 <textarea
                   id={`${uid}-blurb`}
@@ -276,14 +347,14 @@ export function ProjectModal({
                   onChange={(e) => setBlurb(e.target.value)}
                   rows={4}
                   placeholder={finished ? "What you made, and why" : "What you're making, and why"}
-                  className={`${inputClass} resize-none`}
-                  style={inputStyle}
+                  className={`${gardenField.input} resize-none`}
+                  style={gardenField.inputStyle}
                 />
               </div>
             </div>
 
-            {/* Step 2 — show it */}
-            <div className={step === 2 ? "flex flex-col gap-5" : "hidden"}>
+            {/* Show it */}
+            <div data-step="show" className={panel("show")}>
               <MediaLinkField
                 variant="garden"
                 label="Paste a link (optional)"
@@ -291,11 +362,15 @@ export function ProjectModal({
                 value={mediaUrl}
                 onChange={setMediaUrl}
               />
+            </div>
+
+            {/* Details: all of it optional */}
+            <div data-step="details" className={panel("details")}>
               <div>
-                <div className={labelClass} style={{ color: "var(--garden-dim)" }}>
+                <div className={gardenField.label} style={gardenField.labelStyle}>
                   Interests (optional)
                 </div>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-2">
                   {INTERESTS.map((tag) => {
                     const active = interests.includes(tag);
                     return (
@@ -304,46 +379,51 @@ export function ProjectModal({
                         type="button"
                         aria-pressed={active}
                         onClick={() => toggleInterest(tag)}
-                        className="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
-                        style={{
-                          fontFamily: "var(--garden-font-body)",
-                          backgroundColor: active ? "var(--garden-citron)" : "var(--garden-ink)",
-                          color: active ? "var(--garden-ink)" : "var(--garden-muted)",
-                          border: `1px solid ${active ? "var(--garden-citron)" : "var(--garden-hairline-raised)"}`,
-                        }}
+                        className={PILL}
+                        style={pillStyle(active)}
                       >
                         {tag}
                       </button>
                     );
                   })}
                 </div>
-                <p className="text-xs mt-1.5" style={{ color: "var(--garden-dim)" }}>
-                  What's this project about — helps people find it, separate from your own profile tags.
+                <p className={gardenField.hint} style={gardenField.hintStyle}>
+                  Helps people find your project.
                 </p>
               </div>
-            </div>
-
-            {/* Step 3 — where it lives */}
-            <div className={step === 3 ? "flex flex-col gap-4" : "hidden"}>
-              <label className="flex items-center gap-2 text-sm" style={{ color: "var(--garden-body)" }}>
-                <input type="checkbox" checked={remote} onChange={(e) => setRemote(e.target.checked)} />
-                This can be done remotely
-              </label>
-              {!remote && (
-                <div>
-                  <div className={labelClass} style={{ color: "var(--garden-dim)" }}>
-                    Location
-                  </div>
-                  <LocationAutocomplete
-                    value={location.value}
-                    onChange={location.onChange}
-                    onSelect={location.onSelect}
-                    placeholder="Search for a location, type 'Online', or 'TBD'"
+              <div>
+                <label className="flex items-center gap-3 min-h-11 text-[15px]" style={{ color: "var(--garden-body)" }}>
+                  <input
+                    type="checkbox"
+                    className="w-5 h-5"
+                    style={{ accentColor: "var(--garden-citron)" }}
+                    checked={remote}
+                    onChange={(e) => setRemote(e.target.checked)}
                   />
-                  <LocationVerifiedHint value={location.value} selected={location.selected} />
-                </div>
-              )}
-              <CommunityPicker value={hostOrgId} onChange={setHostOrgId} defaultHostOrgId={edit ? undefined : defaultHostOrgId} />
+                  This can be done remotely
+                </label>
+                {!remote && (
+                  <div className="mt-4">
+                    <div className={gardenField.label} style={gardenField.labelStyle}>
+                      Location
+                    </div>
+                    <LocationAutocomplete
+                      value={location.value}
+                      onChange={location.onChange}
+                      onSelect={location.onSelect}
+                      placeholder="Search for a location, type 'Online', or 'TBD'"
+                    />
+                    <LocationVerifiedHint value={location.value} selected={location.selected} />
+                  </div>
+                )}
+              </div>
+              <CommunityPicker
+                roomy
+                value={hostOrgId}
+                onChange={setHostOrgId}
+                defaultHostOrgId={edit ? undefined : defaultHostOrgId}
+              />
+              <PostAsPicker roomy value={organizationId} onChange={setOrganizationId} />
             </div>
           </div>
 
@@ -354,48 +434,40 @@ export function ProjectModal({
           )}
 
           <div
-            className="flex gap-3 px-5 sm:px-6 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-5 border-t flex-shrink-0"
+            className="flex gap-2.5 px-5 sm:px-6 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-4 border-t flex-shrink-0"
             style={{ borderColor: "var(--garden-hairline)" }}
           >
-            {step > 1 ? (
+            {first ? (
               <button
                 type="button"
-                onClick={() => {
-                  setError("");
-                  setStep((s) => (s > 1 ? ((s - 1) as Step) : s));
-                }}
-                disabled={saving}
-                className={secondaryClass}
-                style={{ borderColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
+                onClick={onClose}
+                className={`${BUTTON} px-4 border font-medium`}
+                style={secondaryStyle}
               >
-                Back
+                Cancel
               </button>
             ) : (
               <button
                 type="button"
-                onClick={onClose}
-                className={secondaryClass}
-                style={{ borderColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
+                onClick={() => {
+                  setError("");
+                  setStep(stepBefore(step));
+                }}
+                disabled={saving}
+                className={`${BUTTON} px-4 border font-medium`}
+                style={secondaryStyle}
               >
-                Cancel
+                Back
               </button>
             )}
             <button
-              key={step === 3 ? "save" : "next"}
+              key={last ? "save" : "next"}
               type="submit"
               disabled={primaryDisabled}
-              className="flex-1 px-4 py-2.5 rounded-lg text-[13.5px] font-semibold disabled:opacity-50"
+              className={`${BUTTON} flex-1 px-4 font-semibold`}
               style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
             >
-              {step < 3
-                ? "Next"
-                : edit
-                  ? saving
-                    ? "Saving…"
-                    : "Save changes"
-                  : saving
-                    ? "Creating…"
-                    : "Create project"}
+              {!last ? "Next" : edit ? (saving ? "Saving…" : "Save changes") : saving ? "Posting…" : "Post it"}
             </button>
           </div>
         </form>

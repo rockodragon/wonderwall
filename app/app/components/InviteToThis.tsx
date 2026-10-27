@@ -6,13 +6,18 @@
 // (lib/carriedInvite.ts), so a friend who signs up from it gets in and it
 // counts as theirs.
 //
-// A finished piece with nothing to look at yet (a project shared as
-// "Finished it" with no picture, link or attached piece) asks for that
-// first: the owner adds a link, and the invite card takes over once there
-// is something to show. The hero's own "Add image" button adds the image.
+// A project with nothing to look at yet (no picture, link or attached piece:
+// a title and a line are enough to post from onboarding, Rick 2026-10-27)
+// asks for that first, at any stage: "Add a picture" uploads right here (the
+// same upload as the hero's "Add image"), "Add a link" opens the edit on its
+// Show it screen, and the invite card takes over once there is something to
+// show (lib/justPublished.ts needsPictureOrLink).
 
+import { useRef } from "react";
+import type { ChangeEvent } from "react";
 import { useSearchParams } from "react-router";
 import { useInviteLink } from "../lib/useInviteLink";
+import type { CoverPick } from "../lib/useCoverPick";
 import { JUST_PUBLISHED_PARAM } from "../lib/justPublished";
 import { InviteIcon } from "./InviteCTA";
 
@@ -25,6 +30,7 @@ export function InviteToThis({
   owner,
   className,
   needsMedia,
+  picture,
   onAddLink,
 }: {
   path: string;
@@ -32,8 +38,11 @@ export function InviteToThis({
   owner: boolean;
   /** Around the card, so a page's spacing goes with it when it's hidden. */
   className?: string;
-  /** A finished project with no picture, link or piece yet. */
+  /** A project with no picture, link or piece yet. */
   needsMedia?: boolean;
+  /** The project's picture upload: frames, stores and saves what's picked,
+   *  and shows `error` when it can't. Without it there's no "Add a picture". */
+  picture?: CoverPick;
   /** Opens the project's edit on its Show it step. */
   onAddLink?: () => void;
 }) {
@@ -65,8 +74,8 @@ export function InviteToThis({
     : undefined;
   return (
     <div className={className}>
-      {needsMedia && onAddLink ? (
-        <AddMediaCard onAddLink={onAddLink} onDone={done} />
+      {needsMedia && (picture || onAddLink) ? (
+        <AddMediaCard picture={picture} onAddLink={onAddLink} onDone={done} />
       ) : (
         <InviteCard path={path} title={title} onDone={done} onSayWhoYouNeed={sayWho} />
       )}
@@ -74,25 +83,56 @@ export function InviteToThis({
   );
 }
 
-function AddMediaCard({ onAddLink, onDone }: { onAddLink: () => void; onDone: () => void }) {
+function AddMediaCard({
+  picture,
+  onAddLink,
+  onDone,
+}: {
+  picture?: CoverPick;
+  onAddLink?: () => void;
+  onDone: () => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  function onFile(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    // Cleared so the same file can be picked again after an error.
+    e.target.value = "";
+    if (file) picture?.pick(file);
+  }
   return (
     <section
-      aria-label="Add an image or a link"
+      aria-label="Add a picture or a link"
       className="rounded-xl border px-5 py-4"
       style={{ borderColor: "var(--app-hairline-raised)", background: "var(--app-surface-raised)" }}
     >
       <p className="text-[15px] font-semibold" style={{ color: "var(--app-text)" }}>
-        It's up. Add an image or a link.
+        It's up. Add a picture or a link.
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={onAddLink}
-          className={buttonClass}
-          style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text)" }}
-        >
-          Add a link
-        </button>
+        {picture && (
+          <>
+            <input ref={fileRef} type="file" accept="image/*" onChange={onFile} hidden />
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={picture.busy}
+              className={buttonClass}
+              style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text)" }}
+            >
+              {picture.busy ? "Uploading…" : "Add a picture"}
+            </button>
+          </>
+        )}
+        {onAddLink && (
+          <button
+            type="button"
+            onClick={onAddLink}
+            className={buttonClass}
+            style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text)" }}
+          >
+            Add a link
+          </button>
+        )}
         <button
           type="button"
           onClick={onDone}
@@ -102,6 +142,13 @@ function AddMediaCard({ onAddLink, onDone }: { onAddLink: () => void; onDone: ()
           Done
         </button>
       </div>
+      {picture?.error && (
+        <p role="alert" className="mt-2 text-[14px] text-red-600 dark:text-red-400">
+          {picture.error}
+        </p>
+      )}
+      {/* The framer, when the picture isn't 4:5. */}
+      {picture?.picker}
     </section>
   );
 }
@@ -143,7 +190,7 @@ function InviteCard({
           }}
         >
           <InviteIcon className="w-4 h-4" />
-          {link.copied ? "Link copied" : "Copy your link"}
+          {link.copied ? "Link copied" : "Invite a friend"}
         </button>
         {link.canShare && (
           <button
