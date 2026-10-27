@@ -1,20 +1,15 @@
-// The top of an invite link (routes/signup.tsx): who invited you, to what, in
-// the community's own words, and that joining is free (CLAIMS.join). On a
-// Garden domain: The Garden's mark, its tagline and the first paragraph of its
-// description, from host tools as on its home page (brand/GardenHome.tsx);
-// nothing about The Garden is written here. Elsewhere: TheCreative.exchange's
-// name. Nothing about other members: anyone with the link sees this.
+// The top of an invite link (routes/signup.tsx): who invited you, to what, and
+// that joining is free (CLAIMS.join). On a Garden domain: The Garden's mark
+// and the one line its home page leads with (CLAIMS.heroGarden); the
+// community's tagline and description were too much here (Rick, 2026-10-27).
+// Elsewhere: TheCreative.exchange's name. Nothing about other members: anyone
+// with the link sees this.
 
-import { useQuery } from "convex/react";
-import { api } from "../../convex/_generated/api";
 import { GARDEN_NAME, PLATFORM_NAME } from "../../convex/garden/brandHosts";
 import { useBrand } from "../brand/brands";
 import { GardenLockupThemed } from "../brand/GardenMark";
 import { CLAIMS } from "../constants/claims";
 import { shownInterests } from "../constants/interests";
-import { GARDEN_SLUG } from "../lib/communitySlugs";
-import { stripInlineMarks } from "../lib/richText";
-import { textParagraphs } from "../lib/textParagraphs";
 import { PersonAvatar } from "./PersonAvatar";
 
 /** The inviter's interests shown: a few, not their whole list. */
@@ -26,10 +21,7 @@ export function InviteWelcome({
   inviter: { name: string; imageUrl?: string | null; interests?: readonly string[] };
 }) {
   const garden = useBrand() === "garden";
-  const landing = useQuery(api.garden.communityDomains.getCommunityLanding, garden ? { slug: GARDEN_SLUG } : "skip");
   const place = garden ? GARDEN_NAME : PLATFORM_NAME;
-  const tagline = landing?.tagline ? stripInlineMarks(landing.tagline).trim() : null;
-  const [lead] = textParagraphs(landing?.description, stripInlineMarks);
   const interests = shownInterests(inviter.interests).slice(0, INVITER_INTERESTS);
 
   return (
@@ -50,13 +42,12 @@ export function InviteWelcome({
           )}
         </div>
       </div>
-      {(tagline || lead) && (
-        <div className="mt-5 border-t border-gray-100 pt-5 dark:border-gray-700">
-          {tagline && <p className="text-[15px] font-semibold text-gray-900 dark:text-white">{tagline}</p>}
-          {lead && <p className="mt-1.5 text-[15px] leading-relaxed text-gray-700 dark:text-gray-300">{lead}</p>}
-        </div>
+      {garden && (
+        <p className="mt-5 border-t border-gray-100 pt-5 text-[15px] font-semibold leading-snug text-gray-900 dark:border-gray-700 dark:text-white">
+          {CLAIMS.heroGarden}
+        </p>
       )}
-      <p className={`text-[13.5px] font-medium text-gray-600 dark:text-gray-400 ${tagline || lead ? "mt-3" : "mt-5"}`}>
+      <p className={`text-[13.5px] font-medium text-gray-600 dark:text-gray-400 ${garden ? "mt-3" : "mt-5"}`}>
         {CLAIMS.join}
       </p>
     </section>
