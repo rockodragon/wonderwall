@@ -31,7 +31,12 @@ export type RecognitionCtor = new () => Recognition;
 
 /** The browser's recognizer, or null where there is none (or no window). */
 export function recognitionCtor(win: unknown = typeof window === "undefined" ? undefined : window): RecognitionCtor | null {
-  const w = win as { SpeechRecognition?: RecognitionCtor; webkitSpeechRecognition?: RecognitionCtor } | undefined;
+  const w = win as
+    | { SpeechRecognition?: RecognitionCtor; webkitSpeechRecognition?: RecognitionCtor; navigator?: { brave?: unknown } }
+    | undefined;
+  // Brave has the recognizer but not the speech service behind it, so it
+  // stops at once and hears nothing (Rick, 2026-10-27): no mic there.
+  if (w?.navigator?.brave) return null;
   return w?.SpeechRecognition ?? w?.webkitSpeechRecognition ?? null;
 }
 
@@ -45,7 +50,7 @@ export function speechErrorMessage(code: string): string | null {
     case "service-not-allowed":
       return "Microphone access was blocked.";
     case "no-speech":
-      return "Didn't catch that. Try again.";
+      return "Didn't catch that. Try again, or type it.";
     case "audio-capture":
       return "No microphone was found.";
     case "network":
@@ -126,7 +131,9 @@ export function createSpeechSession(
       recognition.onend = () => {
         if (active === recognition) {
           active = null;
-          set({ listening: false });
+          // Ended with nothing heard and no error from the browser: say so,
+          // rather than the mic just going quiet.
+          set(state.transcript.trim() ? { listening: false } : { listening: false, error: speechErrorMessage("no-speech") });
         }
       };
       active = recognition;

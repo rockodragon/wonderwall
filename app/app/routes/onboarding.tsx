@@ -47,7 +47,7 @@ import { useBack } from "../lib/useBack";
 import { useFileUpload } from "../lib/useFileUpload";
 import { claimPendingAddress, useHandleCheck } from "../lib/useHandleCheck";
 import { useLocationField } from "../lib/useLocationField";
-import { useSpeech } from "../lib/useSpeech";
+import { useSpeech, useSpeechSupported } from "../lib/useSpeech";
 
 // What a new account sees, one question to a screen (Rick, 2026-10-27: new
 // members only answered "what are you into" and were sent to post a project,
@@ -421,9 +421,48 @@ function useSpoken(
   };
 }
 
-/** Under a field with a mic: what's happening, or what went wrong. */
-function SpokenNote({ listening, working, error }: { listening: boolean; working: boolean; error: string | null }) {
-  const text = error || (listening ? "Listening. Tap the mic to stop." : working ? "Sorting that out…" : null);
+/** A text box that also listens: the mic sits inside it, at the right, and
+ *  the placeholder says so ("Talk or type") where the browser can listen
+ *  (Rick, 2026-10-27). Elsewhere it is a plain box and draws no mic. */
+function SpokenTextarea({
+  id,
+  value,
+  onChange,
+  placeholder,
+  listening,
+  onStart,
+  onStop,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  listening: boolean;
+  onStart: () => void;
+  onStop: () => void;
+}) {
+  const canListen = useSpeechSupported();
+  const hint = !canListen ? placeholder : listening ? "Listening… tap the mic to stop" : `Talk or type. ${placeholder}`;
+  return (
+    <div className="relative mt-1">
+      <textarea
+        id={id}
+        rows={2}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={hint}
+        className={`resize-none ${FIELD} ${canListen ? "pr-16" : ""}`}
+        style={{ backgroundColor: RAISED, borderColor: LINE, color: PAPER }}
+      />
+      <MicButton listening={listening} onStart={onStart} onStop={onStop} className="absolute right-2 top-1/2 -translate-y-1/2" />
+    </div>
+  );
+}
+
+/** Under a field with a mic: what went wrong, or that the words are being
+ *  sorted. Listening itself is said in the box (SpokenTextarea). */
+function SpokenNote({ working, error }: { working: boolean; error: string | null }) {
+  const text = error || (working ? "Sorting that out…" : null);
   if (!text) return null;
   return (
     <p role={error ? "alert" : "status"} className={HELP} style={{ color: error ? ERROR : BODY }}>
@@ -821,22 +860,19 @@ function AboutStep({
       <Heading>About you</Heading>
 
       <div className="mt-8">
-        <div className="flex items-center justify-between gap-3">
-          <label htmlFor="onboarding-bio" className={LABEL} style={{ color: PAPER }}>
-            A line about you (optional)
-          </label>
-          <MicButton listening={speech.listening} onStart={heard.start} onStop={speech.stop} />
-        </div>
-        <textarea
+        <label htmlFor="onboarding-bio" className={LABEL} style={{ color: PAPER }}>
+          A line about you (optional)
+        </label>
+        <SpokenTextarea
           id="onboarding-bio"
-          rows={2}
           value={draft.bio}
-          onChange={(e) => set("bio", e.target.value)}
+          onChange={(bio) => set("bio", bio)}
           placeholder="Who you are, in a sentence"
-          className={`mt-1 resize-none ${FIELD}`}
-          style={{ backgroundColor: RAISED, borderColor: LINE, color: PAPER }}
+          listening={speech.listening}
+          onStart={heard.start}
+          onStop={speech.stop}
         />
-        <SpokenNote listening={speech.listening} working={sorting} error={speech.error ?? micError} />
+        <SpokenNote working={sorting} error={speech.error ?? micError} />
       </div>
 
       {role === "partner" ? (
@@ -1026,22 +1062,19 @@ function ProjectStep({
       </div>
 
       <div className="mt-8">
-        <div className="flex items-center justify-between gap-3">
-          <label htmlFor="onboarding-blurb" className={LABEL} style={{ color: PAPER }}>
-            What is it (optional)
-          </label>
-          <MicButton listening={speech.listening} onStart={heard.start} onStop={speech.stop} />
-        </div>
-        <textarea
+        <label htmlFor="onboarding-blurb" className={LABEL} style={{ color: PAPER }}>
+          What is it (optional)
+        </label>
+        <SpokenTextarea
           id="onboarding-blurb"
-          rows={2}
           value={draft.blurb}
-          onChange={(e) => set("blurb", e.target.value)}
+          onChange={(blurb) => set("blurb", blurb)}
           placeholder={draft.stage === "completed" ? "What you made, and why" : "What you're making, and why"}
-          className={`mt-1 resize-none ${FIELD}`}
-          style={{ backgroundColor: RAISED, borderColor: LINE, color: PAPER }}
+          listening={speech.listening}
+          onStart={heard.start}
+          onStop={speech.stop}
         />
-        <SpokenNote listening={speech.listening} working={false} error={speech.error} />
+        <SpokenNote working={false} error={speech.error} />
       </div>
 
       <div className="mt-8">

@@ -23,6 +23,13 @@ vi.mock("convex/react", () => ({
   useConvexAuth: () => ({ isAuthenticated: true, isLoading: false }),
 }));
 vi.mock("@posthog/react", () => ({ usePostHog: () => undefined }));
+// Whether the browser can listen: never in a server render, unless a test
+// says so to see the mic.
+let canListen = false;
+vi.mock("../lib/useSpeech", async (original) => ({
+  ...(await original<typeof import("../lib/useSpeech")>()),
+  useSpeechSupported: () => canListen,
+}));
 
 const name = (ref: Parameters<typeof getFunctionName>[0]) => getFunctionName(ref);
 
@@ -409,10 +416,22 @@ describe("step 3, about you", () => {
     for (const step of [undefined, 2, 4]) expect(page(step)).not.toContain("onboarding-email");
   });
 
-  it("puts the mic beside 'A line about you', only where the browser can listen (never in a server render)", () => {
+  it("draws no mic where the browser can't listen, and the box asks plainly", () => {
     const html = page(3);
-    expect(html).toMatch(/<label[^>]*for="onboarding-bio"[^>]*>A line about you \(optional\)<\/label><\/div>/);
+    expect(html).toMatch(/<label[^>]*for="onboarding-bio"[^>]*>A line about you \(optional\)<\/label><div class="relative mt-1"><textarea/);
     expect(html).not.toContain('aria-label="Talk instead"');
+    expect(html).toMatch(/<textarea[^>]*id="onboarding-bio"[^>]*placeholder="Who you are, in a sentence"/);
+  });
+
+  it("puts the mic inside the box where the browser can listen, and the box says talk or type", () => {
+    canListen = true;
+    try {
+      const html = page(3);
+      expect(html).toMatch(/<textarea[^>]*id="onboarding-bio"[^>]*placeholder="Talk or type. Who you are, in a sentence"[^>]*pr-16/);
+      expect(html).toMatch(/<textarea[^>]*id="onboarding-bio"[^>]*>[^<]*<\/textarea><button[^>]*aria-label="Talk instead"[^>]*absolute right-2/);
+    } finally {
+      canListen = false;
+    }
   });
 
   it("checks the email on the server, in its own words, not the browser's", () => {
@@ -447,10 +466,16 @@ describe("step 4, the project", () => {
     expect(html).toMatch(/<button type="submit" disabled=""[^>]*>Share it<\/button>/);
   });
 
-  it("puts the mic beside 'What is it', only where the browser can listen (never in a server render)", () => {
-    const html = page(4);
-    expect(html).toMatch(/<label[^>]*for="onboarding-blurb"[^>]*>What is it \(optional\)<\/label><\/div>/);
-    expect(html).not.toContain('aria-label="Talk instead"');
+  it("puts the mic inside 'What is it' only where the browser can listen (never in a server render)", () => {
+    expect(page(4)).not.toContain('aria-label="Talk instead"');
+    canListen = true;
+    try {
+      const html = page(4);
+      expect(html).toMatch(/<textarea[^>]*id="onboarding-blurb"[^>]*placeholder="Talk or type. What you(?:'|&#x27;)re making, and why"/);
+      expect(html).toMatch(/<textarea[^>]*id="onboarding-blurb"[^>]*><\/textarea><button[^>]*aria-label="Talk instead"/);
+    } finally {
+      canListen = false;
+    }
   });
 
   it("is filled in from the title typed on the front door", () => {

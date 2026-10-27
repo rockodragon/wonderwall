@@ -67,13 +67,19 @@ describe("recognitionCtor", () => {
   it("is none on the server, where there is no window", () => {
     expect(recognitionCtor()).toBeNull();
   });
+
+  it("is none in Brave, which has the recognizer but never hears anything", () => {
+    class Prefixed {}
+    expect(recognitionCtor({ webkitSpeechRecognition: Prefixed, navigator: { brave: {} } })).toBeNull();
+    expect(recognitionCtor({ webkitSpeechRecognition: Prefixed, navigator: {} })).toBe(Prefixed);
+  });
 });
 
 describe("speechErrorMessage", () => {
   it("says one plain sentence for each code", () => {
     expect(speechErrorMessage("not-allowed")).toBe("Microphone access was blocked.");
     expect(speechErrorMessage("service-not-allowed")).toBe("Microphone access was blocked.");
-    expect(speechErrorMessage("no-speech")).toBe("Didn't catch that. Try again.");
+    expect(speechErrorMessage("no-speech")).toBe("Didn't catch that. Try again, or type it.");
     expect(speechErrorMessage("audio-capture")).toBe("No microphone was found.");
     expect(speechErrorMessage("network")).toBe("Speech needs an internet connection. Try again.");
     expect(speechErrorMessage("language-not-supported")).toBe("Couldn't hear that. Try again.");
@@ -143,6 +149,13 @@ describe("a speech session", () => {
     expect(last()).toEqual({ listening: false, transcript: "I write poems", error: null });
   });
 
+  it("says it heard nothing when it ends with no words and no error, rather than going quiet", () => {
+    const { session, last, recognizer } = setup();
+    session.start();
+    recognizer().end();
+    expect(last()).toEqual({ listening: false, transcript: "", error: "Didn't catch that. Try again, or type it." });
+  });
+
   it("does not start a second recognizer while one is listening", () => {
     const { session } = setup();
     session.start();
@@ -175,7 +188,7 @@ describe("a speech session", () => {
     const { session, last, recognizer } = setup();
     session.start();
     recognizer().fail("no-speech");
-    expect(last().error).toBe("Didn't catch that. Try again.");
+    expect(last().error).toBe("Didn't catch that. Try again, or type it.");
     session.start();
     expect(FakeRecognition.made).toHaveLength(2);
     expect(last()).toEqual({ listening: true, transcript: "", error: null });
