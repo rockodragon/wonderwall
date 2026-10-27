@@ -32,7 +32,7 @@ import { OrgLogo } from "../components/OrgLogo";
 import { PersonAvatar } from "../components/PersonAvatar";
 import { shownInterests } from "../constants/interests";
 import { formatDate } from "../garden/ui";
-import { errorMessage } from "../lib/convexError";
+import { errorCode, errorMessage } from "../lib/convexError";
 import { timeAgo } from "../lib/dates";
 import { useIsAdmin } from "../lib/useIsAdmin";
 
@@ -153,7 +153,8 @@ type GroupProps<T> = {
   idOf: (m: T) => string;
   card: (m: T) => ReactNode;
   preview: (keep: T, others: T[]) => Promise<Plan>;
-  merge: (keep: T, others: T[]) => Promise<Plan>;
+  /** `expected`: the fingerprint of the preview the person confirmed. */
+  merge: (keep: T, others: T[], expected: string) => Promise<Plan>;
   dismiss: () => Promise<unknown>;
   onDone: (plan: Plan) => void;
 };
@@ -211,9 +212,16 @@ function DuplicateGroup<T>({ title, reasons, members, idOf, card, preview, merge
     setError(null);
     setBusy("merge");
     try {
-      onDone(await merge(byId(shown.keepId), shown.mergeIds.map(byId)));
+      onDone(await merge(byId(shown.keepId), shown.mergeIds.map(byId), shown.plan.fingerprint));
     } catch (err) {
-      setError(errorMessage(err, "The merge didn't go through. Nothing was changed."));
+      const message = errorMessage(err, "The merge didn't go through. Nothing was changed.");
+      if (errorCode(err) === "preview_out_of_date") {
+        // Show what it would do now, and say why.
+        await showPreview(shown.keepId, ticked);
+        setError(message);
+        return;
+      }
+      setError(message);
       setBusy(null);
     }
   }
@@ -333,6 +341,15 @@ function DuplicateGroup<T>({ title, reasons, members, idOf, card, preview, merge
             If you keep {plan.keep.name}
             {plan.keep.contact ? ` (${plan.keep.contact})` : ""}:
           </h4>
+          {plan.alerts.length > 0 && (
+            <AdminNotice tone="error" className="mt-3">
+              <ul className="space-y-1 font-semibold">
+                {plan.alerts.map((a) => (
+                  <li key={a}>{a}</li>
+                ))}
+              </ul>
+            </AdminNotice>
+          )}
           <ul className={`${admin.body} mt-2 list-disc space-y-1 pl-5`}>
             {plan.lines.map((line) => (
               <li key={line}>{line}</li>
@@ -396,7 +413,7 @@ function PeopleGroup({ group, onDone }: { group: PersonGroup; onDone: (plan: Pla
       idOf={(m) => m.userId}
       card={(m) => <PersonCard person={m} />}
       preview={(keep, others) => preview({ keepUserId: keep.userId, mergeUserIds: ids(others) })}
-      merge={(keep, others) => merge({ keepUserId: keep.userId, mergeUserIds: ids(others) })}
+      merge={(keep, others, expected) => merge({ keepUserId: keep.userId, mergeUserIds: ids(others), expected })}
       dismiss={() => dismiss({ kind: "person", ids: group.members.map((m) => m.userId) })}
       onDone={onDone}
     />
@@ -520,7 +537,7 @@ function OrgsGroup({ group, onDone }: { group: OrgGroup; onDone: (plan: Plan) =>
       idOf={(m) => m.organizationId}
       card={(m) => <OrgCard org={m} />}
       preview={(keep, others) => preview({ keepId: keep.organizationId, mergeIds: ids(others) })}
-      merge={(keep, others) => merge({ keepId: keep.organizationId, mergeIds: ids(others) })}
+      merge={(keep, others, expected) => merge({ keepId: keep.organizationId, mergeIds: ids(others), expected })}
       dismiss={() => dismiss({ kind: "organization", ids: group.members.map((m) => m.organizationId) })}
       onDone={onDone}
     />

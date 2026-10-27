@@ -31,37 +31,35 @@ describe("the lists name every field that points at an account", () => {
 
 // A merge reads only the rows that point at an account where the field has
 // an index, so it stays inside Convex's limit on what one mutation may read.
-// These fields have none and are read from their whole table, once per
-// merge. A new one lands here on purpose, or gets an index.
+// These tables have a field with none, so each is read whole, once per
+// merge, and all its fields from that copy. A new one lands here on
+// purpose, or gets an index.
 const READ_WHOLE = [
-  "announcements.senderUserId",
-  "apGiftSubscriptions.userId",
-  "conversations.participants",
-  "crawlerRuns.triggeredBy",
-  "creativePayouts.recordedByUserId",
-  "duplicateDismissals.dismissedByUserId",
-  "engagementLoops.updatedBy",
-  "events.coHostIds",
-  "events.displayHosts",
-  "externalTicketExceptions.resolvedByUserId",
-  "gardenTables.coHostIds",
-  "gardenTables.pausedByUserId",
-  "gigResponses.profileId",
-  "gigSeries.hostUserId",
-  "grantProposals.decidedByUserId",
-  "jobInterests.profileId",
-  "offeringReports.reporterId",
-  "offeringReports.resolvedBy",
-  "offerings.pausedBy",
-  "organizations.createdByUserId",
-  "reports.reviewedBy",
-  "showcaseApplications.decidedBy",
-  "storyUpdates.authorUserId",
-  "tableAttendance.recordedByUserId",
-  "tableCheckoutHolds.payeeUserId",
-  "tableMembershipHistory.recordedByUserId",
-  "updates.createdBy",
-  "waitlist.approvedBy",
+  "announcements",
+  "apGiftSubscriptions",
+  "conversations",
+  "crawlerRuns",
+  "creativePayouts",
+  "duplicateDismissals",
+  "engagementLoops",
+  "events",
+  "externalTicketExceptions",
+  "gardenTables",
+  "gigResponses",
+  "gigSeries",
+  "grantProposals",
+  "jobInterests",
+  "offeringReports",
+  "offerings",
+  "organizations",
+  "reports",
+  "showcaseApplications",
+  "storyUpdates",
+  "tableAttendance",
+  "tableCheckoutHolds",
+  "tableMembershipHistory",
+  "updates",
+  "waitlist",
 ];
 
 type Indexes = { " indexes"(): { indexDescriptor: string; fields: string[] }[] };
@@ -81,13 +79,16 @@ describe("how a merge reads each field", () => {
     }
   });
 
-  it("reads a whole table only for a field with no index, and says which", () => {
-    const whole = all.filter((r) => !r.index);
-    for (const ref of whole) {
-      const usable = indexesOf(ref.table).filter((i) => i.fields[0] === ref.field);
-      expect(usable, `${ref.table}.${ref.field} could use ${usable[0]?.indexDescriptor}`).toEqual([]);
+  it("a table is read whole only when a field of it has no index, and then wholly", () => {
+    const whole = [...new Set(all.filter((r) => !r.index).map((r) => r.table))].sort();
+    expect(whole).toEqual(READ_WHOLE);
+    for (const table of whole) {
+      const fields = all.filter((r) => r.table === table);
+      // Read whole anyway: an index on another field would save nothing.
+      expect(fields.filter((r) => r.index).map((r) => r.field), table).toEqual([]);
+      const needsWhole = fields.filter((r) => !indexesOf(table).some((i) => i.fields[0] === r.field));
+      expect(needsWhole.length, `${table} could be read by index`).toBeGreaterThan(0);
     }
-    expect(whole.map((r) => `${r.table}.${r.field}`).sort()).toEqual(READ_WHOLE);
   });
 });
 
@@ -252,8 +253,7 @@ describe("mergeUsers with moveContent", () => {
     const { scans } = checkIndexes(ctx);
     await merge(ctx);
     expect(new Set(scans).size).toBe(scans.length);
-    const wholeTables = new Set(READ_WHOLE.map((k) => k.split(".")[0]));
-    expect(scans.filter((t) => !wholeTables.has(t))).toEqual([]);
+    expect(scans.filter((t) => !READ_WHOLE.includes(t))).toEqual([]);
     expect(ctx.store.notifications[0].relatedUserId).toBe(TGT);
     expect(ctx.store.conversations[0].participants).toEqual([TGT, FAN]);
   });
@@ -267,7 +267,7 @@ describe("mergeUsers with moveContent", () => {
       ],
     });
     const { results } = await merge(ctx, true);
-    expect(results[0].conversations).toEqual({ withEachOther: 1, combined: 0 });
+    expect(results[0].wouldMove.conversations).toEqual({ withEachOther: 1, combined: 0 });
     await merge(ctx);
     expect(ctx.store.conversations).toEqual([]);
     expect(ctx.store.messages).toEqual([]);
@@ -295,6 +295,99 @@ describe("mergeUsers with moveContent", () => {
     ]);
     expect(ctx.store.messages.map((m: Row) => m.conversationId)).toEqual(["conversations:kept", "conversations:kept"]);
     expect(ctx.store.notifications[0]).toMatchObject({ userId: TGT, linkUrl: "/messages/conversations:kept" });
+  });
+
+  it("a dry run of several copies reports exactly what the merge then moves, drops and combines", async () => {
+    const SRC2 = "users:src2";
+    const P_SRC2 = "profiles:src2";
+    const three = () =>
+      world({
+        users: [{ _id: SRC }, { _id: SRC2 }, { _id: TGT }, { _id: FAN }, { _id: FAN2 }],
+        profiles: [
+          { _id: P_SRC, userId: SRC, name: "Sarah Shreves", interests: [], createdAt: 1, updatedAt: 1 },
+          { _id: P_SRC2, userId: SRC2, name: "Sarah Shreves", interests: [], createdAt: 1, updatedAt: 1 },
+          { _id: P_TGT, userId: TGT, name: "Sarah Shreves", interests: [], createdAt: 2, updatedAt: 2 },
+          { _id: "profiles:fan", userId: FAN, name: "Fan", interests: [], createdAt: 3, updatedAt: 3 },
+        ],
+        // Both copies talk to Fan; the kept one doesn't yet. The copies
+        // also talk to each other.
+        conversations: [
+          { _id: "conversations:a", participants: [SRC, FAN], lastMessageAt: 1, createdAt: 1 },
+          { _id: "conversations:b", participants: [SRC2, FAN], lastMessageAt: 2, createdAt: 2 },
+          { _id: "conversations:ab", participants: [SRC, SRC2], lastMessageAt: 3, createdAt: 3 },
+        ],
+        messages: [
+          { _id: "messages:a", conversationId: "conversations:a", senderId: SRC, content: "a", createdAt: 1 },
+          { _id: "messages:b", conversationId: "conversations:b", senderId: SRC2, content: "b", createdAt: 2 },
+          { _id: "messages:ab", conversationId: "conversations:ab", senderId: SRC2, content: "ab", createdAt: 3 },
+        ],
+        // Fan follows both copies: one follow of the kept one, after.
+        favorites: [
+          { _id: "favorites:1", userId: FAN, targetType: "profile", targetId: P_SRC },
+          { _id: "favorites:2", userId: FAN, targetType: "profile", targetId: P_SRC2 },
+        ],
+      });
+    const args = (dryRun: boolean) => ({ targetUserId: TGT, sourceUserIds: [SRC, SRC2], dryRun, moveContent: true });
+    const ctx = three();
+    const before = rows(ctx.store);
+    const dry = (await run(mergeUsers, ctx, args(true))).results;
+    expect(rows(ctx.store)).toBe(before);
+    const real = (await run(mergeUsers, ctx, args(false))).results;
+    for (let i = 0; i < 2; i++) {
+      const { moved, droppedDuplicates, conversations } = real[i].contentMoved;
+      expect(dry[i].wouldMove).toEqual({ moved, droppedDuplicates, conversations });
+    }
+    // The first copy's talk with Fan moves, and its talk with the other copy
+    // goes (a talk with yourself); the second's with Fan is combined into it.
+    expect(real[0].contentMoved.conversations).toEqual({ withEachOther: 1, combined: 0 });
+    expect(real[1].contentMoved.conversations).toEqual({ withEachOther: 0, combined: 1 });
+    expect(ctx.store.conversations).toEqual([expect.objectContaining({ _id: "conversations:a", participants: [TGT, FAN] })]);
+    expect(ctx.store.messages.map((m: Row) => m._id)).toEqual(["messages:a", "messages:b"]);
+    expect(real[1].contentMoved.droppedDuplicates).toEqual({ "favorites.targetId": 1 });
+  });
+
+  it("drops the other copy's password for the kept account's own address", async () => {
+    const ctx = world({
+      users: [{ _id: SRC, email: "victim@example.com" }, { _id: TGT, email: "Victim@example.com", emailVerificationTime: 1 }, { _id: FAN }, { _id: FAN2 }],
+      authAccounts: [
+        { _id: "authAccounts:planted", userId: SRC, provider: "password", providerAccountId: "victim@example.com" },
+        { _id: "authAccounts:tgt-google", userId: TGT, provider: "google", providerAccountId: "g-victim" },
+      ],
+    });
+    await merge(ctx);
+    expect(ctx.store.authAccounts.map((a: Row) => a._id)).toEqual(["authAccounts:tgt-google"]);
+  });
+
+  it("reads each person's notices once per merge, however many conversations it tidies", async () => {
+    const ctx = world({
+      conversations: [
+        { _id: "conversations:self", participants: [SRC, TGT], lastMessageAt: 1, createdAt: 1 },
+        { _id: "conversations:fan-old", participants: [SRC, FAN], lastMessageAt: 2, createdAt: 1 },
+        { _id: "conversations:fan", participants: [FAN, TGT], lastMessageAt: 3, createdAt: 2 },
+        { _id: "conversations:fan2-old", participants: [SRC, FAN2], lastMessageAt: 2, createdAt: 1 },
+        { _id: "conversations:fan2", participants: [FAN2, TGT], lastMessageAt: 3, createdAt: 2 },
+      ],
+      notifications: [
+        { _id: "notifications:1", userId: FAN, type: "message", title: "", message: "", linkUrl: "/messages/conversations:fan-old", createdAt: 1 },
+        { _id: "notifications:2", userId: TGT, type: "message", title: "", message: "", linkUrl: "/messages/conversations:self", createdAt: 1 },
+      ],
+    });
+    // Every notices-by-person read, by whose.
+    const asked: string[] = [];
+    const query = ctx.db.query.bind(ctx.db);
+    ctx.db.query = (table: string) => {
+      const q = query(table);
+      if (table !== "notifications") return q;
+      const withIndex = q.withIndex.bind(q);
+      q.withIndex = (name: string, build: (r: any) => any) => {
+        if (name === "by_userId") build({ eq: (_f: string, v: string) => (asked.push(v), {}) });
+        return withIndex(name, build);
+      };
+      return q;
+    };
+    await merge(ctx);
+    expect(asked.sort()).toEqual([FAN, FAN2, SRC, TGT].sort());
+    expect(ctx.store.notifications).toEqual([expect.objectContaining({ _id: "notifications:1", linkUrl: "/messages/conversations:fan" })]);
   });
 
   it("takes the other copy's phone number only when the kept account has none", async () => {
@@ -357,14 +450,28 @@ describe("profileFill / signInFate", () => {
     expect(profileFill({ name: "New User" }, { name: "" })).toEqual({});
     expect(profileFill({ name: "Rick Moy" }, { name: "new user" })).toEqual({ name: "Rick Moy" });
   });
-  it("every sign-in moves, a second password included; only one the target already has is dropped", () => {
+  it("every sign-in moves, a second password included; a repeat is dropped", () => {
     const target = [
       { provider: "password", providerAccountId: "sarah@example.com" },
       { provider: "google", providerAccountId: "g-1" },
     ];
-    expect(signInFate({ provider: "password", providerAccountId: "sarah@old.example" }, target)).toBe("moved");
-    expect(signInFate({ provider: "google", providerAccountId: "g-2" }, target)).toBe("moved");
-    expect(signInFate({ provider: "phone", providerAccountId: "+16195550100" }, target)).toBe("moved");
-    expect(signInFate({ provider: "password", providerAccountId: "sarah@example.com" }, target)).toBe("dropped");
+    const fate = (provider: string, providerAccountId: string) =>
+      signInFate({ provider, providerAccountId }, target, "sarah@example.com");
+    expect(fate("password", "sarah@old.example")).toBe("moved");
+    expect(fate("google", "g-2")).toBe("moved");
+    expect(fate("phone", "+16195550100")).toBe("moved");
+    expect(fate("password", "sarah@example.com")).toBe("repeat");
+  });
+  it("a password for the kept account's own address is dropped: nobody proved it", () => {
+    // Someone signed up with a password on the kept owner's address, which a
+    // password sign-up never checks; kept, it would open the kept account.
+    expect(signInFate({ provider: "password", providerAccountId: " Victim@Example.com" }, [], "victim@example.com")).toBe(
+      "kept_address",
+    );
+    // An emailed code proves the address each time: it moves.
+    expect(signInFate({ provider: "email-otp", providerAccountId: "victim@example.com" }, [], "victim@example.com")).toBe(
+      "moved",
+    );
+    expect(signInFate({ provider: "password", providerAccountId: "other@example.com" }, [], null)).toBe("moved");
   });
 });

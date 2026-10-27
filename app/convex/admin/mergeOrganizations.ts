@@ -104,13 +104,28 @@ export type OrgMergeReport = {
   hostOrgConflict: boolean;
 };
 
+/** A dry run of several organizations into one: what the earlier ones would
+ * have changed, so each later one is planned as the merge would find it. */
+export type OrgDryRunCarry = {
+  /** The target's fields the earlier ones filled. */
+  filled: Partial<Doc<"organizations">>;
+  /** People the earlier ones moved to the target. */
+  people: Set<Id<"profiles">>;
+  /** Events' "shown as host" lists as the earlier ones left them. */
+  hosts: Map<Id<"events">, Doc<"events">["displayHosts"]>;
+};
+
+export const newOrgDryRunCarry = (): OrgDryRunCarry => ({ filled: {}, people: new Set(), hosts: new Map() });
+
 export async function runMergeOrganizations(
   ctx: MutationCtx,
   { targetId, sourceId, dryRun }: { targetId: Id<"organizations">; sourceId: Id<"organizations">; dryRun: boolean },
+  carry?: OrgDryRunCarry,
 ): Promise<OrgMergeReport> {
   if (targetId === sourceId) fail("same_organization", "Pick two different organizations.");
-  const [target, source] = await Promise.all([ctx.db.get(targetId), ctx.db.get(sourceId)]);
-  if (!target || !source) fail("not_found", "One of these organizations is gone already. Reload the page.");
+  const [stored, source] = await Promise.all([ctx.db.get(targetId), ctx.db.get(sourceId)]);
+  if (!stored || !source) fail("not_found", "One of these organizations is gone already. Reload the page.");
+  const target = { ...stored, ...(dryRun ? carry?.filled : {}) };
 
   const nameOf = async (profileId: Id<"profiles">) => (await ctx.db.get(profileId))?.name?.trim() || "Someone";
 
@@ -125,13 +140,15 @@ export async function runMergeOrganizations(
   for (const sp of sourcePositions) {
     touchedProfiles.add(sp.profileId);
     const tp = targetPositions.find((p) => p.profileId === sp.profileId);
-    if (!tp) {
+    const movedEarlier = dryRun && !!carry?.people.has(sp.profileId);
+    if (!tp && !movedEarlier) {
       peopleMoved.push(await nameOf(sp.profileId));
-      if (!dryRun) await ctx.db.patch(sp._id, { organizationId: targetId });
+      if (dryRun) carry?.people.add(sp.profileId);
+      else await ctx.db.patch(sp._id, { organizationId: targetId });
       continue;
     }
     peopleCombined.push(await nameOf(sp.profileId));
-    if (dryRun) continue;
+    if (dryRun || !tp) continue;
     const keep = fullness(sp) > fullness(tp) ? sp : tp;
     await ctx.db.patch(tp._id, {
       title: keep.title,
@@ -154,14 +171,17 @@ export async function runMergeOrganizations(
   }
   let eventsMoved = 0;
   for (const event of await ctx.db.query("events").collect()) {
-    const next = swapDisplayHost(event.displayHosts, "org", sourceId, targetId);
+    const hosts = (dryRun && carry?.hosts.get(event._id)) || event.displayHosts;
+    const next = swapDisplayHost(hosts, "org", sourceId, targetId);
     if (!next) continue;
     eventsMoved++;
-    if (!dryRun) await ctx.db.patch(event._id, { displayHosts: next as Doc<"events">["displayHosts"] });
+    if (dryRun) carry?.hosts.set(event._id, next as Doc<"events">["displayHosts"]);
+    else await ctx.db.patch(event._id, { displayHosts: next as Doc<"events">["displayHosts"] });
   }
 
   // ——— Its page: empty fields filled, its address forwarded ———
   const { patch, words } = orgFill(source, target);
+  if (dryRun && carry) Object.assign(carry.filled, patch);
   const forwards = await ctx.db
     .query("orgSlugForwards")
     .withIndex("by_organizationId", (q) => q.eq("organizationId", sourceId))

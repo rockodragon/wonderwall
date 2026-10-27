@@ -111,16 +111,38 @@ async function refusal(call: Promise<unknown>): Promise<{ code: string; reason: 
   throw new Error("expected the call to be refused");
 }
 
+/** A preview's lines as the merge words them afterwards. */
+const pastTense = (lines: string[]) =>
+  lines.map((l) =>
+    l
+      .replace(/^Moves /, "Moved ")
+      .replace(/^Fills /, "Filled ")
+      .replace(/^Combines /, "Combined ")
+      .replace(/^Deletes /, "Deleted ")
+      .replace(/has nothing to move/, "had nothing to move")
+      .replace(/so it takes the other/, "so it took the other"),
+  );
+
 // The in-memory ctx creates an empty table the first time one is read.
 const rows = (store: Record<string, Row[]>) =>
   JSON.stringify(Object.fromEntries(Object.entries(store).filter(([, r]) => r.length > 0)));
 
+/** Confirm the way the page does: with the fingerprint of the preview. */
+async function confirmPeople(ctx: ReturnType<typeof makeCtx>, args: { keepUserId: string; mergeUserIds: string[] }) {
+  const preview = await run(previewPeopleMerge, ctx, args);
+  return await run(mergePeople, ctx, { ...args, expected: preview.fingerprint });
+}
+async function confirmOrgs(ctx: ReturnType<typeof makeCtx>, args: { keepId: string; mergeIds: string[] }) {
+  const preview = await run(previewOrgMerge, ctx, args);
+  return await run(mergeOrgs, ctx, { ...args, expected: preview.fingerprint });
+}
+
 const PUBLIC: [string, unknown, Record<string, unknown>][] = [
   ["findDuplicates", findDuplicates, {}],
   ["previewPeopleMerge", previewPeopleMerge, { keepUserId: SARAH, mergeUserIds: [SARAH_OLD] }],
-  ["mergePeople", mergePeople, { keepUserId: SARAH, mergeUserIds: [SARAH_OLD] }],
+  ["mergePeople", mergePeople, { keepUserId: SARAH, mergeUserIds: [SARAH_OLD], expected: "x" }],
   ["previewOrgMerge", previewOrgMerge, { keepId: GROVE, mergeIds: [GROVE_SHORT] }],
-  ["mergeOrgs", mergeOrgs, { keepId: GROVE, mergeIds: [GROVE_SHORT] }],
+  ["mergeOrgs", mergeOrgs, { keepId: GROVE, mergeIds: [GROVE_SHORT], expected: "x" }],
   ["dismissDuplicates", dismissDuplicates, { kind: "person", ids: [SARAH, SARAH_OLD] }],
 ];
 
@@ -228,6 +250,10 @@ describe("merging people", () => {
     });
     expect(plan).toEqual({
       keep: { name: "sarah shreves", contact: "sarah@example.com" },
+      alerts: [
+        "The other copy's password for sarah@old.example was never confirmed by email. Anyone who knows it can sign in to sarah shreves's account. Merge only if you're sure that copy is theirs.",
+      ],
+      fingerprint: expect.any(String),
       lines: [
         "Moves 1 project, 2 followers and 1 organization to sarah shreves (sarah@example.com).",
         "Fills sarah shreves's empty bio and interests from the other copy. Everything sarah shreves's copy already had stays as it is.",
@@ -246,7 +272,7 @@ describe("merging people", () => {
 
   it("the merge goes through mergeUsers with moveContent, and says what it did", async () => {
     const ctx = asAdmin();
-    const plan = await run(mergePeople, ctx, { keepUserId: SARAH, mergeUserIds: [SARAH_OLD] });
+    const plan = await confirmPeople(ctx, { keepUserId: SARAH, mergeUserIds: [SARAH_OLD] });
     expect(runMergeUsers).toHaveBeenCalledWith(ctx, {
       targetUserId: SARAH,
       sourceUserIds: [SARAH_OLD],
@@ -281,7 +307,7 @@ describe("merging people", () => {
     ctx.store.users.push({ _id: SARAH3, email: "sarah@third.example", _creationTime: 9 });
     ctx.store.profiles.push(profile("profiles:sarah3", SARAH3, "Sarah Shreves", { createdAt: 30 }));
     expect((await run(findDuplicates, ctx)).people[1].members.map((m: any) => m.userId)).toEqual([SARAH_OLD, SARAH, SARAH3]);
-    await run(mergePeople, ctx, { keepUserId: SARAH, mergeUserIds: [SARAH_OLD] });
+    await confirmPeople(ctx, { keepUserId: SARAH, mergeUserIds: [SARAH_OLD] });
     expect(ctx.store.users.map((u: Row) => u._id)).toContain(SARAH3);
     expect(ctx.store.profiles.find((p: Row) => p.userId === SARAH3)).toMatchObject({ name: "Sarah Shreves" });
     expect((await run(findDuplicates, ctx)).people.find((g: any) => g.members.some((m: any) => m.userId === SARAH3)).members.map((m: any) => m.userId)).toEqual([SARAH, SARAH3]);
@@ -302,11 +328,80 @@ describe("merging people", () => {
       "Combines 1 conversation the other copy had with people sarah shreves also talks to: each person ends up with one conversation with sarah shreves, all messages kept.",
     );
     expect(plan.lines).toContain(
-      "Deletes the conversation between the two copies, with its messages: it would be sarah shreves talking to sarah shreves.",
+      "Deletes the conversation between the copies, with its messages: it would be sarah shreves talking to sarah shreves.",
     );
-    const done = await run(mergePeople, ctx, { keepUserId: SARAH, mergeUserIds: [SARAH_OLD] });
+    const done = await confirmPeople(ctx, { keepUserId: SARAH, mergeUserIds: [SARAH_OLD] });
     expect(done.lines[0]).toContain("1 conversation");
     expect(ctx.store.conversations.map((c: Row) => c._id).sort()).toEqual(["conversations:fan", "conversations:member"]);
+  });
+
+  it("with three copies, the preview says what the merge then does", async () => {
+    const SARAH3 = "users:sarah3";
+    const ctx = asAdmin({
+      conversations: [
+        // Both other copies talk to Fan; the kept one doesn't yet.
+        { _id: "conversations:old-fan", participants: [SARAH_OLD, FAN], lastMessageAt: 1, createdAt: 1 },
+        { _id: "conversations:3-fan", participants: [SARAH3, FAN], lastMessageAt: 2, createdAt: 2 },
+        { _id: "conversations:old-3", participants: [SARAH_OLD, SARAH3], lastMessageAt: 3, createdAt: 3 },
+      ],
+    });
+    ctx.store.users.push({ _id: SARAH3, email: "sarah@third.example", _creationTime: 9 });
+    ctx.store.profiles.push(profile("profiles:sarah3", SARAH3, "Sarah Shreves", { createdAt: 30 }));
+    // Fan follows two of the copies: one follow of the kept one, after.
+    ctx.store.favorites.push({ _id: "favorites:3", userId: FAN, targetType: "profile", targetId: "profiles:sarah3" });
+    const args = { keepUserId: SARAH, mergeUserIds: [SARAH_OLD, SARAH3] };
+    const preview = await run(previewPeopleMerge, ctx, args);
+    const done = await run(mergePeople, ctx, { ...args, expected: preview.fingerprint });
+    expect(done.lines).toEqual(pastTense(preview.lines));
+    expect(preview.lines[0]).toBe("Moves 1 project, 2 followers, 1 organization and 1 conversation to sarah shreves (sarah@example.com).");
+    expect(preview.lines).toContain(
+      "Combines 1 conversation the other copy had with people sarah shreves also talks to: each person ends up with one conversation with sarah shreves, all messages kept.",
+    );
+    expect(preview.lines).toContain(
+      "Deletes the conversation between the copies, with its messages: it would be sarah shreves talking to sarah shreves.",
+    );
+    expect(ctx.store.conversations.map((c: Row) => c._id)).toEqual(["conversations:old-fan"]);
+  });
+
+  it("a password for the kept copy's own address is dropped, and says why", async () => {
+    // Someone signed up with a password on Sarah's address: a password
+    // sign-up never checks it.
+    const ctx = asAdmin({
+      authAccounts: [
+        { _id: "authAccounts:planted", userId: SARAH_OLD, provider: "password", providerAccountId: "Sarah@Example.com" },
+        { _id: "authAccounts:3", userId: SARAH, provider: "google", providerAccountId: "g-sarah" },
+      ],
+    });
+    const plan = await run(previewPeopleMerge, ctx, { keepUserId: SARAH, mergeUserIds: [SARAH_OLD] });
+    expect(plan.alerts).toEqual([]);
+    expect(plan.signIn).toContain(
+      "The other copy's password (Sarah@Example.com) is dropped: Sarah@Example.com is sarah shreves's own address, and a password sign-up never proves its address, so it could be someone else's. sarah shreves signs in with sarah shreves's own sign-in.",
+    );
+    await confirmPeople(ctx, { keepUserId: SARAH, mergeUserIds: [SARAH_OLD] });
+    expect(ctx.store.authAccounts.map((a: Row) => a._id)).toEqual(["authAccounts:3"]);
+  });
+
+  it("no alert for a password whose address the other copy confirmed", async () => {
+    const ctx = asAdmin();
+    ctx.store.users.find((u: Row) => u._id === SARAH_OLD).emailVerificationTime = 5;
+    const plan = await run(previewPeopleMerge, ctx, { keepUserId: SARAH, mergeUserIds: [SARAH_OLD] });
+    expect(plan.alerts).toEqual([]);
+  });
+
+  it("refuses a confirm when something changed since the preview, and changes nothing", async () => {
+    const ctx = asAdmin();
+    const args = { keepUserId: SARAH, mergeUserIds: [SARAH_OLD] };
+    const preview = await run(previewPeopleMerge, ctx, args);
+    // A second project on the other copy since the preview.
+    ctx.store.projects.push({ _id: "projects:2", userId: SARAH_OLD, title: "Zine" });
+    const before = rows(ctx.store);
+    expect(await refusal(run(mergePeople, ctx, { ...args, expected: preview.fingerprint }))).toEqual({
+      code: "preview_out_of_date",
+      reason: "Something changed since the preview. Look again.",
+    });
+    expect(rows(ctx.store)).toBe(before);
+    // Looked at again, it goes through.
+    expect((await confirmPeople(ctx, args)).lines[0]).toMatch(/^Moved 2 projects/);
   });
 
   it("a refusal from mergeUsers comes back as a reason, and nothing changes", async () => {
@@ -317,7 +412,7 @@ describe("merging people", () => {
       ],
     });
     const before = rows(ctx.store);
-    expect(await refusal(run(mergePeople, ctx, { keepUserId: SARAH, mergeUserIds: [SARAH_OLD] }))).toEqual({
+    expect(await refusal(run(mergePeople, ctx, { keepUserId: SARAH, mergeUserIds: [SARAH_OLD], expected: "x" }))).toEqual({
       code: "cannot_merge",
       reason:
         "Both copies have their own billing account with Stripe, so they can't be combined here. One of the two has to be closed in Stripe first; ask for help with that.",
@@ -329,7 +424,7 @@ describe("merging people", () => {
     // The other copy was made "not an admin" on purpose, so it isn't filled.
     const ctx = asAdmin();
     ctx.store.profiles.find((p: Row) => p.userId === RICK2).isAdmin = false;
-    expect(await refusal(run(mergePeople, ctx, { keepUserId: RICK2, mergeUserIds: [RICK] }))).toMatchObject({
+    expect(await refusal(run(mergePeople, ctx, { keepUserId: RICK2, mergeUserIds: [RICK], expected: "x" }))).toMatchObject({
       code: "would_lose_admin",
     });
     expect(ctx.store.users.some((u: Row) => u._id === RICK)).toBe(true);
@@ -365,6 +460,8 @@ describe("merging organizations", () => {
     expect(rows(ctx.store)).toBe(before);
     expect(plan).toEqual({
       keep: { name: "The Grove Center for the Arts & Media", contact: "/orgs/the-grove" },
+      alerts: [],
+      fingerprint: expect.any(String),
       lines: [
         "Moves 1 person (Sarah Shreves) to The Grove Center for the Arts & Media (/orgs/the-grove).",
         "Nothing to fill in: The Grove Center for the Arts & Media already has everything the other copy has.",
@@ -377,10 +474,48 @@ describe("merging organizations", () => {
 
   it("the merge moves its people and deletes it", async () => {
     const ctx = asAdmin();
-    const plan = await run(mergeOrgs, ctx, { keepId: GROVE, mergeIds: [GROVE_SHORT] });
+    const plan = await confirmOrgs(ctx, { keepId: GROVE, mergeIds: [GROVE_SHORT] });
     expect(plan.lines[0]).toBe("Moved 1 person (Sarah Shreves) to The Grove Center for the Arts & Media (/orgs/the-grove).");
     expect(ctx.store.organizations.map((o: Row) => o._id)).toEqual([GROVE, "organizations:ap"]);
     expect(ctx.store.orgPositions.map((p: Row) => p.organizationId)).toEqual([GROVE, GROVE]);
+  });
+
+  it("with three organizations, the preview says what the merge then does", async () => {
+    const ctx = asAdmin();
+    const THIRD = "organizations:grove-third";
+    ctx.store.organizations.push({
+      _id: THIRD,
+      name: "The Grove Center for the Arts",
+      nameKey: "the grove center for the arts",
+      slug: "the-grove-center-for-the-arts",
+      mission: "Art.",
+      logoStorageId: "_storage:third",
+      createdByUserId: FAN,
+      createdAt: 4,
+      updatedAt: 4,
+    });
+    ctx.store.organizations.find((o: Row) => o._id === GROVE_SHORT).mission = "Older words.";
+    // Sarah is at the short one and the third one.
+    ctx.store.orgPositions.push({ _id: "orgPositions:3", organizationId: THIRD, userId: SARAH_OLD, profileId: "profiles:sarah-old", isAdmin: false, order: 1, createdAt: 2 });
+    const args = { keepId: GROVE, mergeIds: [GROVE_SHORT, THIRD] };
+    const preview = await run(previewOrgMerge, ctx, args);
+    const done = await run(mergeOrgs, ctx, { ...args, expected: preview.fingerprint });
+    expect(done.lines).toEqual(pastTense(preview.lines));
+    // The second one finds Sarah moved and the about filled by the first.
+    expect(preview.lines).toContain("Sarah Shreves is listed at both: they keep one place, with the fuller title and years, and an admin at either stays an admin.");
+    expect(preview.lines).toContain("Fills The Grove Center for the Arts & Media's empty logo from the other copy. What it already has stays.");
+  });
+
+  it("refuses a confirm when the organization changed since the preview", async () => {
+    const ctx = asAdmin();
+    const args = { keepId: GROVE, mergeIds: [GROVE_SHORT] };
+    const preview = await run(previewOrgMerge, ctx, args);
+    ctx.store.projects.push({ _id: "projects:org", userId: FAN, organizationId: GROVE_SHORT, title: "Show" });
+    const before = rows(ctx.store);
+    expect(await refusal(run(mergeOrgs, ctx, { ...args, expected: preview.fingerprint }))).toMatchObject({
+      code: "preview_out_of_date",
+    });
+    expect(rows(ctx.store)).toBe(before);
   });
 
   it("refuses the same organization twice", async () => {

@@ -26,10 +26,11 @@ import {
   orgEdges,
   pairKeysOf,
   personEdges,
+  planFingerprint,
   REASON_LABEL,
 } from "../duplicateRules";
 import { profileFill, runMergeUsers, signInFate } from "./mergeUsers";
-import { runMergeOrganizations, type OrgMergeReport } from "./mergeOrganizations";
+import { newOrgDryRunCarry, runMergeOrganizations, type OrgMergeReport } from "./mergeOrganizations";
 
 type Ctx = QueryCtx | MutationCtx;
 
@@ -353,13 +354,24 @@ function blockedReason(blockers: Record<string, number>): string {
 
 export type MergePlan = {
   keep: { name: string; contact: string | null };
+  /** Read these first: what could let the wrong person in. */
+  alerts: string[];
   /** What moves, what gets filled, what's deleted. */
   lines: string[];
   /** What happens to each copy's sign-in. */
   signIn: string[];
   /** Things to know before confirming. */
   warnings: string[];
+  /** Of the words above (planFingerprint): Confirm sends back the preview's. */
+  fingerprint: string;
 };
+
+const withFingerprint = (plan: Omit<MergePlan, "fingerprint">): MergePlan => ({
+  ...plan,
+  fingerprint: planFingerprint(plan),
+});
+
+const PREVIEW_OUT_OF_DATE = "Something changed since the preview. Look again.";
 
 async function planPeopleMerge(
   ctx: MutationCtx,
@@ -413,6 +425,7 @@ async function planPeopleMerge(
   const held = [...keepSignIns];
   const moving: string[] = [];
   const dropping: string[] = [];
+  const alerts: string[] = [];
   // Convex Auth writes a sign-in's email or phone onto the account each time
   // it's used (auth.ts), so a moved one with another address changes what's
   // on file.
@@ -420,12 +433,29 @@ async function planPeopleMerge(
   for (let i = 0; i < others.length; i++) {
     for (const a of await signInsOf(ctx, others[i])) {
       const label = describeSignIn(a, otherUsers[i]);
-      if (signInFate(a, held) === "dropped") {
-        dropping.push(label);
+      const fate = signInFate(a, held, keepUser.email);
+      if (fate === "repeat") {
+        dropping.push(`The other copy's ${label} is one ${keepName}'s account already has, so it isn't added twice.`);
+        continue;
+      }
+      if (fate === "kept_address") {
+        dropping.push(
+          `The other copy's ${label} is dropped: ${a.providerAccountId} is ${keepName}'s own address, and a password sign-up never proves its address, so it could be someone else's. ${keepName} signs in with ${keepName}'s own sign-in.`,
+        );
         continue;
       }
       moving.push(label);
       held.push(a);
+      // A password sign-up never proves its address (auth.ts); only a later
+      // confirmed email for the same address does.
+      const user = otherUsers[i];
+      const confirmed =
+        !!user?.emailVerificationTime && user.email?.trim().toLowerCase() === a.providerAccountId.trim().toLowerCase();
+      if (a.provider === "password" && !confirmed) {
+        alerts.push(
+          `The other copy's password for ${a.providerAccountId} was never confirmed by email. Anyone who knows it can sign in to ${keepName}'s account. Merge only if you're sure that copy is theirs.`,
+        );
+      }
       const email = a.provider === "google" ? otherUsers[i]?.email : a.provider === "email-otp" ? a.providerAccountId : null;
       if (email && email.toLowerCase() !== keepUser.email?.toLowerCase()) {
         onFile.push(`If they sign in with ${label}, the email on file for ${keepName} changes to ${email}.`);
@@ -445,18 +475,14 @@ async function planPeopleMerge(
   const talks = { withEachOther: 0, combined: 0 };
   for (const r of report.results) {
     if ("blocked" in r) fail("cannot_merge", blockedReason(r.blockers));
-    if ("dryRun" in r) {
-      add(r.blockers);
-      // The dry run counts every conversation; the ones that go or are
-      // combined don't move as their own.
-      const c = r.conversations ?? { withEachOther: 0, combined: 0 };
-      counts["conversations.participants"] = (counts["conversations.participants"] ?? 0) - c.withEachOther - c.combined;
-    }
+    // The dry run walks the merge's own moves (mergeUsers moveContentOf), so
+    // both say the same.
+    if ("dryRun" in r) add(r.wouldMove?.moved);
     if ("merged" in r) {
       add(r.contentMoved?.moved);
       filledNow = [...(filledNow ?? []), ...(r.contentMoved?.profileFieldsFilled ?? [])];
     }
-    const c = "dryRun" in r ? r.conversations : "merged" in r ? r.contentMoved?.conversations : undefined;
+    const c = "dryRun" in r ? r.wouldMove?.conversations : "merged" in r ? r.contentMoved?.conversations : undefined;
     talks.withEachOther += c?.withEachOther ?? 0;
     talks.combined += c?.combined ?? 0;
   }
@@ -474,7 +500,7 @@ async function planPeopleMerge(
   }
   if (talks.withEachOther > 0) {
     lines.push(
-      `${done ? "Deleted" : "Deletes"} the ${talks.withEachOther === 1 ? "conversation" : "conversations"} between the two copies, with ${talks.withEachOther === 1 ? "its" : "their"} messages: it would be ${keepName} talking to ${keepName}.`,
+      `${done ? "Deleted" : "Deletes"} the ${talks.withEachOther === 1 ? "conversation" : "conversations"} between the copies, with ${talks.withEachOther === 1 ? "its" : "their"} messages: it would be ${keepName} talking to ${keepName}.`,
     );
   }
   if (forwarded.length > 0) {
@@ -502,9 +528,7 @@ async function planPeopleMerge(
   } else if (moving.length > 1) {
     signIn.push(`The other copy's sign-ins, ${listPhrase(moving)}, move over: they keep working, and open ${keepName}'s account from now on.`);
   }
-  for (const d of dropping) {
-    signIn.push(`The other copy's ${d} is one ${keepName}'s account already has, so it isn't added twice.`);
-  }
+  signIn.push(...dropping);
   signIn.push(...onFile);
   if (moving.length === 0 && dropping.length === 0) signIn.push("The other copy had no way to sign in.");
   signIn.push("Anyone signed in as the other copy right now is signed out.");
@@ -520,7 +544,7 @@ async function planPeopleMerge(
   }
   warnings.push("This can't be undone.");
 
-  return { keep: { name: keepName, contact }, lines, signIn, warnings };
+  return withFingerprint({ keep: { name: keepName, contact }, alerts, lines, signIn, warnings });
 }
 
 const peopleArgs = { keepUserId: v.id("users"), mergeUserIds: v.array(v.id("users")) };
@@ -536,18 +560,22 @@ export const previewPeopleMerge = mutation({
 });
 
 /** Merges the copies into `keepUserId` (mergeUsers with moveContent) and
- * says what it did. All or nothing: a refusal for any copy undoes it all. */
+ * says what it did. `expected` is the preview's fingerprint: a fresh
+ * preview that says anything else is refused, so what changed since gets
+ * seen first. All or nothing: a refusal for any copy undoes it all. */
 export const mergePeople = mutation({
-  args: peopleArgs,
-  handler: async (ctx, { keepUserId, mergeUserIds }): Promise<MergePlan> => {
+  args: { ...peopleArgs, expected: v.string() },
+  handler: async (ctx, { keepUserId, mergeUserIds, expected }): Promise<MergePlan> => {
     const viewerId = await requireAdminCtx(ctx);
+    const fresh = await planPeopleMerge(ctx, viewerId, keepUserId, mergeUserIds, true);
+    if (fresh.fingerprint !== expected) fail("preview_out_of_date", PREVIEW_OUT_OF_DATE);
     return await planPeopleMerge(ctx, viewerId, keepUserId, mergeUserIds, false);
   },
 });
 
 // ——— Organizations ———
 
-function orgPlan(r: OrgMergeReport): MergePlan {
+function orgPlan(r: OrgMergeReport): Omit<MergePlan, "fingerprint"> {
   const done = !r.dryRun;
   const keep = `${r.target.name} (/orgs/${r.target.slug})`;
   const moves: string[] = [];
@@ -582,7 +610,7 @@ function orgPlan(r: OrgMergeReport): MergePlan {
   if (r.sourceLogoUnused) warnings.push(`Both have a logo. ${r.target.name}'s stays; the other copy's isn't used.`);
   if (r.hostOrgConflict) warnings.push(`Both are linked to a community here. ${r.target.name}'s link stays.`);
   warnings.push("This can't be undone.");
-  return { keep: { name: r.target.name, contact: `/orgs/${r.target.slug}` }, lines, signIn: [], warnings };
+  return { keep: { name: r.target.name, contact: `/orgs/${r.target.slug}` }, alerts: [], lines, signIn: [], warnings };
 }
 
 const orgArgs = { keepId: v.id("organizations"), mergeIds: v.array(v.id("organizations")) };
@@ -595,23 +623,27 @@ async function planOrgMerge(
 ): Promise<MergePlan> {
   const others = [...new Set(mergeIds)].filter((id) => id !== keepId);
   if (others.length === 0) fail("same_organization", "Pick a different organization to merge in.");
-  const plans: MergePlan[] = [];
+  // A dry run of several carries each one's planned changes to the next, as
+  // the merge itself would leave them (mergeOrganizations OrgDryRunCarry).
+  const carry = dryRun ? newOrgDryRunCarry() : undefined;
+  const plans: Omit<MergePlan, "fingerprint">[] = [];
   for (const sourceId of others) {
-    plans.push(orgPlan(await runMergeOrganizations(ctx, { targetId: keepId, sourceId, dryRun })));
+    plans.push(orgPlan(await runMergeOrganizations(ctx, { targetId: keepId, sourceId, dryRun }, carry)));
   }
-  if (plans.length === 1) return plans[0];
+  if (plans.length === 1) return withFingerprint(plans[0]);
   // Several copies: each one's lines in turn, the warnings once.
-  return {
+  return withFingerprint({
     keep: plans[0].keep,
+    alerts: [],
     lines: plans.flatMap((p) => p.lines),
     signIn: [],
     warnings: [...new Set(plans.flatMap((p) => p.warnings))],
-  };
+  });
 }
 
 /** What merging these organizations into `keepId` would do, in plain
  * words. A dry run: nothing changes. With several to merge in, each is
- * planned against the kept one as it is now. */
+ * planned after the ones before it, as the merge does them. */
 export const previewOrgMerge = mutation({
   args: orgArgs,
   handler: async (ctx, { keepId, mergeIds }): Promise<MergePlan> => {
@@ -620,11 +652,14 @@ export const previewOrgMerge = mutation({
   },
 });
 
-/** Merges the organizations into `keepId` and says what it did. */
+/** Merges the organizations into `keepId` and says what it did. `expected`
+ * is the preview's fingerprint, as for people. */
 export const mergeOrgs = mutation({
-  args: orgArgs,
-  handler: async (ctx, { keepId, mergeIds }): Promise<MergePlan> => {
+  args: { ...orgArgs, expected: v.string() },
+  handler: async (ctx, { keepId, mergeIds, expected }): Promise<MergePlan> => {
     await requireAdminCtx(ctx);
+    const fresh = await planOrgMerge(ctx, keepId, mergeIds, true);
+    if (fresh.fingerprint !== expected) fail("preview_out_of_date", PREVIEW_OUT_OF_DATE);
     return await planOrgMerge(ctx, keepId, mergeIds, false);
   },
 });

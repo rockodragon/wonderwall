@@ -218,6 +218,20 @@ export function copiesToMerge(ids: readonly string[], keepId: string, ticked: Re
   return ids.filter((id) => id !== keepId && ticked.has(id));
 }
 
+/** A short fingerprint of a merge preview's words: the page sends it back
+ * with Confirm, and the merge goes ahead only when a fresh preview still
+ * has it, so nothing changed unseen in between. FNV-1a over the JSON, with
+ * its length. */
+export function planFingerprint(plan: unknown): string {
+  const text = JSON.stringify(plan);
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return `${text.length.toString(36)}-${hash.toString(16).padStart(8, "0")}`;
+}
+
 /** "a", "a and b", "a, b and c". */
 export function listPhrase(items: readonly string[]): string {
   if (items.length <= 1) return items[0] ?? "";

@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest";
 import {
   copiesToMerge,
+  planFingerprint,
   groupEdges,
   listPhrase,
   normalizeName,
@@ -155,6 +156,14 @@ describe("copiesToMerge", () => {
     // "The Grove Church" isn't the same one: unticked, it stays out.
     expect(copiesToMerge(ids, "o:center", new Set(["o:grove", "o:center"]))).toEqual(["o:grove"]);
     expect(copiesToMerge(ids, "o:center", new Set(["o:center"]))).toEqual([]);
+  });
+});
+
+describe("planFingerprint", () => {
+  it("is the same for the same words, and changes with any of them", () => {
+    const plan = { lines: ["Moves 1 project to Sarah."], warnings: ["This can't be undone."] };
+    expect(planFingerprint(plan)).toBe(planFingerprint({ ...plan }));
+    expect(planFingerprint(plan)).not.toBe(planFingerprint({ ...plan, lines: ["Moves 2 projects to Sarah."] }));
   });
 });
 

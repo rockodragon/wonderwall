@@ -1674,10 +1674,7 @@ export default defineSchema({
     previousStatus: v.optional(v.string()),
     recordedByUserId: v.optional(v.id("users")),
     createdAt: v.number(),
-  })
-    // admin/mergeUsers.ts reads a person's rows by it.
-    .index("by_userId", ["userId"])
-    .index("by_tableId_userId", ["tableId", "userId"]),
+  }).index("by_tableId_userId", ["tableId", "userId"]),
 
   tableCheckoutHolds: defineTable({
     tableId: v.id("gardenTables"),
@@ -1694,8 +1691,6 @@ export default defineSchema({
     paymentIntentId: v.optional(v.string()),
     classPaymentId: v.optional(v.id("classPayments")),
   })
-    // admin/mergeUsers.ts reads a person's rows by it.
-    .index("by_userId", ["userId"])
     .index("by_tableId", ["tableId"])
     .index("by_tableId_userId", ["tableId", "userId"])
     .index("by_stripeCheckoutSessionId", ["stripeCheckoutSessionId"]),
@@ -1708,8 +1703,6 @@ export default defineSchema({
     recordedByUserId: v.id("users"),
     recordedAt: v.number(),
   })
-    // admin/mergeUsers.ts reads a person's rows by it.
-    .index("by_userId", ["userId"])
     .index("by_eventId", ["eventId"])
     .index("by_eventId_userId", ["eventId", "userId"]),
 
