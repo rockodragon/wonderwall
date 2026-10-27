@@ -577,10 +577,11 @@ type SignIn = { provider: string; providerAccountId: string };
  * never by its user, so the kept account can hold two passwords for two
  * addresses, or two Google accounts. Two are dropped instead:
  *   - "repeat": one the target already has, the same provider and account;
- *   - "kept_address": a password for the target's own email. The kept
- *     account's owner already controls that address, and a password sign-up
- *     never proves its address, so it may be someone else's: kept, it would
- *     open the kept account for good. */
+ *   - "kept_address": a password for one of the target's own addresses (its
+ *     email, or one it signs in to by emailed code). The kept account's
+ *     owner already controls that address, and a password sign-up never
+ *     proves its address, so it may be someone else's: kept, it would open
+ *     the kept account for good. */
 export function signInFate(
   account: SignIn,
   targetAccounts: readonly SignIn[],
@@ -591,7 +592,8 @@ export function signInFate(
   );
   if (same) return "repeat";
   const address = (x: string) => x.trim().toLowerCase();
-  if (account.provider === "password" && targetEmail && address(account.providerAccountId) === address(targetEmail)) {
+  const own = [targetEmail, ...targetAccounts.filter((t) => t.provider === "email-otp").map((t) => t.providerAccountId)];
+  if (account.provider === "password" && own.some((x) => x && address(x) === address(account.providerAccountId))) {
     return "kept_address";
   }
   return "moved";

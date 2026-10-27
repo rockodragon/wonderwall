@@ -474,4 +474,15 @@ describe("profileFill / signInFate", () => {
     );
     expect(signInFate({ provider: "password", providerAccountId: "other@example.com" }, [], null)).toBe("moved");
   });
+  it("a password for an address the kept account signs in to by emailed code is dropped too", () => {
+    // The kept account's email on file is another address (the last one it
+    // used), but it still holds the emailed-code sign-in for this one.
+    const target = [{ provider: "email-otp", providerAccountId: "victim@example.com" }];
+    expect(signInFate({ provider: "password", providerAccountId: "Victim@example.com" }, target, "victim@work.example")).toBe(
+      "kept_address",
+    );
+    expect(signInFate({ provider: "password", providerAccountId: "other@example.com" }, target, "victim@work.example")).toBe(
+      "moved",
+    );
+  });
 });

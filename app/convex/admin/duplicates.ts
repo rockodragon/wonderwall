@@ -431,9 +431,12 @@ async function planPeopleMerge(
   // on file.
   const onFile: string[] = [];
   for (let i = 0; i < others.length; i++) {
+    // The merge reads the target's sign-ins once per copy, before moving any
+    // of that copy's, so this copy's own moves don't count here either.
+    const heldBefore = [...held];
     for (const a of await signInsOf(ctx, others[i])) {
       const label = describeSignIn(a, otherUsers[i]);
-      const fate = signInFate(a, held, keepUser.email);
+      const fate = signInFate(a, heldBefore, keepUser.email);
       if (fate === "repeat") {
         dropping.push(`The other copy's ${label} is one ${keepName}'s account already has, so it isn't added twice.`);
         continue;
