@@ -129,6 +129,9 @@ export type DeskCard = {
   celebrationType?: string;
   /** People only: the profile to ask for a bio when the card opens. */
   profileId?: string;
+  /** People only: they lead a community, so the card wears the sprout badge
+   *  (components/LeaderBadge.tsx). Absent for everyone else. */
+  leader?: true;
   /** A Shortlist role or project: the project, whose id picks the cover
    *  when there's no picture (a role's card wears its project's). */
   projectId?: string;
@@ -183,6 +186,8 @@ export type DeskPersonInput = {
   name: string;
   imageUrl?: string | null;
   interests?: readonly string[] | null;
+  /** Leads a community: the People view's cards wear the badge. */
+  isLeader?: boolean;
 };
 
 /** An organization as api.organizations.list returns it: the same rows the
@@ -649,6 +654,7 @@ export function personCard(p: DeskPersonInput): DeskCard {
     },
     href: `/profile/${p._id}`,
     profileId: p._id,
+    ...(p.isLeader ? { leader: true as const } : {}),
   };
 }
 

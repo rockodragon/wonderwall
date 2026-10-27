@@ -27,6 +27,7 @@ import { AbstractCover } from "../components/AbstractCover";
 import { PostThumbView } from "../components/shortlist/PostThumb";
 import { CelebrationMark } from "../components/CelebrationMark";
 import { CreateCard } from "../components/CreateCard";
+import { LeaderBadge } from "../components/LeaderBadge";
 import { OrgLogo } from "../components/OrgLogo";
 import { PersonAvatar } from "../components/PersonAvatar";
 import { useReducedMotion } from "../hooks/useMediaQuery";
@@ -213,7 +214,14 @@ export const DeskCardView = memo(function DeskCardView({
   // An organization has no kicker (its "ORG" tag is a corner mark), so its name is
   // said in the label: "Organization, Abiding Practice, Collective · San Diego".
   // So does a project's: "Project, Songs of Safety, Dana Lee".
-  const label = [kindWord(card), card.face.title, card.face.foot, ...makerWords(card), ...postWords(card)]
+  const label = [
+    kindWord(card),
+    card.face.title,
+    card.leader ? "Community leader" : "",
+    card.face.foot,
+    ...makerWords(card),
+    ...postWords(card),
+  ]
     .filter(Boolean)
     .join(", ");
 
@@ -799,6 +807,12 @@ function Face({
         >
           {face.title}
         </h3>
+        {card.leader && (
+          // A person who leads a community wears the sprout under their name.
+          <div style={{ marginTop: 8, display: "flex" }}>
+            <LeaderBadge surface="dark" />
+          </div>
+        )}
         {face.foot && face.script ? (
           // A signature: the fund's name in handwriting under an award.
           <p

@@ -23,8 +23,8 @@ const me = {
   location: "San Diego, CA",
 };
 
-function person(name: string, image: string, interests: string[], orgName?: string) {
-  return { _id: name.toLowerCase().replace(/\s+/g, "-"), name, imageUrl: image, interests, orgName, location: "San Diego, CA", wondering: null };
+function person(name: string, image: string, interests: string[], orgName?: string, isLeader = false) {
+  return { _id: name.toLowerCase().replace(/\s+/g, "-"), name, imageUrl: image, interests, orgName, location: "San Diego, CA", wondering: null, isLeader };
 }
 
 /** The sample Shortlist, with what a few of the people followed last posted:
@@ -60,10 +60,13 @@ function shortlistWithPosts() {
 }
 
 const people = [
-  person("Dee Alvarez", "/campaign/dee.jpg", ["Photography", "Film"], "Abiding Practice"),
+  // Dee, June and Alexandra lead a community (the sprout badge); Alexandra's
+  // long name is there to see it give way to the badge.
+  person("Dee Alvarez", "/campaign/dee.jpg", ["Photography", "Film"], "Abiding Practice", true),
   person("Marta Reyes", "/campaign/marta.jpg", ["Painting", "Murals"]),
-  person("June Park", "/campaign/june.jpg", ["Music", "Songwriting"], "The Grove"),
+  person("June Park", "/campaign/june.jpg", ["Music", "Songwriting"], "The Grove", true),
   person("Ade Okafor", "/campaign/ade.jpg", ["Design", "Illustration"]),
+  person("Alexandra Montgomery-Villanueva", "/campaign/shua.jpg", ["Film", "Editing"], "Harbor Light Collective of San Diego", true),
   person("Shua Lim", "/campaign/shua.jpg", ["Film", "Editing"]),
 ];
 
@@ -357,7 +360,7 @@ export const answers: Record<string, unknown | ((args: unknown) => unknown)> = {
   "events:search": [],
   "favorites:getMyFavorites": {
     // The people the sample Shortlist follows, so Following has them too.
-    profiles: shortlistWithPosts().people.map((p) => ({ profile: { _id: p.profileId, name: p.name, imageUrl: p.imageUrl, interests: p.interests } })),
+    profiles: shortlistWithPosts().people.map((p) => ({ profile: { _id: p.profileId, name: p.name, imageUrl: p.imageUrl, interests: p.interests, isLeader: p.name === "Theo Okafor" } })),
     events: [{ event: upcoming[0] }, { event: upcoming[2] }, { event: past[0] }],
   },
   "favorites:isFavorited": false,

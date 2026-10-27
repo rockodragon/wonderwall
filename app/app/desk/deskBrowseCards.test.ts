@@ -37,6 +37,13 @@ describe("directoryCard", () => {
   it("belongs to People only, so it never lands in Favorites", () => {
     expect(directoryCard(person(1), true).sections).toEqual(["people"]);
   });
+  it("marks a community leader's card for the sprout badge, and nobody else's", () => {
+    expect(directoryCard(person(1, { isLeader: true }), false).leader).toBe(true);
+    expect(directoryCard(person(1, { isLeader: true }), true).leader).toBe(true);
+    // Not a `leader: false` on every card: the others are as they were.
+    expect(directoryCard(person(1, { isLeader: false }), false)).not.toHaveProperty("leader");
+    expect(directoryCard(person(1), false)).not.toHaveProperty("leader");
+  });
   it("prefixes the foot with the distance when Near me measured one", () => {
     expect(directoryCard({ ...person(1), _distance: 12.4 }, false).face.foot).toBe("12 mi · Music");
     expect(directoryCard({ ...person(1), _distance: Infinity }, false).face.foot).toBe("Music");
@@ -125,6 +132,32 @@ describe("peopleCards", () => {
       "person:u1",
       "person:u3",
     ]);
+  });
+
+  it("keeps a followed leader's badge, with or without what they last posted", () => {
+    const leaders = [person(1, { isLeader: true }), person(2)];
+    const plain = peopleCards({ ...base, rows: leaders, following: true });
+    expect(plain.map((c) => c.leader)).toEqual([true, undefined]);
+    const activity = new Map([
+      [
+        "u1",
+        {
+          profileId: "u1",
+          name: "u1",
+          imageUrl: null,
+          interests: [],
+          since: 1,
+          latest: { type: "project", id: "projects:a", title: "Reel", at: NOW - DAY, thumbUrl: null, media: null, share: false, when: null },
+        } as ShortlistFollow,
+      ],
+    ]);
+    const withPost = peopleCards({ ...base, rows: leaders, following: true, activity });
+    expect(withPost.find((c) => c.id === "person:u1")?.leader).toBe(true);
+    expect(withPost.find((c) => c.id === "person:u2")).not.toHaveProperty("leader");
+  });
+  it("keeps it on Everyone too", () => {
+    const cards = peopleCards({ ...base, rows: [person(1, { isLeader: true }), person(2)], followedIds: new Set<string>(), following: false });
+    expect(cards.map((c) => c.leader)).toEqual([true, undefined]);
   });
 });
 

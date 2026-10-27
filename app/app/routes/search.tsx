@@ -16,6 +16,7 @@ import { signupHref } from "../lib/pendingIntent";
 import { useDirectory, type DirectoryPerson } from "../lib/useDirectory";
 import { LocationIcon } from "../components/icons";
 import { InviteButton } from "../components/InviteCTA";
+import { LeaderBadge } from "../components/LeaderBadge";
 import { OrgDirectory } from "../components/OrgDirectory";
 import { PersonAvatar } from "../components/PersonAvatar";
 import { DIRECTORY_CARD, DIRECTORY_CARD_PICTURE, DIRECTORY_CARD_WORDS } from "../components/directoryCard";
@@ -368,9 +369,15 @@ function ProfileCard({ profile }: { profile: DirectoryPerson }) {
           a second line made its whole row of cards taller. The full name is
           on the profile, and in the tooltip. */}
       <div className={DIRECTORY_CARD_WORDS}>
-        <h3 className="font-medium text-sm leading-snug truncate" title={profile.name} style={{ color: "var(--app-text)" }}>
-          {profile.name}
-        </h3>
+        {/* A leader's sprout sits after the name, which gives way to it
+            (truncate): the card has no room for the words, and one more line
+            would make its whole row of cards taller. */}
+        <div className="flex min-w-0 items-center gap-1.5">
+          <h3 className="font-medium text-sm leading-snug truncate" title={profile.name} style={{ color: "var(--app-text)" }}>
+            {profile.name}
+          </h3>
+          {profile.isLeader && <LeaderBadge compact />}
+        </div>
         {profile.orgName && (
           <p className="text-xs truncate mt-0.5" style={{ color: "var(--app-text-muted)" }}>
             {profile.orgName}
