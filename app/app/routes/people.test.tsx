@@ -133,6 +133,41 @@ describe("a person card", () => {
     expect(text(markup)).toContain("Illustration · Art");
     expect(text(markup)).not.toContain("Music");
   });
+
+  // The sprout for someone who leads a community. The card has no room for the
+  // words (a long name is cut short, and a fourth line would make the row of
+  // cards taller), so it is the icon alone, labelled "Community leader".
+  describe("for a community leader", () => {
+    for (const signedIn of [true, false]) {
+      it(`wears the sprout right after the name, ${signedIn ? "for a member" : "for a visitor"}`, async () => {
+        mock.signedIn = signedIn;
+        mock.answers["profiles:directory"] = { people: [{ ...person, isLeader: true }], total: 1, visitor: !signedIn };
+        const markup = card(await people("/people"), "/profile/p1");
+        expect(markup).toContain('role="img" aria-label="Community leader" title="Community leader"');
+        expect(markup.indexOf("</h3>")).toBeGreaterThan(-1);
+        expect(markup.indexOf("</h3>")).toBeLessThan(markup.indexOf('aria-label="Community leader"'));
+        // The same name line holds both, and the name still gives way to it.
+        expect(markup).toMatch(/<div class="flex min-w-0 items-center[^"]*"><h3 [^>]*truncate[^>]*>.*?<\/h3><span role="img"/);
+      });
+    }
+
+    it("adds no line: the card keeps its two lines under the name, and no words", async () => {
+      mock.answers["profiles:directory"] = { people: [{ ...person, isLeader: true }], total: 1, visitor: true };
+      const markup = card(await people("/people"), "/profile/p1");
+      expect([...markup.matchAll(/<p [^>]*class="([^"]*)"/g)]).toHaveLength(2);
+      expect(text(markup)).not.toContain("community leader");
+      expect(classOf(markup, "a")).toContain("min-h-[5.625rem]");
+    });
+
+    it("leaves everyone else's card as it was", async () => {
+      for (const isLeader of [false, undefined]) {
+        mock.answers["profiles:directory"] = { people: [{ ...person, isLeader }], total: 1, visitor: true };
+        const markup = card(await people("/people"), "/profile/p1");
+        expect(markup).not.toContain("Community leader");
+        expect(markup).not.toContain('role="img"');
+      }
+    });
+  });
 });
 
 describe("an organization card", () => {
