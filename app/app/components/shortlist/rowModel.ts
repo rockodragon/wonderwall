@@ -19,6 +19,7 @@ import { closesAt, hasEnded } from "../../lib/shortlist/needsYou";
 import { shownTitle } from "../../lib/placeholderTitle";
 import type { ClosedReason, PostMedia, ProjectKind, ShortlistEvent, ShortlistPost, ShortlistProject } from "../../lib/shortlist/types";
 import { stageLabel } from "../../lib/stage";
+import { recruitmentActionCopy } from "../../lib/shortlist/recruitment";
 import { AREA_LABEL, cardIdOf, type ShortlistItem } from "./items";
 
 /** Paid or passion: the Projects chips and the start of a project row's second line. */
@@ -108,6 +109,7 @@ export function whenLabel(ms: number): string {
 // ——————————————————————————————————————————————————————————————
 
 function projectStatus(row: ShortlistProject, money: RowContext["money"]): string | null {
+  if (row.nextAction) return recruitmentActionCopy(row.nextAction, row.lead.name).status;
   switch (row.relation) {
     case "invited":
       return `Invited · ${shortDay(row.since)}`;
@@ -146,7 +148,7 @@ function projectRow(row: ShortlistProject, ctx: RowContext): Omit<RowModel, "id"
     status: projectStatus(row, ctx.money),
     thumb: { kind: "cover", url: row.coverUrl, seed: row.projectId },
     // A reply owed, or a saved role about to close.
-    action: !ctx.hot ? null : row.relation === "invited" ? "Reply" : row.relation === "saved" ? "Apply" : null,
+    action: !ctx.hot ? null : row.nextAction ? recruitmentActionCopy(row.nextAction, row.lead.name).label : row.relation === "invited" ? "Reply" : row.relation === "saved" ? "Apply" : null,
   };
 }
 
@@ -198,9 +200,9 @@ export function rowModel(item: ShortlistItem, ctx: RowContext): RowModel {
             ? line(KIND_LABEL[workKind(on)], on.title, `Wants to join as ${on.roleTitle}`)
             : line(ctx.withArea && AREA_LABEL.events, on.title, "Asked to come"),
         meta: on.type === "project" ? payText(on) : shortDay(on.datetime),
-        status: `Request · ${shortDay(at)}`,
+        status: item.request.nextAction ? recruitmentActionCopy(item.request.nextAction, person.name).status : `Request · ${shortDay(at)}`,
         thumb: { kind: "face", name: person.name, url: person.imageUrl },
-        action: hot ? "Review" : null,
+        action: hot ? item.request.nextAction ? recruitmentActionCopy(item.request.nextAction, person.name).label : "Review" : null,
       };
     }
     case "event": {

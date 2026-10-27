@@ -11,7 +11,7 @@ import { Link, useLocation } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { formatCents, formatDollars } from "../../convex/money";
 import { errorMessage } from "../lib/convexError";
-import { toEmbedUrl } from "../lib/videoEmbed";
+import { PortfolioSamplePicker, PortfolioSamplePreview } from "./PortfolioSamples";
 import { MAX_CLIPS, MAX_NOTE_LENGTH, PAID_METHODS, isClipArtifact, type PaidMethod } from "../../convex/garden/gigRules";
 import { shiftEndTime } from "../lib/shiftEndTime";
 import { PersonAvatar } from "./PersonAvatar";
@@ -288,45 +288,6 @@ export function SlotPaymentPanel({ slotId }: { slotId: any }) {
 // the row is expanded, per the parent's conditional render).
 // ——————————————————————————————————————————————————————————————
 
-function ClipPreview({ clip }: { clip: any }) {
-  if (clip.type === "audio" && clip.mediaUrl) {
-    return <audio controls src={clip.mediaUrl} className="w-full max-w-xs" />;
-  }
-  const embed = toEmbedUrl(clip.linkUrl ?? clip.mediaUrl ?? undefined);
-  if (embed) {
-    return (
-      <iframe
-        src={embed.embedUrl}
-        className={
-          embed.aspect === "9/16"
-            ? "w-full max-w-[280px] aspect-[9/16] rounded-lg"
-            : "w-full aspect-video rounded-lg"
-        }
-        allow="autoplay; encrypted-media"
-        allowFullScreen
-        title={clip.title ?? "Clip"}
-      />
-    );
-  }
-  if (clip.type === "video" && clip.mediaUrl) {
-    return <video controls src={clip.mediaUrl} className="w-full max-w-xs rounded-lg" />;
-  }
-  if (clip.linkUrl) {
-    return (
-      <a
-        href={clip.linkUrl}
-        target="_blank"
-        rel="noreferrer"
-        className="flex items-center gap-2 text-sm underline underline-offset-2"
-        style={{ color: "var(--garden-citron)" }}
-      >
-        {clip.ogImageUrl && <img src={clip.ogImageUrl} alt="" className="w-10 h-10 rounded object-cover" />}
-        {clip.title || clip.linkUrl}
-      </a>
-    );
-  }
-  return null;
-}
 
 function OpenSlotResponders({ slotId }: { slotId: any }) {
   const responders: any = useQuery(api.garden.gigs.listResponders, { slotId });
@@ -401,7 +362,7 @@ function OpenSlotResponders({ slotId }: { slotId: any }) {
             {r.clips.length > 0 && (
               <div className="flex flex-col gap-2 mt-2">
                 {r.clips.map((clip: any) => (
-                  <ClipPreview key={clip.artifactId} clip={clip} />
+                  <PortfolioSamplePreview key={clip.artifactId} sample={clip} />
                 ))}
               </div>
             )}
@@ -455,14 +416,6 @@ function GigRespondModal({
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
-
-  function toggleClip(id: string) {
-    setSelectedClipIds((prev) => {
-      if (prev.includes(id)) return prev.filter((c) => c !== id);
-      if (prev.length >= MAX_CLIPS) return prev;
-      return [...prev, id];
-    });
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -545,50 +498,13 @@ function GigRespondModal({
               <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
                 Clips ({selectedClipIds.length} of {MAX_CLIPS})
               </label>
-              {clips.length === 0 ? (
-                <p className="text-sm" style={{ color: "var(--garden-dim)" }}>
-                  No clips in your portfolio yet. Add audio, a video, or a SoundCloud/Spotify/YouTube link under
-                  Works, then come back.{" "}
-                  <Link to="/works" className="underline underline-offset-2" style={{ color: "var(--garden-citron)" }}>
-                    Add a clip
-                  </Link>
-                </p>
-              ) : (
-                <div className="grid grid-cols-3 gap-2">
-                  {clips.map((clip: any) => {
-                    const active = selectedClipIds.includes(clip._id);
-                    const embed = toEmbedUrl(clip.mediaUrl ?? undefined);
-                    const thumb = clip.ogImageUrl ?? embed?.thumbnailUrl ?? null;
-                    return (
-                      <button
-                        key={clip._id}
-                        type="button"
-                        onClick={() => toggleClip(clip._id)}
-                        disabled={!active && selectedClipIds.length >= MAX_CLIPS}
-                        className="flex flex-col items-start gap-1 p-2 rounded-lg text-left disabled:opacity-60"
-                        style={{
-                          backgroundColor: active ? "var(--garden-citron)" : "var(--garden-ink)",
-                          border: `1px solid ${active ? "var(--garden-citron)" : "var(--garden-hairline-raised)"}`,
-                        }}
-                      >
-                        {thumb && <img src={thumb} alt="" className="w-full h-14 object-cover rounded" />}
-                        <span
-                          className="text-xs font-medium truncate w-full"
-                          style={{ color: active ? "var(--garden-ink)" : "var(--garden-paper)" }}
-                        >
-                          {clip.title || "Untitled"}
-                        </span>
-                        <span
-                          className="text-xs uppercase tracking-[0.04em]"
-                          style={{ color: active ? "var(--garden-ink)" : "var(--garden-dim)" }}
-                        >
-                          {clip.type}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+              <PortfolioSamplePicker
+                samples={myArtifacts === undefined ? undefined : clips}
+                selected={selectedClipIds}
+                onChange={setSelectedClipIds}
+                maximum={MAX_CLIPS}
+                empty={<>No clips in your portfolio yet. <Link to="/works" className="underline underline-offset-2">Add a clip</Link>, then come back.</>}
+              />
             </div>
 
             {error && <p className="text-sm text-red-400">{error}</p>}

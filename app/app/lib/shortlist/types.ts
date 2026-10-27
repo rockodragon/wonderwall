@@ -17,6 +17,7 @@
 
 import type { BudgetDeclaration } from "../budgetLabel";
 import type { Stage } from "../stage";
+import type { RecruitmentNextAction } from "./recruitment";
 
 /** `projects.kind`. Every project is exactly one. */
 export type ProjectKind = "paid" | "passion";
@@ -73,6 +74,8 @@ export interface ShortlistProject {
   since: number;
   /** "leading" only: join requests and applications waiting on you. */
   pendingRequests?: number;
+  /** Pending application only: the viewer's next action, not private review details. */
+  nextAction?: RecruitmentNextAction;
   /** "backing" only. */
   backing?: { amountCents: number | null; recurring: boolean };
   /** "closed" only. */
@@ -92,6 +95,8 @@ export interface ShortlistRequest {
   person: ShortlistPerson;
   message: string | null;
   at: number;
+  /** Film-project requests only. Absent on legacy and event request data. */
+  nextAction?: RecruitmentNextAction;
 }
 
 export type EventRelation = "hosting" | "going" | "requested" | "saved";

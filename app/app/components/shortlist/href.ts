@@ -36,10 +36,10 @@ function eventPage(eventId: string, guests = false): string {
 export function itemHref(item: ShortlistItem): string {
   switch (item.type) {
     case "project":
-      return projectPage(item.row.projectId, projectTab(item.row));
+      return item.row.nextAction?.href ?? projectPage(item.row.projectId, projectTab(item.row));
     case "request": {
       const { on } = item.request;
-      return on.type === "project" ? projectPage(on.id, "team") : eventPage(on.id, true);
+      return item.request.nextAction?.href ?? (on.type === "project" ? projectPage(on.id, "team") : eventPage(on.id, true));
     }
     case "event":
       return eventPage(item.event.eventId, !!item.event.pendingRequests);

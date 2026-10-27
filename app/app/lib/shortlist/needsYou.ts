@@ -81,7 +81,7 @@ function replyRank(item: Reply): number {
 }
 
 function waitingSince(item: Reply): number {
-  return item.type === "request" ? item.request.at : item.row.since;
+  return item.type === "request" ? item.request.nextAction?.since ?? item.request.at : item.row.nextAction?.since ?? item.row.since;
 }
 
 /** Everything that needs the member, rule 1 first, then 2, then 3. */
@@ -90,10 +90,10 @@ export function needsYou(data: ShortlistData, now: number): NeedsYouItem[] {
   // has ended can't be answered any more.
   const replies: Reply[] = [
     ...data.projects
-      .filter((row) => row.relation === "invited")
+      .filter((row) => row.relation === "invited" || (row.relation === "waiting" && row.nextAction?.kind === "reply"))
       .map((row) => ({ type: "project", rule: 1, row }) as const),
     ...data.requests
-      .filter((request) => request.on.type !== "event" || !hasEnded(request.on, now))
+      .filter((request) => request.nextAction?.kind !== "waiting" && (request.on.type !== "event" || !hasEnded(request.on, now)))
       .map((request) => ({ type: "request", rule: 1, request }) as const),
   ].sort((a, b) => replyRank(a) - replyRank(b) || waitingSince(a) - waitingSince(b));
 

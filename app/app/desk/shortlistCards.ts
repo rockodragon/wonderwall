@@ -32,6 +32,7 @@ import { withProjectTab } from "../lib/projectTabs";
 import { isPast, payText } from "../lib/shortlist/model";
 import type { ShortlistEvent, ShortlistFollow, ShortlistProject, ShortlistRequest } from "../lib/shortlist/types";
 import { stageLabel } from "../lib/stage";
+import { applicationReviewHref, recruitmentActionCopy } from "../lib/shortlist/recruitment";
 import {
   dateKicker,
   eventCard,
@@ -127,6 +128,7 @@ function facts(...pairs: [string, string | null | undefined][]): DeskFact[] {
 // ——— Projects and roles ———
 
 function projectStatus(row: ShortlistProject): string {
+  if (row.nextAction) return recruitmentActionCopy(row.nextAction, row.lead.name).status;
   const lead = addressName(row.lead.name);
   const since = shortDay(row.since);
   switch (row.relation) {
@@ -175,7 +177,11 @@ function projectButtons(row: ShortlistProject): ShortlistButton[] {
     case "backing":
       return [link("See project", true, projectHref(projectId))];
     case "waiting":
-      return [call("Withdraw request", false, { fn: "withdrawRequest", projectId }, "Request withdrawn."), link("Project page →", false, projectHref(projectId))];
+      return [
+        ...(row.nextAction ? [link(recruitmentActionCopy(row.nextAction, row.lead.name).label, row.nextAction.kind === "reply", row.nextAction.href)] : []),
+        call("Withdraw request", false, { fn: "withdrawRequest", projectId }, "Request withdrawn."),
+        link("Project page →", false, projectHref(projectId)),
+      ];
     case "saved":
       return roleId ? [link("Apply", true, teamHref(projectId, isGig)), unsave] : [link("See project", true, projectHref(projectId)), unsave];
     case "closed":
@@ -225,7 +231,10 @@ function requestCard(request: ShortlistRequest): DeskCard {
   const pay = on.type === "project" ? payText(on) : null;
   const buttons: ShortlistButton[] =
     on.type === "project"
-      ? [
+      ? request.nextAction ? [
+          link(recruitmentActionCopy(request.nextAction, person.name).label, request.nextAction.kind !== "waiting", request.nextAction.href),
+          ...(request.nextAction.href === applicationReviewHref(on.id, requestId) ? [] : [link("Review application", false, applicationReviewHref(on.id, requestId))]),
+        ] : [
           call("Accept", true, { fn: "decideRequest", memberId: requestId, accept: true }, `${first} joined ${on.title} as ${on.roleTitle}.`),
           call("Decline", false, { fn: "decideRequest", memberId: requestId, accept: false }, `Declined. ${first} will see it.`),
         ]
@@ -241,7 +250,7 @@ function requestCard(request: ShortlistRequest): DeskCard {
     face: { kicker: what, title: person.name, foot: shownInterests(person.interests).join(" · ") || null },
     detail: {
       meta: `${what} · ${on.title}`,
-      status: `${first} asked ${shortDay(at)} · Waiting on you`,
+      status: request.nextAction ? recruitmentActionCopy(request.nextAction, person.name).status : `${first} asked ${shortDay(at)} · Waiting on you`,
       title: person.name,
       host:
         on.type === "project"

@@ -15,8 +15,8 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { currentUserId, displayNameOf, getProfileByUserId, isAdminProfile, isOwnerOrAdmin } from "../helpers";
-import { assertNotBlocked } from "../blocks";
+import { currentUserId, displayNameOf, getProfileByUserId, isAdminProfile, isOwnerOrAdmin, requireOwner, requireProfile } from "../helpers";
+import { assertNotBlocked, blockedUserIds } from "../blocks";
 import { escapeHtml } from "../email/template";
 import { isValidEmail, normalizeEmail } from "./eventRsvps";
 import { can } from "./capabilities";
@@ -28,6 +28,15 @@ import { hasRealName } from "../names";
 import { communityVisibility } from "./communityVisibility";
 import { projectVisibleTo } from "./projectVisibility";
 import { pieceMediaUrl, profileImageUrl, projectPhotoUrl } from "../images";
+import { portfolioSamples, validatePortfolioSampleIds } from "../portfolioSamples";
+import { fail } from "../errors";
+import {
+  rateProposalValidator,
+  reviewStageValidator,
+  validateAvailability,
+  validateRateProposal,
+  type RateProposal,
+} from "./recruitment";
 
 // ——————————————————————————————————————————————————————————————
 // Stage — TWIN of app/app/lib/stage.ts (STAGES, isStage, stageLabel,
@@ -675,6 +684,9 @@ function freshRowFields(input: {
   message: string | undefined;
   claimToken: string | undefined;
   claimExpiresAt: number | undefined;
+  workSampleIds?: Id<"artifacts">[];
+  availability?: string;
+  rateProposal?: RateProposal;
   now: number;
 }) {
   return {
@@ -688,6 +700,11 @@ function freshRowFields(input: {
     message: input.message,
     claimToken: input.claimToken,
     claimExpiresAt: input.claimExpiresAt,
+    workSampleIds: input.workSampleIds,
+    availability: input.availability,
+    rateProposal: input.rateProposal,
+    reviewStage: undefined,
+    reviewUpdatedAt: undefined,
     createdAt: input.now,
     respondedAt: undefined,
   };
@@ -697,8 +714,8 @@ function freshRowFields(input: {
 // Mutations (§4)
 // ——————————————————————————————————————————————————————————————
 
-/** Ask to join / Apply. Free — no capability gate ("money is never the
- * only door"). Upserts `pending` per the §2 reuse table; notifies the lead. */
+/** Ask to join / Apply. Paid projects enforce the existing membership
+ * capability; passion-project requests remain free. */
 export const requestToJoin = mutation({
   args: {
     projectId: v.id("projects"),
@@ -707,6 +724,9 @@ export const requestToJoin = mutation({
     // Applying for a specific open role posting instead of free-typing one
     // — see resolveRoleForRequest. Omit for the original free-text flow.
     roleId: v.optional(v.id("projectRoles")),
+    workSampleIds: v.optional(v.array(v.id("artifacts"))),
+    availability: v.optional(v.string()),
+    rateProposal: v.optional(rateProposalValidator),
   },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
@@ -733,6 +753,11 @@ export const requestToJoin = mutation({
     const postedRoleTitle = await resolveRoleForRequest(ctx, args.projectId, args.roleId);
     const role = postedRoleTitle ?? validateRole(args.role);
     const message = validateMessage(args.message);
+    const availability = validateAvailability(args.availability);
+    const rateProposal = validateRateProposal(args.rateProposal);
+    const workSampleIds = args.workSampleIds?.length
+      ? await validatePortfolioSampleIds(ctx, (await requireProfile(ctx, userId))._id, args.workSampleIds)
+      : undefined;
     await assertNotBlocked(ctx, userId, project.userId);
 
     const now = Date.now();
@@ -765,6 +790,19 @@ export const requestToJoin = mutation({
       });
     }
 
+    // A membership row can host a later application. Messages use a strict
+    // logical clock, so the previous conversation can be a few ticks ahead
+    // of wall time. Start this application after it, without changing the
+    // wall-clock retry/rate-limit policy above.
+    const previousMessage = existing
+      ? await ctx.db.query("messages")
+        .withIndex("by_projectMemberId_createdAt", (q) => q.eq("projectMemberId", existing._id))
+        .order("desc")
+        .first()
+      : null;
+    const applicationCreatedAt = existing
+      ? Math.max(now, existing.createdAt + 1, (previousMessage?.createdAt ?? -1) + 1)
+      : now;
     const name = await displayNameOf(ctx, userId);
     const fields = freshRowFields({
       userId,
@@ -777,7 +815,10 @@ export const requestToJoin = mutation({
       message,
       claimToken: undefined,
       claimExpiresAt: undefined,
-      now,
+      workSampleIds,
+      availability,
+      rateProposal,
+      now: applicationCreatedAt,
     });
     const memberId = existing
       ? (await ctx.db.patch(existing._id, fields), existing._id)
@@ -808,6 +849,21 @@ export const requestToJoin = mutation({
       },
     );
     return { ok: true as const, changed: true as const, memberId, status: "pending" as const };
+  },
+});
+
+/** Private review progress. It neither accepts an application nor sends
+ * the applicant a decision; only the lead/operator sees this stage. */
+export const setReviewStage = mutation({
+  args: { memberId: v.id("projectMembers"), stage: reviewStageValidator },
+  handler: async (ctx, args) => {
+    const member = await ctx.db.get(args.memberId);
+    if (!member) fail("not_found", "That application isn't here.");
+    const { userId } = await requireOwner(ctx, "projects", member.projectId, { orAdmin: true });
+    if (member.status !== "pending") fail("application_closed", "Only a pending application can be reviewed.");
+    if (member.userId) await assertNotBlocked(ctx, userId, member.userId);
+    await ctx.db.patch(member._id, { reviewStage: args.stage, reviewUpdatedAt: Date.now() });
+    return { ok: true as const };
   },
 });
 
@@ -1440,7 +1496,13 @@ export const getTeam = query({
     const myRow = rows.find((r) => r.userId === userId);
     const mine =
       myRow && (myRow.status === "pending" || myRow.status === "invited" || myRow.status === "accepted")
-        ? { memberId: myRow._id, status: myRow.status, role: myRow.role }
+        ? {
+            memberId: myRow._id, status: myRow.status, role: myRow.role,
+            roleId: myRow.roleId ?? null,
+            availability: myRow.availability ?? null,
+            rateProposal: myRow.rateProposal ?? null,
+            workSamples: await portfolioSamples(ctx, myRow.workSampleIds ?? []),
+          }
         : undefined;
 
     // May this viewer apply? The same can() requestToJoin enforces, so the
@@ -1453,10 +1515,19 @@ export const getTeam = query({
 
     if (!isLead) return { lead, accepted: acceptedNoNotes, credits, mine, apply, acceptingPeople };
 
-    const pending: PersonEntry[] = [];
+    const pending = [];
+    const blocked = await blockedUserIds(ctx, userId);
     for (const row of rows) {
       if (row.status !== "pending") continue;
-      pending.push(toPersonEntry(row, await resolvePerson(ctx, row.userId)));
+      if (row.userId && blocked.has(row.userId)) continue;
+      pending.push({
+        ...toPersonEntry(row, await resolvePerson(ctx, row.userId)),
+        roleId: row.roleId ?? null,
+        availability: row.availability ?? null,
+        rateProposal: row.rateProposal ?? null,
+        workSamples: await portfolioSamples(ctx, row.workSampleIds ?? []),
+        reviewStage: row.reviewStage ?? "new",
+      });
     }
     const invited: InvitedEntry[] = [];
     for (const row of rows) {

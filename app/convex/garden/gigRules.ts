@@ -21,7 +21,7 @@ export const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] a
 export const HORIZON_WEEKS = 8;
 /** Work samples an artist can attach to one response. Same cap the legacy
  * jobs board used for jobInterests.workLinks. */
-export const MAX_CLIPS = 3;
+export { MAX_WORK_SAMPLES as MAX_CLIPS } from "../portfolioSampleRules";
 /** Same limit as projectTeam.ts's validateMessage. */
 export const MAX_NOTE_LENGTH = 500;
 export const MAX_VENUE_NAME_LENGTH = 80;

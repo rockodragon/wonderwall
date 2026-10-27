@@ -14,6 +14,7 @@ import { calendarDay, calendarDayEnd, shortDay } from "../dates";
 import { firstNameOf } from "../names";
 import { budgetAmountLabel, budgetKindLabel, type BudgetDeclaration } from "../budgetLabel";
 import { workKind } from "./kind";
+import { recruitmentActionCopy } from "./recruitment";
 import { groupFollows } from "../groupFollows";
 import { closesAt, hasEnded, isAppearance, needsYou, needsYouArea, needsYouKey, type NeedsYouItem } from "./needsYou";
 import type {
@@ -242,9 +243,11 @@ export function projectGroups(data: ShortlistData, now: number, kind?: ProjectKi
 function projectNext(needs: ProjectNeed[], rows: ShortlistProject[], now: number): string | null {
   const reply = needs.find((item) => item.rule === 1);
   if (reply?.type === "project") {
+    if (reply.row.nextAction) return `${recruitmentActionCopy(reply.row.nextAction, reply.row.lead.name).summary} · ${reply.row.role?.title ?? reply.row.title}`;
     return `Reply to ${firstName(reply.row.lead.name)} · ${reply.row.role?.title ?? reply.row.title}`;
   }
   if (reply?.type === "request") {
+    if (reply.request.nextAction) return `${recruitmentActionCopy(reply.request.nextAction, reply.request.person.name).summary} · ${reply.request.on.title}`;
     return `Review ${firstName(reply.request.person.name)}'s request · ${reply.request.on.title}`;
   }
   const isOpen = (row: ShortlistProject) => {

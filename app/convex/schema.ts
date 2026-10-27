@@ -2,6 +2,7 @@ import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { richDocValidator } from "./garden/richText";
+import { rateProposalValidator, reviewStageValidator } from "./garden/recruitment";
 
 export default defineSchema({
   // Convex Auth tables (users, sessions, accounts, etc.)
@@ -733,6 +734,7 @@ export default defineSchema({
   // Direct messaging - Conversations
   conversations: defineTable({
     participants: v.array(v.id("users")), // Exactly 2 participants
+    projectMemberIds: v.optional(v.array(v.id("projectMembers"))),
     lastMessageAt: v.number(), // For sorting conversations by recency
     createdAt: v.number(),
   }).index("by_lastMessageAt", ["lastMessageAt"]),
@@ -766,6 +768,8 @@ export default defineSchema({
   // Direct messaging - Messages
   messages: defineTable({
     conversationId: v.id("conversations"),
+    projectMemberId: v.optional(v.id("projectMembers")),
+    projectRole: v.optional(v.string()), // authoritative role label when sent; membership rows can be reused
     senderId: v.id("users"),
     content: v.string(), // Max 2000 chars (enforced in mutation)
     readAt: v.optional(v.number()), // When recipient read the message
@@ -774,6 +778,7 @@ export default defineSchema({
     .index("by_conversationId", ["conversationId"])
     .index("by_senderId", ["senderId"])
     .index("by_conversationId_createdAt", ["conversationId", "createdAt"])
+    .index("by_projectMemberId_createdAt", ["projectMemberId", "createdAt"])
     .index("by_conversationId_senderId_createdAt", ["conversationId", "senderId", "createdAt"])
     .index("by_conversationId_senderId_readAt_createdAt", ["conversationId", "senderId", "readAt", "createdAt"]),
 
@@ -1371,6 +1376,13 @@ export default defineSchema({
     ),
     invitedByUserId: v.optional(v.id("users")),
     message: v.optional(v.string()), // ≤ 500 chars
+    // Private application evidence: exposed to its applicant and the lead,
+    // never the public roster. The review stage is lead/operator-only.
+    workSampleIds: v.optional(v.array(v.id("artifacts"))),
+    availability: v.optional(v.string()),
+    rateProposal: v.optional(rateProposalValidator),
+    reviewStage: v.optional(reviewStageValidator),
+    reviewUpdatedAt: v.optional(v.number()),
     claimToken: v.optional(v.string()), // crypto.randomUUID(); single use; cleared on claim
     claimExpiresAt: v.optional(v.number()), // 30 days
     createdAt: v.number(),
