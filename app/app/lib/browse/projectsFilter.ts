@@ -14,7 +14,7 @@
 //
 // Stage is a menu beside the chips and narrows any of them but Jobs and gigs.
 
-import { resolveStage, stageLabel, type Stage } from "../stage";
+import { canonicalStage, resolveStage, stageLabel, type Stage } from "../stage";
 import { richDocPlainText } from "../richText";
 import { budgetKindLabel } from "../budgetLabel";
 import { paidRoles } from "../projectKind";
@@ -31,13 +31,15 @@ export const PROJECT_LENSES: { label: string; value: ProjectsLens }[] = [
 
 export const DEFAULT_LENS: ProjectsLens = "projects";
 
-/** The stages a visitor browsing for something to back or join cares about,
- * with the same ids and labels as the stage pill on every card (lib/stage.ts).
- * Paused / completed / cancelled aren't things to back or join. Raising is
- * something a project is DOING (it has a goal, or active tiers), not a step
- * it is at, so it is "Seeking funding" and not here; an owner can still set
- * the stage to Raising. */
-export const BROWSE_STAGES: Stage[] = ["planning", "forming", "working", "releasing"];
+/** The stages a visitor can browse by, with the same ids and labels as the
+ * stage pill on every card (lib/stage.ts): the steps a project is at, from
+ * Planning to Completed. Finished work is browsable, so Completed is here (a
+ * project stored as "releasing" reads as Completed, and matches it).
+ * Paused and Cancelled aren't things to browse for. Raising is something a
+ * project is DOING (it has a goal, or active tiers), not a step it is at, so
+ * it is "Seeking funding" and not here; an owner can still set the stage to
+ * Raising. */
+export const BROWSE_STAGES: Stage[] = ["planning", "forming", "working", "completed"];
 
 /** The Stage menu: "Any stage" first, which carries no URL param. */
 export const STAGE_OPTIONS: { label: string; value: string }[] = [
@@ -47,11 +49,15 @@ export const STAGE_OPTIONS: { label: string; value: string }[] = [
 
 /** The menu's caption: "Stage", or the stage that is chosen. */
 export function stageCaption(stage: string): string {
-  return isBrowseStage(stage) ? stageLabel(stage) : "Stage";
+  const browse = browseStage(stage);
+  return browse ? stageLabel(browse) : "Stage";
 }
 
-function isBrowseStage(value: unknown): value is Stage {
-  return typeof value === "string" && (BROWSE_STAGES as readonly string[]).includes(value);
+/** The Stage menu's choice a word means: one of BROWSE_STAGES, or an old word
+ * for one (?stage=releasing is Completed), else nothing. */
+function browseStage(value: unknown): Stage | undefined {
+  const stage = canonicalStage(value);
+  return stage && (BROWSE_STAGES as readonly string[]).includes(stage) ? stage : undefined;
 }
 
 /** The create button each chip goes with: Hire someone on Jobs and gigs, Start
@@ -102,12 +108,13 @@ export function matchesLens(p: any, lens: ProjectsLens): boolean {
 /** A Stage choice matches the stage the card's own pill shows (resolveStage).
  * "" is any stage. */
 export function matchesStage(p: any, stage: string): boolean {
-  return !isBrowseStage(stage) || resolveStage(p) === stage;
+  const browse = browseStage(stage);
+  return !browse || resolveStage(p) === browse;
 }
 
 // The URL. Canonical: ?show=funding|people|work (absent = Projects) and
-// ?stage=planning|forming|working|releasing. Old links keep landing where they
-// did, below.
+// ?stage=planning|forming|working|completed. Old links keep landing where they
+// did, below (?stage=releasing, from before Released was dropped, is completed).
 const LENS_WORDS = new Map<string, ProjectsLens>([
   ["projects", "projects"],
   ["funding", "funding"],
@@ -155,7 +162,7 @@ export function readProjectsView(raw: {
   const seekLens = raw.seek === "funding" || raw.seek === "people" ? raw.seek : null;
   const oldView = raw.work || raw.view === "work" || raw.kind === "paid" || raw.kind === "gigs" ? "work" : null;
   const lens = seekLens ?? lensWord(raw.show) ?? lensWord(raw.stage) ?? oldView ?? DEFAULT_LENS;
-  const stage = [raw.stage, raw.show].find(isBrowseStage) ?? "";
+  const stage = [raw.stage, raw.show].map(browseStage).find(Boolean) ?? "";
   return { lens, stage: lens === "work" ? "" : stage };
 }
 
@@ -184,7 +191,7 @@ export function writeProjectsView(
   for (const key of legacy) params.delete(key);
   if (next.lens === DEFAULT_LENS) params.delete("show");
   else params.set("show", next.lens);
-  const stage = next.lens === "work" || !isBrowseStage(next.stage) ? "" : next.stage;
+  const stage = next.lens === "work" ? "" : (browseStage(next.stage) ?? "");
   if (stage) params.set("stage", stage);
   else params.delete("stage");
 }

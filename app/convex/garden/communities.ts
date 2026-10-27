@@ -33,13 +33,14 @@ import {
   activeMembersOfCommunity,
   communityMembershipsOf,
   getCommunityMember,
+  isLeaderRole,
   membersOfCommunity,
 } from "./communityLookup";
 import { projectPhotoUrl } from "../images";
 
 // Defined in communityLookup.ts (so smaller modules can use them); exported
 // here too because most callers import them from communities.
-export { COMMUNITY_KIND, getCommunityMember };
+export { COMMUNITY_KIND, getCommunityMember, isLeaderRole };
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
@@ -192,11 +193,8 @@ export function canManageCommunity(role: string | undefined): boolean {
 // treated as a leader here and no new moderator rows get created.
 // ——————————————————————————————————————————————————————————————
 
-/** Only role "host" counts as a leader (owner or admin) for public
- * co-listing — "moderator" manages but isn't listed. */
-export function isLeaderRole(role: string | undefined): boolean {
-  return role === "host";
-}
+// isLeaderRole — only role "host" counts as a leader — is defined in
+// communityLookup.ts (re-exported at the top of this file).
 
 export interface LeaderRow {
   userId: string;

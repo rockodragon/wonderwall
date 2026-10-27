@@ -13,7 +13,7 @@
 // Hooks stay above every return — a Rules-of-Hooks violation crashed a
 // Garden page before.
 
-import { useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import { Link } from "react-router";
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
@@ -23,7 +23,8 @@ import { resolveStage, stageLabel } from "../lib/stage";
 import { Dissolve } from "../hooks/useReveal";
 import { AbstractCover } from "../components/AbstractCover";
 import { CoverFrame } from "../components/CoverFrame";
-import { coverOf, fundingOf, moneyOf, pickProjects } from "../lib/projectPick";
+import { canSaveProject, coverOf, fundingOf, moneyOf, pickProjects } from "../lib/projectPick";
+import { isRaising } from "../lib/browse/projectsFilter";
 import { FF_DESK } from "../lib/featureFlags";
 import { Desk } from "../desk/Desk";
 import { useIsDesktop } from "../hooks/useMediaQuery";
@@ -39,6 +40,9 @@ import { GardenLockup } from "../brand/GardenMark";
 import { useDeskCommunity } from "../desk/deskState";
 import { shownInterests } from "../constants/interests";
 import { bylineOf } from "../lib/byline";
+import { Byline } from "../components/Byline";
+import { FavoriteButton } from "../components/FavoriteButton";
+import { SupportButtons, useProjectSupport, type SupportMode } from "../components/ProjectSupport";
 
 export function meta() {
   return [{ title: "Today — The Garden" }];
@@ -85,6 +89,12 @@ function TodayPage() {
   const openGift = giving?.open?.[0];
   // Today is signed-in only (routes/_app.tsx), so there's always a Shortlist.
   const shortlist = useShortlist();
+  // Cheering and backing from a post, and who may save one: the same rules
+  // as the Projects page and a project's own page (components/
+  // ProjectSupport.tsx, lib/projectPick.ts).
+  const { isAuthenticated } = useConvexAuth();
+  const { support, modal: supportModal } = useProjectSupport();
+  const viewer = { signedIn: isAuthenticated, profile };
 
   const episode = useMemo(() => pickEpisode(events ?? []), [events]);
 
@@ -176,17 +186,18 @@ function TodayPage() {
         )}
       </Section>
 
-      {/* Browsing, not acting (today-page-ux-review-2026-09-26.md): a
-          short list, every row a link (the whole row opens it, no "See →"),
-          and the section stays on the page when it's empty so a new member
-          learns it exists. Backing and responding live on the project page. */}
+      {/* A short list of feed posts (today-page-ux-review-2026-09-26.md): who
+          made it, the picture, the title and a line or two, then cheer, back
+          and save. The picture and the words open the project (no "See →");
+          the section stays on the page when it's empty so a new member
+          learns it exists. */}
       <Section title="Open projects" action={<SectionLink to="/projects">{countLabel("project", open.length)} →</SectionLink>}>
         {loading ? (
           <Skeleton height={140} />
         ) : shownOpen.length > 0 ? (
-          <div className="space-y-5 md:space-y-20">
+          <div className="space-y-6 md:space-y-20">
             {shownOpen.map((p, i) => (
-              <ProjectRow key={p._id} project={p} flip={i % 2 === 1} />
+              <ProjectRow key={p._id} project={p} flip={i % 2 === 1} viewer={viewer} onSupport={support} />
             ))}
           </div>
         ) : (
@@ -226,6 +237,7 @@ function TodayPage() {
         {profileEmpty && <EmptyProfileCard />}
         <BackersCard />
       </div>
+      {supportModal}
     </div>
   );
 }
@@ -591,57 +603,142 @@ function FeaturedProject({ project }: { project: Project }) {
   );
 }
 
-/** One open project. On a phone, a card on its own ground (no border):
-    the picture square and full width across the top, then the title, who
-    it's from right under it in words you can read, and one status line
-    (Rick, 2026-10-27: side by side felt cramped, the border and padding
-    weren't needed). From md up it is set wide: image on one side, words on
-    the other, the sides swapping every other row. The whole row is the link. */
-function ProjectRow({ project, flip }: { project: Project; flip: boolean }) {
+/** One open project, a feed post (Rick, 2026-10-27), top to bottom on a
+    phone: who made it (a square photo, the name, "in {community}" under it),
+    the picture square and edge to edge, the title, a line or two, the status
+    line, then cheer, back and save as the post's last row. No card, no
+    border; posts are set apart by space alone. Without a picture the square
+    is the abstract cover with the title set large on it, and the words below
+    don't say it twice.
+
+    From md up it is set wide: the picture on one side, the words on the
+    other (maker, badges, title, blurb, status, then the actions), the sides
+    swapping every other row. That is one grid on the article: the picture
+    spans every row and each piece of the words takes its own row, so
+    nothing is drawn twice. The maker's header and the picture-and-words link
+    are separate links, and the buttons sit outside both, so nothing is
+    nested. Where it sits in the words column is `wordsCol`.
+
+    The picture-and-words link is a stretched link: a real box at every
+    width (a `display: contents` anchor can't take focus in Chrome, and older
+    Safari drops it from the accessibility tree), whose ::after covers the
+    whole post, so a tap anywhere on it opens the project. The maker's header
+    and the buttons sit above that cover (`z-10`). From md the link spans the
+    article's grid and is a subgrid of it, so its children still take their
+    places in the article's columns and rows. */
+export function ProjectRow({
+  project,
+  flip,
+  viewer,
+  onSupport,
+}: {
+  project: Project;
+  flip: boolean;
+  viewer: { signedIn: boolean; profile: { userId?: string } | null | undefined };
+  onSupport: (project: Project, mode: SupportMode) => void;
+}) {
   const cover = coverOf(project);
   const funded = fundingOf(project, formatMoney);
   const daysLeft = project.raiseByDate && project.raiseByDate > Date.now() ? Math.max(1, Math.ceil((project.raiseByDate - Date.now()) / 86400000)) : null;
-  const maker = bylineOf(project)?.name ?? "A Garden creative";
+  const byline = bylineOf(project);
   const meta = [
     stageLabel(resolveStage(project)),
     funded ? `${funded.raised} of ${funded.goal}` : null,
     daysLeft ? `${daysLeft} ${daysLeft === 1 ? "day" : "days"} left` : null,
   ].filter(Boolean);
+  const raising = isRaising(project);
+  const canSave = canSaveProject(viewer, project);
+  const wordsCol = flip ? "md:col-start-1" : "md:col-start-2";
+  const pictureCol = flip ? "md:col-start-2" : "md:col-start-1";
+  const hasBlurb = !!project.blurb;
+  const titleStyle: CSSProperties = { ...DISPLAY, color: "var(--app-text)" };
   return (
-    <Link
-      to={`/projects/${project._id}`}
-      className={`group block overflow-hidden rounded-xl bg-[var(--app-surface-raised)] md:grid md:items-center md:gap-14 md:overflow-visible md:rounded-none md:bg-transparent ${flip ? "md:grid-cols-[1fr_320px]" : "md:grid-cols-[320px_1fr]"}`}
+    <article
+      className={`relative isolate md:grid md:gap-x-14 md:grid-rows-[1fr_repeat(6,auto)_1fr] ${flip ? "md:grid-cols-[minmax(0,1fr)_320px]" : "md:grid-cols-[320px_minmax(0,1fr)]"}`}
     >
-      {/* Square, full width on a phone; beside the words on a wide screen
-          it is a fixed 320px. */}
-      <Dissolve
-        className={`overflow-hidden md:rounded-xl transition-transform duration-300 group-hover:scale-[1.01] ${flip ? "md:order-2" : ""}`}
-        style={{ backgroundColor: "#121212" }}
+      {byline && (
+        <div className={`relative z-10 w-fit max-w-full mb-1 md:mb-5 md:row-start-2 ${wordsCol}`}>
+          <Byline byline={byline} size="post" linked>
+            {project.community ? `in ${project.community.name}` : undefined}
+          </Byline>
+        </div>
+      )}
+      <Link
+        to={`/projects/${project._id}`}
+        className="group grid grid-cols-[minmax(0,1fr)] after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-[var(--app-accent-ink)] md:col-span-full md:row-span-full md:grid-cols-subgrid md:grid-rows-subgrid"
       >
-        <ProjectCover cover={cover} seed={project._id} square />
-      </Dissolve>
-      <div className={`min-w-0 px-3.5 pt-3 pb-3.5 md:p-0 ${flip ? "md:order-1" : ""}`}>
-        <div className="hidden md:block md:mb-4">
+        {/* Edge to edge on a phone (the page's side gutter taken back), the
+            fixed 320px square beside the words from md. */}
+        <Dissolve
+          className={`col-start-1 row-start-1 -mx-4 sm:mx-0 overflow-hidden md:row-span-8 md:self-center md:rounded-xl md:group-hover:scale-[1.01] ${pictureCol}`}
+          style={{ backgroundColor: "#121212" }}
+        >
+          <ProjectCover cover={cover} seed={project._id} square />
+        </Dissolve>
+        <div className={`hidden md:block md:row-start-3 md:mb-4 ${wordsCol}`}>
           <Badges project={project} />
         </div>
-        <h3 className="text-[19px] md:text-[30px] leading-snug md:leading-tight font-semibold tracking-[-0.01em] line-clamp-2 md:line-clamp-none group-hover:underline" style={DISPLAY}>
-          {project.title}
-        </h3>
-        <p className="mt-1 text-sm truncate" style={{ color: "var(--app-text-muted)" }}>
-          {maker}
-        </p>
+        {/* With a picture the title is the first line of the words; without
+            one it lies over the bottom of the abstract cover (the same grid
+            cell as the picture), on a scrim so it reads over any of the
+            shapes, and from md it moves into the words like any other. */}
+        <div
+          className={`md:row-start-4 md:m-0 md:p-0 md:self-auto md:bg-none ${wordsCol} ${
+            cover
+              ? "mt-3 md:mt-0"
+              : "relative z-10 col-start-1 row-start-1 self-end -mx-4 sm:mx-0 px-4 pb-4 pt-20 bg-[linear-gradient(to_top,rgba(18,18,18,0.92),rgba(18,18,18,0.6)_55%,transparent)]"
+          }`}
+        >
+          <h3
+            className={`tracking-[-0.01em] group-hover:underline group-focus-visible:underline md:text-[30px] md:leading-tight md:line-clamp-none ${
+              cover ? "text-[17px] leading-snug font-semibold line-clamp-2 md:font-semibold" : "text-[34px] leading-[1.05] font-bold line-clamp-4 md:font-semibold"
+            }`}
+            style={titleStyle}
+          >
+            {project.title}
+          </h3>
+        </div>
         {project.blurb && (
-          <p className="hidden md:block mt-3 text-[15px] leading-relaxed line-clamp-3" style={{ color: "var(--app-text-muted)" }}>
+          <p
+            className={`${cover ? "mt-1" : "mt-3"} text-[15px] leading-snug line-clamp-2 md:mt-3 md:row-start-5 md:leading-relaxed md:line-clamp-3 ${wordsCol}`}
+            style={{ color: "var(--app-text)" }}
+          >
             {project.blurb}
           </p>
         )}
         {meta.length > 0 && (
-          <p className="mt-1.5 md:mt-4 text-xs" style={{ color: "var(--app-text-dim)" }}>
+          <p
+            className={`${cover || hasBlurb ? "mt-1.5" : "mt-3"} text-[13px] md:mt-4 md:row-start-6 ${wordsCol}`}
+            style={{ color: "var(--app-text-muted)" }}
+          >
             {meta.join(" · ")}
           </p>
         )}
+      </Link>
+      {/* The post's last row, outside the link: the heart (with how many
+          cheered or backed it), Back this while it's raising, and Save at
+          the far right. 44px targets; the margins pull the icons' own edges
+          level with the words. Each group sits above the link's cover; the
+          empty space between them is the cover, so it opens the project. */}
+      <div className={`mt-1 flex items-center md:mt-6 md:row-start-7 ${wordsCol}`}>
+        {project.kind === "passion" && (
+          <div className="relative z-10 -ml-[9px]">
+            <SupportButtons
+              raising={raising}
+              count={project.supportCount}
+              onSupport={(mode) => onSupport(project, mode)}
+              size="post"
+              name={project.title}
+            />
+          </div>
+        )}
+        {canSave && (
+          <div className="ml-auto relative z-10 -mr-2.5 flex items-center">
+            <FavoriteButton targetType="project" targetId={project._id} name={project.title} look="icon" />
+          </div>
+        )}
       </div>
-    </Link>
+    </article>
   );
 }
 

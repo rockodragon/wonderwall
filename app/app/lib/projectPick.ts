@@ -2,6 +2,7 @@
 // Moved out of routes/today.tsx so the Today page and the desk pick the same
 // way. Pure, so both can test against it.
 
+import { VISIBLE_PROJECT_STATUSES } from "../../convex/moderationRules";
 import { budgetAmountLabel, budgetKindLabel, type BudgetDeclaration } from "./budgetLabel";
 
 /** The picture fields of a projects.listProjects row. */
@@ -89,4 +90,33 @@ export function fundingOf(
 export function moneyOf(p: BudgetDeclaration & { gig?: { status: string } | null }): string | null {
   const amount = budgetAmountLabel(p);
   return amount && p.gig && p.budgetType === "amount" ? `${amount}/date` : amount;
+}
+
+/** Whether this profile leads the project (profiles:getMyProfile's userId
+ * against the project's). False while the profile loads or signed out. */
+export function isProjectOwner(
+  project: { userId?: string },
+  profile: { userId?: string } | null | undefined,
+): boolean {
+  return !!profile && project.userId === profile.userId;
+}
+
+/**
+ * Whether the viewer is offered Save on a project (the Shortlist's save,
+ * components/FavoriteButton.tsx): a signed-in member who isn't its lead, on a
+ * project the browse lists show (favorites.toggle refuses the rest, so a page
+ * never offers a save that would fail). `profile` is getMyProfile's answer;
+ * held until it has loaded (undefined), so the lead never sees Save flash.
+ * The project page and Today's posts both read it from here.
+ */
+export function canSaveProject(
+  viewer: { signedIn: boolean; profile: { userId?: string } | null | undefined },
+  project: { userId?: string; status: string },
+): boolean {
+  return (
+    viewer.signedIn &&
+    viewer.profile !== undefined &&
+    !isProjectOwner(project, viewer.profile) &&
+    VISIBLE_PROJECT_STATUSES.has(project.status)
+  );
 }

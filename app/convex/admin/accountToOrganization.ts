@@ -21,6 +21,7 @@ import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 import type { MutationCtx } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
+import { resummarizeConversations } from "../engagement/conversations";
 import { isCurrent } from "../organizationRules";
 import { getProfileByUserId } from "../helpers";
 import { MergeReads, PROFILE_ID_FIELDS, USER_ID_FIELDS } from "./mergeUsers";
@@ -164,6 +165,7 @@ export const accountToOrganization = internalMutation({
     for (const row of await rowsWhere(ctx, "uploadClaims", refersTo("userId", userId))) {
       await ctx.db.patch(row._id, { userId: runBy });
     }
+    const touched = conversations.map((c) => c._id);
     for (const conversation of conversations) {
       const other = conversation.participants.find((p) => p !== userId);
       const messages = await ctx.db
@@ -194,12 +196,14 @@ export const accountToOrganization = internalMutation({
           lastMessageAt: Math.max(existing.lastMessageAt, conversation.lastMessageAt),
         });
         await ctx.db.delete(conversation._id);
+        touched.push(existing._id);
       } else {
         await ctx.db.patch(conversation._id, {
           participants: conversation.participants.map((p) => (p === userId ? runBy : p)),
         });
       }
     }
+    await resummarizeConversations(ctx, touched, userId, runBy);
 
     // ——— Its own traces go ———
     const gone: [string, (row: any) => boolean][] = [

@@ -177,7 +177,7 @@ The visual spec is the handoff README. What follows covers the build.
 **Project** cards: open passion projects and open paid projects, picked the way today.tsx picks them.
 - Section: `projects`.
 - Cover from `coverOf()`.
-- Kicker says what the card is (`lib/projectKind.ts`): the stage label for a project; `JOB` for one-off paid work; `RECURRING GIG · FRIDAYS 8–10PM` for a live-booking series; `VOLUNTEER` for an unpaid posting. Foot: owner or community.
+- Kicker says what the card is (`lib/projectKind.ts`), for paid work only: `JOB` for one-off paid work; `RECURRING GIG · FRIDAYS 8–10PM` for a live-booking series; `VOLUNTEER` for an unpaid posting. A project has no kicker (the stage is not the first thing; it is a row in the opened card's facts), the way an organization has none. Foot: the maker's small rounded picture (a person's photo or an organization's logo, `lib/byline.ts`) and name, after a paid role's pay; the community when nobody is named.
 - Under Jobs and gigs, a project shown for a paid role leads with the role: kicker `ROLE ON {PROJECT} · PAID`, the role as the title, its pay then the owner in the foot.
 - Detail: description, then "See project" linking to `/projects/:id`. Its meta line repeats the kicker with the community. Its rows are, top to bottom: Paid role (Jobs and gigs only), Stage, Schedule (a recurring gig), Funding, Roles, Pay. Funding is "$370 of $1,000 · 37%" with a goal, "Open to backing" when the project is raising through a tier with no goal.
 - The featured project, picked the way today.tsx picks it, also joins `all`.
@@ -276,7 +276,7 @@ A UX analyst's recommendations are folded in below. Rick: keep the two-step entr
   - Line 2: the view name at 30px, then a muted count ("13 people").
 - People, Projects and Events add one filter row under the header, on the same 48px left edge:
   - a search field (280×40, 15px)
-  - Projects: four chips, one at a time, Projects first (Projects, Seeking funding, Seeking people, Jobs and gigs), then a "Stage ▾" menu (Any stage, Planning, Forming team, Working, Released) after a thin divider. No toggle, no "All" chip. Stage is hidden under Jobs and gigs.
+  - Projects: four chips, one at a time, Projects first (Projects, Seeking funding, Seeking people, Jobs and gigs), then a "Stage ▾" menu (Any stage, Planning, Forming team, Working, Completed) after a thin divider. No toggle, no "All" chip. Stage is hidden under Jobs and gigs.
   - Events: Upcoming / Saved / Past, then Near me
   - People: Everyone / Following / Organizations, Discipline, Near me
 - At the right end of the row sits the view's one create verb, as an outline button: "Start a project" (Projects, Seeking funding, Seeking people), "Hire someone" (Jobs and gigs), "Host an event", "Invite someone". The Projects button opens the card over the list as it is: the filters stay in the URL.

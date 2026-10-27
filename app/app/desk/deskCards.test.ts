@@ -60,7 +60,7 @@ function project(id: string, extra: Partial<DeskProjectInput> = {}): DeskProject
     title: `Project ${id}`,
     blurb: "Making a thing.",
     media: [],
-    creator: { name: "Dana Lee" },
+    creator: { _id: "dana", name: "Dana Lee", imageUrl: null },
     community: null,
     ...extra,
   };
@@ -384,7 +384,7 @@ describe("project cards", () => {
     expect(cards.filter((c) => c.kind === "project").map((c) => c.id)).toEqual(["project:paid"]);
   });
 
-  it("read the stage, or JOB, and the owner", () => {
+  it("read the maker, and JOB for paid work", () => {
     const cards = buildDeskCards(
       input({
         projects: [
@@ -394,7 +394,13 @@ describe("project cards", () => {
       }),
       "garden",
     );
-    expect(byId(cards, "project:a").face).toEqual({ kicker: "RAISING", title: "Project a", foot: "Dana Lee" });
+    // The stage is not the card's first word (it is in the opened card's facts).
+    expect(byId(cards, "project:a").face).toEqual({
+      kicker: "",
+      title: "Project a",
+      foot: null,
+      by: { kind: "person", name: "Dana Lee", imageUrl: null, href: "/profile/dana" },
+    });
     expect(byId(cards, "project:a").image).toBe("https://img/a.jpg");
     expect(byId(cards, "project:b").face.kicker).toBe("JOB");
     expect(byId(cards, "project:b").detail.facts).toEqual([{ label: "Pay", value: "$400" }]);
@@ -442,11 +448,11 @@ describe("project cards", () => {
 
   it("name the organization a project is posted as, not the person who runs it", () => {
     const card = projectCard(
-      project("o", { creator: { name: "David Russo" }, organization: { name: "Abiding Practice" } }),
+      project("o", { creator: { _id: "david", name: "David Russo" }, organization: { name: "Abiding Practice", slug: "abiding-practice" } }),
       ["projects"],
       money,
     );
-    expect(card.face.foot).toBe("Abiding Practice");
+    expect(card.face.by?.name).toBe("Abiding Practice");
     expect(card.detail.host).toBe("By Abiding Practice");
   });
 
@@ -455,6 +461,62 @@ describe("project cards", () => {
     expect(card.face.kicker).toBe("VOLUNTEER");
     expect(card.detail.meta).toBe("VOLUNTEER · THE GARDEN");
     expect(card.detail.facts?.some((f) => f.label === "Pay")).toBe(false);
+  });
+
+  it("leave the stage off the face, whatever it is, and keep it in the opened card's facts", () => {
+    for (const [stage, label] of [["planning", "Planning"], ["working", "Working"], ["raising", "Raising"], ["completed", "Completed"]] as const) {
+      const card = projectCard(project("s", { stage }), ["projects"], money);
+      expect(card.face.kicker).toBe("");
+      expect(card.detail.facts).toContainEqual({ label: "Stage", value: label });
+    }
+    // Not set: the stage the project reads as, still in the facts.
+    const bare = projectCard(project("s"), ["projects"], money);
+    expect(bare.face.kicker).toBe("");
+    expect(bare.detail.facts?.some((f) => f.label === "Stage")).toBe(true);
+  });
+
+  it("keep what the kind says up top: a job, a recurring gig, volunteer work, a paid role", () => {
+    const job = project("j", { kind: "paid", budgetType: "amount", budget: 400 });
+    const gig = project("g", { kind: "paid", budgetType: "amount", budget: 150, gig: { status: "open", cadence: "Every Friday", timeRange: "8–10pm" } });
+    const volunteer = project("v", { kind: "paid", budgetType: "volunteer" });
+    const withRole = project("r", { title: "Harbor Mural", openRoles: [{ title: "Drummer", budgetType: "amount", budget: 200 }] });
+    expect(projectCard(job, ["projects"], money).face.kicker).toBe("JOB");
+    expect(projectCard(gig, ["projects"], money).face.kicker).toBe("RECURRING GIG · FRIDAYS 8–10PM");
+    expect(projectCard(volunteer, ["projects"], money).face.kicker).toBe("VOLUNTEER");
+    const lead = projectCard(withRole, ["projects"], money, { onJobsAndGigs: true });
+    expect(lead.face.kicker).toBe("ROLE ON HARBOR MURAL · PAID");
+    expect(lead.face.title).toBe("Drummer");
+    // The same project under Projects is a plain project: no kicker.
+    expect(projectCard(withRole, ["projects"], money).face.kicker).toBe("");
+  });
+
+  it("carry the maker (bylineOf's name, picture and kind) on the face, and the words before it in the foot", () => {
+    const person = projectCard(project("p", { creator: { _id: "dana", name: "Dana Lee", imageUrl: "https://img/dana.jpg" } }), ["projects"], money);
+    expect(person.face.by).toEqual({ kind: "person", name: "Dana Lee", imageUrl: "https://img/dana.jpg", href: "/profile/dana" });
+    expect(person.face.foot).toBeNull();
+    // Posted as an organization: its logo and name, not the person who runs it.
+    const org = projectCard(
+      project("o", { creator: { _id: "david", name: "David Russo" }, organization: { name: "Abiding Practice", slug: "abiding-practice", logoUrl: "https://img/ap.png" } }),
+      ["projects"],
+      money,
+    );
+    expect(org.face.by).toEqual({ kind: "org", name: "Abiding Practice", imageUrl: "https://img/ap.png", href: "/orgs/abiding-practice" });
+    // A paid role's pay comes before the maker, in the foot.
+    const role = projectCard(project("r", { openRoles: [{ title: "Drummer", budgetType: "amount", budget: 200 }] }), ["projects"], money, { onJobsAndGigs: true });
+    expect(role.face.foot).toBe("$200");
+    expect(role.face.by?.name).toBe("Dana Lee");
+  });
+
+  it("fall back to the community in the foot when nobody is named", () => {
+    const card = projectCard(project("n", { creator: null, community: { name: "Table Art Society", slug: "tas" } }), ["projects"], money);
+    expect(card.face.by).toBeUndefined();
+    expect(card.face.foot).toBe("Table Art Society");
+    expect(card.detail.host).toBeNull();
+  });
+
+  it("leave every other card as it was: no maker on the face", () => {
+    expect(orgCard({ _id: "o1", name: "Abiding Practice", slug: "abiding-practice" }).face.by).toBeUndefined();
+    expect(updateCard({ _id: "u1", title: "Hi", body: "Body.", imageUrl: null, actionLabel: null, actionUrl: null }, ["today"]).face).not.toHaveProperty("by");
   });
 
   it("show what a passion project has raised, exactly, in the Funding row", () => {
@@ -529,13 +591,20 @@ describe("projectFacts", () => {
   });
   it("reads the stage with the page's own words", () => {
     expect(projectFacts(project("c", { stage: "forming" }), money)[0]).toEqual({ label: "Stage", value: "Forming team" });
-    expect(projectFacts(project("d", { stage: "releasing" }), money)[0]).toEqual({ label: "Stage", value: "Released" });
+    // A stored releasing is Completed now: Released is gone.
+    expect(projectFacts(project("d", { stage: "releasing" }), money)[0]).toEqual({ label: "Stage", value: "Completed" });
+    expect(projectFacts(project("e", { stage: "completed" }), money)[0]).toEqual({ label: "Stage", value: "Completed" });
   });
   it("gives paid work its pay, and no stage it didn't set", () => {
     const job = project("j", { kind: "paid", budgetType: "range", budget: 300, budgetMax: 600 });
     expect(projectFacts(job, money)).toEqual([{ label: "Pay", value: "$300–600" }]);
     expect(projectFacts({ ...job, stage: "working" }, money)).toEqual([
       { label: "Stage", value: "Working" },
+      { label: "Pay", value: "$300–600" },
+    ]);
+    // A paid post stored as releasing did set its stage: it reads Completed.
+    expect(projectFacts({ ...job, stage: "releasing" }, money)).toEqual([
+      { label: "Stage", value: "Completed" },
       { label: "Pay", value: "$300–600" },
     ]);
   });

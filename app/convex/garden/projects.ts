@@ -15,7 +15,8 @@ import { assertCommunityMember } from "./communities";
 import { COMMUNITY_KIND, resolveCommunities } from "./communityLookup";
 import { assertCanPostAs, orgByline } from "../organizations";
 import { notifyFollowers } from "../follows";
-import { isStage, stageLabel, shouldNotifyStageChange } from "./projectTeam";
+import { shouldNotifyStageChange } from "./projectTeam";
+import { canonicalStage, stageLabel } from "../stages";
 import {
   collectStorageIds,
   normalizeRichDoc,
@@ -147,7 +148,9 @@ export const createPassionProject = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError({ code: "unauthenticated" });
 
-    if (args.stage !== undefined && !isStage(args.stage)) {
+    // An old link or tab may still send "releasing"; it starts as Completed.
+    const startStage = args.stage === undefined ? undefined : canonicalStage(args.stage);
+    if (args.stage !== undefined && !startStage) {
       throw new ConvexError({ code: "invalid_stage", reason: "Not a valid stage." });
     }
 
@@ -176,7 +179,7 @@ export const createPassionProject = mutation({
       raisedCents: 0,
       status: "active",
       // Stage default (docs/features/project-teams.md §1): passion → planning.
-      stage: args.stage ?? "planning",
+      stage: startStage ?? "planning",
       stageChangedAt: now,
       photoUrl: args.photoUrl,
       mediaUrl,
@@ -369,20 +372,26 @@ export const setStage = mutation({
   handler: async (ctx, args) => {
     const { userId, row: project } = await requireOwner(ctx, "projects", args.projectId, { orAdmin: true });
 
-    if (!isStage(args.stage)) {
+    // "Released" is gone, and Completed is the one finished stage: an open
+    // tab that still sends "releasing" stores completed, not an error. Every
+    // other unknown value is refused.
+    const stage = canonicalStage(args.stage);
+    if (!stage) {
       throw new ConvexError({ code: "invalid_stage", reason: "Not a valid stage." });
     }
-    if (project.stage === args.stage) return { ok: true, changed: false };
+    // A project stored as "releasing" already reads as Completed: nothing
+    // changed, so nothing to write and no one to tell.
+    if (canonicalStage(project.stage) === stage) return { ok: true, changed: false };
 
     const now = Date.now();
     const notifyTeam = shouldNotifyStageChange(
       project.stage,
-      args.stage,
+      stage,
       project.stageChangedAt,
       now,
     );
     await ctx.db.patch(args.projectId, {
-      stage: args.stage,
+      stage,
       stageChangedAt: now,
       updatedAt: now,
     });
@@ -394,7 +403,7 @@ export const setStage = mutation({
           q.eq("projectId", args.projectId).eq("status", "accepted"),
         )
         .collect();
-      const title = `${project.title} is now ${stageLabel(args.stage)}`;
+      const title = `${project.title} is now ${stageLabel(stage)}`;
       for (const member of members) {
         if (!member.userId || member.userId === userId) continue;
         await insertNotification(ctx, {

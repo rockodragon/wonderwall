@@ -1338,12 +1338,13 @@ export default defineSchema({
     // runs it, and every permission and payout still goes through them.
     organizationId: v.optional(v.id("organizations")),
     // Stage of the creative process (docs/features/project-teams.md §1):
-    // "planning" | "raising" | "forming" | "working" | "releasing" |
-    // "completed". A label, not a state machine, and deliberately NOT a
-    // rename of `status` (which stays lifecycle/visibility). Optional: rows
-    // from before this field derive one via resolveStage — the canonical
-    // copy lives in app/app/lib/stage.ts, twinned in garden/projectTeam.ts
-    // because convex/ can't import from app/.
+    // "planning" | "raising" | "forming" | "working" | "paused" |
+    // "completed" | "cancelled". A label, not a state machine, and
+    // deliberately NOT a rename of `status` (which stays lifecycle/
+    // visibility). Old rows may hold "releasing" (retired 2026-10-27): it
+    // reads as Completed and is not migrated. Optional: rows from before
+    // this field derive one via resolveStage — the one copy lives in
+    // convex/stages.ts, which app/app/lib/stage.ts re-exports.
     stage: v.optional(v.string()),
     // When `stage` last changed — setStage's once-per-24h notification rule
     // (project-teams.md §6) checks against it.

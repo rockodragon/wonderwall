@@ -158,3 +158,76 @@ describe("unnamed accounts are hidden from other members", () => {
     });
   });
 });
+
+// The badge beside a person's name: the page answers `isLeader`, a yes or no,
+// to a signed-out visitor as to a member, and never the admin flag behind it.
+describe("a profile page says whether the person leads a community", () => {
+  const person = (n: string, over: Record<string, unknown> = {}) => ({
+    _id: `profiles:${n}`,
+    userId: `users:${n}`,
+    name: `Person ${n}`,
+    interests: [],
+    handle: n,
+    ...over,
+  });
+  const member = (n: number, user: string, role: string, status: string) => ({
+    _id: `communityMembers:${n}`,
+    hostOrgId: "hostOrgs:garden",
+    userId: `users:${user}`,
+    role,
+    status,
+    joinedAt: n,
+  });
+  const tables = () => ({
+    hostOrgs: [{ _id: "hostOrgs:garden", kind: "community", name: "The Garden", slug: "the-garden" }],
+    profiles: [
+      person("ada", { isAdmin: true }),
+      person("hana"),
+      person("rex"),
+      person("mo"),
+      person("pat"),
+      person("mia"),
+    ],
+    communityMembers: [
+      member(1, "hana", "host", "active"),
+      member(2, "rex", "host", "removed"),
+      member(3, "mo", "moderator", "active"),
+      member(4, "pat", "host", "pending"),
+      member(5, "mia", "member", "active"),
+    ],
+  });
+  const flags = { ada: true, hana: true, rex: false, mo: false, pat: false, mia: false } as const;
+
+  for (const viewer of [null, "users:mia"]) {
+    const who = viewer ? "a signed-in member" : "a signed-out visitor";
+
+    it(`getProfile: an admin and an active host, and no one else, to ${who}`, async () => {
+      for (const [n, leads] of Object.entries(flags)) {
+        const page = await run(getProfile, makeCtx(tables(), viewer), { profileId: `profiles:${n}` });
+        expect(page?.isLeader, n).toBe(leads);
+      }
+    });
+
+    it(`getProfileByHandle: the same flags, to ${who}`, async () => {
+      for (const [n, leads] of Object.entries(flags)) {
+        const page = await run(getProfileByHandle, makeCtx(tables(), viewer), { handle: n });
+        expect(page?.isLeader, n).toBe(leads);
+      }
+    });
+  }
+
+  it("never sends the admin flag with it: an admin and a host look the same", async () => {
+    for (const n of ["ada", "hana"]) {
+      const page = (await run(getProfileByHandle, makeCtx(tables(), null), { handle: n })) as Record<string, unknown>;
+      expect(page).not.toHaveProperty("isAdmin");
+      expect(page.isLeader).toBe(true);
+    }
+  });
+
+  it("still answers null, not a flag, for a page the viewer may not see", async () => {
+    const w = tables();
+    w.profiles.push(person("ghost", { name: "New User", isAdmin: true }));
+    expect(await run(getProfileByHandle, makeCtx(w, null), { handle: "ghost" })).toBeNull();
+    expect(await run(getProfile, makeCtx(w, null), { profileId: "profiles:ghost" })).toBeNull();
+  });
+});
