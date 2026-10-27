@@ -1,65 +1,10 @@
 // Project stage — the creative-process label on a project. See
 // docs/features/project-teams.md §1.
 //
-// `projects.stage` is a NEW optional field. `projects.status` is untouched
-// and keeps meaning lifecycle/visibility ("active" | "archived", with the
-// legacy "in_progress" | "completed" still accepted). Rows written before
-// `stage` existed derive one here, so nothing migrates and nothing that
-// reads `status` breaks.
+// The list, the labels and the rule for which stage a project displays as live
+// in ONE pure module the server shares, convex/stages.ts. This file re-exports
+// it so the app's imports stay as they are. A stored `releasing` reads as
+// Completed (Released is gone); see canonicalStage there.
 
-export const STAGES = [
-  "planning",
-  "raising",
-  "forming",
-  "working",
-  "releasing",
-  "paused",
-  "completed",
-  "cancelled",
-] as const;
-
-export type Stage = (typeof STAGES)[number];
-
-/** One label per stage, same for passion and paid — "forming" used to read
- * "Hiring" on a paid post, but a project still forming its team is still
- * forming its team whether or not the work is paid; "Hiring" implied an
- * employment relationship this platform doesn't have. */
-export function stageLabel(stage: Stage): string {
-  switch (stage) {
-    case "planning":
-      return "Planning";
-    case "raising":
-      return "Raising";
-    case "forming":
-      return "Forming team";
-    case "working":
-      return "Working";
-    case "releasing":
-      return "Released";
-    case "paused":
-      return "Paused";
-    case "completed":
-      return "Completed";
-    case "cancelled":
-      return "Cancelled";
-  }
-}
-
-export function isStage(value: unknown): value is Stage {
-  return typeof value === "string" && (STAGES as readonly string[]).includes(value);
-}
-
-/** The stage a project displays as. `stage` wins when set; otherwise derive
- * from the legacy status so old rows read sensibly:
- *   in_progress → working, completed → completed,
- *   paid → forming (still building the team), everything else → planning. */
-export function resolveStage(project: {
-  stage?: string;
-  status?: string;
-  kind: string;
-}): Stage {
-  if (isStage(project.stage)) return project.stage;
-  if (project.status === "in_progress") return "working";
-  if (project.status === "completed") return "completed";
-  return project.kind === "paid" ? "forming" : "planning";
-}
+export { STAGES, canonicalStage, isStage, resolveStage, stageLabel } from "../../convex/stages";
+export type { Stage } from "../../convex/stages";

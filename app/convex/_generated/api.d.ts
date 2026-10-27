@@ -162,6 +162,7 @@ import type * as shortlist from "../shortlist.js";
 import type * as showcase from "../showcase.js";
 import type * as smsSender from "../smsSender.js";
 import type * as sourceParsers from "../sourceParsers.js";
+import type * as stages from "../stages.js";
 import type * as supportDigest from "../supportDigest.js";
 import type * as updates from "../updates.js";
 import type * as uploadClaimsBackfill from "../uploadClaimsBackfill.js";
@@ -331,6 +332,7 @@ declare const fullApi: ApiFromModules<{
   showcase: typeof showcase;
   smsSender: typeof smsSender;
   sourceParsers: typeof sourceParsers;
+  stages: typeof stages;
   supportDigest: typeof supportDigest;
   updates: typeof updates;
   uploadClaimsBackfill: typeof uploadClaimsBackfill;
