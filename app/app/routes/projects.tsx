@@ -839,7 +839,7 @@ function FilterChip({ label, on, onClick }: { label: string; on: boolean; onClic
   );
 }
 
-/** "Stage ▾": Any stage, Planning, Forming team, Working, Released. Reads as
+/** "Stage ▾": Any stage, Planning, Forming team, Working, Completed. Reads as
  * the stage that is chosen once one is. Narrows any chip but Jobs and gigs. */
 function StageMenu({ stage, onChange }: { stage: string; onChange: (stage: string) => void }) {
   const [open, setOpen] = useState(false);
