@@ -34,8 +34,8 @@ import { ConvexError } from "convex/values";
 import { getProfileByUserId, requireOperator } from "../helpers";
 import { insertNotification } from "../notify";
 import { guestBackingThrottled } from "./stripeHandlers";
-import { isHidden } from "../moderationRules";
-import { projectVisibleTo } from "./projectVisibility";
+import { isDraft, isHidden } from "../moderationRules";
+import { assertNotDraft, projectVisibleTo } from "./projectVisibility";
 import { emailFirstCheer, isFirstCheerReceived } from "../engagement/firstCheer";
 import { requireBackingOpen } from "./backingGate";
 
@@ -124,6 +124,8 @@ export const supportProject = mutation({
 
     const project = await ctx.db.get(args.projectId);
     if (!project) throw new ConvexError({ code: "not_found", reason: "No such project." });
+    // A cheer, an offer of help or a pledge needs a posted project.
+    assertNotDraft(project);
 
     if (FINANCIAL_TYPES.has(args.type)) {
       if (!args.amountCents || args.amountCents <= 0) {
@@ -233,7 +235,7 @@ export const startBacking = internalMutation({
     requireBackingOpen();
 
     const project = await ctx.db.get(args.projectId);
-    if (!project || project.status === "archived" || isHidden(project)) return null;
+    if (!project || project.status === "archived" || isHidden(project) || isDraft(project)) return null;
 
     let supporterName: string;
     if (args.userId) {

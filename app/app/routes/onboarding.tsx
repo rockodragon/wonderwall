@@ -18,7 +18,7 @@ import { PersonAvatar } from "../components/PersonAvatar";
 import { DESK_PATH } from "../desk/deskState";
 import { GARDEN_SLUG } from "../lib/communitySlugs";
 import { errorMessage } from "../lib/convexError";
-import { justPublished } from "../lib/justPublished";
+import { createdProjectPath } from "../lib/justPublished";
 import { needsOnboarding } from "../lib/onboardingGate";
 import {
   aboutYouArgs,
@@ -974,8 +974,10 @@ function AboutStep({
 
 /** Step 4, makers only: the smallest project that answers "what are you
  *  working on", a title, and a line or two on what it is if they like. Only
- *  the project is saved here; the profile was saved on step 3. */
-function ProjectStep({
+ *  the project is saved here; the profile was saved on step 3. A new member
+ *  can also keep it as a draft (Rick, 2026-10-28: "just like Instagram"):
+ *  Share it stays the way on, and a draft is never the default. */
+export function ProjectStep({
   draft,
   set,
   returning,
@@ -993,15 +995,19 @@ function ProjectStep({
   const navigate = useNavigate();
   const posthog = usePostHog();
   const createPassionProject = useMutation(api.garden.projects.createPassionProject);
-  const [busy, setBusy] = useState(false);
+  // Which button was pressed, so its own label says it is working.
+  const [working, setWorking] = useState<"share" | "draft" | null>(null);
+  const busy = working !== null;
   const [error, setError] = useState("");
   // Talk instead: what they say is the description, as said; no sorting
   // to do here.
   const speech = useSpokenInput();
   const heard = useSpoken(speech, (said) => set("blurb", said));
 
-  async function share(e: FormEvent) {
-    e.preventDefault();
+  /** Share it and Save as draft: the same project, the same event, the same
+   *  way out; a draft is only told to stay private and lands on its own page
+   *  (where its Publish button is) rather than the just-published one. */
+  async function create(asDraft: boolean) {
     if (busy) return;
     const title = draft.title.trim();
     if (!title) {
@@ -1010,28 +1016,35 @@ function ProjectStep({
     }
     left.current = true;
     setError("");
-    setBusy(true);
+    setWorking(asDraft ? "draft" : "share");
     try {
       const { projectId } = await createPassionProject({
         title,
         blurb: draft.blurb.trim() || undefined,
         stage: draft.stage ?? undefined,
         hostOrgId: gardenId,
+        ...(asDraft ? { draft: true } : {}),
       });
-      posthog?.capture("onboarding_project_shared", {
+      posthog?.capture(asDraft ? "onboarding_project_draft" : "onboarding_project_shared", {
         stage: draft.stage ?? "planning",
         interests: draft.interests.length,
         in_garden: !!gardenId,
         ...(fromFrontDoor ? { from_front_door: true } : {}),
       });
       dropShareProjectIntent();
-      // Its page offers "Invite people" once (components/InviteToThis.tsx).
-      navigate(justPublished(`/projects/${projectId}`), { replace: true });
+      // A shared project's page offers "Invite people" once
+      // (components/InviteToThis.tsx); a draft has nothing to invite to yet.
+      navigate(createdProjectPath(projectId, { draft: asDraft }), { replace: true });
     } catch (err) {
       console.error("Onboarding failed:", err);
       setError(errorMessage(err));
-      setBusy(false);
+      setWorking(null);
     }
+  }
+
+  function share(e: FormEvent) {
+    e.preventDefault();
+    void create(false);
   }
 
   function notYet() {
@@ -1046,7 +1059,7 @@ function ProjectStep({
   }
 
   return (
-    <form onSubmit={(e) => void share(e)}>
+    <form onSubmit={share}>
       <Heading>What are you working on?</Heading>
 
       <div className="mt-8">
@@ -1100,8 +1113,21 @@ function ProjectStep({
         className={`mt-10 w-full ${BUTTON} font-semibold`}
         style={{ backgroundColor: CITRON, color: INK }}
       >
-        {busy ? "Sharing…" : "Share it"}
+        {working === "share" ? "Sharing…" : "Share it"}
       </button>
+      {/* New members only, and once there's a title to keep: the way to put
+          it aside without sharing it, drawn like "Not yet" below. */}
+      {!returning && draft.title.trim() !== "" && (
+        <button
+          type="button"
+          onClick={() => void create(true)}
+          disabled={busy}
+          className={`mt-3 w-full ${BUTTON} border font-medium`}
+          style={{ borderColor: LINE, color: PAPER }}
+        >
+          {working === "draft" ? "Saving…" : "Save as draft"}
+        </button>
+      )}
       {/* A real button, not a faint link: on a phone it's the way past a
           project you aren't ready to share. */}
       <button

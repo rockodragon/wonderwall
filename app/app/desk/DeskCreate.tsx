@@ -25,7 +25,7 @@ import { HireFlow } from "../components/HireFlow";
 import { ProjectModal } from "../components/ProjectModal";
 import { parseDeskCreate } from "./deskState";
 import { loginHref } from "./paletteLogic";
-import { justPublished } from "../lib/justPublished";
+import { createdProjectPath } from "../lib/justPublished";
 import { readStartStage } from "../lib/shareProject";
 
 export function DeskCreate() {
@@ -70,9 +70,9 @@ export function DeskCreate() {
 
   if (!kind || isLoading || !isAuthenticated || typeof document === "undefined") return null;
 
-  const onCreated = (projectId: string) => {
+  const onCreated = (projectId: string, made?: { draft?: boolean }) => {
     created.current = true;
-    navigate(justPublished(`/projects/${projectId}`));
+    navigate(createdProjectPath(projectId, made));
   };
 
   // Into <body>: the desk is its own stacking context, and the palette (z-40)

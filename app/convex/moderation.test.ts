@@ -415,7 +415,8 @@ describe("deleting a project", () => {
     world.projectMembers = [{ _id: "projectMembers:1", projectId: PROJECT, userId: STRANGER, status: "accepted", role: "Painter" }];
     world.projectRoles = [{ _id: "projectRoles:1", projectId: PROJECT, title: "Painter", status: "open" }];
     world.artifacts = [
-      { _id: "artifacts:1", projectId: PROJECT, profileId: "profiles:owner", mediaStorageId: "_storage:piece" },
+      // A piece's cover and voice note go with it, not only the work.
+      { _id: "artifacts:1", projectId: PROJECT, profileId: "profiles:owner", mediaStorageId: "_storage:piece", coverStorageId: "_storage:cover", audioNoteStorageId: "_storage:note" },
       { _id: "artifacts:other", projectId: "projects:other", profileId: "profiles:owner" },
     ];
     world.embeddings = [{ _id: "embeddings:1", entityType: "artifact", entityId: "artifacts:1" }];
@@ -430,7 +431,7 @@ describe("deleting a project", () => {
     expect(ctx.store.storyUpdates).toEqual([]);
     expect(ctx.store.embeddings).toEqual([]);
     expect(ctx.store.artifacts.map((a: Row) => a._id)).toEqual(["artifacts:other"]);
-    expect(ctx.deletedFiles.sort()).toEqual(["_storage:photo", "_storage:piece"]);
+    expect(ctx.deletedFiles.sort()).toEqual(["_storage:cover", "_storage:note", "_storage:photo", "_storage:piece"]);
   });
 });
 

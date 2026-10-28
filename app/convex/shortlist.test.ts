@@ -1502,6 +1502,53 @@ describe("getMine — what people you follow last posted", () => {
   });
 });
 
+describe("getMine — drafts", () => {
+  // A draft is its lead's to finish (listMyDrafts), not something to follow,
+  // lead, back or save yet: no row of any relation, nor "latest from" a
+  // person you follow.
+  const ANA = "users:ana";
+  const world = (): Record<string, Row[]> => ({
+    profiles: [
+      { _id: "profiles:me", userId: ME, name: "Me Member", interests: [] },
+      { _id: "profiles:lead", userId: LEAD, name: "Mara Lead", interests: [] },
+      { _id: "profiles:ana", userId: ANA, name: "Ana Reyes", interests: [] },
+    ],
+    favorites: [fav("profile", "profiles:ana", 10), fav("project", "projects:savedDraft", 11)],
+    projects: [
+      project("myDraft", { userId: ME, status: "draft", createdAt: 300 }),
+      project("mine", { userId: ME, createdAt: 200 }),
+      project("savedDraft", { status: "draft" }),
+      project("teamDraft", { status: "draft" }),
+      project("backedDraft", { status: "draft" }),
+      project("anaOlder", { userId: ANA, createdAt: 100 }),
+      project("anaDraft", { userId: ANA, createdAt: 500, status: "draft" }),
+    ],
+    projectMembers: [member("m1", "teamDraft", "accepted")],
+    projectSupport: [support("s1", "backedDraft", "financial_one_time")],
+    events: [],
+    artifacts: [],
+    memberships: [],
+    hostOrgs: [],
+  });
+
+  it("lists none of them, not even the one you lead", async () => {
+    const { data } = await mine(ME, world());
+    expect(data.projects.map((p: ShortlistProject) => p.projectId)).toEqual(["projects:mine"]);
+  });
+
+  it("shows a followed person's newest posted project, not their newer draft", async () => {
+    const { data } = await mine(ME, world());
+    expect(data.people[0].latest).toMatchObject({ id: "projects:anaOlder" });
+  });
+
+  it("a person with only a draft has nothing posted", async () => {
+    const w = world();
+    w.projects = [project("anaDraft", { userId: ANA, createdAt: 500, status: "draft" })];
+    const { data } = await mine(ME, w);
+    expect(data.people[0].latest).toBe(null);
+  });
+});
+
 describe("getMine — reads", () => {
   it("every read uses a real index, the member's RSVPs through eventRsvps.by_userId", async () => {
     // makeCtx throws on an unknown index, an out-of-order eq, or no index at all.

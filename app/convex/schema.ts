@@ -1279,7 +1279,7 @@ export default defineSchema({
     budgetMax: v.optional(v.number()), // paid: a range's high end
     goal: v.optional(v.number()), // passion: optional target
     raisedCents: v.optional(v.number()), // passion: keep-what-you-raise running total
-    status: v.string(), // "pending" | "active" | "in_progress" | "completed" | "archived" | "hidden" (admin, moderation.ts)
+    status: v.string(), // "pending" | "draft" (saved, not posted: only its lead sees it; moderationRules.ts DRAFT_STATUS) | "active" | "in_progress" | "completed" | "archived" | "hidden" (admin, moderation.ts)
     photoUrl: v.optional(v.string()),
     photoStorageId: v.optional(v.id("_storage")),
     // A pasted Instagram, TikTok, YouTube or Vimeo link that IS the

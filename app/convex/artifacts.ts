@@ -12,7 +12,7 @@ import { parseOgMeta } from "./ogParse";
 import { currentUserId, getProfileByUserId, requireOwnProfileRow, requireProfile, requireUserId } from "./helpers";
 import { audioNoteUrl, pieceMediaUrl, profileImageUrl, storedFileUrl } from "./images";
 import { cleanDescription } from "./pieceNote";
-import { claimUpload, deleteStoredFile } from "./uploads";
+import { claimUpload, deletePieceFiles, deleteStoredFile } from "./uploads";
 
 export const getMyArtifacts = query({
   args: {},
@@ -402,11 +402,7 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     const { userId, row: artifact, profile } = await requireOwnProfileRow(ctx, "artifacts", args.artifactId);
 
-    // Delete associated storage files — the work, any stored cover, and
-    // the maker's spoken note
-    await deleteStoredFile(ctx, artifact.mediaStorageId);
-    await deleteStoredFile(ctx, artifact.coverStorageId);
-    await deleteStoredFile(ctx, artifact.audioNoteStorageId);
+    await deletePieceFiles(ctx, artifact);
 
     await ctx.db.delete(args.artifactId);
   },

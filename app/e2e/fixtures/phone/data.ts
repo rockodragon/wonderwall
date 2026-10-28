@@ -296,9 +296,14 @@ function quietWav(): string {
   return `data:audio/wav;base64,${btoa(String.fromCharCode(...bytes))}`;
 }
 
-/** Two shared pieces as their project pages show them (/projects/p-cafe is
- *  yours, to see the editing; /projects/p-harbor is Dee's, with a
- *  description, a voice note and twelve updates, to see "Show more"). */
+/** Your one draft: the project page below and the row Drafts lists. */
+const DRAFT = { _id: "p-draft", title: "Porch concerts", photoUrl: "/campaign/band.jpg", at: now - HOUR };
+
+/** Three pages that have just their maker on them (no roles, no team):
+ *  /projects/p-cafe is a shared piece of yours, to see the editing;
+ *  /projects/p-harbor is Dee's, with a description, a voice note and twelve
+ *  updates, to see "Show more"; /projects/p-draft is your own draft, which
+ *  only you can see (and the one Drafts lists, below). */
 const pieceProjects = [
   project({
     _id: "p-cafe",
@@ -331,7 +336,22 @@ const pieceProjects = [
       },
     ],
   }),
+  // Saved and not published (status "draft"): its lead sees the Draft banner
+  // and Publish; nobody else can open it.
+  project({
+    _id: DRAFT._id,
+    userId: "u-me",
+    status: "draft",
+    title: DRAFT.title,
+    resolvedPhotoUrl: DRAFT.photoUrl,
+    stage: "planning",
+    creator: { _id: "me", name: me.name, imageUrl: me.imageUrl, interests: me.interests, location: me.location },
+    createdAt: DRAFT.at,
+  }),
 ];
+
+/** What garden/projects:listMyDrafts answers: the draft above, as a row. */
+const myDrafts = [{ _id: DRAFT._id, title: DRAFT.title, updatedAt: DRAFT.at, photoUrl: DRAFT.photoUrl }];
 
 const harborUpdates = Array.from({ length: 12 }, (_, i) => ({
   _id: `su-${i + 1}`,
@@ -438,6 +458,8 @@ export const answers: Record<string, unknown | ((args: unknown) => unknown)> = {
   "garden/communities:listMyCommunities": [{ ...community, role: "member", status: "active", isHome: true }],
   "garden/communities:listCommunities": [{ ...community, memberCount: 40 }],
   "garden/projects:listProjects": projects,
+  // Your own drafts, newest first: Today, your page and /projects/p-draft.
+  "garden/projects:listMyDrafts": myDrafts,
   "garden/projects:getProject": (args: unknown) => {
     const id = (args as { projectId?: string } | undefined)?.projectId;
     return [...projects, ...pieceProjects].find((p) => (p as { _id?: string })._id === id) ?? null;

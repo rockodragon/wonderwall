@@ -19,7 +19,7 @@ import type { Id } from "../_generated/dataModel";
 import { resolveStage, type Stage } from "../stages";
 import { eventHasEnded } from "../eventWindow";
 import { requireOperator } from "../helpers";
-import { HIDDEN_STATUS, isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
+import { HIDDEN_STATUS, isPortfolioShare, isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
 import { DAY_MS } from "./projectTeam";
 import { isCreativeProfile, SeedCheck } from "./stats";
 
@@ -112,7 +112,8 @@ export function tallyCounts(
   const activeJoins = input.communityMembers.filter((m) => m.status === "active");
   const paidSeats = input.memberships.filter((m) => m.status === "active");
   // Projects someone posted, as opposed to a work shared from the portfolio
-  // (moderationRules.ts isPostedProject) — those are "works", not projects.
+  // (moderationRules.ts isPostedProject) — those are "works", not projects —
+  // and to a draft, which isn't posted yet.
   const posted = input.projects.filter(isPostedProject);
   const people: CountRow[] = [
     row("Signed up", profiles, createdAt, since),
@@ -145,7 +146,7 @@ export function tallyCounts(
     row("Paused or cancelled", live.filter((p) => STOPPED_STAGES.has(stageOf(p))), createdAt, since, true),
     row("Archived", posted.filter((p) => p.status === "archived"), createdAt, since),
     row("Hidden by an admin", posted.filter((p) => p.status === HIDDEN_STATUS), createdAt, since),
-    row("Works shared from a portfolio", input.projects.filter((p) => !isPostedProject(p)), createdAt, since),
+    row("Works shared from a portfolio", input.projects.filter(isPortfolioShare), createdAt, since),
   ];
 
   // — events —

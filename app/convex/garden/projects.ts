@@ -35,33 +35,45 @@ import { trackEvent } from "../posthog";
 // checked and stored the way artifacts and events store one.
 import { canonicalMediaUrl, schedulePreviewFetch } from "../linkPreview";
 import { currentUserId, displayNameOf, getProfileByUserId, isAdmin, requireOwner } from "../helpers";
-import { placeForViewer, projectVisibleTo, seesProjectAddress } from "./projectVisibility";
+import { assertNotDraft, placeForViewer, projectVisibleTo, seesProjectAddress } from "./projectVisibility";
 import { insertNotification } from "../notify";
-import { isHidden, isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
+import { DRAFT_STATUS, isDraft, isHidden, isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
+import { eraseProject, projectDeleteBlocker } from "../moderation";
+import { fail } from "../errors";
+import type { EventProperties } from "../productEventPolicy";
 import { communityVisibility, isHiddenCommunityId } from "./communityVisibility";
 import { audioNoteUrl, pieceMediaUrl, profileImageUrl, projectPhotoUrl } from "../images";
 
-// Following fan-out (docs/features/following.md §1 #5): "Name posted Title"
-// to everyone following the poster, once per created row. `userId` is a
-// users id; notifyFollowers does the users → profile → favorites hop
-// itself, since follows are keyed by PROFILE id. Never throws — a poster
-// with no profile just notifies nobody — so it can't roll back the insert.
-async function notifyFollowersOfProject(
+// What posting a project does for everyone else, once per project: the
+// following fan-out (docs/features/following.md §1 #5), "Name posted Title"
+// to everyone following the poster, and the project_created event. Called
+// when a project is created posted (createPassionProject, createPaidProject)
+// and when a draft is posted (publishProject, which adds from_draft); a
+// draft being saved calls neither. `userId` is a users id; notifyFollowers
+// does the users → profile → favorites hop itself, since follows are keyed
+// by PROFILE id. The notice never throws — a poster with no profile just
+// notifies nobody — so it can't roll back the insert.
+async function announceProject(
   ctx: MutationCtx,
-  userId: Id<"users">,
-  projectId: Id<"projects">,
-  title: string,
-  hostOrgId?: Id<"hostOrgs">,
+  project: Pick<Doc<"projects">, "_id" | "userId" | "kind" | "title" | "hostOrgId">,
+  extra: EventProperties = {},
 ): Promise<void> {
   // Posted into a hidden (test) community: followers would be told about a
   // project they can't open.
-  if (await isHiddenCommunityId(ctx, hostOrgId)) return;
-  const name = await displayNameOf(ctx, userId);
-  await notifyFollowers(ctx, userId, {
-    type: "followed_posted_project",
-    title: `${name} posted ${title}`,
-    message: "",
-    linkUrl: `/projects/${projectId}`,
+  if (!(await isHiddenCommunityId(ctx, project.hostOrgId))) {
+    const name = await displayNameOf(ctx, project.userId);
+    await notifyFollowers(ctx, project.userId, {
+      type: "followed_posted_project",
+      title: `${name} posted ${project.title}`,
+      message: "",
+      linkUrl: `/projects/${project._id}`,
+    });
+  }
+  await trackEvent(ctx, "project_created", project.userId, {
+    kind: project.kind,
+    project_id: project._id,
+    community_id: project.hostOrgId ?? null,
+    ...extra,
   });
 }
 
@@ -142,6 +154,10 @@ export const createPassionProject = mutation({
     // Where the project is when it's made. Omitted = planning. Onboarding
     // offers "Thinking about it" / "Working on it" (planning / working).
     stage: v.optional(v.string()),
+    // Save it without posting (the "Save draft" button, never automatic):
+    // status "draft", seen only by its lead, and nobody is told. publishProject
+    // posts it; discardDraft throws it away. Passion projects only.
+    draft: v.optional(v.boolean()),
     ...locationArgs,
   },
   handler: async (ctx, args) => {
@@ -177,7 +193,7 @@ export const createPassionProject = mutation({
       blurb: args.blurb,
       goal: args.goal,
       raisedCents: 0,
-      status: "active",
+      status: args.draft ? DRAFT_STATUS : "active",
       // Stage default (docs/features/project-teams.md §1): passion → planning.
       stage: startStage ?? "planning",
       stageChangedAt: now,
@@ -201,9 +217,90 @@ export const createPassionProject = mutation({
     });
     // The still for the card (Instagram, TikTok); a no-op for the rest.
     await schedulePreviewFetch(ctx, "project", id, mediaUrl);
-    await notifyFollowersOfProject(ctx, userId, id, args.title, args.hostOrgId);
-    await trackEvent(ctx, "project_created", userId, { kind: "passion", project_id: id, community_id: args.hostOrgId ?? null });
+    // A draft is announced when it's posted (publishProject), not now.
+    if (!args.draft) {
+      await announceProject(ctx, { _id: id, userId, kind: "passion", title: args.title, hostOrgId: args.hostOrgId });
+    }
     return { projectId: id, storySlug };
+  },
+});
+
+// ——— Drafts (2026-10-28) ———
+// A passion project saved with createPassionProject({ draft: true }) is
+// status "draft": only its lead (and an admin) can open it, and no list,
+// story page, Shortlist, cheer, backing or join request reaches it
+// (moderationRules.ts says where). The lead edits it with updateProject as
+// any project, posts it with publishProject, or throws it away with
+// discardDraft. Paid projects and gigs have no drafts.
+
+/** Posts a draft: followers hear about it now, and it sorts as new. Lead
+ * only (an admin posting someone's draft would speak for them). */
+export const publishProject = mutation({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, args) => {
+    const { userId, row: project } = await requireOwner(ctx, "projects", args.projectId);
+    if (!isDraft(project)) fail("not_draft", "This project is already up.");
+
+    // They may have left the community, or the organization, since saving.
+    if (project.hostOrgId) await assertCommunityMember(ctx, project.hostOrgId, userId);
+    if (project.organizationId) await assertCanPostAs(ctx, userId, project.organizationId);
+
+    const now = Date.now();
+    await ctx.db.patch(args.projectId, { status: "active", createdAt: now, updatedAt: now });
+    await announceProject(ctx, project, { from_draft: true });
+    return { projectId: args.projectId };
+  },
+});
+
+/** Throws a draft away: the row and everything keyed to it, and its files.
+ * Lead only. Shares eraseProject with the admin's Delete (moderation.ts),
+ * which cleans every table with a by_projectId index: artifacts, projectMembers,
+ * projectRoles, patronTiers, projectSupport, storyUpdates, gigSeries (and its
+ * gigResponses), gigSlots, plus announcements, and the stored files (photo,
+ * link still, pictures in the body). A draft can only have rows in
+ * projectRoles and patronTiers (setting up asks and tiers is allowed on it);
+ * every other writer refuses a draft (assertNotDraft in support.ts, stories.ts
+ * and projectTeam.ts, the money paths check VISIBLE statuses). Not scanned, on
+ * purpose: notifications (no by_projectId index, and nothing notifies about a
+ * draft: every notifier is one of those refused writers, or runs at
+ * publishProject) and favorites (assertSaveable lets only a
+ * VISIBLE_PROJECT_STATUSES project be saved). The four money tables
+ * (backingPayments, allocations, grantProposals, memberGifts) are checked by
+ * projectDeleteBlocker as in the admin's Delete, and none can exist. */
+export const discardDraft = mutation({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, args) => {
+    const { row: project } = await requireOwner(ctx, "projects", args.projectId);
+    if (!isDraft(project)) fail("not_draft", "Only a draft can be discarded.");
+
+    const blocker = await projectDeleteBlocker(ctx, args.projectId);
+    if (blocker) fail("has_money", blocker);
+
+    await eraseProject(ctx, project);
+    return { ok: true as const };
+  },
+});
+
+/** The signed-in person's own drafts, most recently touched first, for the
+ * "Drafts" list. Signed out: none. */
+export const listMyDrafts = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await currentUserId(ctx);
+    if (!userId) return [];
+    const rows = await ctx.db
+      .query("projects")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .collect();
+    const drafts = rows.filter(isDraft).sort((a, b) => b.updatedAt - a.updatedAt);
+    return await Promise.all(
+      drafts.map(async (p) => ({
+        _id: p._id,
+        title: p.title,
+        updatedAt: p.updatedAt,
+        photoUrl: await projectPhotoUrl(ctx, p),
+      })),
+    );
   },
 });
 
@@ -333,6 +430,8 @@ export const updateProject = mutation({
 // Status transitions allowed per project kind (docs/the-exchange-v1-prd.md
 // §7): passion projects have no budget-completion moment in the same sense
 // paid work does, so "in_progress" doesn't apply to them.
+// "draft" isn't in either set on purpose: a posted project never goes back to
+// one, and only publishProject lifts one.
 const ALLOWED_STATUSES: Record<string, Set<string>> = {
   passion: new Set(["active", "completed", "archived"]),
   paid: new Set(["active", "in_progress", "completed", "archived"]),
@@ -343,6 +442,8 @@ export const updateProjectStatus = mutation({
   handler: async (ctx, args) => {
     const { userId, row: project } = await requireOwner(ctx, "projects", args.projectId, { orAdmin: true });
 
+    // A draft is posted only by publishProject, which tells followers.
+    assertNotDraft(project);
     if (!ALLOWED_STATUSES[project.kind]?.has(args.status)) {
       throw new ConvexError({
         code: "invalid_status",
@@ -818,8 +919,7 @@ export const createPaidProject = mutation({
     });
     // The still for the card (Instagram, TikTok); a no-op for the rest.
     await schedulePreviewFetch(ctx, "project", id, mediaUrl);
-    await notifyFollowersOfProject(ctx, userId, id, args.title, args.hostOrgId);
-    await trackEvent(ctx, "project_created", userId, { kind: "paid", project_id: id, community_id: args.hostOrgId ?? null });
+    await announceProject(ctx, { _id: id, userId, kind: "paid", title: args.title, hostOrgId: args.hostOrgId });
     return { projectId: id, storySlug };
   },
 });

@@ -16,11 +16,17 @@
 // visitor sees only the sections with something in them, names without
 // links (profiles are for members), and every action but a one-time Back
 // this sends them to sign up and back here. The owner keeps every section.
+//
+// A draft (Rick, 2026-10-28) is a project its lead saved to finish later:
+// getProject hands it to the lead alone. Its page opens with a banner
+// (Publish, Discard) and leaves out what only a live project has: the
+// invite card, the Updates tab and its composers, Save and Cheer. Setting it
+// up (title, words, picture, roles, place) all still works.
 
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { Link, useLocation, useParams, useRouteError, useSearchParams } from "react-router";
+import { Link, useLocation, useNavigate, useParams, useRouteError, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { formatCents } from "../../convex/money";
 import { EMBED_PROVIDER_LABEL, toEmbedUrl } from "../lib/videoEmbed";
@@ -36,7 +42,7 @@ import { FavoriteButton } from "../components/FavoriteButton";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { ProjectMenu } from "../components/project/ProjectMenu";
 import { StageChip } from "../components/project/StageChip";
-import { needsPictureOrLink } from "../lib/justPublished";
+import { justPublished, needsPictureOrLink } from "../lib/justPublished";
 import { TabPanel, Tabs } from "../components/project/Tabs";
 import { ProjectUpdates, UpdatesList } from "../components/ProjectUpdates";
 import { EditButton, InlineEditableText } from "../components/InlineEditableText";
@@ -80,6 +86,7 @@ import { ApplicationReview } from "../components/project/ApplicationReview";
 import { SubmittedApplication, type ApplicationEvidenceData } from "../components/project/ApplicationEvidence";
 import { MAX_AVAILABILITY_LENGTH, type ReviewStage } from "../../convex/garden/recruitment";
 import { MAX_WORK_SAMPLES } from "../../convex/portfolioSampleRules";
+import { isDraft } from "../../convex/moderationRules";
 
 // Loader-less (client-only useQuery, same as communities.$slug.tsx and
 // offerings.$id.tsx) — `data` is never actually populated; this just
@@ -258,12 +265,16 @@ export default function ProjectDetail() {
   }
 
   const isOwner = isProjectOwner(project, myProfile);
+  // Only the lead is ever sent a draft, so this is the lead's page; `drafting`
+  // (not isOwner) leaves out the live-only parts, so they never flash while
+  // the profile loads.
+  const drafting = isDraft(project);
   const byline = bylineOf(project);
   // Save for the Shortlist (docs/handoff/favorites-redesign/README.md): a
   // signed-in member who isn't the lead, on a project the browse lists show.
   // favorites.toggle refuses the rest, so the page never offers a save that
   // would fail. Held until the profile loads, so the lead never sees it flash.
-  const canSave = canSaveProject({ signedIn: isAuthenticated, profile: myProfile }, project);
+  const canSave = !drafting && canSaveProject({ signedIn: isAuthenticated, profile: myProfile }, project);
   const raising = isRaising(project);
   const isPassion = project.kind === "passion";
   // No chip for a plain project: "Project" on a project's own page says nothing.
@@ -296,6 +307,8 @@ export default function ProjectDetail() {
   // empty state and edit controls, so there's somewhere to fill it in.
   // Anyone else sees only what has something in it (lib/projectTabs.ts).
   const seesEverything = isOwner || isAdmin;
+  // A draft has no Updates: nobody follows it yet, and its composers (an
+  // update, a message to the team and supporters) go with the tab.
   const tabs = projectTabs({
     isGig,
     isPassion,
@@ -310,7 +323,7 @@ export default function ProjectDetail() {
           raising,
           supporters: project.supportCount,
         }),
-  });
+  }).filter((t) => !(drafting && t.id === "updates"));
   const tab = readProjectTab(rawTab, tabs);
   // A section a viewer has no tab for isn't drawn at all, hidden or not.
   const hasTab = (id: ProjectTab) => tabs.some((t) => t.id === id);
@@ -343,13 +356,18 @@ export default function ProjectDetail() {
         </div>
       </div>
 
+      {/* A draft: Publish or Discard it. Nothing to invite people to yet. */}
+      {isOwner && drafting && <DraftBanner projectId={project._id} />}
+
       {/* Just published: "Invite people", once (components/InviteToThis.tsx). */}
-      <ProjectJustPublished
-        project={project}
-        isOwner={isOwner}
-        needsMedia={needsMedia}
-        onAddLink={() => setEditingProject("show")}
-      />
+      {!drafting && (
+        <ProjectJustPublished
+          project={project}
+          isOwner={isOwner}
+          needsMedia={needsMedia}
+          onAddLink={() => setEditingProject("show")}
+        />
+      )}
 
       {hiddenByAdmin && (
         <div className="mb-5">
@@ -450,6 +468,7 @@ export default function ProjectDetail() {
               {byline.kind === "person" &&
                 project.creator &&
                 !isOwner &&
+                !drafting &&
                 (visitorSignUp ? (
                   <SignUpToFollow to={visitorSignUp} />
                 ) : (
@@ -475,20 +494,23 @@ export default function ProjectDetail() {
 
       {/* How it's going, and the two ways to show up. Support is for
           projects, not hires: a job or a gig is paid, not backed. */}
-      {isPassion && (showGoal || !isOwner) && (
+      {isPassion && (showGoal || (!isOwner && !drafting)) && (
         <div className="mb-6 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
           {showGoal && (
             <div className="min-w-[14rem] flex-1 [&>div]:mb-0">
               <GoalProgress raisedCents={project.raisedCents ?? 0} goal={project.goal!} />
             </div>
           )}
-          {!isOwner && <SupportButtons raising={raising} count={project.supportCount} onSupport={support} />}
+          {!isOwner && !drafting && (
+            <SupportButtons raising={raising} count={project.supportCount} onSupport={support} />
+          )}
         </div>
       )}
 
       {isOwner && isPassion && <PayoutLine />}
 
-      {isOwner && isPassion && !raising && (project.openRoles?.length ?? 0) === 0 && (
+      {/* "Your project is up": after it is published, not before. */}
+      {isOwner && !drafting && isPassion && !raising && (project.openRoles?.length ?? 0) === 0 && (
         <NextSteps
           onFindPeople={() => showTab("team")}
           onAskForSupport={() => {
@@ -566,7 +588,7 @@ export default function ProjectDetail() {
             <AskForSupport project={project} raising={raising} editing={editingSupport} setEditing={setEditingSupport} />
           )}
           {isOwner && raising && FF_BACKING && <TierManager projectId={project._id} />}
-          {project.supportCount > 0 || seesEverything ? (
+          {project.supportCount > 0 || seesEverything || drafting ? (
             <p className="mb-3 text-sm" style={{ color: "var(--garden-dim)" }}>
               {project.supportCount > 0
                 ? `${project.supportCount} ${project.supportCount === 1 ? "supporter" : "supporters"}`
@@ -991,6 +1013,140 @@ function ProjectJustPublished({
       picture={picture}
       onAddLink={onAddLink}
     />
+  );
+}
+
+// A draft's banner, for its lead (Rick, 2026-10-28): it is theirs alone until
+// they publish. Publish makes it live and lands on the "It's up" card (the
+// server sends the followers' notice); Discard asks first, then deletes it.
+// The 44px buttons are for a thumb.
+const DRAFT_BUTTON = "min-h-11 flex-1 sm:flex-none px-4 rounded-lg text-[13.5px] disabled:opacity-50";
+
+function DraftBanner({ projectId }: { projectId: Id<"projects"> }) {
+  const publishProject = useMutation(api.garden.projects.publishProject);
+  const discardDraft = useMutation(api.garden.projects.discardDraft);
+  const navigate = useNavigate();
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState<"" | "publish" | "discard">("");
+  const [error, setError] = useState("");
+
+  async function publish() {
+    setError("");
+    setBusy("publish");
+    try {
+      await publishProject({ projectId });
+      navigate(justPublished(`/projects/${projectId}`));
+    } catch (err) {
+      setError(errorMessage(err, "Couldn't publish. Try again."));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function discard() {
+    setError("");
+    setBusy("discard");
+    try {
+      await discardDraft({ projectId });
+      navigate("/today");
+    } catch (err) {
+      setError(errorMessage(err, "Couldn't discard the draft. Try again."));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  return (
+    <DraftBannerView
+      asking={asking}
+      busy={busy}
+      error={error}
+      onPublish={() => void publish()}
+      onAskDiscard={() => setAsking(true)}
+      onDiscard={() => void discard()}
+      onKeep={() => setAsking(false)}
+    />
+  );
+}
+
+export function DraftBannerView({
+  asking,
+  busy,
+  error,
+  onPublish,
+  onAskDiscard,
+  onDiscard,
+  onKeep,
+}: {
+  /** Discard was tapped: ask before deleting. */
+  asking: boolean;
+  busy: "" | "publish" | "discard";
+  error: string;
+  onPublish: () => void;
+  onAskDiscard: () => void;
+  onDiscard: () => void;
+  onKeep: () => void;
+}) {
+  return (
+    <section
+      aria-label="Draft"
+      className="mb-5 rounded-xl border px-4 py-3 sm:px-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-3"
+      style={{ backgroundColor: "var(--garden-ink-raised)", borderColor: "var(--garden-hairline-raised)" }}
+    >
+      <p className="text-[15px] font-medium" style={{ color: "var(--garden-paper)" }}>
+        {asking ? "Discard this draft?" : "Draft. Only you can see it."}
+      </p>
+      <div className="flex w-full sm:w-auto items-center gap-2">
+        {asking ? (
+          <>
+            <button
+              type="button"
+              onClick={onDiscard}
+              disabled={busy !== ""}
+              className={`${DRAFT_BUTTON} border font-medium`}
+              style={{ borderColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
+            >
+              {busy === "discard" ? "Discarding…" : "Discard"}
+            </button>
+            <button
+              type="button"
+              onClick={onKeep}
+              disabled={busy !== ""}
+              className={`${DRAFT_BUTTON} font-medium`}
+              style={{ color: "var(--garden-body)" }}
+            >
+              Keep
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={onAskDiscard}
+              disabled={busy !== ""}
+              className={`${DRAFT_BUTTON} border font-medium`}
+              style={{ borderColor: "var(--garden-hairline-raised)", color: "var(--garden-body)" }}
+            >
+              Discard
+            </button>
+            <button
+              type="button"
+              onClick={onPublish}
+              disabled={busy !== ""}
+              className={`${DRAFT_BUTTON} font-semibold`}
+              style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+            >
+              {busy === "publish" ? "Publishing…" : "Publish"}
+            </button>
+          </>
+        )}
+      </div>
+      {error && (
+        <p role="alert" className="w-full text-sm text-red-400">
+          {error}
+        </p>
+      )}
+    </section>
   );
 }
 

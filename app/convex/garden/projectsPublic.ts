@@ -17,7 +17,7 @@ import { query } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { shapeCredits, type CreditEntry } from "./allocations";
 import { summarizeGig } from "./gigSummary";
-import { isHidden, isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
+import { isDraft, isHidden, isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
 import { communityVisibility } from "./communityVisibility";
 import { projectPhotoUrl } from "../images";
 import { formatDollars } from "../money";
@@ -252,8 +252,9 @@ export const getProject = query({
     if (!id) return null;
 
     const project = await ctx.db.get(id);
-    // An admin-hidden project (moderation.ts) reads as not found here.
-    if (!project || isHidden(project)) return null;
+    // An admin-hidden project (moderation.ts), or a draft, reads as not found
+    // here.
+    if (!project || isHidden(project) || isDraft(project)) return null;
     // Same not-found for a project in a hidden (test) community, unless the
     // viewer is its lead, an admin or a member of that community.
     if (project.hostOrgId) {

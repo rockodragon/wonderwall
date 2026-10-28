@@ -14,6 +14,7 @@
 import { query } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { getProfileByUserId, requireOperator } from "../helpers";
+import { isDraft } from "../moderationRules";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core — no ctx. Unit-tested in activity.test.ts.
@@ -122,7 +123,8 @@ export const getRecentActivity = query({
           href: slug ? `/communities/${slug}` : undefined,
         };
       }),
-      ...projects.map((p): ActivityItem => ({
+      // A draft isn't a project anyone has posted yet; it shows here when it is.
+      ...projects.filter((p) => !isDraft(p)).map((p): ActivityItem => ({
         at: p.createdAt,
         source: "project_created",
         actorName: nameFor(p.userId),

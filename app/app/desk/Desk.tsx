@@ -51,6 +51,7 @@ import type { Stepper } from "./OpenedCard";
 import { shortlistCard } from "./shortlistCards";
 import { ShortlistBody, TodayNeedsYou, shortlistHeader } from "./ShortlistView";
 import { InviteNudgeCard, useInviteNudge } from "../components/InviteNudge";
+import { MyDrafts, draftsCardHeight, useMyDrafts } from "../components/MyDrafts";
 import { ShareProjectCard } from "../components/ShareProjectCard";
 import { withFinishedStage } from "../lib/shareProject";
 import { DESK, DESK_SANS, FOCUS_RING_CLASS, MOTION_MS, motion, deskSurfaceStyle, useDeskTint } from "./tokens";
@@ -82,6 +83,8 @@ const BELOW_NEEDS = 32;
 /** The card under the greeting (Share a project, or the invite nudge), gap
  *  included: the resting cards' clear zone grows to cover it while one is up. */
 const BELOW_GREETING_CLEAR = { w: 600, h: 72 };
+/** The Drafts card sits under that one (or alone), this far below it. */
+const DRAFTS_GAP = 12;
 const NO_IDS: readonly string[] = [];
 
 export function Desk() {
@@ -250,16 +253,27 @@ export function Desk() {
   // under Today's heading: Share a project until the member has one up
   // (components/ShareProjectCard.tsx); then, the third day back, their
   // invite link once (components/InviteNudge.tsx). The nudge waits until a
-  // project is known to be up, so the two never show together.
+  // project is known to be up, so the two never show together. Their
+  // drafts, when they have any, go with it (components/MyDrafts.tsx): the
+  // card reads the list itself, and the count here is only to leave room.
   const needsProject = hasProject === false;
   const nudge = useInviteNudge(hasProject !== true);
   const startHref = deskCreateHref(searchParams, "project");
-  const underGreeting = needsProject ? (
+  const ask = needsProject ? (
     <ShareProjectCard tone="desk" makingHref={startHref} finishedHref={withFinishedStage(startHref)} />
   ) : nudge.show ? (
     <InviteNudgeCard tone="desk" onClose={nudge.dismiss} />
   ) : null;
+  const draftCount = useMyDrafts()?.length ?? 0;
+  const underGreeting =
+    ask || draftCount > 0 ? (
+      <div className="flex flex-col" style={{ gap: DRAFTS_GAP }}>
+        {ask}
+        <MyDrafts tone="desk" />
+      </div>
+    ) : null;
   const hasUnderGreeting = underGreeting !== null;
+  const belowGreetingH = (ask ? BELOW_GREETING_CLEAR.h : 0) + (draftCount > 0 ? DRAFTS_GAP + draftsCardHeight(draftCount) : 0);
   // The Shortlist's rows are in the page, which the layout doesn't measure:
   // what isn't on show waits below the window, wherever it was scrolled to.
   const scrollTop = openId || shortlistOn ? openScroll : 0;
@@ -276,9 +290,9 @@ export function Desk() {
         scrollTop,
         shown: shownIds,
         rowTop: todayNeeds ? header.total + BELOW_NEEDS : undefined,
-        belowGreeting: hasUnderGreeting ? BELOW_GREETING_CLEAR : undefined,
+        belowGreeting: hasUnderGreeting ? { w: BELOW_GREETING_CLEAR.w, h: belowGreetingH } : undefined,
       }),
-    [layoutCards, view, openId, size.w, size.h, header.total, scrollTop, shownIds, todayNeeds, hasUnderGreeting],
+    [layoutCards, view, openId, size.w, size.h, header.total, scrollTop, shownIds, todayNeeds, hasUnderGreeting, belowGreetingH],
   );
   const places = layout.places;
 

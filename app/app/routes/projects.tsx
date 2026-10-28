@@ -4,7 +4,7 @@ import { HireFlow } from "../components/HireFlow";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { formatCents, formatDollars } from "../../convex/money";
-import { justPublished } from "../lib/justPublished";
+import { createdProjectPath, justPublished } from "../lib/justPublished";
 import { INTERESTS } from "../constants/interests";
 import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
 import {
@@ -67,6 +67,7 @@ export {
 } from "../components/ProjectSupport";
 
 export const STATUS_LABELS: Record<string, string> = {
+  draft: "Draft",
   pending: "Pending",
   active: "Active",
   in_progress: "In Progress",
@@ -415,7 +416,7 @@ export default function Projects() {
       {showPassionForm && (
         <ProjectModal
           onClose={closeProjectForm}
-          onCreated={(projectId) => navigate(justPublished(`/projects/${projectId}`))}
+          onCreated={(projectId, created) => navigate(createdProjectPath(projectId, created))}
           initialTitle={searchParams.get("title")?.trim() || undefined}
           initialStage={startStage}
         />

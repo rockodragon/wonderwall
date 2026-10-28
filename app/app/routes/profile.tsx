@@ -13,6 +13,7 @@ import { FavoriteButton } from "../components/FavoriteButton";
 import { LeaderBadge } from "../components/LeaderBadge";
 import { ShareButton } from "../components/ShareButton";
 import { MyShareActions } from "../components/MyShareActions";
+import { OwnDrafts } from "../components/MyDrafts";
 import { ShareHint, useShareHint } from "../components/ShareHint";
 import { ScanCard } from "../components/ScanCard";
 import { shownTitle } from "../lib/placeholderTitle";
@@ -552,6 +553,10 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
           </div>
         </div>
       )}
+
+      {/* Your own drafts, which nobody else sees, ahead of what's live
+          (components/MyDrafts.tsx). */}
+      {isOwnProfile && <OwnDrafts />}
 
       {/* Open projects this person leads or is on (docs/features/
           project-ia.md). Completed ones are listed below, so this section

@@ -23,6 +23,11 @@ import { SheetExit } from "./SheetExit";
 // Every field's state lives up here and all four panels stay mounted
 // (hidden when inactive), so Back never loses anything and the community
 // picker's one-time pre-fill can't overwrite a later choice.
+//
+// A new project can be saved as a draft instead of posted (Rick, 2026-10-28,
+// like Instagram): "Save draft" sits beside Next / Post it once there is a
+// title, and closing the form with a title typed asks what to do with it.
+// Only the lead sees a draft; it is published from its page.
 
 export const PROJECT_STEPS = [
   { id: "name", title: "What are you making?", editTitle: "Title" },
@@ -52,6 +57,19 @@ export const stepTitle = (step: ProjectStep, finished: boolean, edit = false) =>
  *  Planning). */
 export const postedStage = (asked: Stage | undefined, picked: StartStage | undefined): Stage | undefined =>
   asked ?? picked;
+
+/** Whether "Save draft" is offered: on a new project, once it has a title. */
+export const canSaveDraft = (title: string, edit?: unknown): boolean => !edit && title.trim().length > 0;
+
+/** What closing the form does (the X, Cancel, Escape and the browser's Back
+ *  all ask the same question). A new project with a title typed asks first;
+ *  asking again, or Escape on the question, keeps editing. An edit, or a form
+ *  with no title, just closes. */
+export type CloseStep = "close" | "ask" | "keep";
+export function closeStep({ edit, title, asking }: { edit: boolean; title: string; asking: boolean }): CloseStep {
+  if (asking) return "keep";
+  return canSaveDraft(title, edit) ? "ask" : "close";
+}
 
 /** An existing project, to edit with the same steps as create. */
 export type ProjectEditTarget = {
@@ -84,6 +102,68 @@ const PILL = "px-3.5 py-2 rounded-full text-sm font-medium transition-colors";
 // browser's own bar below it.
 const BUTTON = "min-h-11 rounded-lg text-[15px] disabled:opacity-50";
 
+/** What closing a new project with a title typed asks, Instagram-style. It
+ *  covers the sheet. Escape and the browser's Back answer "Keep editing"
+ *  (requestClose). */
+export function DraftChoice({
+  onSave,
+  onDiscard,
+  onKeep,
+}: {
+  onSave: () => void;
+  onDiscard: () => void;
+  onKeep: () => void;
+}) {
+  const headingId = useId();
+  return (
+    <div
+      className="absolute inset-0 z-10 flex items-end sm:items-center justify-center p-4 sm:rounded-2xl"
+      style={{ backgroundColor: "rgba(18,18,18,0.86)" }}
+    >
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby={headingId}
+        className="w-full max-w-sm flex flex-col gap-2.5 rounded-2xl border p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5"
+        style={{ backgroundColor: "var(--garden-ink)", borderColor: "var(--garden-hairline-raised)" }}
+      >
+        <h3
+          id={headingId}
+          className="text-xl font-semibold leading-tight mb-1.5"
+          style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
+        >
+          Save as a draft?
+        </h3>
+        <button
+          type="button"
+          autoFocus
+          onClick={onSave}
+          className={`${BUTTON} px-4 font-semibold`}
+          style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+        >
+          Save draft
+        </button>
+        <button
+          type="button"
+          onClick={onDiscard}
+          className={`${BUTTON} px-4 border font-medium`}
+          style={{ borderColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
+        >
+          Discard
+        </button>
+        <button
+          type="button"
+          onClick={onKeep}
+          className={`${BUTTON} px-4 font-medium`}
+          style={{ color: "var(--garden-body)" }}
+        >
+          Keep editing
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function ProjectModal({
   onClose,
   onCreated,
@@ -94,8 +174,10 @@ export function ProjectModal({
   inUrl,
 }: {
   onClose: () => void;
-  /** Create only: where to go once the project exists. */
-  onCreated?: (projectId: string) => void;
+  /** Create only: where to go once the project exists. A draft goes to its
+   *  page without the just-published card (`created.draft`): there is
+   *  nothing to invite people to until it is published. */
+  onCreated?: (projectId: string, created: { draft: boolean }) => void;
   edit?: ProjectEditTarget;
   /** Create only: a title typed on the front door before signing in. */
   initialTitle?: string;
@@ -129,6 +211,10 @@ export function ProjectModal({
   const [organizationId, setOrganizationId] = useState<string>(edit?.organizationId ?? "");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  // True while saving as a draft (the Save draft button says so), and while
+  // the choice on closing is showing.
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [asking, setAsking] = useState(false);
   // New projects pre-fill the switcher's community, else The Garden — still
   // changeable to "No community — just me".
   const defaultHostOrgId = useDefaultEventCommunity();
@@ -169,7 +255,10 @@ export function ProjectModal({
     setStep(stepAfter(step));
   }
 
-  async function submit() {
+  // `asDraft`: save it for later instead of posting. A draft is unfinished by
+  // definition, so it only needs a title (and a link that parses, which would
+  // otherwise be dropped); the location rule waits for the post.
+  async function submit(asDraft = false) {
     setError("");
     if (!title.trim()) {
       setStep("name");
@@ -182,11 +271,12 @@ export function ProjectModal({
       setError(link.message);
       return;
     }
-    if (!remote && !location.value.trim()) {
+    if (!asDraft && !remote && !location.value.trim()) {
       setError('Pick a location, or check "This can be done remotely."');
       return;
     }
     setSaving(true);
+    setSavingDraft(asDraft);
     try {
       if (edit) {
         await updateProject({
@@ -216,19 +306,38 @@ export function ProjectModal({
         interests: interests.length > 0 ? interests : undefined,
         hostOrgId: hostOrgId ? (hostOrgId as Id<"hostOrgs">) : undefined,
         organizationId: organizationId ? (organizationId as Id<"organizations">) : undefined,
+        ...(asDraft ? { draft: true } : {}),
       });
-      onCreated?.(String(result.projectId));
+      onCreated?.(String(result.projectId), { draft: asDraft });
       onClose();
     } catch (err) {
-      setError(errorMessage(err));
+      setError(errorMessage(err, asDraft ? "Couldn't save the draft. Try again." : undefined));
       setSaving(false);
+      setSavingDraft(false);
     }
+  }
+
+  // Every way out (the X, Cancel, Escape, the browser's Back) comes here. A
+  // new project with a title typed asks what to do with it first. This only
+  // changes state, so it is safe to call from the browser's Back (SheetExit).
+  function requestClose() {
+    if (saving) return;
+    const next = closeStep({ edit: !!edit, title, asking });
+    if (next === "close") onClose();
+    else setAsking(next === "ask");
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!last) goNext();
     else if (!saving) void submit();
+  }
+
+  // The choice's own buttons. Saving closes the question first, so an error
+  // shows on the form; Discard throws the typed text away.
+  function saveDraftFromChoice() {
+    setAsking(false);
+    void submit(true);
   }
 
   // Enter in a text box on the last screen shouldn't save from inside the
@@ -243,18 +352,19 @@ export function ProjectModal({
 
   return (
     <FocusBackdrop>
-      {/* Escape and the browser's Back close it, unless it is saving. */}
-      <SheetExit onExit={() => !saving && onClose()} inUrl={inUrl} />
+      {/* Escape and the browser's Back close it, unless it is saving. With a
+          title typed on a new project they ask first (requestClose). */}
+      <SheetExit onExit={requestClose} inUrl={inUrl} />
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby={`${uid}-heading`}
-        className="flex flex-col w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-md sm:rounded-2xl sm:border shadow-2xl"
+        className="relative flex flex-col w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-md sm:rounded-2xl sm:border shadow-2xl"
         style={{ backgroundColor: "var(--garden-ink-raised)", borderColor: "var(--garden-hairline)" }}
       >
         {/* The stepper, then the screen's question. The sheet's name is in
             the first question ("What are you making?"), not over every screen. */}
-        <div className="px-5 sm:px-6 pt-4 pb-3 flex-shrink-0">
+        <div className="px-5 sm:px-6 pt-4 pb-3 flex-shrink-0" inert={asking}>
           <div
             className="flex gap-1.5"
             role="progressbar"
@@ -283,7 +393,7 @@ export function ProjectModal({
             </h2>
             <button
               type="button"
-              onClick={onClose}
+              onClick={requestClose}
               aria-label="Close"
               className="-mr-2.5 -mt-1.5 w-11 h-11 flex-shrink-0 flex items-center justify-center rounded-lg"
               style={{ color: "var(--garden-dim)" }}
@@ -295,7 +405,12 @@ export function ProjectModal({
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="flex flex-col flex-1 min-h-0">
+        <form
+          onSubmit={handleSubmit}
+          onKeyDown={handleFormKeyDown}
+          inert={asking}
+          className="flex flex-col flex-1 min-h-0"
+        >
           <div ref={bodyRef} className="flex-1 min-h-0 px-5 sm:px-6 pt-2 pb-6 overflow-y-auto">
             {/* What are you making? */}
             <div data-step="name" className={panel("name")}>
@@ -440,7 +555,7 @@ export function ProjectModal({
             {first ? (
               <button
                 type="button"
-                onClick={onClose}
+                onClick={requestClose}
                 className={`${BUTTON} px-4 border font-medium`}
                 style={secondaryStyle}
               >
@@ -460,6 +575,17 @@ export function ProjectModal({
                 Back
               </button>
             )}
+            {canSaveDraft(title, edit) && (
+              <button
+                type="button"
+                onClick={() => void submit(true)}
+                disabled={saving}
+                className={`${BUTTON} px-4 border font-medium whitespace-nowrap`}
+                style={secondaryStyle}
+              >
+                {savingDraft ? "Saving…" : "Save draft"}
+              </button>
+            )}
             <button
               key={last ? "save" : "next"}
               type="submit"
@@ -467,10 +593,20 @@ export function ProjectModal({
               className={`${BUTTON} flex-1 px-4 font-semibold`}
               style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
             >
-              {!last ? "Next" : edit ? (saving ? "Saving…" : "Save changes") : saving ? "Posting…" : "Post it"}
+              {!last
+                ? "Next"
+                : edit
+                  ? saving
+                    ? "Saving…"
+                    : "Save changes"
+                  : saving && !savingDraft
+                    ? "Posting…"
+                    : "Post it"}
             </button>
           </div>
         </form>
+
+        {asking && <DraftChoice onSave={saveDraftFromChoice} onDiscard={onClose} onKeep={() => setAsking(false)} />}
       </div>
     </FocusBackdrop>
   );

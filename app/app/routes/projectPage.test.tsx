@@ -7,7 +7,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderToString } from "react-dom/server";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { getFunctionName } from "convex/server";
-import ProjectDetail from "./projects.$id";
+import ProjectDetail, { DraftBannerView } from "./projects.$id";
+import { STATUS_LABELS } from "./projects";
 
 const scene = vi.hoisted(() => ({ signedIn: false, answers: {} as Record<string, unknown> }));
 
@@ -369,5 +370,164 @@ describe("a shared piece's page (Rick, 2026-10-27)", () => {
   it("a project with no pieces shows no updates under About (the Updates tab has them)", () => {
     const about = panelAbout(page({ viewer: "visitor", updates: [update(1)] }));
     expect(about.split('id="project-panel-')[1] ?? "").not.toContain("Morning 1 on the pier.");
+  });
+});
+
+// A draft (Rick, 2026-10-28): a project its lead saved to finish later.
+// getProject hands it to the lead alone (null for everyone else), and its
+// page leaves out what only a live project has.
+describe("the project page, for the lead's draft", () => {
+  const draft = (extra: Record<string, unknown> = {}) => bareProject({ status: "draft", ...extra });
+  const buttonLabels = (html: string) => [...html.matchAll(/<button[^>]*>([^<]+)<\/button>/g)].map((m) => m[1]);
+
+  it("opens on a banner that says who can see it, with Publish and Discard", () => {
+    const html = page({ viewer: "owner", project: draft() });
+    expect(html).toContain('aria-label="Draft"');
+    expect(html).toContain("Draft. Only you can see it.");
+    expect(buttonLabels(html)).toEqual(expect.arrayContaining(["Publish", "Discard"]));
+    // At the top: above the title.
+    expect(html.indexOf("Only you can see it")).toBeLessThan(html.indexOf("Harbor Mural"));
+  });
+
+  it("makes Publish the citron primary and keeps Discard quiet, both at least 44px tall", () => {
+    const html = page({ viewer: "owner", project: draft() });
+    const publish = html.match(/<button[^>]*>Publish<\/button>/)?.[0] ?? "";
+    const discard = html.match(/<button[^>]*>Discard<\/button>/)?.[0] ?? "";
+    expect(publish).toContain("background-color:var(--garden-citron)");
+    expect(discard).not.toContain("garden-citron");
+    for (const button of [publish, discard]) expect(button).toMatch(/\bmin-h-11\b/);
+  });
+
+  it("asks before it discards, with Discard and Keep, and no Publish while it asks", () => {
+    const view = (over: Partial<React.ComponentProps<typeof DraftBannerView>> = {}) =>
+      renderToString(
+        <DraftBannerView
+          asking
+          busy=""
+          error=""
+          onPublish={() => {}}
+          onAskDiscard={() => {}}
+          onDiscard={() => {}}
+          onKeep={() => {}}
+          {...over}
+        />,
+      );
+    const asking = view();
+    expect(asking).toContain("Discard this draft?");
+    expect(buttonLabels(asking)).toEqual(["Discard", "Keep"]);
+    expect(asking).not.toContain("Only you can see it");
+
+    const resting = view({ asking: false });
+    expect(resting).not.toContain("Discard this draft?");
+    expect(buttonLabels(resting)).toEqual(["Discard", "Publish"]);
+  });
+
+  it("shows what went wrong with Publish, and says it is working while it is", () => {
+    const html = renderToString(
+      <DraftBannerView
+        asking={false}
+        busy="publish"
+        error="Add a title first."
+        onPublish={() => {}}
+        onAskDiscard={() => {}}
+        onDiscard={() => {}}
+        onKeep={() => {}}
+      />,
+    );
+    expect(html).toMatch(/role="alert"[^>]*>Add a title first\./);
+    expect(html).toContain("Publishing…");
+  });
+
+  it("leaves out the invite card, even on the ?new=1 a create form lands on", () => {
+    // A bare project asks for a picture or a link first; a project with a
+    // picture asks for invites. Neither shows for a draft, both do when live.
+    const photo = { thumb: "https://media.test/pier.jpg", photoUrl: "https://media.test/pier.jpg" };
+    const live = page({ viewer: "owner", url: "/projects/p1?new=1" });
+    expect(live).toContain("Add a picture or a link");
+    for (const extra of [{}, photo]) {
+      const html = page({ viewer: "owner", project: draft(extra), url: "/projects/p1?new=1" });
+      expect(html).not.toContain("It's up");
+      expect(html).not.toContain("Add a picture or a link");
+      expect(html).not.toContain('aria-label="Invite people"');
+      expect(html).not.toContain("Share…");
+    }
+  });
+
+  it("has no Updates tab, so no update composer and no message to team and supporters", () => {
+    for (const url of ["/projects/p1", "/projects/p1?tab=updates"]) {
+      const html = page({ viewer: "owner", project: draft(), url });
+      expect(tabs(html)).toEqual(["About", "Team", "Support"]);
+      expect(html).not.toContain("Post an update");
+      expect(html).not.toContain("Message team and supporters");
+    }
+    // A live project keeps them.
+    const live = page({ viewer: "owner", url: "/projects/p1?tab=updates" });
+    expect(tabs(live)).toContain("Updates");
+    expect(live).toContain("Message team and supporters");
+  });
+
+  it("draws no Cheer, Back this, Save or Follow, even before the profile has loaded", () => {
+    for (const viewer of ["owner", "member"] as const) {
+      const html = page({
+        viewer,
+        project: draft({ raising: true }),
+        // Still loading, so the lead doesn't yet read as the lead.
+        answers: viewer === "member" ? { "profiles:getMyProfile": undefined } : {},
+      });
+      expect(html).not.toContain('aria-label="Cheer"');
+      expect(html).not.toContain('aria-label="Back this"');
+      expect(html).not.toMatch(/>Follow</);
+      expect(html).not.toContain('aria-label="Save');
+    }
+  });
+
+  it("has no Next steps, which say 'Your project is up'", () => {
+    expect(page({ viewer: "owner" })).toContain("Next steps");
+    const html = page({ viewer: "owner", project: draft() });
+    expect(html).not.toContain("Next steps");
+    expect(html).not.toContain("Your project is up");
+  });
+
+  it("has no ⋯ menu: no Archive, and no status to move a draft to", () => {
+    expect(page({ viewer: "owner" })).toContain('aria-label="Project options"');
+    expect(page({ viewer: "owner", project: draft() })).not.toContain('aria-label="Project options"');
+  });
+
+  it("keeps everything for setting it up", () => {
+    const html = page({ viewer: "owner", project: draft() });
+    expect(html).toContain("Edit project");
+    expect(html).toContain("Edit title");
+    expect(html).toContain('title="Add location"');
+    expect(html).toContain('aria-label="Project stage"');
+    expect(page({ viewer: "owner", project: draft(), url: "/projects/p1?tab=team" })).toContain("+ Add a role");
+  });
+});
+
+describe("a live project's page", () => {
+  it("has no draft banner, for its owner or anyone else", () => {
+    for (const viewer of ["owner", "member", "visitor"] as const) {
+      const html = page({ viewer });
+      expect(html).not.toContain("Only you can see it");
+      expect(html).not.toContain('aria-label="Draft"');
+      expect(html).not.toMatch(/>Publish</);
+    }
+  });
+});
+
+describe("a draft, for anyone but its lead", () => {
+  it("is the page that isn't here anymore: getProject sends nothing", () => {
+    for (const viewer of ["visitor", "member"] as const) {
+      const html = page({ viewer, project: null as unknown as Record<string, unknown> });
+      expect(html).toContain("this project isn&#x27;t here anymore");
+      expect(html).not.toContain("Harbor Mural");
+      expect(html).not.toContain("Only you can see it");
+      expect(html).not.toMatch(/>Publish</);
+    }
+  });
+});
+
+describe("a project's status words", () => {
+  it("calls a draft a Draft", () => {
+    expect(STATUS_LABELS.draft).toBe("Draft");
   });
 });

@@ -53,7 +53,7 @@ import { isProjectFinished } from "./garden/projectTeam";
 import { projectVisibleTo } from "./garden/projectVisibility";
 import { projectKind } from "./garden/projectsPublic";
 import { isGivenSupport, supportCadence, supportKind } from "./garden/support";
-import { isHidden, isPostedProject, isShownProject } from "./moderationRules";
+import { isDraft, isHidden, isPortfolioShare, isPostedProject, isShownProject } from "./moderationRules";
 import { feedLocation } from "./eventAddress";
 import { getProfileByUserId } from "./helpers";
 import { hasRealName } from "./names";
@@ -396,7 +396,9 @@ export const getMine = query({
     ]);
 
     // Visibility, as the pages themselves decide it. A project page reads as
-    // not-found once an admin hides it (getProject), except to its lead; an
+    // not-found once an admin hides it (getProject), except to its lead; a
+    // draft is never listed here, not even to its lead (it has its own
+    // list, listMyDrafts, and isn't followed, backed or saved yet); an
     // event page shows to its hosts, and to everyone else while it's public
     // (events.get: not hidden, and a ticketed one only while its organizer
     // can sell tickets). Either one posted into a hidden (test) community
@@ -405,7 +407,8 @@ export const getMine = query({
     const gate = communityVisibility(ctx, userId);
     const ownsProject = (project: Doc<"projects">) => project.userId === userId;
     const canOpenProject = async (project: Doc<"projects">) =>
-      ownsProject(project) || (!isHidden(project) && (await gate.idVisible(project.hostOrgId)));
+      !isDraft(project) &&
+      (ownsProject(project) || (!isHidden(project) && (await gate.idVisible(project.hostOrgId))));
     const isPublic = eventVisibilityChecker(ctx);
     const canOpenEvent = async (event: Doc<"events">) =>
       isEventHost(event, userId) || ((await isPublic(event)) && (await gate.idVisible(event.hostOrgId)));
@@ -612,7 +615,7 @@ export const getMine = query({
         at: project.createdAt,
         thumbUrl,
         media: postMedia(thumbUrl, project.mediaUrl, pieces.map((piece) => piece.type)),
-        share: !isPostedProject(project),
+        share: isPortfolioShare(project),
         when: null,
       };
     }

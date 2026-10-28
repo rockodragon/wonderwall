@@ -29,6 +29,7 @@ import { FF_DESK } from "../lib/featureFlags";
 import { Desk } from "../desk/Desk";
 import { useIsDesktop } from "../hooks/useMediaQuery";
 import { InviteNudge } from "../components/InviteNudge";
+import { MyDrafts } from "../components/MyDrafts";
 import { ShareProjectCard } from "../components/ShareProjectCard";
 import { SHARE_PROJECT_PATH, ownsAProject, withFinishedStage } from "../lib/shareProject";
 import { UpdatesStack } from "../components/UpdatesStack";
@@ -158,6 +159,10 @@ function TodayPage() {
       <InviteNudge tone="page" className="mb-8 md:mb-10" hold={owns !== true} />
 
       {openGift && <YourHalfCard amountCents={openGift.amountCents} />}
+
+      {/* Their drafts come first, when they have any: a way back to what they
+          saved and haven't shared (components/MyDrafts.tsx). */}
+      <MyDrafts tone="page" className="mb-4 md:mb-6" />
 
       {/* Share a project until they have one up (components/ShareProjectCard.tsx),
           the start call after that. Nothing while it isn't known yet, so

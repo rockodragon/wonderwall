@@ -11,8 +11,11 @@ vi.mock("convex/react", () => ({
 }));
 
 import {
+  DraftChoice,
   PROJECT_STEPS,
   ProjectModal,
+  canSaveDraft,
+  closeStep,
   postedStage,
   stepAfter,
   stepBefore,
@@ -170,5 +173,90 @@ describe("ProjectModal buttons", () => {
 
   it("keeps the close button's 44px tap target", () => {
     expect(sheet()).toMatch(/aria-label="Close"[^>]*class="[^"]*\bw-11 h-11\b/);
+  });
+});
+
+// Drafts (Rick, 2026-10-28): a new project can be saved for later, like
+// Instagram, once it has a title; only its lead sees it, and it is published
+// from its page (routes/projects.$id.tsx).
+describe("ProjectModal drafts", () => {
+  const buttons = (html: string) =>
+    [...html.matchAll(/<button[^>]*type="(?:button|submit)"[^>]*>([^<]+)<\/button>/g)].map((m) => m[1]);
+
+  it("offers Save draft only once a title is typed", () => {
+    expect(buttons(sheet())).not.toContain("Save draft");
+    expect(buttons(sheet({ initialTitle: "   " }))).not.toContain("Save draft");
+    for (const step of PROJECT_STEPS) {
+      expect(buttons(sheet({ initialTitle: "A film about Nana", initialStep: step.id }))).toContain("Save draft");
+    }
+  });
+
+  it("puts it between Back and Next, and between Back and Post it", () => {
+    expect(buttons(sheet({ initialTitle: "A film", initialStep: "about" })).slice(-3)).toEqual(["Back", "Save draft", "Next"]);
+    const last = buttons(sheet({ initialTitle: "A film", initialStep: "details" }));
+    expect(last.slice(-3)).toEqual(["Back", "Save draft", "Post it"]);
+    expect(buttons(sheet({ initialTitle: "A film", initialStep: "name" })).slice(-3)).toEqual(["Cancel", "Save draft", "Next"]);
+  });
+
+  it("keeps it out of an edit, which has its own Save changes", () => {
+    for (const step of PROJECT_STEPS) {
+      expect(buttons(sheet({ edit: EDIT, initialStep: step.id }))).not.toContain("Save draft");
+    }
+  });
+
+  it("is quiet, beside the primary: outlined, 44px tall, not the citron button", () => {
+    const html = sheet({ initialTitle: "A film" });
+    const draft = html.match(/<button[^>]*>Save draft<\/button>/)?.[0] ?? "";
+    expect(draft).toMatch(/\bmin-h-11\b/);
+    expect(draft).toMatch(/\bborder\b/);
+    expect(draft).not.toContain("garden-citron");
+  });
+
+  it("knows when a draft can be saved", () => {
+    expect(canSaveDraft("A film")).toBe(true);
+    expect(canSaveDraft("  A film ")).toBe(true);
+    expect(canSaveDraft("")).toBe(false);
+    expect(canSaveDraft("   ")).toBe(false);
+    expect(canSaveDraft("A film", { projectId: "p1" })).toBe(false);
+  });
+});
+
+describe("closing a new project with a title typed", () => {
+  it("asks first, from the X, Cancel, Escape and Back alike (they share one answer)", () => {
+    expect(closeStep({ edit: false, title: "A film", asking: false })).toBe("ask");
+    expect(closeStep({ edit: false, title: " A film ", asking: false })).toBe("ask");
+  });
+
+  it("closes as before with no title, and for an edit", () => {
+    expect(closeStep({ edit: false, title: "", asking: false })).toBe("close");
+    expect(closeStep({ edit: false, title: "   ", asking: false })).toBe("close");
+    expect(closeStep({ edit: true, title: "My film", asking: false })).toBe("close");
+  });
+
+  it("keeps editing when the question is already up (Escape or Back on it)", () => {
+    expect(closeStep({ edit: false, title: "A film", asking: true })).toBe("keep");
+  });
+
+  it("is not showing until a close is asked for", () => {
+    const html = sheet({ initialTitle: "A film" });
+    expect(html).not.toContain("Save as a draft?");
+    expect(html).not.toContain("alertdialog");
+    expect(html).not.toContain("Keep editing");
+  });
+
+  it("puts the three choices in order: Save draft, Discard, Keep editing, each 44px tall", () => {
+    const html = renderToStaticMarkup(<DraftChoice onSave={() => {}} onDiscard={() => {}} onKeep={() => {}} />);
+    expect(html).toContain('role="alertdialog"');
+    expect(html).toContain("Save as a draft?");
+    const labels = [...html.matchAll(/<button[^>]*>([^<]+)<\/button>/g)].map((m) => m[1]);
+    expect(labels).toEqual(["Save draft", "Discard", "Keep editing"]);
+    for (const button of html.match(/<button[^>]*>/g) ?? []) expect(button).toMatch(/\bmin-h-11\b/);
+  });
+
+  it("names its heading for a screen reader", () => {
+    const html = renderToStaticMarkup(<DraftChoice onSave={() => {}} onDiscard={() => {}} onKeep={() => {}} />);
+    const labelledBy = html.match(/aria-labelledby="([^"]+)"/)?.[1];
+    expect(labelledBy).toBeTruthy();
+    expect(html).toContain(`id="${labelledBy}"`);
   });
 });

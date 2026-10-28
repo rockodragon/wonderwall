@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router";
 import { getFunctionName } from "convex/server";
 import { api } from "../../convex/_generated/api";
 import { stashProjectTitle } from "../lib/shareProject";
-import Onboarding from "./onboarding";
+import Onboarding, { ProjectStep } from "./onboarding";
 
 // The onboarding screens as a member sees them, one step to a page: the
 // step comes from ?step=, the answers from the profile. A server render runs
@@ -485,6 +485,81 @@ describe("step 4, the project", () => {
     expect(html).toMatch(/<button type="submit" class="[^"]*"[^>]*>Share it<\/button>/);
     // Reading it leaves it for a reload; leaving the flow clears it.
     expect(page(4)).toContain('value="Hollow Creek Field Recordings"');
+  });
+});
+
+// Rick, 2026-10-28: "Don't start onboarding's first project as draft. But
+// allow user to select it, just like Instagram." A new member can keep the
+// project as a draft instead of sharing it; Share it stays the way on. A new
+// member can't be walked to step 4 in a server render (the door is chosen with
+// a tap), so the step is drawn on its own, as the page draws it.
+describe("step 4, saving the project as a draft", () => {
+  type Props = Parameters<typeof ProjectStep>[0];
+  const step = ({ title = "", returning = false }: { title?: string; returning?: boolean } = {}) =>
+    renderToString(
+      <MemoryRouter>
+        <ProjectStep
+          draft={{ ...({} as Props["draft"]), title, blurb: "", interests: [], stage: null }}
+          set={() => {}}
+          returning={returning}
+          gardenId={undefined}
+          fromFrontDoor={false}
+          left={{ current: false }}
+        />
+      </MemoryRouter>,
+    ).replace(/<!-- -->/g, "");
+  const button = (html: string, label: string) =>
+    html.match(new RegExp(`<button[^>]*>${label}</button>`))?.[0];
+
+  it("offers it to a new member once there is a title, under Share it and above Not yet", () => {
+    const html = step({ title: "Porch concerts" });
+    const draft = button(html, "Save as draft");
+    expect(draft).toBeDefined();
+    // A tap on it never submits the form, which is Share it's.
+    expect(draft).toContain('type="button"');
+    expect(html.indexOf("Share it<")).toBeLessThan(html.indexOf("Save as draft"));
+    expect(html.indexOf("Save as draft")).toBeLessThan(html.indexOf("Not yet"));
+  });
+
+  it("leaves Share it the primary, still the form's submit, filled where the draft button is an outline", () => {
+    const html = step({ title: "Porch concerts" });
+    const share = button(html, "Share it")!;
+    expect(share).toContain('type="submit"');
+    expect(share).not.toContain('disabled=""');
+    expect(share).toContain("var(--garden-citron)");
+    expect(buttons(html)).toEqual(["Share it"]);
+    // Drawn like Not yet: same size, a border and no fill.
+    const draft = button(html, "Save as draft")!;
+    const notYet = button(html, "Not yet")!;
+    for (const b of [draft, notYet]) {
+      expect(b).toMatch(/min-h-\[52px\]/);
+      expect(b).toMatch(/text-\[17px\]/);
+      expect(b).toMatch(/\bborder\b/);
+      expect(b).not.toContain("var(--garden-citron)");
+    }
+    expect(draft).toBe(notYet.replace("Not yet", "Save as draft"));
+  });
+
+  it("waits for a title: with none typed there is only Share it (waiting) and Not yet", () => {
+    const html = step();
+    expect(html).not.toContain("Save as draft");
+    expect(button(html, "Share it")).toContain('disabled=""');
+    expect(html).toContain("Not yet");
+    // A title of spaces is no title.
+    expect(step({ title: "   " })).not.toContain("Save as draft");
+  });
+
+  it("is not offered to someone back to change their answers, who has Save", () => {
+    const html = step({ title: "Porch concerts", returning: true });
+    expect(html).not.toContain("Save as draft");
+    expect(text(html)).toContain("Share it");
+    expect(text(html)).toContain("Save");
+    expect(text(html)).not.toContain("Not yet");
+  });
+
+  it("is not on the page a returning member opens from a front-door title either", () => {
+    stashProjectTitle("Hollow Creek Field Recordings");
+    expect(page(4)).not.toContain("Save as draft");
   });
 });
 

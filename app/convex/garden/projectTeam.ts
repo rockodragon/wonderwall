@@ -26,7 +26,7 @@ import { toEmbedUrl } from "../videoEmbed";
 import { isHidden, isShownProject } from "../moderationRules";
 import { hasRealName } from "../names";
 import { communityVisibility } from "./communityVisibility";
-import { projectVisibleTo } from "./projectVisibility";
+import { assertNotDraft, projectVisibleTo } from "./projectVisibility";
 import { pieceMediaUrl, profileImageUrl, projectPhotoUrl } from "../images";
 import { portfolioSamples, validatePortfolioSampleIds } from "../portfolioSamples";
 import { fail } from "../errors";
@@ -690,6 +690,10 @@ export const requestToJoin = mutation({
     if (project.status === "archived") {
       throw new ConvexError({ code: "project_archived", reason: "This project is archived." });
     }
+    // Nobody asks to join a project that isn't posted. (isAcceptingPeople
+    // stays true for a draft on purpose: its lead sets up open roles on it,
+    // and listRoles lists them to the lead.)
+    assertNotDraft(project);
     if (!isAcceptingPeople(project)) {
       throw new ConvexError({
         code: "project_closed",
@@ -873,6 +877,8 @@ export const inviteMember = mutation({
     if (project.status === "archived") {
       throw new ConvexError({ code: "project_archived", reason: "This project is archived." });
     }
+    // An invite tells the person about the project: not before it's posted.
+    assertNotDraft(project);
     const postedRoleTitle = await resolveRoleForRequest(ctx, args.projectId, args.roleId);
     const role = postedRoleTitle ?? optionalRole(args.role);
     const message = validateMessage(args.message);

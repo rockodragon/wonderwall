@@ -13,12 +13,12 @@
 
 import { v, ConvexError } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { syncCoHosts } from "./eventHosts";
 import { getProfileByUserId, requireAdminCtx } from "./helpers";
 import { HIDDEN_STATUS, deleteBlocker, isHidden, restoredStatus } from "./moderationRules";
 import { orphanedStorageIds } from "./garden/richText";
-import { deleteEventCover, deleteStoredFile } from "./uploads";
+import { deleteEventCover, deletePieceFiles, deleteStoredFile } from "./uploads";
 
 async function deleteAnnouncements(
   ctx: MutationCtx,
@@ -69,75 +69,97 @@ export const setProjectHidden = mutation({
   },
 });
 
+/** Why a project can't be deleted, or null when it may be: money on record
+ * (deleteBlocker). Shared by the admin's Delete and a lead's discardDraft
+ * (garden/projects.ts): a draft can't have any, since every way money reaches
+ * a project refuses one, so for a draft this is a check that never fires. */
+export async function projectDeleteBlocker(
+  ctx: QueryCtx,
+  projectId: Id<"projects">,
+): Promise<string | null> {
+  const [support, backingPayments, allocations, grantProposals, projectGifts] = await Promise.all([
+    ctx.db.query("projectSupport").withIndex("by_projectId", (q) => q.eq("projectId", projectId)).collect(),
+    ctx.db.query("backingPayments").withIndex("by_projectId", (q) => q.eq("projectId", projectId)).collect(),
+    ctx.db.query("allocations").withIndex("by_projectId", (q) => q.eq("projectId", projectId)).collect(),
+    ctx.db.query("grantProposals").withIndex("by_projectId", (q) => q.eq("projectId", projectId)).collect(),
+    ctx.db.query("memberGifts").withIndex("by_status", (q) => q.eq("status", "project")).collect(),
+  ]);
+  // A "pending" financial row is an abandoned or in-flight checkout —
+  // counted nowhere (garden/support.ts's startBacking) — so only a
+  // confirmed one is money on record.
+  const confirmedBacking = support.filter(
+    (s) => s.type.startsWith("financial_") && s.status === "confirmed",
+  );
+  return deleteBlocker("project", {
+    "confirmed backing": confirmedBacking.length,
+    "backing payment": backingPayments.length,
+    "fund allocation": allocations.length,
+    "grant proposal": grantProposals.length,
+    "member gift": projectGifts.filter((g) => String(g.projectId) === String(projectId)).length,
+  });
+}
+
+/** Deletes a project and everything keyed to it: attached pieces (and their
+ * files and embeddings), gig responses, slots and series, team, roles, tiers,
+ * updates, backing rows, announcements, and the project's own stored files
+ * (photo, link still, pictures in its body and its updates). Checks nothing:
+ * the caller has already checked who may and projectDeleteBlocker. The one
+ * copy, for the admin's Delete below and a lead's discardDraft. */
+export async function eraseProject(ctx: MutationCtx, project: Doc<"projects">): Promise<void> {
+  const projectId = project._id;
+  const [pieces, members, roles, tiers, updates, series, slots, support] = await Promise.all([
+    ctx.db.query("artifacts").withIndex("by_projectId", (q) => q.eq("projectId", projectId)).collect(),
+    ctx.db.query("projectMembers").withIndex("by_projectId_status", (q) => q.eq("projectId", projectId)).collect(),
+    ctx.db.query("projectRoles").withIndex("by_projectId", (q) => q.eq("projectId", projectId)).collect(),
+    ctx.db.query("patronTiers").withIndex("by_projectId", (q) => q.eq("projectId", projectId)).collect(),
+    ctx.db.query("storyUpdates").withIndex("by_projectId", (q) => q.eq("projectId", projectId)).collect(),
+    ctx.db.query("gigSeries").withIndex("by_projectId", (q) => q.eq("projectId", projectId)).collect(),
+    ctx.db.query("gigSlots").withIndex("by_projectId_startsAt", (q) => q.eq("projectId", projectId)).collect(),
+    ctx.db.query("projectSupport").withIndex("by_projectId", (q) => q.eq("projectId", projectId)).collect(),
+  ]);
+
+  // A shared piece IS its project (docs/features/project-ia.md) — left
+  // behind it would be a /works/:id redirecting to nothing.
+  for (const piece of pieces) {
+    await deletePieceFiles(ctx, piece);
+    const embedding = await ctx.db
+      .query("embeddings")
+      .withIndex("by_entity", (q) => q.eq("entityType", "artifact").eq("entityId", piece._id))
+      .first();
+    if (embedding) await ctx.db.delete(embedding._id);
+    await ctx.db.delete(piece._id);
+  }
+  for (const s of series) {
+    const responses = await ctx.db
+      .query("gigResponses")
+      .withIndex("by_seriesId_userId", (q) => q.eq("seriesId", s._id))
+      .collect();
+    await deleteAll(ctx, responses);
+  }
+  // Photos dropped into a rich body: the same orphan sweep an edit that
+  // removes one does (updateProject, stories.ts), with nothing kept.
+  for (const doc of [project.body, ...updates.map((u) => u.bodyDoc)]) {
+    for (const id of orphanedStorageIds(doc, undefined)) await deleteStoredFile(ctx, id as Id<"_storage">);
+  }
+  await deleteAll(ctx, [...slots, ...series, ...members, ...roles, ...tiers, ...updates, ...support]);
+  await deleteAnnouncements(ctx, "project", projectId);
+
+  await deleteStoredFile(ctx, project.photoStorageId);
+  await deleteStoredFile(ctx, project.mediaPreviewStorageId);
+  await ctx.db.delete(projectId);
+}
+
 export const deleteProject = mutation({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
     await requireAdminCtx(ctx);
     const project = await ctx.db.get(args.projectId);
     if (!project) return { ok: true, deleted: false };
-    const projectId = args.projectId;
 
-    const [support, backingPayments, allocations, grantProposals, projectGifts] = await Promise.all([
-      ctx.db.query("projectSupport").withIndex("by_projectId", (q) => q.eq("projectId", projectId)).collect(),
-      ctx.db.query("backingPayments").withIndex("by_projectId", (q) => q.eq("projectId", projectId)).collect(),
-      ctx.db.query("allocations").withIndex("by_projectId", (q) => q.eq("projectId", projectId)).collect(),
-      ctx.db.query("grantProposals").withIndex("by_projectId", (q) => q.eq("projectId", projectId)).collect(),
-      ctx.db.query("memberGifts").withIndex("by_status", (q) => q.eq("status", "project")).collect(),
-    ]);
-    // A "pending" financial row is an abandoned or in-flight checkout —
-    // counted nowhere (garden/support.ts's startBacking) — so only a
-    // confirmed one is money on record.
-    const confirmedBacking = support.filter(
-      (s) => s.type.startsWith("financial_") && s.status === "confirmed",
-    );
-    const blocker = deleteBlocker("project", {
-      "confirmed backing": confirmedBacking.length,
-      "backing payment": backingPayments.length,
-      "fund allocation": allocations.length,
-      "grant proposal": grantProposals.length,
-      "member gift": projectGifts.filter((g) => String(g.projectId) === String(projectId)).length,
-    });
+    const blocker = await projectDeleteBlocker(ctx, args.projectId);
     if (blocker) throw new ConvexError({ code: "has_money", reason: blocker });
 
-    const [pieces, members, roles, tiers, updates, series, slots] = await Promise.all([
-      ctx.db.query("artifacts").withIndex("by_projectId", (q) => q.eq("projectId", projectId)).collect(),
-      ctx.db.query("projectMembers").withIndex("by_projectId_status", (q) => q.eq("projectId", projectId)).collect(),
-      ctx.db.query("projectRoles").withIndex("by_projectId", (q) => q.eq("projectId", projectId)).collect(),
-      ctx.db.query("patronTiers").withIndex("by_projectId", (q) => q.eq("projectId", projectId)).collect(),
-      ctx.db.query("storyUpdates").withIndex("by_projectId", (q) => q.eq("projectId", projectId)).collect(),
-      ctx.db.query("gigSeries").withIndex("by_projectId", (q) => q.eq("projectId", projectId)).collect(),
-      ctx.db.query("gigSlots").withIndex("by_projectId_startsAt", (q) => q.eq("projectId", projectId)).collect(),
-    ]);
-
-    // A shared piece IS its project (docs/features/project-ia.md) — left
-    // behind it would be a /works/:id redirecting to nothing.
-    for (const piece of pieces) {
-      await deleteStoredFile(ctx, piece.mediaStorageId);
-      const embedding = await ctx.db
-        .query("embeddings")
-        .withIndex("by_entity", (q) => q.eq("entityType", "artifact").eq("entityId", piece._id))
-        .first();
-      if (embedding) await ctx.db.delete(embedding._id);
-      await ctx.db.delete(piece._id);
-    }
-    for (const s of series) {
-      const responses = await ctx.db
-        .query("gigResponses")
-        .withIndex("by_seriesId_userId", (q) => q.eq("seriesId", s._id))
-        .collect();
-      await deleteAll(ctx, responses);
-    }
-    // Photos dropped into a rich body: the same orphan sweep an edit that
-    // removes one does (updateProject, stories.ts), with nothing kept.
-    for (const doc of [project.body, ...updates.map((u) => u.bodyDoc)]) {
-      for (const id of orphanedStorageIds(doc, undefined)) await deleteStoredFile(ctx, id as Id<"_storage">);
-    }
-    await deleteAll(ctx, [...slots, ...series, ...members, ...roles, ...tiers, ...updates, ...support]);
-    await deleteAnnouncements(ctx, "project", projectId);
-
-    await deleteStoredFile(ctx, project.photoStorageId);
-    await deleteStoredFile(ctx, project.mediaPreviewStorageId);
-    await ctx.db.delete(projectId);
+    await eraseProject(ctx, project);
     return { ok: true, deleted: true };
   },
 });

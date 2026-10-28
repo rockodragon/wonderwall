@@ -144,6 +144,18 @@ export async function deleteStoredFile(
   }
 }
 
+/** Deletes every file a portfolio piece holds: the work, its cover, and the
+ * maker's voice note. For a piece that is going away (artifacts.remove, and a
+ * project deleted with its pieces, moderation.ts eraseProject). */
+export async function deletePieceFiles(
+  ctx: { storage: { delete(storageId: Id<"_storage">): Promise<void> } },
+  piece: Pick<Doc<"artifacts">, "mediaStorageId" | "coverStorageId" | "audioNoteStorageId">,
+): Promise<void> {
+  await deleteStoredFile(ctx, piece.mediaStorageId);
+  await deleteStoredFile(ctx, piece.coverStorageId);
+  await deleteStoredFile(ctx, piece.audioNoteStorageId);
+}
+
 /** The rows that may share a picture with the one being changed: its Table,
  * its class. `except` is that row itself. */
 export type SharedWith = {

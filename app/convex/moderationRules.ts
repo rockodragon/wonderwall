@@ -12,6 +12,13 @@
 // off all of them with no change there. The direct-link reads, which don't
 // filter on status, call isHidden. The owner still sees their own hidden
 // page, with a notice; admins see everything; only an admin can unhide.
+//
+// A draft is the same kind of status (2026-10-28): a passion project its lead
+// saved without posting. Status "draft" keeps it off every allow-list browse
+// (VISIBLE_PROJECT_STATUSES) with no change there; the deny-lists
+// (isShownProject, isPostedProject, projectVisibleTo and the inline reads)
+// call isDraft. Only its lead sees a draft (and admins); posting it
+// (garden/projects.ts publishProject) is when followers hear about it.
 
 export const HIDDEN_STATUS = "hidden";
 
@@ -19,29 +26,45 @@ export function isHidden(row: { status?: string } | null | undefined): boolean {
   return row?.status === HIDDEN_STATUS;
 }
 
+/** The status of a project its lead saved but hasn't posted. Set by
+ * createPassionProject({ draft: true }) and lifted only by publishProject. */
+export const DRAFT_STATUS = "draft";
+
+export function isDraft(row: { status?: string } | null | undefined): boolean {
+  return row?.status === DRAFT_STATUS;
+}
+
 /** Whether one of a person's projects is still theirs to show: on their
  * profile, an organization's page, their own pickers and the Shortlist's
  * "latest from people you follow". Anything but archived (a take-down by the
- * creator or an operator) or hidden (an admin's). */
+ * creator or an operator), hidden (an admin's) or a draft (not posted yet). */
 export function isShownProject(row: { status?: string }): boolean {
-  return row.status !== "archived" && !isHidden(row);
+  return row.status !== "archived" && !isHidden(row) && !isDraft(row);
 }
 
 /** The project statuses a browse list shows: both listProjects, a
  * community's page, the stats strip, the operator's allocation picker, and
  * what a member may save. "pending" isn't used yet; "archived" is a
  * deliberate take-down by the creator or an operator; "hidden" is an
- * admin's. */
+ * admin's; "draft" is not posted yet. */
 export const VISIBLE_PROJECT_STATUSES: ReadonlySet<string> = new Set(["active", "in_progress", "completed"]);
 
-/** Whether a project was posted, rather than made by artifacts.create as the
- * side effect of a quick single-artifact share (origin "portfolio"). Those
- * have a home at /works, so they stay off the browse lists and aren't
- * projects anyone leads. Only an explicit "portfolio" counts: a row with no
- * origin predates the field (projectOriginMigration.ts), so real projects
- * never vanish defensively. */
-export function isPostedProject(project: { origin?: string }): boolean {
-  return project.origin !== "portfolio";
+/** Whether a project came from artifacts.create as the side effect of a
+ * quick single-artifact share (origin "portfolio"), not from someone posting
+ * a project. Only an explicit "portfolio" counts: a row with no origin
+ * predates the field (projectOriginMigration.ts), so real projects never
+ * vanish defensively. */
+export function isPortfolioShare(project: { origin?: string }): boolean {
+  return project.origin === "portfolio";
+}
+
+/** Whether a project was posted: not made by artifacts.create as the side
+ * effect of a quick single-artifact share (isPortfolioShare; those have a
+ * home at /works, so they stay off the browse lists and aren't projects
+ * anyone leads), and not a draft its lead hasn't posted yet. The one copy:
+ * engagement/rules.ts re-exports it. */
+export function isPostedProject(project: { origin?: string; status?: string }): boolean {
+  return !isPortfolioShare(project) && !isDraft(project);
 }
 
 /** The status Unhide puts back: whatever the row had when it was hidden,

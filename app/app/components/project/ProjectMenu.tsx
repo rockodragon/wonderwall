@@ -4,13 +4,16 @@
 // the admin's ⋮ (components/AdminMenu.tsx): Escape or a press outside closes it.
 //
 // Renders nothing for a project that is already archived, or hidden by an
-// admin (a hidden project's status is the admin's to change, moderation.ts).
+// admin (a hidden project's status is the admin's to change, moderation.ts),
+// or still a draft: a draft's two ways out are Publish and Discard in the
+// banner on its page, not a status change here.
 
 import { useEffect, useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { errorMessage } from "../../lib/convexError";
+import { isDraft } from "../../../convex/moderationRules";
 
 export function ProjectMenu({ project }: { project: { _id: Id<"projects">; title: string; status: string } }) {
   const updateProjectStatus = useMutation(api.garden.projects.updateProjectStatus);
@@ -29,7 +32,7 @@ export function ProjectMenu({ project }: { project: { _id: Id<"projects">; title
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  if (project.status === "archived" || project.status === "hidden") return null;
+  if (project.status === "archived" || project.status === "hidden" || isDraft(project)) return null;
 
   async function archive() {
     setOpen(false);

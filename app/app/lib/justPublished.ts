@@ -8,6 +8,14 @@ export function justPublished(path: string): string {
   return `${path}${path.includes("?") ? "&" : "?"}${JUST_PUBLISHED_PARAM}=1`;
 }
 
+/** Where a create flow lands after making a project: a published one with
+ *  ?new=1 (its "Invite people" card), a draft on its page as is, since
+ *  there is nothing to invite people to yet. */
+export function createdProjectPath(projectId: string, { draft = false }: { draft?: boolean } = {}): string {
+  const path = `/projects/${projectId}`;
+  return draft ? path : justPublished(path);
+}
+
 /** A project with nothing to look at yet: no picture, no pasted link that
  *  plays, no attached piece. At any stage — a title and a line are enough to
  *  post from onboarding — its just-published card asks for a picture or a

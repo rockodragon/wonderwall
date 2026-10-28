@@ -58,7 +58,8 @@ const router = createBrowserRouter([
       { path: "people", Component: People },
       { path: "search", Component: People },
       // A project's page; the shared pieces in data.ts are /projects/p-cafe
-      // (yours) and /projects/p-harbor (Dee's, with a voice note).
+      // (yours) and /projects/p-harbor (Dee's, with a voice note), and your
+      // draft is /projects/p-draft (listed under Drafts on Today).
       { path: "projects/:id", Component: ProjectDetail },
       { path: "events/:eventId", element: <Elsewhere what="an event" /> },
       // Your own page with an address, and its "Share your profile".

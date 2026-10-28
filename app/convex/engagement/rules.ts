@@ -94,14 +94,13 @@ export function latestOf(times: readonly (number | undefined)[]): number | null 
 
 // ——— A project that counts as shared ———
 
-/** A project someone posted. The finished piece onboarding used to ask for is
- * stored as a hidden companion project with origin "portfolio"
- * (artifacts.create); the audit says that doesn't count as sharing a project,
- * and project_created never fires for it. An older row with no origin was
- * posted. */
-export function isPostedProject(project: { origin?: string }): boolean {
-  return project.origin !== "portfolio";
-}
+// The one rule lives in moderationRules.ts (pure, no Convex imports, so this
+// module can use it): a project someone posted. The finished piece onboarding
+// used to ask for is stored as a hidden companion project with origin
+// "portfolio" (artifacts.create), and a draft isn't posted yet; the audit says
+// neither counts as sharing a project, and project_created never fires for
+// them. An older row with no origin was posted.
+export { isPostedProject } from "../moderationRules";
 
 // ——— Counts for the admin page ———
 

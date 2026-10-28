@@ -19,9 +19,9 @@ import { shapeCredits } from "./allocations";
 import { resolveProjectPhotoUrl } from "./projectsPublic";
 import { profileImageUrl } from "../images";
 import { currentUserId, displayNameOf, getProfileByUserId } from "../helpers";
-import { projectVisibleTo } from "./projectVisibility";
+import { assertNotDraft, projectVisibleTo } from "./projectVisibility";
 import { notifyFollowers } from "../follows";
-import { isHidden } from "../moderationRules";
+import { isDraft, isHidden } from "../moderationRules";
 import { communityVisibility, isHiddenCommunityId } from "./communityVisibility";
 import {
   collectStorageIds,
@@ -208,6 +208,8 @@ export const postStoryUpdate = mutation({
 
     const project = await ctx.db.get(args.projectId);
     assertStoryOwner(project, userId);
+    // A draft has no followers to tell and no page to show it on yet.
+    assertNotDraft(project!);
 
     const { body, bodyDoc } = shapeUpdateContent(args);
     await claimUploads(ctx, userId, collectStorageIds(bodyDoc));
@@ -471,8 +473,10 @@ export const getStoryPage = query({
       .query("projects")
       .withIndex("by_storySlug", (q) => q.eq("storySlug", args.storySlug))
       .unique();
-    // An admin-hidden project (moderation.ts) has no public story page.
-    if (!project || isHidden(project)) return null;
+    // An admin-hidden project (moderation.ts) has no public story page, nor
+    // does a draft (to anyone, its lead included: the lead sees it at
+    // /projects/:id, getProject).
+    if (!project || isHidden(project) || isDraft(project)) return null;
     // Nor does one posted into a hidden (test) community, for anyone but its
     // lead, admins and that community's members.
     if (project.hostOrgId) {

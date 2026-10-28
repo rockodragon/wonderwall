@@ -5,7 +5,12 @@ import Profile from "./profile";
 
 // A profile page, as its owner and as someone else. The queries answer by
 // name; whatever isn't listed is still loading.
-const scene = vi.hoisted(() => ({ me: "ana", leader: false }));
+const scene = vi.hoisted(() => ({
+  me: "ana",
+  leader: false,
+  drafts: undefined as unknown,
+  affiliations: undefined as unknown,
+}));
 
 vi.mock("convex/react", async () => {
   const { getFunctionName } = await import("convex/server");
@@ -19,6 +24,11 @@ vi.mock("convex/react", async () => {
           return { _id: scene.me, name: "Ana Reyes" };
         case "profiles:getProfile":
           return { _id: "ana", userId: "u-ana", name: "Ana Reyes", imageUrl: "/ana.jpg", interests: ["Photography"], artifacts: [], organizations: [], isLeader: scene.leader };
+        // The viewer's own drafts, and the projects the page's person is on.
+        case "garden/projects:listMyDrafts":
+          return scene.drafts;
+        case "garden/projectTeam:listAffiliations":
+          return scene.affiliations;
         default:
           return undefined;
       }
@@ -91,6 +101,60 @@ describe("a profile page", () => {
     const html = await profilePage();
     expect(html).toMatch(/<a [^>]*href="\/people"[^>]*>.*?Back<\/a>/);
     expect(html).toContain('src="/ana.jpg"');
+  });
+});
+
+// Drafts are the viewer's own, saved and not shared: they are on their own
+// page, ahead of what's in progress, and nowhere on anyone else's.
+describe("a profile page's Drafts", () => {
+  const draft = (i: number, extra: Record<string, unknown> = {}) => ({ _id: `d${i}`, title: `Draft ${i}`, updatedAt: 1_000 - i, photoUrl: null, ...extra });
+  const inProgress = { projectId: "p-live", title: "Hymns for the Commons", imageUrl: null, blurb: null, role: "Lead", stage: "working", kind: "passion", completed: false, openRoles: [], gig: null, raising: false };
+  afterEach(() => {
+    scene.me = "ana";
+    scene.drafts = undefined;
+    scene.affiliations = undefined;
+  });
+
+  it("lists your own, each a link to its page, above In progress", async () => {
+    scene.me = "ana";
+    scene.drafts = [draft(1, { photoUrl: "/campaign/band.jpg" }), draft(2)];
+    scene.affiliations = [inProgress];
+    const html = await profilePage();
+    const heading = html.indexOf(">Drafts</h2>");
+    expect(heading).toBeGreaterThan(-1);
+    expect(heading).toBeLessThan(html.indexOf(">In progress</h2>"));
+    const section = html.slice(heading, html.indexOf("</section>", heading));
+    expect(section).toContain('href="/projects/d1"');
+    expect(section).toContain('href="/projects/d2"');
+    expect(section).toContain('src="/campaign/band.jpg"');
+    expect(section).toContain(">Draft</span>");
+  });
+
+  it("lists all of them, not three", async () => {
+    scene.me = "ana";
+    scene.drafts = [1, 2, 3, 4, 5].map((i) => draft(i));
+    const html = await profilePage();
+    for (const i of [1, 2, 3, 4, 5]) expect(html).toContain(`href="/projects/d${i}"`);
+    expect(html).not.toContain("+2 more");
+  });
+
+  it("is not on someone else's page", async () => {
+    scene.me = "someone-else";
+    scene.drafts = [draft(1)];
+    scene.affiliations = [inProgress];
+    const html = await profilePage();
+    expect(html).not.toContain(">Drafts</h2>");
+    expect(html).not.toContain("/projects/d1");
+    // What's in progress is still there for everyone.
+    expect(html).toContain(">In progress</h2>");
+  });
+
+  it("is not on your own page with no drafts, or while they load", async () => {
+    scene.me = "ana";
+    scene.drafts = [];
+    expect(await profilePage()).not.toContain(">Drafts</h2>");
+    scene.drafts = undefined;
+    expect(await profilePage()).not.toContain(">Drafts</h2>");
   });
 });
 

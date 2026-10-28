@@ -157,6 +157,59 @@ describe("Share a project on a phone's Today", () => {
   });
 });
 
+// A draft is a project they saved and haven't shared; only they can see it.
+// Today keeps a way back to each, ahead of the ask to share one.
+describe("Drafts on a phone's Today", () => {
+  const me = { _id: "me", userId: "u-me", name: "Me", bio: "", imageUrl: null };
+  const draft = (i: number, extra: Record<string, unknown> = {}) => ({ _id: `d${i}`, title: `Draft ${i}`, updatedAt: NOW - i, photoUrl: null, ...extra });
+
+  it("lists them, each a link to its page, right before the Share a project card", async () => {
+    scene.answers = {
+      "profiles:getMyProfile": me,
+      "garden/projects:listProjects": [],
+      "garden/projects:listMyDrafts": [draft(1, { photoUrl: "/campaign/band.jpg" }), draft(2)],
+    };
+    const html = await today();
+    const drafts = html.indexOf('aria-label="Drafts"');
+    expect(drafts).toBeGreaterThan(-1);
+    expect(drafts).toBeLessThan(html.indexOf('aria-label="Share a project"'));
+    const card = html.slice(drafts, html.indexOf("</section>", drafts));
+    expect(text(card)).toContain("Drafts Draft 1 Draft Draft 2 Draft");
+    expect(card).toContain('href="/projects/d1"');
+    expect(card).toContain('href="/projects/d2"');
+    expect(card).toContain('src="/campaign/band.jpg"');
+    // The page's own variables, as the Share a project card draws with.
+    expect(card).toContain("var(--app-surface-raised)");
+  });
+
+  it("is there, ahead of the start call, once a project of theirs is up too", async () => {
+    scene.answers = {
+      "profiles:getMyProfile": me,
+      "garden/projects:listProjects": [{ _id: "p-mine", userId: "u-me", kind: "passion", status: "active", stage: "completed", title: "Hymns", media: [], createdAt: NOW }],
+      "garden/projects:listMyDrafts": [draft(1)],
+    };
+    const html = await today();
+    expect(html.indexOf('aria-label="Drafts"')).toBeGreaterThan(-1);
+    expect(html.indexOf('aria-label="Drafts"')).toBeLessThan(html.indexOf('aria-label="Start a project"'));
+  });
+
+  it("says how many more past three", async () => {
+    scene.answers = { "garden/projects:listMyDrafts": [1, 2, 3, 4, 5, 6].map((i) => draft(i)) };
+    const html = await today();
+    const drafts = html.indexOf('aria-label="Drafts"');
+    const card = html.slice(drafts, html.indexOf("</section>", drafts));
+    expect(card.match(/<a /g)).toHaveLength(3);
+    expect(text(card)).toContain("+3 more");
+  });
+
+  it("is not there with none, or while they load", async () => {
+    scene.answers = { "garden/projects:listMyDrafts": [] };
+    expect(await today()).not.toContain('aria-label="Drafts"');
+    scene.answers = {};
+    expect(await today()).not.toContain('aria-label="Drafts"');
+  });
+});
+
 // An open project on Today is a feed post (docs: Rick, 2026-10-27). On a
 // phone, top to bottom: who made it, the picture edge to edge, the title, a
 // line or two, the status line, and the actions as its last row. No card, no
