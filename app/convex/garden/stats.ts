@@ -16,7 +16,7 @@
 //
 // Visibility rules are borrowed, not re-invented:
 //   - projects follow projectsPublic.ts's listProjects: moderationRules.ts's
-//     VISIBLE_PROJECT_STATUSES and isPostedProject (imported), kind
+//     isListedProject (imported), kind
 //     passion|paid.
 //   - communities follow communities.ts's isListedCommunity (imported).
 //   - seeded sample postings (seedPaidPostings.ts) are posted by users whose
@@ -32,7 +32,7 @@ import { query } from "../_generated/server";
 import type { QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { COMMUNITY_KIND, isListedCommunity } from "./communities";
-import { isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
+import { isListedProject } from "../moderationRules";
 import { isHiddenCommunity } from "./hiddenCommunity";
 import { hasRealName } from "../names";
 
@@ -189,7 +189,7 @@ export const publicCounts = query({
     let activeProjects = 0;
     let paidOpportunities = 0;
     for (const p of projectRows) {
-      if (!VISIBLE_PROJECT_STATUSES.has(p.status) || !isPostedProject(p)) continue;
+      if (!isListedProject(p)) continue;
       if (p.hostOrgId && hiddenCommunityIds.has(String(p.hostOrgId))) continue;
       if (await seedCheck.isSeed(p.userId)) continue;
       activeProjects++;

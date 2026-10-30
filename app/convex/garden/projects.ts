@@ -37,7 +37,7 @@ import { canonicalMediaUrl, schedulePreviewFetch } from "../linkPreview";
 import { currentUserId, displayNameOf, getProfileByUserId, isAdmin, requireOwner } from "../helpers";
 import { placeForViewer, projectVisibleTo, seesProjectAddress } from "./projectVisibility";
 import { insertNotification } from "../notify";
-import { isHidden, isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
+import { isHidden, isListedProject } from "../moderationRules";
 import { communityVisibility, isHiddenCommunityId } from "./communityVisibility";
 import { audioNoteUrl, pieceMediaUrl, profileImageUrl, projectPhotoUrl } from "../images";
 
@@ -426,8 +426,8 @@ export const setStage = mutation({
 // the artifacts.create path, its attached media — passion and paid projects
 // mixed together, newest first. Small-scale by design (a handful of V1
 // users): a full table scan is simpler and fast enough, no index tuning yet.
-// Which projects show is moderationRules.ts's VISIBLE_PROJECT_STATUSES and
-// isPostedProject, shared with projectsPublic.ts's listProjects.
+// Which projects show is moderationRules.ts's isListedProject, shared with
+// projectsPublic.ts's listProjects.
 
 // What a project is asking for, for the two browse views (docs/features/
 // project-ia.md): Projects shows what's raising, Work shows what's hiring.
@@ -468,7 +468,7 @@ export const listProjects = query({
   args: {},
   handler: async (ctx) => {
     const allProjects = await ctx.db.query("projects").collect();
-    const posted = allProjects.filter((p) => VISIBLE_PROJECT_STATUSES.has(p.status) && isPostedProject(p));
+    const posted = allProjects.filter(isListedProject);
     // A project posted into a hidden (test) community is listed only for
     // admins and that community's members.
     const projects = await communityVisibility(ctx).filter(posted);

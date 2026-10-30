@@ -22,7 +22,7 @@ import { getGardenUser, throwDenial } from "./entitlements";
 import { eventVisibilityChecker } from "./eventVisibility";
 import { slugifyTitle, resolveAvailableSlug } from "./stories";
 import { canSeeOffering } from "../offerings";
-import { isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
+import { isListedProject } from "../moderationRules";
 import { hasRealName } from "../names";
 import { canSeeCommunity, isHiddenCommunity } from "./hiddenCommunity";
 import { communityVisibility } from "./communityVisibility";
@@ -529,7 +529,7 @@ export const getCommunity = query({
     ]);
 
     // Projects show here as they do on browse (moderationRules.ts).
-    const visibleProjects = projects.filter((p) => VISIBLE_PROJECT_STATUSES.has(p.status) && isPostedProject(p));
+    const visibleProjects = projects.filter(isListedProject);
     const photoById = new Map(
       await Promise.all(visibleProjects.map(async (p) => [String(p._id), await projectPhotoUrl(ctx, p)] as const)),
     );

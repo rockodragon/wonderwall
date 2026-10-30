@@ -86,48 +86,34 @@ describe("compareForJury", () => {
     ...over,
   });
 
-  it("puts applications with actual work above bare email captures", () => {
-    const complete = row({ answeredAt: 1 });
-    const emailOnly = row({ tally: { yes: 9, maybe: 9, no: 0 } });
-    // Even a wildly popular incomplete row sorts below a complete one —
-    // there is nothing on it to read.
-    expect(compareForJury(complete, emailOnly)).toBeLessThan(0);
-    expect(compareForJury(emailOnly, complete)).toBeGreaterThan(0);
-  });
-
   it("ranks by jury enthusiasm, counting a yes double a maybe", () => {
-    const oneYes = row({ answeredAt: 1, tally: { yes: 1, maybe: 0, no: 0 } });
-    const twoMaybes = row({ answeredAt: 1, tally: { yes: 0, maybe: 2, no: 0 } });
-    const oneMaybe = row({ answeredAt: 1, tally: { yes: 0, maybe: 1, no: 0 } });
+    const oneYes = row({ tally: { yes: 1, maybe: 0, no: 0 } });
+    const twoMaybes = row({ tally: { yes: 0, maybe: 2, no: 0 } });
+    const oneMaybe = row({ tally: { yes: 0, maybe: 1, no: 0 } });
     expect(compareForJury(oneYes, oneMaybe)).toBeLessThan(0);
     // 1 yes == 2 maybes, so the tie falls through to recency.
     expect(compareForJury(oneYes, twoMaybes)).toBe(0);
   });
 
-  it("does not let a single no bury an otherwise unreviewed application", () => {
-    const oneNo = row({ answeredAt: 1, tally: { yes: 0, maybe: 0, no: 1 } });
-    const untouched = row({ answeredAt: 1 });
+  it("does not let a single no bury an otherwise unreviewed project", () => {
+    const oneNo = row({ tally: { yes: 0, maybe: 0, no: 1 } });
+    const untouched = row();
     expect(compareForJury(oneNo, untouched)).toBe(0);
   });
 
   it("breaks ties by newest first", () => {
-    const older = row({ answeredAt: 1, createdAt: 100 });
-    const newer = row({ answeredAt: 1, createdAt: 200 });
+    const older = row({ createdAt: 100 });
+    const newer = row({ createdAt: 200 });
     expect(compareForJury(newer, older)).toBeLessThan(0);
   });
 
   it("produces a stable full ordering", () => {
     const rows: (JurySortable & { id: string })[] = [
-      { id: "incomplete", createdAt: 500, tally: { yes: 0, maybe: 0, no: 0 } },
-      { id: "loved", answeredAt: 1, createdAt: 100, tally: { yes: 3, maybe: 0, no: 0 } },
-      { id: "new", answeredAt: 1, createdAt: 900, tally: { yes: 0, maybe: 0, no: 0 } },
-      { id: "liked", answeredAt: 1, createdAt: 100, tally: { yes: 1, maybe: 1, no: 0 } },
+      { id: "old", createdAt: 500, tally: { yes: 0, maybe: 0, no: 0 } },
+      { id: "loved", createdAt: 100, tally: { yes: 3, maybe: 0, no: 0 } },
+      { id: "new", createdAt: 900, tally: { yes: 0, maybe: 0, no: 0 } },
+      { id: "liked", createdAt: 100, tally: { yes: 1, maybe: 1, no: 0 } },
     ];
-    expect([...rows].sort(compareForJury).map((r) => r.id)).toEqual([
-      "loved",
-      "liked",
-      "new",
-      "incomplete",
-    ]);
+    expect([...rows].sort(compareForJury).map((r) => r.id)).toEqual(["loved", "liked", "new", "old"]);
   });
 });

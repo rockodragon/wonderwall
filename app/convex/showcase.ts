@@ -23,11 +23,22 @@
 // Selection is manual. There is no scoring here on purpose — a jury of
 // people reads these. `status` is the only thing an admin sets, and
 // `decidedBy` records who set it.
+//
+// The jury (the Admin section below) votes on PROJECTS, not on these
+// applications: the open call never got an apply button, so what people put
+// into the system as projects is the work there is to judge (Rick,
+// 2026-10-30). APPLICATIONS_CLOSE_AT gates the public page only.
 
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import { fail } from "./errors";
 import { requireAdminCtx, getProfileByUserId } from "./helpers";
+import { projectPhotoUrl } from "./images";
+import { isListedProject } from "./moderationRules";
+import { orgByline } from "./organizations";
+import { resolveStage } from "./stages";
 
 /** Applications close at 23:59 Pacific on Thursday 2026-10-22 (=
     2026-10-23T06:59Z; still PDT, UTC-7 — DST ends 2026-11-01). The date is
@@ -80,19 +91,15 @@ export function normalizeInstagram(raw: string | undefined): string | undefined 
   return handle || undefined;
 }
 
-/** Jury sheet order: applications with actual work attached first, then the
-    ones the jury likes best, then newest. A bare email capture has nothing
-    to read, so it sorts last however enthusiastic nobody has been about it.
+/** Jury sheet order: the projects the jury likes best first, then newest.
     A "yes" counts double a "maybe"; a "no" doesn't subtract, because a
     single dissent shouldn't bury a piece nobody else has looked at yet. */
 export type JurySortable = {
-  answeredAt?: number;
   createdAt: number;
   tally: { yes: number; maybe: number; no: number };
 };
 
 export function compareForJury(a: JurySortable, b: JurySortable): number {
-  if (!!a.answeredAt !== !!b.answeredAt) return a.answeredAt ? -1 : 1;
   const score = (row: JurySortable) => row.tally.yes * 2 + row.tally.maybe;
   if (score(a) !== score(b)) return score(b) - score(a);
   return b.createdAt - a.createdAt;
@@ -254,13 +261,30 @@ export const publicStats = query({
   },
 });
 
-// ————— Admin —————
+// ————— Admin: the jury —————
+//
+// The ballot is every project the browse grid shows (isListedProject: a
+// visible status, posted rather than shared from a portfolio). Any admin
+// votes; a committee beyond admins is a later step. A vote is an opinion;
+// projects.showcaseStatus is the decision, and nothing sets it but an admin.
 
-/** The jury sheet. Every application, each with its vote tally, who voted
-    which way, and the caller's own vote so the UI can show it selected.
+export const SHOWCASE_STATUSES = ["new", "shortlisted", "selected", "declined"] as const;
+export type ShowcaseStatus = (typeof SHOWCASE_STATUSES)[number];
 
-    O(applications x votes) with a profile lookup per voter — fine at the
-    scale this runs at (one showcase, hundreds of applications, a handful of
+const voteValidator = v.union(v.literal("yes"), v.literal("maybe"), v.literal("no"));
+const showcaseStatusValidator = v.union(
+  v.literal("new"),
+  v.literal("shortlisted"),
+  v.literal("selected"),
+  v.literal("declined"),
+);
+
+/** The jury sheet. Every project on the ballot, each with its vote tally,
+    who voted which way, and the caller's own vote so the UI can show it
+    selected.
+
+    O(projects x votes) with one profile read per distinct person — fine at
+    the scale this runs at (one showcase, hundreds of projects, a handful of
     admins) and not worth a denormalized counter that could drift from the
     votes themselves. */
 export const adminList = query({
@@ -268,67 +292,76 @@ export const adminList = query({
   handler: async (ctx) => {
     const me = await requireAdminCtx(ctx);
 
-    const rows = await ctx.db.query("showcaseApplications").collect();
-    const votes = await ctx.db.query("showcaseVotes").collect();
+    const projects = (await ctx.db.query("projects").collect()).filter(isListedProject);
+    const votes = await ctx.db.query("showcaseProjectVotes").collect();
 
-    // One profile read per DISTINCT voter, not per vote.
-    const voterNames = new Map<string, string>();
-    for (const userId of new Set(votes.map((vote) => vote.userId))) {
-      const profile = await getProfileByUserId(ctx, userId);
-      voterNames.set(userId, profile?.name ?? "An admin");
+    // One profile read per DISTINCT person, voter or creator.
+    const names = new Map<string, string | null>();
+    for (const userId of [...votes.map((vote) => vote.userId), ...projects.map((project) => project.userId)]) {
+      if (names.has(userId)) continue;
+      names.set(userId, (await getProfileByUserId(ctx, userId))?.name ?? null);
     }
+    const nameOf = (userId: Id<"users">, fallback: string) => names.get(userId) ?? fallback;
 
-    const byApplication = new Map<string, typeof votes>();
+    const byProject = new Map<string, typeof votes>();
     for (const vote of votes) {
-      const list = byApplication.get(vote.applicationId) ?? [];
+      const list = byProject.get(vote.projectId) ?? [];
       list.push(vote);
-      byApplication.set(vote.applicationId, list);
+      byProject.set(vote.projectId, list);
     }
 
-    const withVotes = rows.map((row) => {
-      const cast = byApplication.get(row._id) ?? [];
-      return {
-        ...row,
-        tally: {
-          yes: cast.filter((vote) => vote.vote === "yes").length,
-          maybe: cast.filter((vote) => vote.vote === "maybe").length,
-          no: cast.filter((vote) => vote.vote === "no").length,
-        },
-        votes: cast.map((vote) => ({
-          userId: vote.userId,
-          voter: voterNames.get(vote.userId) ?? "An admin",
-          vote: vote.vote,
-          note: vote.note,
-        })),
-        myVote: cast.find((vote) => vote.userId === me)?.vote ?? null,
-      };
-    });
+    const rows = await Promise.all(
+      projects.map(async (project) => {
+        const cast = byProject.get(project._id) ?? [];
+        const organization = await orgByline(ctx, project.organizationId);
+        return {
+          _id: project._id,
+          title: project.title,
+          blurb: project.blurb,
+          kind: project.kind,
+          stage: resolveStage(project),
+          // Who it's by: the organization it was posted as, else the person.
+          byName: organization?.name ?? nameOf(project.userId, "A Garden creative"),
+          photoUrl: (await projectPhotoUrl(ctx, project)) ?? project.mediaPreviewUrl ?? null,
+          createdAt: project.createdAt,
+          status: (project.showcaseStatus ?? "new") as ShowcaseStatus,
+          tally: {
+            yes: cast.filter((vote) => vote.vote === "yes").length,
+            maybe: cast.filter((vote) => vote.vote === "maybe").length,
+            no: cast.filter((vote) => vote.vote === "no").length,
+          },
+          votes: cast.map((vote) => ({
+            userId: vote.userId,
+            voter: nameOf(vote.userId, "An admin"),
+            vote: vote.vote,
+            note: vote.note,
+          })),
+          myVote: cast.find((vote) => vote.userId === me)?.vote ?? null,
+        };
+      }),
+    );
 
-    return withVotes.sort(compareForJury);
+    return rows.sort(compareForJury);
   },
 });
 
-/** Cast or change one admin's vote. Upsert keyed on (application, admin),
-    so voting twice revises rather than stacking. Any admin may vote —
+/** Cast or change one admin's vote. Upsert keyed on (project, admin), so
+    voting twice revises rather than stacking. Any admin may vote —
     "whoever's admin in the Garden," same gate as every other admin
     surface. */
 export const castVote = mutation({
   args: {
-    applicationId: v.id("showcaseApplications"),
-    vote: v.union(v.literal("yes"), v.literal("maybe"), v.literal("no")),
+    projectId: v.id("projects"),
+    vote: voteValidator,
     note: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await requireAdminCtx(ctx);
-
-    const application = await ctx.db.get(args.applicationId);
-    if (!application) throw new Error("That application no longer exists.");
+    if (!(await ctx.db.get(args.projectId))) fail("not_found", "That project no longer exists.");
 
     const existing = await ctx.db
-      .query("showcaseVotes")
-      .withIndex("by_application_and_user", (q) =>
-        q.eq("applicationId", args.applicationId).eq("userId", userId),
-      )
+      .query("showcaseProjectVotes")
+      .withIndex("by_project_and_user", (q) => q.eq("projectId", args.projectId).eq("userId", userId))
       .first();
 
     const note = clamp(args.note, 1000);
@@ -337,8 +370,8 @@ export const castVote = mutation({
     if (existing) {
       await ctx.db.patch(existing._id, { vote: args.vote, note, updatedAt: now });
     } else {
-      await ctx.db.insert("showcaseVotes", {
-        applicationId: args.applicationId,
+      await ctx.db.insert("showcaseProjectVotes", {
+        projectId: args.projectId,
         userId,
         vote: args.vote,
         note,
@@ -353,14 +386,12 @@ export const castVote = mutation({
 /** Withdraw the caller's own vote. An admin can only clear their own —
     there is no path here to delete someone else's. */
 export const clearVote = mutation({
-  args: { applicationId: v.id("showcaseApplications") },
+  args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
     const userId = await requireAdminCtx(ctx);
     const existing = await ctx.db
-      .query("showcaseVotes")
-      .withIndex("by_application_and_user", (q) =>
-        q.eq("applicationId", args.applicationId).eq("userId", userId),
-      )
+      .query("showcaseProjectVotes")
+      .withIndex("by_project_and_user", (q) => q.eq("projectId", args.projectId).eq("userId", userId))
       .first();
     if (!existing) return { cleared: false };
     await ctx.db.delete(existing._id);
@@ -368,25 +399,19 @@ export const clearVote = mutation({
   },
 });
 
-/** The decision itself, which stays separate from the vote tally — see the
-    showcaseVotes comment in schema.ts. */
+/** The decision itself, which stays separate from the vote tally — see
+    projects.showcaseStatus in schema.ts. "new" (Undecided) clears it. */
 export const setStatus = mutation({
-  args: {
-    id: v.id("showcaseApplications"),
-    status: v.union(
-      v.literal("new"),
-      v.literal("shortlisted"),
-      v.literal("selected"),
-      v.literal("declined"),
-    ),
-  },
+  args: { projectId: v.id("projects"), status: showcaseStatusValidator },
   handler: async (ctx, args) => {
     const adminId = await requireAdminCtx(ctx);
-    await ctx.db.patch(args.id, {
-      status: args.status,
-      decidedAt: Date.now(),
-      decidedBy: adminId,
-    });
+    if (!(await ctx.db.get(args.projectId))) fail("not_found", "That project no longer exists.");
+    await ctx.db.patch(
+      args.projectId,
+      args.status === "new"
+        ? { showcaseStatus: undefined, showcaseDecidedAt: undefined, showcaseDecidedBy: undefined }
+        : { showcaseStatus: args.status, showcaseDecidedAt: Date.now(), showcaseDecidedBy: adminId },
+    );
     return { success: true };
   },
 });

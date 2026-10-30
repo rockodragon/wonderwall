@@ -81,7 +81,7 @@ const DESTINATIONS: readonly Destination[] = [
     to: "/admin/showcase",
     title: "Showcase jury",
     icon: Trophy,
-    blurb: "Vote on open call applications.",
+    blurb: "Vote on projects for the November 6 showcase.",
   },
 ];
 

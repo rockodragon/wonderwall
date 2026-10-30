@@ -88,7 +88,7 @@ const RULES: Rule[] = [
   {
     name: "inline profile.isAdmin check",
     pattern: /profile\??\.isAdmin\b/g,
-    limit: 21,
+    limit: 20,
     home: "convex/helpers.ts",
     use: "isAdmin / isAdminProfile / requireOperator / requireAdminCtx in convex/helpers.ts, or useIsAdmin in app/lib",
   },
@@ -220,6 +220,13 @@ const RULES: Rule[] = [
     limit: 0,
     home: "convex/moderationRules.ts",
     use: "isShownProject in convex/moderationRules.ts",
+  },
+  {
+    name: "project listed-or-not checked inline (one place)",
+    pattern: /VISIBLE_PROJECT_STATUSES\.has\([^)]*\)\s*(?:&&|\|\|)\s*!?isPostedProject\(/g,
+    limit: 0,
+    home: "convex/moderationRules.ts",
+    use: "isListedProject in convex/moderationRules.ts",
   },
   {
     name: "custom interests filtered by hand (one place)",

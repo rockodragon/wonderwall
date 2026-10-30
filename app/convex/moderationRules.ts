@@ -44,6 +44,13 @@ export function isPostedProject(project: { origin?: string }): boolean {
   return project.origin !== "portfolio";
 }
 
+/** Whether a project is on the browse lists at all: a visible status, and
+ * posted rather than shared from a portfolio. The one rule behind /projects,
+ * a community's page, the stats strip and the showcase jury's ballot. */
+export function isListedProject(project: { status?: string; origin?: string }): boolean {
+  return VISIBLE_PROJECT_STATUSES.has(project.status ?? "") && isPostedProject(project);
+}
+
 /** What Hide writes to a project or event: status "hidden", when, and the
  * status Unhide (restoredStatus) puts back. The admin ⋮ menu
  * (moderation.ts) and the operator's refileProject tool both hide this way,

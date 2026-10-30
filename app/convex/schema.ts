@@ -675,6 +675,10 @@ export default defineSchema({
     .index("by_email", ["email"])
     .index("by_status", ["status"]),
 
+  // RETIRED 2026-10-30: the jury votes on projects now (showcaseProjectVotes
+  // below). The open call never got an apply button, so no application was
+  // ever voted on. Kept so any old row stays valid; nothing writes here.
+  //
   // One admin's vote on one showcase application (/admin/showcase). A row
   // per (application, admin) rather than a tally on the application itself,
   // so the sheet can show WHO thought what and an admin can change their
@@ -697,6 +701,26 @@ export default defineSchema({
     .index("by_application", ["applicationId"])
     // Upsert lookup: an admin has at most one vote per application.
     .index("by_application_and_user", ["applicationId", "userId"]),
+
+  // One admin's vote on one PROJECT for the November 6 showcase
+  // (/admin/showcase). The ballot is every listed project (moderationRules
+  // isListedProject). Same shape and reasons as showcaseVotes: a row per
+  // (project, admin) so the sheet shows who thought what and nobody's vote
+  // races anyone else's; voting decides nothing on its own —
+  // projects.showcaseStatus is the explicit decision.
+  showcaseProjectVotes: defineTable({
+    projectId: v.id("projects"),
+    userId: v.id("users"),
+    vote: v.union(v.literal("yes"), v.literal("maybe"), v.literal("no")),
+    note: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    // admin/mergeUsers.ts reads a person's rows by it.
+    .index("by_userId", ["userId"])
+    .index("by_projectId", ["projectId"])
+    // Upsert lookup: an admin has at most one vote per project.
+    .index("by_project_and_user", ["projectId", "userId"]),
 
   // Jobs board
   jobs: defineTable({
@@ -1369,6 +1393,14 @@ export default defineSchema({
     // status Unhide puts back. Both unset on every row that isn't hidden.
     hiddenAt: v.optional(v.number()),
     statusBeforeHidden: v.optional(v.string()),
+    // November 6 showcase (/admin/showcase, convex/showcase.ts): the
+    // decision an admin set on this project — "shortlisted" | "selected" |
+    // "declined"; absent is undecided. Separate from the vote tally in
+    // showcaseProjectVotes on purpose: votes are opinions, this is the
+    // commitment. Who set it and when, for the record.
+    showcaseStatus: v.optional(v.string()),
+    showcaseDecidedAt: v.optional(v.number()),
+    showcaseDecidedBy: v.optional(v.id("users")),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -1378,7 +1410,9 @@ export default defineSchema({
     .index("by_storySlug", ["storySlug"])
     .index("by_legacyJobId", ["legacyJobId"])
     .index("by_hostOrgId", ["hostOrgId"])
-    .index("by_organizationId", ["organizationId"]),
+    .index("by_organizationId", ["organizationId"])
+    // admin/mergeUsers.ts re-points a merged admin's decisions by it.
+    .index("by_showcaseDecidedBy", ["showcaseDecidedBy"]),
 
   // Project team (docs/features/project-teams.md §2). One row per person
   // per project, reused across status changes — structurally
