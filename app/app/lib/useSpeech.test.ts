@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { ConvexError } from "convex/values";
+import { describe, expect, it, vi } from "vitest";
 import {
   IDLE,
+  TALK_IDLE,
+  TRANSCRIBE_FAILED,
+  createRecordingSession,
   createSpeechSession,
   joinTranscript,
   recognitionCtor,
@@ -8,7 +12,10 @@ import {
   type Recognition,
   type RecognitionCtor,
   type SpeechState,
+  type TalkState,
+  type Transcriber,
 } from "./useSpeech";
+import type { Recorder, RecorderCtor, RecorderEnv } from "./useAudioRecorder";
 
 // The hook is a thin layer over createSpeechSession (React state and an
 // unmount cleanup), so the session is tested here with a recognizer that
@@ -246,5 +253,142 @@ describe("a speech session", () => {
     session.abort();
     expect(FakeRecognition.made).toHaveLength(0);
     expect(seen).toEqual([]);
+  });
+});
+
+// Where the browser has no recognizer, the take is recorded and written down
+// by `transcribe` (lib/useTalk.ts → convex/transcribe.ts). The session is
+// tested with a microphone and recorder that do what the test says, and a
+// transcriber that answers what the test says.
+describe("a recording session", () => {
+  class FakeRecorder implements Recorder {
+    static made: FakeRecorder[] = [];
+    static data = "sound";
+    mimeType = "audio/webm";
+    state = "inactive";
+    ondataavailable: Recorder["ondataavailable"] = null;
+    onstop: Recorder["onstop"] = null;
+    onerror: Recorder["onerror"] = null;
+    constructor() {
+      FakeRecorder.made.push(this);
+    }
+    start() {
+      this.state = "recording";
+    }
+    stop() {
+      this.state = "inactive";
+      this.ondataavailable?.({ data: new Blob([FakeRecorder.data]) });
+      this.onstop?.();
+    }
+  }
+  function env(getUserMedia?: RecorderEnv["getUserMedia"]): RecorderEnv {
+    return {
+      getUserMedia: getUserMedia ?? (async () => ({ getTracks: () => [{ stop() {} }] })),
+      Recorder: FakeRecorder as unknown as RecorderCtor,
+    };
+  }
+  // Lets the microphone promise, the blob and the transcriber settle.
+  const settle = async () => {
+    for (let i = 0; i < 4; i += 1) await new Promise((r) => setTimeout(r, 0));
+  };
+  function setupRecording(transcribe: Transcriber, getUserMedia?: RecorderEnv["getUserMedia"]) {
+    FakeRecorder.made = [];
+    FakeRecorder.data = "sound";
+    const seen: TalkState[] = [];
+    const session = createRecordingSession(env(getUserMedia), transcribe, (s) => seen.push(s));
+    return { session, seen, last: () => seen.at(-1)! };
+  }
+
+  it("listens once the microphone is granted, then writes the take down on stop and ends with the words", async () => {
+    const transcribe = vi.fn<Transcriber>(async () => " I paint murals. ");
+    const { session, seen, last } = setupRecording(transcribe);
+    session.start();
+    await settle();
+    expect(last()).toEqual({ listening: true, transcribing: false, transcript: "", error: null });
+    session.stop();
+    await settle();
+    expect(transcribe).toHaveBeenCalledTimes(1);
+    expect(transcribe.mock.calls[0][1]).toBe("audio/webm");
+    expect(new TextDecoder().decode(transcribe.mock.calls[0][0])).toBe("sound");
+    // Still listening while the words are on their way: a page that acts
+    // when listening ends finds them complete.
+    expect(seen.some((s) => s.listening && s.transcribing)).toBe(true);
+    expect(last()).toEqual({ listening: false, transcribing: false, transcript: "I paint murals.", error: null });
+    session.abort();
+  });
+
+  it("adds a second take after the first, with one space between", async () => {
+    const transcribe = vi.fn<Transcriber>().mockResolvedValueOnce("I paint murals.").mockResolvedValueOnce("Mostly in Barrio Logan.");
+    const { session, last } = setupRecording(transcribe);
+    session.start();
+    await settle();
+    session.stop();
+    await settle();
+    session.start();
+    await settle();
+    expect(last().transcript).toBe("I paint murals.");
+    session.stop();
+    await settle();
+    expect(last().transcript).toBe("I paint murals. Mostly in Barrio Logan.");
+    session.abort();
+  });
+
+  it("says it heard nothing when the text comes back empty", async () => {
+    const { session, last } = setupRecording(async () => "   ");
+    session.start();
+    await settle();
+    session.stop();
+    await settle();
+    expect(last()).toMatchObject({ listening: false, transcribing: false, error: speechErrorMessage("no-speech") });
+    session.abort();
+  });
+
+  it("turns a failed transcription into one sentence: the server's reason, else the plain one", async () => {
+    const refused = setupRecording(async () => {
+      throw new ConvexError({ code: "audio_too_long", reason: "That's too long." });
+    });
+    refused.session.start();
+    await settle();
+    refused.session.stop();
+    await settle();
+    expect(refused.last()).toMatchObject({ listening: false, transcribing: false, error: "That's too long." });
+    refused.session.abort();
+
+    const broke = setupRecording(async () => {
+      throw new Error("socket hang up");
+    });
+    broke.session.start();
+    await settle();
+    broke.session.stop();
+    await settle();
+    expect(broke.last()).toMatchObject({ listening: false, error: TRANSCRIBE_FAILED });
+    broke.session.abort();
+  });
+
+  it("reports a refused microphone and never listens", async () => {
+    const transcribe = vi.fn<Transcriber>(async () => "never");
+    const { session, last } = setupRecording(transcribe, async () => {
+      throw Object.assign(new Error("denied"), { name: "NotAllowedError" });
+    });
+    session.start();
+    await settle();
+    expect(last()).toMatchObject({ listening: false, transcribing: false, error: "Microphone access was blocked." });
+    expect(transcribe).not.toHaveBeenCalled();
+    session.abort();
+  });
+
+  it("reset while the words are on their way drops them", async () => {
+    let answer: (text: string) => void = () => {};
+    const { session, last } = setupRecording(() => new Promise<string>((resolve) => (answer = resolve)));
+    session.start();
+    await settle();
+    session.stop();
+    await settle();
+    expect(last().transcribing).toBe(true);
+    session.reset();
+    expect(last()).toEqual(TALK_IDLE);
+    answer("too late");
+    await settle();
+    expect(last()).toEqual(TALK_IDLE);
   });
 });

@@ -481,4 +481,7 @@ export const replies: Record<string, unknown | ((args: unknown) => unknown)> = {
     interests: ["Photography", "Filmmaking"],
     line: String((args as { transcript?: string } | undefined)?.transcript ?? "").slice(0, 140),
   }),
+  // The mic where the browser can't listen for itself: the recorded take,
+  // written down (convex/transcribe.ts).
+  "transcribe:fromAudio": { text: "I shoot weddings and short films around San Diego." },
 };

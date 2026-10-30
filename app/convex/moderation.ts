@@ -16,7 +16,7 @@ import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/s
 import type { Id } from "./_generated/dataModel";
 import { syncCoHosts } from "./eventHosts";
 import { getProfileByUserId, requireAdminCtx } from "./helpers";
-import { HIDDEN_STATUS, deleteBlocker, isHidden, restoredStatus } from "./moderationRules";
+import { HIDDEN_STATUS, deleteBlocker, hiddenFields, isHidden, restoredStatus } from "./moderationRules";
 import { orphanedStorageIds } from "./garden/richText";
 import { deleteEventCover, deleteStoredFile } from "./uploads";
 
@@ -57,7 +57,7 @@ export const setProjectHidden = mutation({
     await ctx.db.patch(
       args.projectId,
       args.hidden
-        ? { status: HIDDEN_STATUS, statusBeforeHidden: project.status, hiddenAt: now, updatedAt: now }
+        ? hiddenFields(project, now)
         : {
             status: restoredStatus(project, "active"),
             statusBeforeHidden: undefined,
@@ -156,7 +156,7 @@ export const setEventHidden = mutation({
     await ctx.db.patch(
       args.eventId,
       args.hidden
-        ? { status: HIDDEN_STATUS, statusBeforeHidden: event.status, hiddenAt: now, updatedAt: now }
+        ? hiddenFields(event, now)
         : {
             status: restoredStatus(event, "published"),
             statusBeforeHidden: undefined,

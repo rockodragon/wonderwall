@@ -51,6 +51,14 @@ export function isListedProject(project: { status?: string; origin?: string }): 
   return VISIBLE_PROJECT_STATUSES.has(project.status ?? "") && isPostedProject(project);
 }
 
+/** What Hide writes to a project or event: status "hidden", when, and the
+ * status Unhide (restoredStatus) puts back. The admin ⋮ menu
+ * (moderation.ts) and the operator's refileProject tool both hide this way,
+ * so an admin can unhide what either hid. */
+export function hiddenFields(row: { status: string }, now: number) {
+  return { status: HIDDEN_STATUS, statusBeforeHidden: row.status, hiddenAt: now, updatedAt: now };
+}
+
 /** The status Unhide puts back: whatever the row had when it was hidden,
  * else `fallback` (a row hidden before statusBeforeHidden existed, or one
  * whose remembered status is somehow "hidden" itself). */
@@ -62,11 +70,11 @@ export function restoredStatus(
   return prior && prior !== HIDDEN_STATUS ? prior : fallback;
 }
 
-function plural(n: number, noun: string): string {
+export function plural(n: number, noun: string): string {
   return `${n} ${noun}${n === 1 ? "" : "s"}`;
 }
 
-function joinList(items: string[]): string {
+export function joinList(items: string[]): string {
   if (items.length <= 1) return items.join("");
   return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 }

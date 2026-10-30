@@ -13,8 +13,8 @@ import { INTERESTS } from "../constants/interests";
 import { interestIcon } from "../constants/interestIcons";
 import { DOORS, PARTNER_OFFERINGS, type Role } from "../constants/roles";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
-import { MicButton } from "../components/MicButton";
 import { PersonAvatar } from "../components/PersonAvatar";
+import { SpokenNote, SpokenTextarea, useSpoken } from "../components/SpokenTextarea";
 import { DESK_PATH } from "../desk/deskState";
 import { GARDEN_SLUG } from "../lib/communitySlugs";
 import { errorMessage } from "../lib/convexError";
@@ -47,7 +47,7 @@ import { useBack } from "../lib/useBack";
 import { useFileUpload } from "../lib/useFileUpload";
 import { claimPendingAddress, useHandleCheck } from "../lib/useHandleCheck";
 import { useLocationField } from "../lib/useLocationField";
-import { useSpeech, useSpeechSupported } from "../lib/useSpeech";
+import { useTalk } from "../lib/useTalk";
 
 // What a new account sees, one question to a screen (Rick, 2026-10-27: new
 // members only answered "what are you into" and were sent to post a project,
@@ -73,8 +73,6 @@ import { useSpeech, useSpeechSupported } from "../lib/useSpeech";
 // setting yet (convex/garden/projects.ts listProjects shows every posted
 // project; garden/communityVisibility.ts only hides test communities). Change
 // this line the day one exists.
-const VISIBILITY_NOTE = "Everyone can see it.";
-
 // Colors are the Garden tokens (public/tokens.css). Error text is lighter than
 // the usual red so it reads ~9:1 on ink.
 const INK = "var(--garden-ink)";
@@ -384,90 +382,6 @@ function Heading({ children }: { children: ReactNode }) {
     >
       {children}
     </h1>
-  );
-}
-
-/** The most of a transcript the pick takes: onboardingAssist's
- *  MAX_TRANSCRIPT, kept here because that module is the server's. */
-const SPOKEN_MAX = 1500;
-
-/** Talk instead. While the browser listens, the words go into the field as
- *  they're said (`onWords`); once it stops (a tap on Stop, or silence), the
- *  whole of what was said goes to `onSaid`, which may tidy or sort it. A new
- *  start begins a fresh transcript. */
-function useSpoken(
-  speech: ReturnType<typeof useSpeech>,
-  onWords: (said: string) => void,
-  onSaid?: (said: string) => void | Promise<void>,
-) {
-  const was = useRef(false);
-  useEffect(() => {
-    if (speech.listening) onWords(speech.transcript);
-    // onWords is an inline setter; the words are what matter.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [speech.listening, speech.transcript]);
-  useEffect(() => {
-    const said = speech.transcript.trim().slice(0, SPOKEN_MAX);
-    if (was.current && !speech.listening && said && onSaid) void onSaid(said);
-    was.current = speech.listening;
-    // Runs on the edge of listening only; the transcript is complete by then.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [speech.listening]);
-  return {
-    start: () => {
-      speech.reset();
-      speech.start();
-    },
-  };
-}
-
-/** A text box that also listens: the mic sits inside it, at the right, and
- *  the placeholder says so ("Talk or type") where the browser can listen
- *  (Rick, 2026-10-27). Elsewhere it is a plain box and draws no mic. */
-function SpokenTextarea({
-  id,
-  value,
-  onChange,
-  placeholder,
-  listening,
-  onStart,
-  onStop,
-}: {
-  id: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder: string;
-  listening: boolean;
-  onStart: () => void;
-  onStop: () => void;
-}) {
-  const canListen = useSpeechSupported();
-  const hint = !canListen ? placeholder : listening ? "Listening… tap the mic to stop" : `Talk or type. ${placeholder}`;
-  return (
-    <div className="relative mt-1">
-      <textarea
-        id={id}
-        rows={2}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={hint}
-        className={`resize-none ${FIELD} ${canListen ? "pr-16" : ""}`}
-        style={{ backgroundColor: RAISED, borderColor: LINE, color: PAPER }}
-      />
-      <MicButton listening={listening} onStart={onStart} onStop={onStop} className="absolute right-2 top-1/2 -translate-y-1/2" />
-    </div>
-  );
-}
-
-/** Under a field with a mic: what went wrong, or that the words are being
- *  sorted. Listening itself is said in the box (SpokenTextarea). */
-function SpokenNote({ working, error }: { working: boolean; error: string | null }) {
-  const text = error || (working ? "Sorting that out…" : null);
-  if (!text) return null;
-  return (
-    <p role={error ? "alert" : "status"} className={HELP} style={{ color: error ? ERROR : BODY }}>
-      {text}
-    </p>
   );
 }
 
@@ -802,7 +716,7 @@ function AboutStep({
   // said; when listening ends, pickFromSpeech tidies the line and lights the
   // pills that fit, so nobody hunts through them. Nothing is saved until
   // Continue, same as typing.
-  const speech = useSpeech();
+  const speech = useTalk();
   const pickFromSpeech = useAction(api.onboardingAssist.pickFromSpeech);
   const [sorting, setSorting] = useState(false);
   const [micError, setMicError] = useState("");
@@ -869,8 +783,12 @@ function AboutStep({
           onChange={(bio) => set("bio", bio)}
           placeholder="Who you are, in a sentence"
           listening={speech.listening}
+          transcribing={speech.transcribing}
           onStart={heard.start}
           onStop={speech.stop}
+          className={FIELD}
+          style={{ backgroundColor: RAISED, borderColor: LINE, color: PAPER }}
+          wrapperClassName="mt-1"
         />
         <SpokenNote working={sorting} error={speech.error ?? micError} />
       </div>
@@ -992,7 +910,7 @@ function ProjectStep({
   const [error, setError] = useState("");
   // Talk instead: what they say is the description, as said; no sorting
   // to do here.
-  const speech = useSpeech();
+  const speech = useTalk();
   const heard = useSpoken(speech, (said) => set("blurb", said));
 
   async function share(e: FormEvent) {
@@ -1042,7 +960,11 @@ function ProjectStep({
 
   return (
     <form onSubmit={(e) => void share(e)}>
-      <Heading>What are you working on?</Heading>
+      {/* A project, not the person: "About you" was the profile. Asked as a
+          yes-or-no so a "me" answer doesn't fit (Rick, 2026-10-30: bios and
+          businesses were being posted as projects), and said up front that
+          nothing is posted until they tap Share it. */}
+      <Heading>Got a project to share?</Heading>
 
       <div className="mt-8">
         {/* No autoFocus: the heading takes focus when this screen opens. */}
@@ -1052,12 +974,12 @@ function ProjectStep({
           aria-label="Project title"
           value={draft.title}
           onChange={(e) => set("title", e.target.value)}
-          placeholder="Title"
+          placeholder="Project title"
           className={FIELD}
           style={{ backgroundColor: RAISED, borderColor: LINE, color: PAPER }}
         />
         <p className={HELP} style={{ color: BODY }}>
-          A title is enough. {VISIBILITY_NOTE}
+          Something you're making or made. Nothing is posted until you tap Share it; then everyone can see it.
         </p>
       </div>
 
@@ -1071,8 +993,12 @@ function ProjectStep({
           onChange={(blurb) => set("blurb", blurb)}
           placeholder={draft.stage === "completed" ? "What you made, and why" : "What you're making, and why"}
           listening={speech.listening}
+          transcribing={speech.transcribing}
           onStart={heard.start}
           onStop={speech.stop}
+          className={FIELD}
+          style={{ backgroundColor: RAISED, borderColor: LINE, color: PAPER }}
+          wrapperClassName="mt-1"
         />
         <SpokenNote working={false} error={speech.error} />
       </div>

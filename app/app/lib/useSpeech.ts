@@ -1,17 +1,25 @@
 // Talk instead of type: a hook over the browser's own speech-to-text (the Web
 // Speech API). The audio goes from the microphone to the browser's speech
-// service and never through us; what we get back is text. Where the API is
-// missing (Firefox, some in-app browsers) `supported` is false and the page
-// leaves the button out.
+// service and never through us; what we get back is text.
 //
-//   const { supported, listening, transcript, error, start, stop, reset } = useSpeech();
+// Where that API is missing or useless (Firefox, Brave, Chrome on an iPhone,
+// in-app browsers) but the browser can record, the take is recorded instead
+// (useAudioRecorder) and, on stop, sent to `transcribe` (lib/useTalk.ts:
+// convex/transcribe.ts writes it down). The words then arrive all at once,
+// and `transcribing` is true while they're on their way. Only with neither
+// is `supported` false and the mic left out (Rick, 2026-10-30: the mic was
+// missing on the browsers he tried).
 //
-// `listening` turns false when the browser has finished (after stop(), after
-// a silence, or on an error), and the last words are in `transcript` by
-// then, so act on that change. stop() keeps the transcript; start() again
-// adds to it; reset() clears it.
+//   const { supported, listening, transcribing, transcript, error, start, stop, reset } = useSpeech({ transcribe });
+//
+// `listening` turns false when the words are complete (after stop(), after
+// a silence, or on an error; with the recorder, once the text is back), and
+// the last words are in `transcript` by then, so act on that change. stop()
+// keeps the transcript; start() again adds to it; reset() clears it.
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { errorMessage } from "./convexError";
+import { audioRecorderSupported, createRecorderSession, recorderEnv, type RecorderEnv } from "./useAudioRecorder";
 
 // The few parts of the API used here. It isn't in TypeScript's DOM types.
 type RecognitionResult = { readonly isFinal: boolean; readonly 0?: { readonly transcript: string } };
@@ -162,29 +170,123 @@ export function createSpeechSession(
   };
 }
 
+/** Writes a recording down: the sound and its type in, the text out. */
+export type Transcriber = (audio: ArrayBuffer, mime: string) => Promise<string>;
+
+export type TalkState = SpeechState & { transcribing: boolean };
+export const TALK_IDLE: TalkState = { ...IDLE, transcribing: false };
+
+/** One plain sentence for a failed transcription: the server's own reason
+ * when it wrote one, else this. */
+export const TRANSCRIBE_FAILED = "Couldn't write that down. Try again, or type it.";
+
+/** The recorder as a speech session: start records, stop sends the take to
+ * `transcribe` and puts the text in the transcript. `listening` stays true
+ * until the text is back (with `transcribing` true meanwhile), so a page
+ * that acts when listening ends finds the words complete, as with the
+ * browser's own recognizer. A take that ends with nothing recorded, a
+ * refused microphone, or a failed transcription ends listening with one
+ * sentence in `error`. */
+export function createRecordingSession(
+  env: RecorderEnv,
+  transcribe: Transcriber,
+  onChange: (state: TalkState) => void,
+  maxSeconds?: number,
+): SpeechSession {
+  let state = TALK_IDLE;
+  // What was said in earlier takes, put in front of the next one's text.
+  let before = "";
+  // Bumped by reset and abort, so a take still being written down when
+  // either happens is dropped.
+  let epoch = 0;
+  const set = (patch: Partial<TalkState>) => {
+    state = { ...state, ...patch };
+    onChange(state);
+  };
+
+  const recorder = createRecorderSession(
+    env,
+    {
+      onChange: (r) => {
+        if (r.error) set({ listening: false, transcribing: false, error: r.error });
+        else if (r.recording && !state.listening) set({ listening: true, error: null });
+      },
+      onFinish: (blob) => void writeDown(blob),
+    },
+    maxSeconds,
+  );
+
+  async function writeDown(blob: Blob) {
+    const mine = epoch;
+    set({ transcribing: true });
+    try {
+      const text = await transcribe(await blob.arrayBuffer(), blob.type);
+      if (mine !== epoch) return;
+      const transcript = [before, text].map((part) => part.trim()).filter(Boolean).join(" ");
+      set(
+        transcript
+          ? { listening: false, transcribing: false, transcript }
+          : { listening: false, transcribing: false, error: speechErrorMessage("no-speech") },
+      );
+    } catch (err) {
+      if (mine !== epoch) return;
+      set({ listening: false, transcribing: false, error: errorMessage(err, TRANSCRIBE_FAILED) });
+    }
+  }
+
+  return {
+    start() {
+      if (state.listening) return;
+      before = state.transcript;
+      void recorder.start();
+    },
+    stop() {
+      void recorder.stop();
+    },
+    reset() {
+      epoch += 1;
+      recorder.reset();
+      before = "";
+      state = TALK_IDLE;
+      onChange(state);
+    },
+    abort() {
+      epoch += 1;
+      recorder.abort();
+    },
+  };
+}
+
 const never = () => () => {};
 
-/** Whether this browser can listen. False on the server and on the first
- * render in the browser, so the page and its hydration agree. */
+/** Whether this browser can take words by voice: its own recognizer, or a
+ * recorder for the fallback. False on the server and on the first render in
+ * the browser, so the page and its hydration agree. */
 export function useSpeechSupported(): boolean {
   return useSyncExternalStore(
     never,
-    () => recognitionCtor() !== null,
+    () => recognitionCtor() !== null || audioRecorderSupported(),
     () => false,
   );
 }
 
-export interface Speech extends SpeechState {
+export interface Speech extends TalkState {
   supported: boolean;
   start(): void;
   stop(): void;
   reset(): void;
 }
 
-export function useSpeech(): Speech {
+/** `transcribe` is for the recorder fallback; without it, a browser with no
+ * recognizer has a mic that does nothing on start, so pages use lib/useTalk.ts,
+ * which always passes one. */
+export function useSpeech(options: { transcribe?: Transcriber } = {}): Speech {
   const supported = useSpeechSupported();
-  const [state, setState] = useState<SpeechState>(IDLE);
+  const [state, setState] = useState<TalkState>(TALK_IDLE);
   const session = useRef<SpeechSession | null>(null);
+  // Callers can pass an inline function; a take that ends calls the latest.
+  const transcribeRef = useRef(options.transcribe);
+  transcribeRef.current = options.transcribe;
 
   // Leaving the page turns the microphone off.
   useEffect(
@@ -196,9 +298,17 @@ export function useSpeech(): Speech {
   );
 
   const start = useCallback(() => {
-    const Ctor = recognitionCtor();
-    if (!Ctor) return;
-    session.current ??= createSpeechSession(Ctor, navigator.language || "en-US", setState);
+    if (!session.current) {
+      const Ctor = recognitionCtor();
+      const env = Ctor ? null : recorderEnv();
+      if (Ctor) {
+        session.current = createSpeechSession(Ctor, navigator.language || "en-US", (s) => setState({ ...s, transcribing: false }));
+      } else if (env && transcribeRef.current) {
+        session.current = createRecordingSession(env, (audio, mime) => transcribeRef.current!(audio, mime), setState);
+      } else {
+        return;
+      }
+    }
     session.current.start();
   }, []);
   const stop = useCallback(() => session.current?.stop(), []);
