@@ -185,22 +185,31 @@ async function uniqueSlug(ctx: MutationCtx, name: string) {
   return `${base}-${Date.now()}`;
 }
 
+/** The organization that already goes by this name, or null: the one with
+ * the same name key, or the one the name's organization was merged into
+ * (orgSlugForwards). Reads only, so a dry run can ask what findOrCreate would
+ * find. */
+export async function findOrgByName(ctx: Ctx, rawName: string): Promise<Doc<"organizations"> | null> {
+  const key = orgNameKey(checkName(rawName));
+  const existing = await ctx.db
+    .query("organizations")
+    .withIndex("by_nameKey", (q) => q.eq("nameKey", key))
+    .first();
+  if (existing) return existing;
+  const forward = await ctx.db
+    .query("orgSlugForwards")
+    .withIndex("by_nameKey", (q) => q.eq("nameKey", key))
+    .first();
+  return forward ? await ctx.db.get(forward.organizationId) : null;
+}
+
 /** Find an organization by name, or create it. Never makes a duplicate: the
  * name of one merged into another (orgSlugForwards) finds the one it was
  * merged into, so the copy isn't made again. */
-async function findOrCreate(ctx: MutationCtx, userId: Id<"users">, rawName: string) {
+export async function findOrCreate(ctx: MutationCtx, userId: Id<"users">, rawName: string) {
   const name = checkName(rawName);
-  const existing = await ctx.db
-    .query("organizations")
-    .withIndex("by_nameKey", (q) => q.eq("nameKey", orgNameKey(name)))
-    .first();
+  const existing = await findOrgByName(ctx, name);
   if (existing) return { org: existing, created: false };
-  const forward = await ctx.db
-    .query("orgSlugForwards")
-    .withIndex("by_nameKey", (q) => q.eq("nameKey", orgNameKey(name)))
-    .first();
-  const mergedInto = forward ? await ctx.db.get(forward.organizationId) : null;
-  if (mergedInto) return { org: mergedInto, created: false };
   const now = Date.now();
   const id = await ctx.db.insert("organizations", {
     name,
@@ -264,7 +273,7 @@ async function tellAdminsAboutJoin(ctx: MutationCtx, org: Doc<"organizations">, 
 }
 
 /** A self-join: add the position and, when it's new, tell the admins. */
-async function joinOrg(
+export async function joinOrg(
   ctx: MutationCtx,
   org: Doc<"organizations">,
   profile: Doc<"profiles">,

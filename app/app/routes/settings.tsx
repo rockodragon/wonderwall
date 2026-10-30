@@ -25,9 +25,11 @@ import { LEGAL_ENTITY } from "../legal/entity";
 import { LinkedText } from "../components/LinkedText";
 import { NetworkTab } from "../components/NetworkTab";
 import { PersonAvatar } from "../components/PersonAvatar";
+import { SpokenNote, SpokenTextarea, useSpokenInto } from "../components/SpokenTextarea";
 import { OrganizationsEditor } from "../components/OrganizationsEditor";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { maxSize, useFileUpload } from "../lib/useFileUpload";
+import { useTalk } from "../lib/useTalk";
 import { AVATAR_PX } from "../lib/shrinkImage";
 import { COVER_ASPECT } from "../lib/coverCrop";
 import { isGardenHost } from "../../convex/garden/brandHosts";
@@ -1466,6 +1468,9 @@ function ProfileEditForm({
 
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
+  // Talk instead (Rick, 2026-10-30): the words are added after the bio.
+  const speech = useTalk();
+  const heard = useSpokenInto(speech, bio, setBio);
   const location = useLocationField();
   const [imageUrl, setImageUrl] = useState("");
   const [imageUrlInput, setImageUrlInput] = useState("");
@@ -1695,16 +1700,28 @@ function ProfileEditForm({
 
         {/* Bio */}
         <div>
-          <label className="block text-sm font-medium mb-2" style={{ color: "var(--app-text-muted)" }}>
+          <label htmlFor="settings-bio" className="block text-sm font-medium mb-2" style={{ color: "var(--app-text-muted)" }}>
             Bio
           </label>
-          <textarea
+          <SpokenTextarea
+            id="settings-bio"
             value={bio}
-            onChange={(e) => setBio(e.target.value)}
+            onChange={setBio}
             rows={3}
             placeholder="Tell us about yourself..."
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent resize-none"
+            listening={speech.listening}
+            transcribing={speech.transcribing}
+            onStart={heard.start}
+            onStop={speech.stop}
+            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
             style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)", color: "var(--app-text)" }}
+          />
+          <SpokenNote
+            working={false}
+            error={speech.error}
+            className="mt-2 text-sm"
+            color="var(--app-text-muted)"
+            errorColor="var(--app-text)"
           />
         </div>
 

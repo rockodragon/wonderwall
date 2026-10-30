@@ -7,6 +7,10 @@
 // The panels stay mounted and hidden when they aren't chosen, so a form
 // half-written in one tab is still there when you come back to it. The
 // parent holds which tab is chosen (the project page keeps it in ?tab=).
+//
+// One tab is no choice: the row draws nothing, and the panel (`alone`) is a
+// plain section with no tab semantics (Rick, 2026-10-30: most projects are
+// one person's, with About and nothing else).
 
 import { useRef, type KeyboardEvent, type ReactNode } from "react";
 
@@ -51,6 +55,8 @@ export function Tabs<Id extends string>({
   id?: string;
 }) {
   const buttons = useRef(new Map<string, HTMLButtonElement>());
+
+  if (tabs.length < 2) return null;
 
   function onKeyDown(e: KeyboardEvent<HTMLButtonElement>, at: number) {
     const to = nextTabIndex(e.key, at, tabs.length);
@@ -107,13 +113,17 @@ export function TabPanel({
   base,
   id,
   selected,
+  alone,
   children,
 }: {
   base: string;
   id: string;
   selected: boolean;
+  /** The page's only section: a plain block, since there's no tab row. */
+  alone?: boolean;
   children: ReactNode;
 }) {
+  if (alone) return <div>{children}</div>;
   return (
     <div role="tabpanel" id={tabPanelId(base, id)} aria-labelledby={tabButtonId(base, id)} hidden={!selected}>
       {children}

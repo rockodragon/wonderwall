@@ -446,10 +446,11 @@ describe("step 4, the project", () => {
     expect(html).toMatch(/<button type="submit" disabled=""[^>]*>Share it<\/button>/);
   });
 
-  it("says a title is enough, and who can see it, under the title", () => {
+  it("says it is something they make, not their bio or business, and who can see it, under the title", () => {
     const html = page(4);
     expect(html).toMatch(/<input[^>]*id="onboarding-title"[^>]*placeholder="Title"/);
-    expect(text(html)).toContain("A title is enough. Everyone can see it.");
+    expect(text(html)).toContain("Something you're making or made — not your bio or business. Everyone can see it.");
+    expect(text(html)).not.toContain("A title is enough");
   });
 
   it("asks what it is, as an optional two-line box between the title and where it is", () => {
