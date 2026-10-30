@@ -73,8 +73,6 @@ import { useTalk } from "../lib/useTalk";
 // setting yet (convex/garden/projects.ts listProjects shows every posted
 // project; garden/communityVisibility.ts only hides test communities). Change
 // this line the day one exists.
-const VISIBILITY_NOTE = "Everyone can see it.";
-
 // Colors are the Garden tokens (public/tokens.css). Error text is lighter than
 // the usual red so it reads ~9:1 on ink.
 const INK = "var(--garden-ink)";
@@ -962,7 +960,11 @@ function ProjectStep({
 
   return (
     <form onSubmit={(e) => void share(e)}>
-      <Heading>What are you working on?</Heading>
+      {/* A project, not the person: "About you" was the profile. Asked as a
+          yes-or-no so a "me" answer doesn't fit (Rick, 2026-10-30: bios and
+          businesses were being posted as projects), and said up front that
+          nothing is posted until they tap Share it. */}
+      <Heading>Got a project to share?</Heading>
 
       <div className="mt-8">
         {/* No autoFocus: the heading takes focus when this screen opens. */}
@@ -972,12 +974,12 @@ function ProjectStep({
           aria-label="Project title"
           value={draft.title}
           onChange={(e) => set("title", e.target.value)}
-          placeholder="Title"
+          placeholder="Project title"
           className={FIELD}
           style={{ backgroundColor: RAISED, borderColor: LINE, color: PAPER }}
         />
         <p className={HELP} style={{ color: BODY }}>
-          Something you're making or made — not your bio or business. {VISIBILITY_NOTE}
+          Something you're making or made. Nothing is posted until you tap Share it; then everyone can see it.
         </p>
       </div>
 
