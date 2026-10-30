@@ -49,7 +49,7 @@ import { useLocationField } from "../lib/useLocationField";
 import { isRichDocEmpty, toStoredDoc, type ResolvedRichBlock } from "../lib/richText";
 import { budgetAmountLabel, budgetKindLabel, budgetLabel } from "../lib/budgetLabel";
 import { GigSchedule } from "../components/GigSchedule";
-import { projectTabs, readProjectTab, sectionsWithContent, withProjectTab, type ProjectTab } from "../lib/projectTabs";
+import { ownerSections, projectTabs, readProjectTab, sectionsWithContent, withProjectTab, type ProjectTab } from "../lib/projectTabs";
 import { useBack } from "../lib/useBack";
 import { useCoverPick, type CoverPick } from "../lib/useCoverPick";
 import { isWideCover, useImageAspect } from "../lib/useImageAspect";
@@ -68,7 +68,6 @@ import {
 } from "./projects";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { useStartConversation } from "../lib/useStartConversation";
-import { useIsAdmin } from "../lib/useIsAdmin";
 import { useProfileLinks } from "../lib/useProfileLinks";
 import { signupHref } from "../lib/pendingIntent";
 import { bylineOf } from "../lib/byline";
@@ -215,7 +214,6 @@ export default function ProjectDetail() {
   // ProjectUpdates read the same, one subscription each).
   const roles = useQuery(api.garden.projectTeam.listRoles, id ? { projectId: id as Id<"projects"> } : "skip");
   const updates = useQuery(api.garden.stories.listProjectUpdates, id ? { projectId: id } : "skip");
-  const isAdmin = useIsAdmin() === true;
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { support: openSupport, modal: supportModal } = useProjectSupport();
@@ -226,6 +224,9 @@ export default function ProjectDetail() {
   const [editingProject, setEditingProject] = useState<false | ProjectStep>(false);
   // "Next steps" switches tab, then scrolls to the tabs once they've changed.
   const scrollAfterTab = useRef(false);
+  // Sections the owner opened from "Next steps" this visit, so an empty one
+  // has somewhere to be filled in (lib/projectTabs.ts ownerSections).
+  const [opened, setOpened] = useState<Set<ProjectTab>>(() => new Set());
   const rawTab = searchParams.get("tab");
   useEffect(() => {
     if (!scrollAfterTab.current) return;
@@ -292,26 +293,22 @@ export default function ProjectDetail() {
 
   // Requests waiting on the owner are the one thing worth a number on a tab.
   const requests = isOwner ? (team?.pending?.length ?? 0) : 0;
-  // The owner (and an admin) keeps every section, empty or not, with its
-  // empty state and edit controls, so there's somewhere to fill it in.
-  // Anyone else sees only what has something in it (lib/projectTabs.ts).
-  const seesEverything = isOwner || isAdmin;
+  // Only the sections with something in them (lib/projectTabs.ts): most
+  // projects are one person's, and an empty tab is noise (Rick, 2026-10-30).
+  // The owner also gets Updates, and whatever "Next steps" opened. An admin
+  // sees the page as anyone else does; their tools are in the menu.
+  const content = sectionsWithContent({ team, roles, updates, raising });
   const tabs = projectTabs({
     isGig,
     isPassion,
     requests,
     supporters: project.supportCount,
-    has: seesEverything
-      ? undefined
-      : sectionsWithContent({
-          team,
-          roles,
-          updates,
-          raising,
-          supporters: project.supportCount,
-        }),
+    updates: updates?.length ?? 0,
+    has: isOwner ? ownerSections(content, { requests, supporters: project.supportCount, opened }) : content,
   });
   const tab = readProjectTab(rawTab, tabs);
+  // About alone is no choice: no tab row, and About is a plain section.
+  const tabbed = tabs.length > 1;
   // A section a viewer has no tab for isn't drawn at all, hidden or not.
   const hasTab = (id: ProjectTab) => tabs.some((t) => t.id === id);
   function selectTab(next: ProjectTab) {
@@ -330,6 +327,7 @@ export default function ProjectDetail() {
       return;
     }
     scrollAfterTab.current = true;
+    setOpened((prev) => (prev.has(next) ? prev : new Set(prev).add(next)));
     selectTab(next);
   }
 
@@ -491,6 +489,7 @@ export default function ProjectDetail() {
       {isOwner && isPassion && !raising && (project.openRoles?.length ?? 0) === 0 && (
         <NextSteps
           onFindPeople={() => showTab("team")}
+          onPostUpdate={() => showTab("updates")}
           onAskForSupport={() => {
             setEditingSupport(true);
             showTab("support");
@@ -498,9 +497,11 @@ export default function ProjectDetail() {
         />
       )}
 
-      <Tabs tabs={tabs} selected={tab} onSelect={selectTab} label="Project sections" base={TABS_BASE} id={TABS_ROW_ID} />
+      {tabbed && (
+        <Tabs tabs={tabs} selected={tab} onSelect={selectTab} label="Project sections" base={TABS_BASE} id={TABS_ROW_ID} />
+      )}
 
-      <TabPanel base={TABS_BASE} id="about" selected={tab === "about"}>
+      <TabPanel base={TABS_BASE} id="about" selected={tab === "about"} alone={!tabbed}>
         <InlineEditableStory project={project} isOwner={isOwner} />
 
         {/* Pieces play and sound; they stop when you leave the tab. */}
@@ -513,6 +514,20 @@ export default function ProjectDetail() {
         )}
 
         <InlineEditableLocation project={project} isOwner={isOwner} />
+
+        {/* With no Team tab (one person, no roles), the one thing a member
+            could do there sits here instead (Rick, 2026-10-30). */}
+        {isPassion && !isOwner && !hasTab("team") && team?.acceptingPeople && (
+          <AskToJoin project={project} visitorSignUp={visitorSignUp} />
+        )}
+
+        {/* Cheers and backings alone make no Support tab: the count is beside
+            the heart, and the names are here. */}
+        {isPassion && !hasTab("support") && project.supportCount > 0 && (
+          <DetailCard label={`${project.supportCount} ${project.supportCount === 1 ? "supporter" : "supporters"}`}>
+            <SupportersList projectId={project._id} />
+          </DetailCard>
+        )}
 
         {/* Owner only (Rick, 2026-10-02). The nonprofit is typed in, not
             verified, and backing money still goes to the project lead
@@ -566,7 +581,7 @@ export default function ProjectDetail() {
             <AskForSupport project={project} raising={raising} editing={editingSupport} setEditing={setEditingSupport} />
           )}
           {isOwner && raising && FF_BACKING && <TierManager projectId={project._id} />}
-          {project.supportCount > 0 || seesEverything ? (
+          {project.supportCount > 0 || isOwner ? (
             <p className="mb-3 text-sm" style={{ color: "var(--garden-dim)" }}>
               {project.supportCount > 0
                 ? `${project.supportCount} ${project.supportCount === 1 ? "supporter" : "supporters"}`
@@ -691,13 +706,16 @@ function PieceMedia({ piece: m, project }: { piece: any; project: any }) {
 // (docs/features/project-ia.md).
 function NextSteps({
   onFindPeople,
+  onPostUpdate,
   onAskForSupport,
 }: {
   onFindPeople: () => void;
+  onPostUpdate: () => void;
   onAskForSupport: () => void;
 }) {
   const steps = [
     { label: "Find people", hint: "Post the roles you need, paid or volunteer.", onClick: onFindPeople },
+    { label: "Post an update", hint: "How it's going, for anyone following.", onClick: onPostUpdate },
     // Asking for money waits for FF_BACKING.
     ...(FF_BACKING
       ? [{ label: "Ask for support", hint: "Set a goal so people can back it.", onClick: onAskForSupport }]
@@ -706,9 +724,9 @@ function NextSteps({
   return (
     <DetailCard label="Next steps">
       <p className="text-sm mb-3" style={{ color: "var(--garden-body)" }}>
-        Your project is up. {steps.length > 1 ? "Both of these are" : "This is"} optional.
+        Your project is up. {steps.length > 1 ? "These are" : "This is"} optional.
       </p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      <div className={`grid grid-cols-1 gap-2 ${steps.length > 2 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
         {steps.map((step) => (
           <button
             key={step.label}
@@ -2473,6 +2491,30 @@ function ViewerTeamActions({
 // carries a specific open role (from RolesSection's "Apply" button) — the
 // Role field locks to its title and the request carries roleId, instead of
 // the free-text "propose your own role" flow this modal always used to be.
+/** "Ask to join" on a project with no Team tab (one person, no roles): the
+ *  one thing a member could do there, kept under About (Rick, 2026-10-30).
+ *  A visitor goes to sign up and comes back; a member gets the same request
+ *  form the Team tab has. */
+function AskToJoin({ project, visitorSignUp }: { project: any; visitorSignUp: string | null }) {
+  const [open, setOpen] = useState(false);
+  const look = "inline-block px-3 py-1.5 rounded-lg text-[13.5px] font-semibold whitespace-nowrap transition-opacity hover:opacity-90";
+  const style = { backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" };
+  return (
+    <div className="mb-6">
+      {visitorSignUp ? (
+        <Link to={visitorSignUp} className={look} style={style}>
+          Ask to join
+        </Link>
+      ) : (
+        <button type="button" onClick={() => setOpen(true)} className={look} style={style}>
+          Ask to join
+        </button>
+      )}
+      {open && <JoinRequestModal project={project} onClose={() => setOpen(false)} />}
+    </div>
+  );
+}
+
 function JoinRequestModal({
   project,
   preset,

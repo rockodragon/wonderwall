@@ -7,6 +7,8 @@ import { MemoryRouter } from "react-router";
 vi.mock("convex/react", () => ({
   useQuery: () => undefined,
   useMutation: () => async () => ({ projectId: "p1" }),
+  // useTalk's transcriber (the recorder fallback); never called in a server render.
+  useAction: () => async () => ({ text: "" }),
   useConvexAuth: () => ({ isAuthenticated: true, isLoading: false }),
 }));
 
@@ -170,5 +172,24 @@ describe("ProjectModal buttons", () => {
 
   it("keeps the close button's 44px tap target", () => {
     expect(sheet()).toMatch(/aria-label="Close"[^>]*class="[^"]*\bw-11 h-11\b/);
+  });
+});
+
+describe("ProjectModal description box", () => {
+  const box = (props: Partial<React.ComponentProps<typeof ProjectModal>> = {}) =>
+    sheet({ initialStep: "about", ...props }).match(/<textarea[^>]*>[^<]*<\/textarea>/)?.[0] ?? "";
+
+  it("is the shared four-row talk-or-type box, plain where the browser can't listen (a server render)", () => {
+    const html = box();
+    expect(html).toMatch(/id="[^"]*-blurb"/);
+    expect(html).toContain('rows="4"');
+    expect(html).toMatch(/placeholder="What you(?:'|&#x27;)re making, and why"/);
+    expect(html).toMatch(/class="[^"]*\bresize-none\b[^"]*\btext-\[17px\]/);
+    expect(sheet({ initialStep: "about" })).not.toContain('aria-label="Talk instead"');
+  });
+
+  it("asks what you made for finished work, and holds a project's saved words when editing", () => {
+    expect(box({ initialStage: "completed" })).toContain('placeholder="What you made, and why"');
+    expect(box({ edit: { ...EDIT, blurb: "A short film." } })).toContain(">A short film.</textarea>");
   });
 });

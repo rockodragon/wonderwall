@@ -119,10 +119,10 @@ describe("a creative's four steps", () => {
 
   it("4: what are you working on, the last of four", () => {
     const html = page(4);
-    expect(heading(html)).toBe("What are you working on?");
+    expect(heading(html)).toBe("Got a project to share?");
     expect(progress(html)).toBe("Step 4 of 4");
     for (const stage of ["Thinking about it", "Working on it", "Finished it"]) expect(text(html)).toContain(stage);
-    expect(text(html)).toContain("Everyone can see it.");
+    expect(text(html)).toContain("then everyone can see it.");
     expect(buttons(html)).toEqual(["Share it"]);
     // Someone back to change their answers saves, rather than "Not yet".
     expect(text(html)).toContain("Save");
@@ -245,7 +245,7 @@ describe("a backer or a partner finishes at step 3", () => {
       answers[name(api.profiles.getMyProfile)] = member;
       const html = page(4);
       expect(heading(html)).toBe("About you");
-      expect(text(html)).not.toContain("What are you working on?");
+      expect(text(html)).not.toContain("Got a project to share?");
     }
   });
 
@@ -446,10 +446,11 @@ describe("step 4, the project", () => {
     expect(html).toMatch(/<button type="submit" disabled=""[^>]*>Share it<\/button>/);
   });
 
-  it("says a title is enough, and who can see it, under the title", () => {
+  it("asks for a project title, and says nothing is posted until Share it, then everyone sees it", () => {
     const html = page(4);
-    expect(html).toMatch(/<input[^>]*id="onboarding-title"[^>]*placeholder="Title"/);
-    expect(text(html)).toContain("A title is enough. Everyone can see it.");
+    expect(html).toMatch(/<input[^>]*id="onboarding-title"[^>]*placeholder="Project title"/);
+    expect(text(html)).toContain("Something you're making or made. Nothing is posted until you tap Share it; then everyone can see it.");
+    expect(text(html)).not.toContain("A title is enough");
   });
 
   it("asks what it is, as an optional two-line box between the title and where it is", () => {

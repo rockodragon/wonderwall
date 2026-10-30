@@ -60,3 +60,21 @@ describe("Tabs", () => {
     expect(html).not.toMatch(/id="p-panel-team"[^>]*hidden/);
   });
 });
+
+describe("Tabs, with one tab", () => {
+  const html = renderToString(
+    <>
+      <Tabs tabs={[tabs[0]]} selected="about" onSelect={() => {}} label="Project sections" base="p" id="row" />
+      <TabPanel base="p" id="about" selected alone>
+        about
+      </TabPanel>
+    </>,
+  );
+
+  it("draws no row, and the panel is a plain section", () => {
+    expect(html).not.toContain('role="tablist"');
+    expect(html).not.toContain('role="tab"');
+    expect(html).not.toContain("tabpanel");
+    expect(html).toContain("<div>about</div>");
+  });
+});

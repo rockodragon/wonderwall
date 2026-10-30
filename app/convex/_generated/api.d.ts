@@ -13,6 +13,7 @@ import type * as admin_accountToOrganization from "../admin/accountToOrganizatio
 import type * as admin_duplicates from "../admin/duplicates.js";
 import type * as admin_mergeOrganizations from "../admin/mergeOrganizations.js";
 import type * as admin_mergeUsers from "../admin/mergeUsers.js";
+import type * as admin_refileProject from "../admin/refileProject.js";
 import type * as adminEmails from "../adminEmails.js";
 import type * as analytics from "../analytics.js";
 import type * as announcements from "../announcements.js";
@@ -175,6 +176,7 @@ import type * as smsSender from "../smsSender.js";
 import type * as sourceParsers from "../sourceParsers.js";
 import type * as stages from "../stages.js";
 import type * as supportDigest from "../supportDigest.js";
+import type * as transcribe from "../transcribe.js";
 import type * as updates from "../updates.js";
 import type * as uploadClaimsBackfill from "../uploadClaimsBackfill.js";
 import type * as uploads from "../uploads.js";
@@ -194,6 +196,7 @@ declare const fullApi: ApiFromModules<{
   "admin/duplicates": typeof admin_duplicates;
   "admin/mergeOrganizations": typeof admin_mergeOrganizations;
   "admin/mergeUsers": typeof admin_mergeUsers;
+  "admin/refileProject": typeof admin_refileProject;
   adminEmails: typeof adminEmails;
   analytics: typeof analytics;
   announcements: typeof announcements;
@@ -356,6 +359,7 @@ declare const fullApi: ApiFromModules<{
   sourceParsers: typeof sourceParsers;
   stages: typeof stages;
   supportDigest: typeof supportDigest;
+  transcribe: typeof transcribe;
   updates: typeof updates;
   uploadClaimsBackfill: typeof uploadClaimsBackfill;
   uploads: typeof uploads;

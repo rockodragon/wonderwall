@@ -34,13 +34,6 @@ const SOL = {
   interests: ["Photography", "other:zines", "Film", "Music", "Writing"],
   usageCount: 3,
 };
-const GARDEN = {
-  name: "The Garden",
-  slug: "the-garden",
-  tagline: "To love our neighbor through our craft",
-  description: "A community of creatives growing our crafts.\n\nWe support work that builds bridges.",
-};
-
 async function page(url: string) {
   const handler = createStaticHandler([
     { path: "/signup", Component: Signup },
@@ -60,7 +53,6 @@ beforeEach(() => {
   answers = {
     [name(api.invites.getInviterInfo)]: SOL,
     [name(api.garden.defaultCommunity.getSignupCommunity)]: { id: "c1", name: "The Garden", inviteOnly: false, agreements: [] },
-    [name(api.garden.communityDomains.getCommunityLanding)]: GARDEN,
   };
 });
 
@@ -71,10 +63,10 @@ describe("an invite link on The Garden", () => {
     // A few interests, not their whole list; "other:" tags aren't shown.
     expect(text(html)).toContain("Photography · Film · Music");
     expect(text(html)).not.toContain("Writing");
-    expect(text(html)).toContain("To love our neighbor through our craft");
-    // The description's first paragraph only.
-    expect(text(html)).toContain("A community of creatives growing our crafts.");
-    expect(text(html)).not.toContain("builds bridges");
+    // The home page's one line, not the community's tagline and description.
+    expect(text(html)).toContain("The Garden is where connections take root and creative opportunities grow.");
+    expect(text(html)).not.toContain("To love our neighbor through our craft");
+    expect(text(html)).not.toContain("A community of creatives growing our crafts.");
     expect(text(html)).toContain("Joining is free.");
     // The form's own heading steps down.
     expect(html).toMatch(/<h2[^>]*>Create your account<\/h2>/);
@@ -138,7 +130,7 @@ describe("an invite link on TheCreative.exchange", () => {
     site.brand = "exchange";
     const html = await page("/signup/sol");
     expect(html).toMatch(/<h1[^>]*>Sol Reyes invited you to TheCreative.exchange<\/h1>/);
-    expect(text(html)).not.toContain("To love our neighbor");
+    expect(text(html)).not.toContain("The Garden is where");
     expect(text(html)).toContain("Joining is free.");
     expect(text(html)).toContain("Already a member? Sign in");
     expect(text(html)).not.toContain("works here too");

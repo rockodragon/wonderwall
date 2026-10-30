@@ -1,7 +1,8 @@
 // The project page (/projects/:id) as drawn, now that anyone may open it
-// (Rick, 2026-10-22): a visitor sees only what has something in it, and
-// every action asks them to sign up first; the owner keeps every section,
-// with its empty state and edit controls, so there's somewhere to fill it.
+// (Rick, 2026-10-22): everyone sees only the sections with something in
+// them, and About alone has no tab row (Rick, 2026-10-30: most projects are
+// one person's). Every action asks a visitor to sign up first; the owner
+// also gets Updates, and opens the rest from "Next steps".
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderToString } from "react-dom/server";
@@ -127,10 +128,11 @@ afterEach(() => {
 });
 
 describe("the project page, for a signed-out visitor", () => {
-  it("shows a bare project's About and nothing empty: no Location, Team, Updates or Support", () => {
+  it("shows a bare project's About alone, with no tab row and nothing empty: no Location, Team, Updates or Support", () => {
     const html = page({ viewer: "visitor" });
     expect(html).toContain("Harbor Mural");
-    expect(tabs(html)).toEqual(["About"]);
+    expect(tabs(html)).toEqual([]);
+    expect(html).not.toContain('role="tablist"');
     expect(html).not.toContain("Remote-friendly");
     expect(html).not.toContain("No location set");
     expect(html).not.toContain("No supporters yet");
@@ -170,11 +172,14 @@ describe("the project page, for a signed-out visitor", () => {
     expect(html).toContain("Ask to join");
   });
 
-  it("keeps Team on a project still taking people, with only its lead: Ask to join sends them to sign up", () => {
+  it("gives a lead alone no Team tab even while taking people: Ask to join sits under About and sends them to sign up", () => {
     const html = page({ viewer: "visitor", accepting: true, url: "/projects/p1?tab=team" });
-    expect(tabs(html)).toEqual(["About", "Team"]);
+    expect(tabs(html)).toEqual([]);
     expect(html).toMatch(/<a [^>]*href="\/signup\?redirect=%2Fprojects%2Fp1%3Ftab%3Dteam"[^>]*>Ask to join<\/a>/);
     expect(html).toContain("Lena Ortiz");
+  });
+  it("offers no Ask to join on a finished project", () => {
+    expect(page({ viewer: "visitor", accepting: false })).not.toContain("Ask to join");
   });
 
   it("sends a role's Apply to sign up, coming back to the Team tab", () => {
@@ -204,17 +209,24 @@ describe("the project page, for a signed-out visitor", () => {
     expect(html).not.toContain('href="/profile/');
   });
 
+  const anUpdate = [{ _id: "u1", body: "Primer's on.", createdAt: 1, authorUserId: LEAD, author: { name: "Lena Ortiz", profileId: "profiles:lead" } }];
+
   it("falls back to About for ?tab=team when there's no team", () => {
-    const html = page({ viewer: "visitor", url: "/projects/p1?tab=team" });
+    const html = page({ viewer: "visitor", updates: anUpdate, url: "/projects/p1?tab=team" });
     expect(html).toMatch(/role="tab"[^>]*aria-selected="true"[^>]*>About</);
     expect(html).toMatch(/<div role="tabpanel" id="project-panel-about" aria-labelledby="project-tab-about">/);
   });
 
-  it("shows Updates and Support once they have something in them", () => {
-    const updates = [{ _id: "u1", body: "Primer's on.", createdAt: 1, authorUserId: LEAD, author: { name: "Lena Ortiz", profileId: "profiles:lead" } }];
-    const html = page({ viewer: "visitor", updates, project: bareProject({ supportCount: 2 }) });
-    expect(tabs(html)).toEqual(["About", "Updates", "Support · 2"]);
+  it("shows Updates once one is posted, with the count on the tab", () => {
+    const html = page({ viewer: "visitor", updates: anUpdate });
+    expect(tabs(html)).toEqual(["About", "Updates · 1"]);
     expect(html).not.toContain('href="/profile/');
+  });
+
+  it("makes no Support tab of cheers alone: the count sits under About, beside the heart's", () => {
+    const html = page({ viewer: "visitor", project: bareProject({ supportCount: 2 }) });
+    expect(tabs(html)).toEqual([]);
+    expect(html).toContain("2 supporters");
   });
 
   it("shows a place that was set", () => {
@@ -224,28 +236,44 @@ describe("the project page, for a signed-out visitor", () => {
 });
 
 describe("the project page, for its owner", () => {
-  it("keeps every section of an empty project, with its empty state and edit control", () => {
+  it("gives an empty project About and Updates, with About's empty states and edit controls", () => {
     const html = page({ viewer: "owner" });
-    expect(tabs(html)).toEqual(["About", "Team", "Updates", "Support"]);
+    expect(tabs(html)).toEqual(["About", "Updates"]);
     expect(html).toContain("No location set");
     expect(html).toContain('title="Add location"');
-    expect(html).toContain("+ Add a role");
     expect(html).toContain("Post an update");
-    expect(html).toContain("No supporters yet");
+    // Team and Support open from Next steps; nothing of theirs is drawn yet.
+    expect(html).not.toContain("+ Add a role");
+    expect(html).not.toContain("No supporters yet");
+  });
+  it("offers Find people, Post an update and Ask for support as next steps", () => {
+    const html = page({ viewer: "owner" });
+    expect(html).toContain("Next steps");
+    expect(html).toContain("Find people");
+    expect(html).toMatch(/How it(&#x27;|')s going, for anyone following\./);
+    expect(html).toContain("Ask for support");
+  });
+  it("shows Team while a request waits, and Support once anyone gave it", () => {
+    const request = page({ viewer: "owner", team: { lead, accepted: [], credits: [], acceptingPeople: true, pending: [{ memberId: "m1", name: "Mo", role: "Painter" }], invited: [] } });
+    expect(tabs(request)).toEqual(["About", "Team · 1 request", "Updates"]);
+    const cheered = page({ viewer: "owner", project: bareProject({ supportCount: 1 }) });
+    expect(tabs(cheered)).toEqual(["About", "Updates", "Support · 1"]);
   });
 });
 
 describe("the project page, for an admin", () => {
-  it("keeps every section of an empty project, as the owner does", () => {
-    expect(tabs(page({ viewer: "admin" }))).toEqual(["About", "Team", "Updates", "Support"]);
+  it("sees an empty project as anyone else does: About alone", () => {
+    const html = page({ viewer: "admin" });
+    expect(tabs(html)).toEqual([]);
+    expect(html).not.toContain("+ Add a role");
   });
 });
 
 describe("the project page, for a signed-in member", () => {
-  it("can still Ask to join a project with only its lead while it takes people", () => {
+  it("can still Ask to join a project with only its lead while it takes people, under About", () => {
     const html = page({ viewer: "member", accepting: true, url: "/projects/p1?tab=team" });
-    expect(tabs(html)).toContain("Team");
-    expect(html).toContain("Ask to join");
+    expect(tabs(html)).toEqual([]);
+    expect(html).toMatch(/<button type="button"[^>]*>Ask to join<\/button>/);
   });
 
 
@@ -284,29 +312,27 @@ describe("the project page while backing is closed (FF_BACKING)", () => {
     expect(next).toContain("Find people");
     expect(next).not.toContain("Ask for support");
     expect(next).not.toContain("people can back it");
-    expect(next).toContain("This is optional.");
+    expect(next).toContain("These are optional.");
 
-    const tab = page({ viewer: "owner", url: "/projects/p1?tab=support" });
-    expect(tab).toContain("No supporters yet");
-    expect(tab).not.toContain("Want money toward this?");
-    expect(tab).not.toContain("Start asking");
-
-    const tiers = page({
+    // The Support tab is there once the project is raising (or, open, when
+    // Next steps opens it: a click, not drawn here).
+    const tab = page({
       viewer: "owner",
       project: raising(),
       url: "/projects/p1?tab=support",
       answers: { "garden/patronTiers:listAllTiers": [] },
     });
-    expect(tiers).not.toContain("Stop asking");
-    expect(tiers).not.toContain("patron tiers");
+    expect(tab).toContain("No supporters yet");
+    expect(tab).not.toContain("Want money toward this?");
+    expect(tab).not.toContain("Start asking");
+    expect(tab).not.toContain("Stop asking");
+    expect(tab).not.toContain("patron tiers");
   });
 
   it("still lets the owner ask for money when backing is open", () => {
     const next = page({ viewer: "owner" });
     expect(next).toContain("Ask for support");
-    expect(next).toContain("Both of these are optional.");
-    const tab = page({ viewer: "owner", url: "/projects/p1?tab=support" });
-    expect(tab).toContain("Want money toward this?");
+    expect(next).toContain("These are optional.");
     const tiers = page({
       viewer: "owner",
       project: raising(),
@@ -334,7 +360,12 @@ describe("a shared piece's page (Rick, 2026-10-27)", () => {
     authorUserId: LEAD,
     author: { name: "Lena Ortiz", imageUrl: null, profileId: "profiles:lead" },
   });
-  const panelAbout = (html: string) => html.slice(html.indexOf('id="project-panel-about"'));
+  /** From where About starts: its panel when the page has tabs, else the
+   *  plain section after the hero (the piece's picture). */
+  const panelAbout = (html: string) => {
+    const panel = html.indexOf('id="project-panel-about"');
+    return html.slice(panel >= 0 ? panel : html.indexOf(photo));
+  };
 
   it("shows a visitor the maker's words and voice note under the work", () => {
     const html = page({ viewer: "visitor", project: piece({ description: "Six mornings on the pier.", audioNoteUrl: "https://media.test/note" }) });
