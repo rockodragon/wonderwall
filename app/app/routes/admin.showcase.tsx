@@ -1,25 +1,27 @@
-// /admin/showcase — the jury sheet for the November 6 open call.
+// /admin/showcase — the jury sheet for the November 6 showcase.
 //
-// Any Garden admin can vote. A vote is yes / maybe / no plus an optional
-// note, upserted per (application, admin) by convex/showcase.ts's castVote,
-// so changing your mind revises your own row and never touches anyone
-// else's. The sheet shows the tally, who voted which way, and your own vote
-// held selected.
+// The jury votes on PROJECTS: every project people have put in that the
+// browse grid shows (convex/showcase.ts adminList). The open call never got
+// an apply button, so there are no applications to judge. Any Garden admin
+// can vote; a committee beyond admins is a later step. A vote is yes /
+// maybe / no plus an optional note, upserted per (project, admin) by
+// castVote, so changing your mind revises your own row and never touches
+// anyone else's. The sheet shows the tally, who voted which way, and your
+// own vote held selected — it is also where the standings are read.
 //
-// Voting and deciding are separate on purpose (see the showcaseVotes
-// comment in schema.ts): the tally is the jury's opinion, `status` is the
+// Voting and deciding are separate on purpose (see projects.showcaseStatus
+// in schema.ts): the tally is the jury's opinion, the status is the
 // commitment to give someone wall space, and the second stays an explicit
 // act. So the status control sits apart from the vote buttons and nothing
 // flips it automatically, however lopsided a tally gets.
 //
-// Admin detection mirrors admin.waitlist.tsx: the client-checkable
-// profile.isAdmin flag rather than a server-side throw, so a non-admin gets
-// a message instead of a stuck loading state.
+// Admin detection mirrors admin.tsx: useIsAdmin gates the query, so a
+// non-admin gets a message instead of a server refusal.
 //
-// Deliberately not a sortable table. The server already orders these
-// (completed first, then jury enthusiasm, then newest) and the useful unit
-// here is a CARD — an application is a name, a link, a paragraph about the
-// work and four people's opinions, which does not fit a row you can read.
+// Deliberately not a sortable table. The server already orders these (jury
+// enthusiasm, then newest) and the useful unit here is a CARD — a picture,
+// a title, who it's by, a paragraph and four people's opinions, which does
+// not fit a row you can read.
 
 import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
@@ -36,27 +38,19 @@ import {
   AdminNotice,
 } from "../components/admin/AdminUi";
 import { errorMessage } from "../lib/convexError";
+import { stageLabel } from "../lib/stage";
 import { useIsAdmin } from "../lib/useIsAdmin";
 
 export const meta: MetaFunction = () => [
   { title: "Showcase jury | TheCreative.exchange" },
 ];
 
-type Applications = NonNullable<
+type Projects = NonNullable<
   ReturnType<typeof useQuery<typeof api.showcase.adminList>>
 >;
-type Application = Applications[number];
+type Project = Projects[number];
 type Vote = "yes" | "maybe" | "no";
-type Status = "new" | "shortlisted" | "selected" | "declined";
-
-const PARTICIPATION_LABEL: Record<string, string> = {
-  exhibit: "Wants to hang work",
-  perform: "Wants to play (paid slot)",
-  vend: "Wants a table",
-  document: "Offers to shoot photo/video",
-  back: "Wants to back creatives",
-  volunteer: "Offers to volunteer",
-};
+type Status = Project["status"];
 
 const STATUSES: { value: Status; label: string }[] = [
   { value: "new", label: "Undecided" },
@@ -95,144 +89,96 @@ const VOTE_LABEL: Record<Vote, string> = {
   no: "No",
 };
 
-/** A link an applicant typed. Rendered as a link only when it parses as
-    http(s) — an applicant pasting "instagram: @me" shouldn't produce an
-    anchor to a relative path on our own admin page. */
-function WorkLink({ url }: { url: string }) {
-  let safe: string | null = null;
-  try {
-    const parsed = new URL(url.startsWith("http") ? url : `https://${url}`);
-    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
-      safe = parsed.toString();
-    }
-  } catch {
-    safe = null;
-  }
-  if (!safe)
-    return (
-      <span className="text-[color:var(--app-text-muted)] break-all">{url}</span>
-    );
-  return (
-    <a
-      href={safe}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={`break-all ${admin.link}`}
-    >
-      {url}
-    </a>
-  );
-}
-
-function ApplicationCard({
-  application,
+function ProjectCard({
+  project,
   onVote,
   onClearVote,
   onStatus,
   busy,
 }: {
-  application: Application;
-  onVote: (id: Id<"showcaseApplications">, vote: Vote, note: string) => void;
-  onClearVote: (id: Id<"showcaseApplications">) => void;
-  onStatus: (id: Id<"showcaseApplications">, status: Status) => void;
+  project: Project;
+  onVote: (id: Id<"projects">, vote: Vote, note: string) => void;
+  onClearVote: (id: Id<"projects">) => void;
+  onStatus: (id: Id<"projects">, status: Status) => void;
   busy: boolean;
 }) {
   const [note, setNote] = useState("");
   const [noteOpen, setNoteOpen] = useState(false);
-  const a = application;
-  const incomplete = !a.answeredAt;
+  const p = project;
+  const statusLabel = STATUSES.find((s) => s.value === p.status)?.label ?? p.status;
 
   return (
     <div
       className={`rounded-xl border bg-[var(--app-surface-raised)] p-5 ${
-        a.status === "selected"
+        p.status === "selected"
           ? "border-green-300/60"
           : "border-[color:var(--app-hairline)]"
       }`}
     >
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h2 className={admin.h2}>
-              {a.name || a.email}
-            </h2>
-            <span className={STATUS_STYLE[a.status as Status]}>
-              {STATUSES.find((s) => s.value === a.status)?.label ?? a.status}
-            </span>
-            {incomplete && (
-              <span className={admin.chip.neutral}>
-                Email only — never finished
-              </span>
-            )}
+      <div className="flex items-start gap-4">
+        {/* Square and cropped to fill, as the project lists show it. */}
+        {p.photoUrl ? (
+          <img
+            src={p.photoUrl}
+            alt=""
+            className="h-20 w-20 shrink-0 rounded-lg bg-[var(--app-surface)] object-cover"
+          />
+        ) : (
+          <div
+            aria-hidden
+            className="h-20 w-20 shrink-0 rounded-lg bg-[var(--app-surface)]"
+          />
+        )}
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className={admin.h2}>
+                  <Link to={`/projects/${p._id}`} className={admin.link}>
+                    {p.title}
+                  </Link>
+                </h2>
+                <span className={STATUS_STYLE[p.status]}>{statusLabel}</span>
+              </div>
+              <p className={`mt-1 ${admin.meta}`}>
+                {p.byName} · {stageLabel(p.stage)}
+              </p>
+            </div>
+
+            <select
+              value={p.status}
+              disabled={busy}
+              onChange={(e) => onStatus(p._id, e.target.value as Status)}
+              className={admin.select}
+              aria-label={`Decision for ${p.title}`}
+            >
+              {STATUSES.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
           </div>
-          <p className={`mt-1 ${admin.meta}`}>
-            {a.email}
-            {a.city ? ` · ${a.city}` : ""}
-            {a.interests?.length ? ` · ${a.interests.join(", ")}` : ""}
-          </p>
-          {a.instagram && (
-            <p className="mt-1 text-[14px]">
-              <a
-                href={`https://instagram.com/${a.instagram}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={admin.link}
-              >
-                @{a.instagram}
-              </a>
-            </p>
+
+          {p.blurb && (
+            <p className={`mt-3 whitespace-pre-wrap ${admin.body}`}>{p.blurb}</p>
           )}
         </div>
-
-        <select
-          value={a.status}
-          disabled={busy}
-          onChange={(e) => onStatus(a._id, e.target.value as Status)}
-          className={admin.select}
-          aria-label={`Decision for ${a.name || a.email}`}
-        >
-          {STATUSES.map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.label}
-            </option>
-          ))}
-        </select>
       </div>
-
-      {a.portfolioUrl && (
-        <p className="mt-3 text-[14px]">
-          <WorkLink url={a.portfolioUrl} />
-        </p>
-      )}
-
-      {a.workDescription && (
-        <p className={`mt-3 whitespace-pre-wrap ${admin.body}`}>
-          {a.workDescription}
-        </p>
-      )}
-
-      {a.participation && a.participation.length > 0 && (
-        <div className="flex gap-2 flex-wrap mt-3">
-          {a.participation.map((p) => (
-            <span key={p} className={admin.chip.sky}>
-              {PARTICIPATION_LABEL[p] ?? p}
-            </span>
-          ))}
-        </div>
-      )}
 
       {/* Voting */}
       <div className={`mt-4 pt-4 ${admin.ruleTop}`}>
         <div className="flex items-center gap-2 flex-wrap">
           {(["yes", "maybe", "no"] as Vote[]).map((vote) => {
-            const on = a.myVote === vote;
+            const on = p.myVote === vote;
             return (
               <button
                 key={vote}
                 type="button"
                 disabled={busy}
                 aria-pressed={on}
-                onClick={() => onVote(a._id, vote, note)}
+                onClick={() => onVote(p._id, vote, note)}
                 className={`rounded-lg border px-3 py-1.5 text-[13.5px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${admin.focus} ${
                   on ? VOTE_STYLE[vote].on : VOTE_STYLE[vote].off
                 }`}
@@ -242,11 +188,11 @@ function ApplicationCard({
             );
           })}
 
-          {a.myVote && (
+          {p.myVote && (
             <button
               type="button"
               disabled={busy}
-              onClick={() => onClearVote(a._id)}
+              onClick={() => onClearVote(p._id)}
               className={admin.btnText}
             >
               Clear my vote
@@ -274,11 +220,11 @@ function ApplicationCard({
 
         <div className={`mt-3 ${admin.meta}`}>
           <span className="font-medium text-[color:var(--app-text)]">
-            {a.tally.yes} yes · {a.tally.maybe} maybe · {a.tally.no} no
+            {p.tally.yes} yes · {p.tally.maybe} maybe · {p.tally.no} no
           </span>
-          {a.votes.length > 0 && (
+          {p.votes.length > 0 && (
             <ul className="mt-2 space-y-1">
-              {a.votes.map((v) => (
+              {p.votes.map((v) => (
                 <li key={v.userId}>
                   <span className="font-medium text-[color:var(--app-text)]">
                     {v.voter}
@@ -297,19 +243,16 @@ function ApplicationCard({
 
 export default function AdminShowcasePage() {
   const isAdmin = useIsAdmin();
-  const applications = useQuery(api.showcase.adminList);
+  const projects = useQuery(api.showcase.adminList, isAdmin === true ? {} : "skip");
   const castVote = useMutation(api.showcase.castVote);
   const clearVote = useMutation(api.showcase.clearVote);
   const setStatus = useMutation(api.showcase.setStatus);
 
-  const [busyId, setBusyId] = useState<Id<"showcaseApplications"> | null>(null);
+  const [busyId, setBusyId] = useState<Id<"projects"> | null>(null);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<"all" | Status>("all");
 
-  async function run(
-    id: Id<"showcaseApplications">,
-    fn: () => Promise<unknown>,
-  ) {
+  async function run(id: Id<"projects">, fn: () => Promise<unknown>) {
     setBusyId(id);
     setError("");
     try {
@@ -329,10 +272,9 @@ export default function AdminShowcasePage() {
     return <AdminAccessDenied />;
   }
 
-  const all = applications ?? [];
-  const shown = filter === "all" ? all : all.filter((a) => a.status === filter);
-  const completed = all.filter((a) => a.answeredAt).length;
-  const selected = all.filter((a) => a.status === "selected").length;
+  const all = projects ?? [];
+  const shown = filter === "all" ? all : all.filter((p) => p.status === filter);
+  const selected = all.filter((p) => p.status === "selected").length;
 
   return (
     // A column of cards, not a table, so the narrower list width.
@@ -341,16 +283,17 @@ export default function AdminShowcasePage() {
         back
         title="Showcase jury"
         sub={
-          applications === undefined
+          projects === undefined
             ? "Loading…"
-            : `${all.length} applications · ${completed} complete · ${selected} of 20 selected`
+            : `${all.length} projects · ${selected} selected`
         }
       />
       <p className={`-mt-3 mb-6 max-w-2xl ${admin.body}`}>
-        Any admin can vote. Votes don't decide anything on their own — set the
-        decision yourself once the room agrees.{" "}
-        <Link to="/showcase" className={admin.link}>
-          View the public call
+        Every project on the site is on the ballot. Any admin can vote; votes
+        don't decide anything on their own — set the decision yourself once
+        the room agrees.{" "}
+        <Link to="/projects" className={admin.link}>
+          Browse projects
         </Link>
       </p>
 
@@ -359,7 +302,7 @@ export default function AdminShowcasePage() {
           const count =
             value === "all"
               ? all.length
-              : all.filter((a) => a.status === value).length;
+              : all.filter((p) => p.status === value).length;
           return (
             <button
               key={value}
@@ -383,33 +326,27 @@ export default function AdminShowcasePage() {
         </AdminNotice>
       )}
 
-      {applications === undefined ? (
-        <p className={admin.meta}>Loading applications…</p>
+      {projects === undefined ? (
+        <p className={admin.meta}>Loading projects…</p>
       ) : shown.length === 0 ? (
         <div className={`${admin.panel} text-center ${admin.meta}`}>
-          {all.length === 0 ? "No applications yet." : "Nothing in this bucket."}
+          {all.length === 0 ? "No projects to vote on yet." : "Nothing in this bucket."}
         </div>
       ) : (
         <div className="space-y-4">
-          {shown.map((application) => (
-            <ApplicationCard
-              key={application._id}
-              application={application}
-              busy={busyId === application._id}
+          {shown.map((project) => (
+            <ProjectCard
+              key={project._id}
+              project={project}
+              busy={busyId === project._id}
               onVote={(id, vote, note) =>
                 run(id, () =>
-                  castVote({
-                    applicationId: id,
-                    vote,
-                    note: note.trim() || undefined,
-                  }),
+                  castVote({ projectId: id, vote, note: note.trim() || undefined }),
                 )
               }
-              onClearVote={(id) =>
-                run(id, () => clearVote({ applicationId: id }))
-              }
+              onClearVote={(id) => run(id, () => clearVote({ projectId: id }))}
               onStatus={(id, status) =>
-                run(id, () => setStatus({ id, status }))
+                run(id, () => setStatus({ projectId: id, status }))
               }
             />
           ))}

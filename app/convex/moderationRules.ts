@@ -44,6 +44,13 @@ export function isPostedProject(project: { origin?: string }): boolean {
   return project.origin !== "portfolio";
 }
 
+/** Whether a project is on the browse lists at all: a visible status, and
+ * posted rather than shared from a portfolio. The one rule behind /projects,
+ * a community's page, the stats strip and the showcase jury's ballot. */
+export function isListedProject(project: { status?: string; origin?: string }): boolean {
+  return VISIBLE_PROJECT_STATUSES.has(project.status ?? "") && isPostedProject(project);
+}
+
 /** The status Unhide puts back: whatever the row had when it was hidden,
  * else `fallback` (a row hidden before statusBeforeHidden existed, or one
  * whose remembered status is somehow "hidden" itself). */

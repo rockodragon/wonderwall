@@ -199,19 +199,23 @@ describe("profile lookups through getProfileByUserId keep their answers", () => 
     await expect(run(approveEntry, ctx, { waitlistId: "waitlist:gone" })).rejects.toThrow("Waitlist entry not found");
   });
 
-  it("showcase adminList names each voter from their profile", async () => {
+  it("showcase adminList names each voter and creator from their profile", async () => {
     const ctx = makeCtx(
       {
-        profiles: [{ _id: "profiles:admin", userId: ADMIN, name: "Ada", isAdmin: true }],
-        showcaseApplications: [{ _id: "showcaseApplications:1", email: "x@y.co", createdAt: 1, status: "new" }],
-        showcaseVotes: [
-          { _id: "showcaseVotes:1", applicationId: "showcaseApplications:1", userId: ADMIN, vote: "yes" },
-          { _id: "showcaseVotes:2", applicationId: "showcaseApplications:1", userId: OTHER, vote: "no" },
+        profiles: [
+          { _id: "profiles:admin", userId: ADMIN, name: "Ada", isAdmin: true },
+          { _id: "profiles:me", userId: ME, name: "Maker" },
+        ],
+        projects: [{ _id: "projects:1", userId: ME, kind: "passion", title: "Mural", status: "active", createdAt: 1 }],
+        showcaseProjectVotes: [
+          { _id: "showcaseProjectVotes:1", projectId: "projects:1", userId: ADMIN, vote: "yes" },
+          { _id: "showcaseProjectVotes:2", projectId: "projects:1", userId: OTHER, vote: "no" },
         ],
       },
       ADMIN,
     );
     const [row] = await run(adminList, ctx);
+    expect(row.byName).toBe("Maker");
     expect(row.votes.map((v: any) => v.voter).sort()).toEqual(["Ada", "An admin"]);
     expect(row.myVote).toBe("yes");
   });

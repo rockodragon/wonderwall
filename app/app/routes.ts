@@ -159,8 +159,8 @@ export default [
     route("admin/waitlist", "routes/admin.waitlist.tsx"),
     // The cards members see on their canvas (docs/features/desk-updates.md).
     route("admin/updates", "routes/admin.updates.tsx"),
-    // Jury sheet for the November 6 open call — any admin votes, an admin
-    // decides. See convex/showcase.ts.
+    // Jury sheet for the November 6 showcase — any admin votes on projects,
+    // an admin decides. See convex/showcase.ts.
     route("admin/showcase", "routes/admin.showcase.tsx"),
     route("messages", "routes/messages._index.tsx"),
     route("messages/:conversationId", "routes/messages.$conversationId.tsx"),

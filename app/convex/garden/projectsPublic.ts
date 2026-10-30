@@ -17,7 +17,7 @@ import { query } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { shapeCredits, type CreditEntry } from "./allocations";
 import { summarizeGig } from "./gigSummary";
-import { isHidden, isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
+import { isHidden, isListedProject } from "../moderationRules";
 import { communityVisibility } from "./communityVisibility";
 import { projectPhotoUrl } from "../images";
 import { formatDollars } from "../money";
@@ -208,7 +208,7 @@ export const listProjects = query({
     // A project posted into a hidden (test) community is listed only for
     // admins and that community's members.
     const visible = await communityVisibility(ctx).filter(
-      rows.filter((p) => VISIBLE_PROJECT_STATUSES.has(p.status) && isPostedProject(p)),
+      rows.filter(isListedProject),
     );
     const newestFirst = [...visible].sort((a, b) => b.createdAt - a.createdAt).slice(0, 50);
     if (newestFirst.length === 0) return [];
