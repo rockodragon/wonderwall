@@ -3,6 +3,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { richDocValidator } from "./garden/richText";
 import { rateProposalValidator, reviewStageValidator } from "./garden/recruitment";
+import { contactPolicyValidator } from "./emailContactPolicy";
 
 export default defineSchema({
   // Convex Auth tables (users, sessions, accounts, etc.)
@@ -2509,7 +2510,7 @@ export default defineSchema({
     journeyRunId: v.optional(v.string()),
     sourceType: v.optional(v.string()),
     sourceId: v.optional(v.string()),
-    policy: v.optional(v.union(v.literal("standard"), v.literal("transactional"), v.literal("first_cheer"))),
+    policy: v.optional(contactPolicyValidator),
     goal: v.optional(v.union(v.literal("no_project"), v.literal("unread_message"))),
     conversationId: v.optional(v.id("conversations")),
     messageId: v.optional(v.id("messages")),
@@ -2541,6 +2542,26 @@ export default defineSchema({
     receivedAt: v.number(),
     appliedAt: v.optional(v.number()),
   }).index("by_eventKey", ["eventKey"]).index("by_providerId", ["providerId"]),
+
+  // One row per text about a direct message (convex/messageAlerts.ts), sent
+  // only to a verified phone when the recipient has no email on file. While
+  // texts are switched on (engagementLoops "message_texts"), every attempt
+  // leaves a row saying what happened and why; never the message itself.
+  // Separate from phoneSendLimits, which caps sign-in codes.
+  messageTexts: defineTable({
+    recipientUserId: v.id("users"),
+    phone: v.optional(v.string()), // E.164; missing when the account has none
+    conversationId: v.id("conversations"),
+    messageId: v.id("messages"), // first unread message of the burst
+    dedupeKey: v.string(), // message:{id} from sendMessage, message-resend:{id} from the resend tool
+    status: v.union(v.literal("queued"), v.literal("sent"), v.literal("skipped"), v.literal("failed")),
+    detail: v.optional(v.string()), // skip reason, or the Telnyx status code of a failure
+    createdAt: v.number(),
+    claimedAt: v.optional(v.number()), // handed to the send action; counts toward the daily cap from here
+    sentAt: v.optional(v.number()),
+  })
+    .index("by_recipientUserId_createdAt", ["recipientUserId", "createdAt"])
+    .index("by_dedupeKey", ["dedupeKey"]),
 
   // Durable domain-event outbox. Retries keep occurrence time and UUID.
   productEvents: defineTable({

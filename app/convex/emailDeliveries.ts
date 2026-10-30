@@ -28,7 +28,7 @@ import { blockBetween } from "./blocks";
 import { trackEvent } from "./posthog";
 import { internal } from "./_generated/api";
 import {
-  acceptsProviderEvent, CONTACT_GAP_MS, CONTACT_LEASE_MS, CONTACT_MAX_ATTEMPTS,
+  acceptsProviderEvent, CONTACT_GAP_MS, CONTACT_LEASE_MS, CONTACT_MAX_ATTEMPTS, contactPolicyValidator,
   contactRetryAt, emailSendValidators, reservedUntil, type ContactGoal, type ContactPolicy,
   type EmailContactMetadata, type ProviderStatus,
 } from "./emailContactPolicy";
@@ -133,7 +133,7 @@ export async function contactEligibility(ctx: QueryCtx | MutationCtx, input: Eli
 export const readContactEligibility = internalQuery({
   args: {
     userId: v.optional(v.id("users")), email: v.optional(v.string()), category: v.optional(v.string()),
-    policy: v.optional(v.union(v.literal("standard"), v.literal("transactional"), v.literal("first_cheer"))),
+    policy: v.optional(contactPolicyValidator),
     goal: v.optional(v.union(v.literal("no_project"), v.literal("unread_message"))),
     conversationId: v.optional(v.id("conversations")), messageId: v.optional(v.id("messages")),
     blockedUserId: v.optional(v.id("users")), journeyKey: v.optional(v.string()),
@@ -222,7 +222,9 @@ export const claimForDispatch = internalMutation({
       ? (await getOrCreatePreferences(ctx, row.recipientUserId)).unsubscribeToken : undefined;
     await ctx.db.patch(contactId, {
       attempts, lastAttemptAt: now, leaseUntil: now + CONTACT_LEASE_MS, nextAttemptAt: undefined,
-      cooldownAt: row.policy === "transactional" ? undefined : now,
+      // Transactional and message emails reserve no cooldown: a direct
+      // message's email must not hold back a nudge, digest or announcement.
+      cooldownAt: row.policy === "transactional" || row.policy === "message" ? undefined : now,
       to: decision.email, lastEventAt: now,
     });
     return { claimed: true as const, attempts, to: decision.email, unsubscribeToken };

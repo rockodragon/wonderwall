@@ -144,6 +144,8 @@ export const USER_ID_FIELDS: RefField[] = [
   { table: "nudgeLog", field: "userId", index: "by_userId_at" },
   // Emails sent to the account: its contact cooldown carries over.
   { table: "emailDeliveries", field: "recipientUserId", index: "by_recipientUserId_createdAt" },
+  // Texts about messages: the daily cap carries over.
+  { table: "messageTexts", field: "recipientUserId", index: "by_recipientUserId_createdAt" },
   // Who uploaded a file (uploads.ts): the kept account can replace the
   // pictures it now holds.
   { table: "uploadClaims", field: "userId", index: "by_userId" },

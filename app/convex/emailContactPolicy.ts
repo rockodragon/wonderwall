@@ -1,5 +1,5 @@
 import type { Id } from "./_generated/dataModel";
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 
 export const emailSendValidators = {
   to: v.string(), subject: v.string(), previewText: v.string(), heading: v.string(), body: v.string(),
@@ -14,7 +14,16 @@ export const CONTACT_GAP_MS = 24 * 60 * 60 * 1000;
 export const CONTACT_LEASE_MS = 5 * 60 * 1000;
 export const CONTACT_MAX_ATTEMPTS = 3;
 
-export type ContactPolicy = "standard" | "transactional" | "first_cheer";
+/** "standard" waits out the 24h contact cooldown. The named exceptions skip
+ * it: "transactional" (no opt-out), "first_cheer", and "message" — a direct
+ * message's email is what the person is waiting for, so an earlier digest or
+ * nudge must not cancel it. "first_cheer" still reserves the cooldown when
+ * claimed; "transactional" and "message" reserve nothing, so a message email
+ * never holds back a nudge, digest, announcement or reminder. */
+export const contactPolicyValidator = v.union(
+  v.literal("standard"), v.literal("transactional"), v.literal("first_cheer"), v.literal("message"),
+);
+export type ContactPolicy = Infer<typeof contactPolicyValidator>;
 export type ContactGoal = "no_project" | "unread_message";
 
 export type EmailContactMetadata = {
