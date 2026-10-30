@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getFunctionName } from "convex/server";
 import { makeCtx, run } from "../test-support/convexContext";
 import { markConversationRead, sendMessage } from "./messaging";
 import { trackEvent } from "./posthog";
@@ -35,6 +36,30 @@ describe("authoritative conversation measurement", () => {
     const recipient = ctx.store.conversationParticipants.find((row: any) => row.userId === A);
     expect(recipient.awaitingReplySince).toBeDefined();
     expect(recipient.firstReplyAt).toBeUndefined();
+  });
+
+  it("emails a recipient with an address under the message policy, once per unread burst, and never texts them", async () => {
+    const ctx = world();
+    ctx.store.users[1] = { _id: B, email: "ben@example.com", phone: "+16195550100", phoneVerificationTime: 1 };
+    ctx.store.engagementLoops = [{ _id: "engagementLoops:texts", key: "message_texts", enabled: true, subject: "", body: "", updatedAt: 1 }];
+    ctx.store.profiles[0].name = `Ana <b>"&"</b>`;
+    ctx.scheduler.runAfter = vi.fn(async () => {});
+    await run(sendMessage, ctx, { recipientId: B, content: "first private message" });
+    await run(sendMessage, ctx, { recipientId: B, content: "second private message" });
+    const [first] = ctx.store.messages;
+    expect(ctx.store.emailDeliveries).toEqual([expect.objectContaining({
+      recipientUserId: B, policy: "message", sourceType: "message", dedupeKey: `message:${first._id}`,
+      conversationId: C, messageId: first._id, blockedUserId: A, status: "queued",
+    })]);
+    expect(ctx.store.messageTexts ?? []).toEqual([]);
+    const emails = vi.mocked(ctx.scheduler.runAfter).mock.calls.filter(([, reference]: any[]) => getFunctionName(reference) === "emails:sendNotificationEmail");
+    expect(emails).toHaveLength(1);
+    const [, , email] = emails[0] as any[];
+    expect(email).toMatchObject({
+      contactId: ctx.store.emailDeliveries[0]._id, to: "ben@example.com", category: "activity", recipientUserId: B,
+      subject: `Ana <b>"&"</b> sent you a message`, heading: "New message", ctaText: "View Message", ctaUrl: `/messages/${C}`,
+    });
+    expect(email.body).toBe(`<strong>Ana &lt;b&gt;&quot;&amp;&quot;&lt;/b&gt;</strong> sent you a message: "first private message"`);
   });
 
   it("marks only observed inbound IDs; replay and old clients create no read evidence", async () => {

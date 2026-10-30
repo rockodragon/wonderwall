@@ -137,6 +137,70 @@ describe("correlated email lifecycle", () => {
     expect(await contactEligibility(ctx, { userId: USER as any, category: "transactional" })).toMatchObject({ eligible: false, reason: "suppressed" });
   });
 
+  const messageContact = (key = "message:messages:one") => ({
+    dedupeKey: key, policy: "message" as const, sourceType: "message", sourceId: "messages:one",
+    conversationId: "conversations:one" as any, messageId: "messages:one" as any, blockedUserId: "users:sender" as any,
+  });
+
+  it("a message email is claimed through another email's cooldown, and reserves none of its own", async () => {
+    const ctx = world({ emailDeliveries: [{
+      _id: "emailDeliveries:digest", recipientUserId: USER, to: "person@example.com", category: "digest", policy: "standard",
+      status: "accepted", cooldownAt: NOW - 2 * 60 * 60 * 1000, createdAt: NOW - 2 * 60 * 60 * 1000,
+    }] });
+    vi.mocked(conversationReminderEligibility).mockResolvedValue({ eligible: true, reason: "unread_inbound" });
+    // A standard email right now would be held back by the digest.
+    expect(await contactEligibility(ctx, { userId: USER as any, category: "activity" })).toMatchObject({ eligible: false, reason: "contact_cooldown" });
+    const message = await queueEmailContact(ctx, {
+      to: "person@example.com", subject: "Ana sent you a message", category: "activity", recipientUserId: USER as any, contact: messageContact(),
+    });
+    expect(await run(claimForDispatch, ctx, { contactId: message.contactId })).toMatchObject({ claimed: true, attempts: 1 });
+    const row = () => ctx.store.emailDeliveries.find((r: any) => r._id === message.contactId);
+    expect(row()).toMatchObject({ status: "queued", policy: "message" });
+    expect(row().cooldownAt).toBeUndefined();
+    await run(finishDispatch, ctx, { contactId: message.contactId, attempt: 1, provider: "resend", providerId: "provider-message" });
+    expect(row().status).toBe("accepted");
+    expect(row().cooldownAt).toBeUndefined();
+  });
+
+  it.each([
+    ["a nudge", "activity", { journeyKey: "share_project_day1", nudgeLogId: LOG as any }],
+    ["a digest", "digest", {}],
+    ["a host announcement", "announcements", {}],
+  ])("%s due an hour after a message email is still sent", async (_name, category, extra) => {
+    const ctx = world();
+    vi.mocked(conversationReminderEligibility).mockResolvedValue({ eligible: true, reason: "unread_inbound" });
+    const message = await queueEmailContact(ctx, {
+      to: "person@example.com", subject: "Ana sent you a message", category: "activity", recipientUserId: USER as any, contact: messageContact(),
+    });
+    await run(claimForDispatch, ctx, { contactId: message.contactId });
+    await run(finishDispatch, ctx, { contactId: message.contactId, attempt: 1, provider: "resend", providerId: "provider-message" });
+
+    vi.setSystemTime(NOW + 60 * 60 * 1000);
+    const later = await queueEmailContact(ctx, {
+      to: "person@example.com", subject: "Later", category, recipientUserId: USER as any, contact: { dedupeKey: `later:${category}`, ...extra },
+    });
+    expect(await run(claimForDispatch, ctx, { contactId: later.contactId })).toMatchObject({ claimed: true });
+    expect(ctx.store.emailDeliveries.find((r: any) => r._id === later.contactId)).toMatchObject({ status: "queued", policy: "standard", cooldownAt: NOW + 60 * 60 * 1000 });
+  });
+
+  it.each([
+    ["Activity switched off", (ctx: any) => { ctx.store.emailPreferences[0].activity = false; }, "email_off", "cancelled"],
+    ["address suppressed", (ctx: any) => { ctx.store.emailSuppressions = [{ _id: "emailSuppressions:one", email: "person@example.com" }]; }, "suppressed", "suppressed"],
+    ["sender blocked", (ctx: any) => { ctx.store.blocks = [{ _id: "blocks:one", blockerId: USER, blockedId: "users:sender" }]; }, "blocked", "cancelled"],
+    ["thread read or answered", () => {
+      vi.mocked(conversationReminderEligibility).mockResolvedValue({ eligible: false, reason: "read_or_replied" });
+    }, "read_or_replied", "cancelled"],
+  ])("a message email still stops when %s", async (_name, change, reason, status) => {
+    const ctx = world();
+    vi.mocked(conversationReminderEligibility).mockResolvedValue({ eligible: true, reason: "unread_inbound" });
+    const message = await queueEmailContact(ctx, {
+      to: "person@example.com", subject: "Ana sent you a message", category: "activity", recipientUserId: USER as any, contact: messageContact(),
+    });
+    change(ctx);
+    expect(await run(claimForDispatch, ctx, { contactId: message.contactId })).toMatchObject({ claimed: false, reason });
+    expect(ctx.store.emailDeliveries[0]).toMatchObject({ status, detail: reason });
+  });
+
   it("bounds transient retries and stops replay after the provider idempotency window", async () => {
     const ctx = world();
     const queued = await queue(ctx);

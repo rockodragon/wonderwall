@@ -147,6 +147,7 @@ import type * as likesDigest from "../likesDigest.js";
 import type * as linkPreview from "../linkPreview.js";
 import type * as links from "../links.js";
 import type * as location from "../location.js";
+import type * as messageAlerts from "../messageAlerts.js";
 import type * as messaging from "../messaging.js";
 import type * as moderation from "../moderation.js";
 import type * as moderationRules from "../moderationRules.js";
@@ -330,6 +331,7 @@ declare const fullApi: ApiFromModules<{
   linkPreview: typeof linkPreview;
   links: typeof links;
   location: typeof location;
+  messageAlerts: typeof messageAlerts;
   messaging: typeof messaging;
   moderation: typeof moderation;
   moderationRules: typeof moderationRules;

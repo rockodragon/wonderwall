@@ -1,9 +1,8 @@
 import { v, ConvexError } from "convex/values";
-import { escapeHtml } from "./email/template";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { blockBetween, blockedUserIds, findBlock } from "./blocks";
-import { scheduleNotificationEmail } from "./emailHelpers";
+import { scheduleMessageAlert } from "./messageAlerts";
 import { currentUserId, getProfileByUserId, requireUserId } from "./helpers";
 import { insertNotification } from "./notify";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -321,21 +320,13 @@ export const sendMessage = mutation({
       createdAt: now,
     });
 
-    // Send email notification — only for the first unread message in a
-    // burst (see earlierUnreadFromSender above). A recipient reading
-    // messages one at a time as they arrive still gets an email per burst,
-    // never per message.
+    // Email, or a text when there's no address on file — only for the first
+    // unread message in a burst (see earlierUnreadFromSender above). A
+    // recipient reading messages one at a time as they arrive still hears
+    // once per burst, never per message.
     if (!earlierUnreadFromSender) {
-      await scheduleNotificationEmail(ctx, {
-        userId: args.recipientId,
-        subject: `${senderName} sent you a message`,
-        previewText: trimmedContent.slice(0, 80),
-        heading: "New message",
-        body: `<strong>${escapeHtml(senderName)}</strong> sent you a message: "${escapeHtml(trimmedContent.length > 200 ? trimmedContent.slice(0, 200) + "..." : trimmedContent)}"`,
-        ctaText: "View Message",
-        ctaUrl: `/messages/${conversationId}`,
-        category: "activity",
-        contact: { dedupeKey: `message:${messageId}`, sourceType: "message", sourceId: messageId, conversationId, messageId, blockedUserId: userId },
+      await scheduleMessageAlert(ctx, {
+        recipientId: args.recipientId, messageId, senderName, dedupeKey: `message:${messageId}`,
       });
     }
 
