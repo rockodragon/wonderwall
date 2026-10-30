@@ -1,6 +1,8 @@
-// "What are you working on?" on the signed-out front doors: the title comes
+// "Share a project" on the signed-out front door: the project's title comes
 // before the account. Submitting stashes it (lib/shareProject.ts) and goes to
 // signup; onboarding fills it in on its project step once the account exists.
+// It says "project" and "Project title" so nobody types their bio here
+// (Rick, 2026-10-30: it arrived on the project step as a title).
 
 import { useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router";
@@ -28,7 +30,7 @@ export function ShareTitleBox({
       className="w-full"
     >
       <label htmlFor="share-title" className="block text-[15px] font-medium mb-1.5">
-        What are you working on?
+        Share a project
       </label>
       <div className="flex flex-col sm:flex-row gap-2">
         <input
@@ -36,6 +38,7 @@ export function ShareTitleBox({
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          placeholder="Project title"
           className="min-w-0 flex-1 px-3.5 py-2.5 rounded-lg border text-[15px]"
           style={inputStyle}
         />
