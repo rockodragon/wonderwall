@@ -1,9 +1,9 @@
 // "By" a person or an organization: a round avatar for a person, a square
-// logo for an organization, then the name. `size="sm"` is a project card's
-// line; `md` is the project page's, where it links to them. `post` is a feed
-// post's header (Today): a 36px rounded square for a person or an
-// organization, the name on one line and `children` on the next. `children`
-// otherwise goes after the name (the community: " · in The Garden").
+// logo for an organization, then the name. `md` is the project page's, where
+// it links to them. `post` is a feed post's header (Today, Projects): a 36px
+// rounded square for a person or an organization, the name on one line and
+// `children` on the next. `children` otherwise goes after the name (the
+// community: " · in The Garden").
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import type { ProjectByline } from "../lib/byline";
@@ -17,7 +17,7 @@ export function Byline({
   children,
 }: {
   byline: ProjectByline;
-  size?: "sm" | "md" | "post";
+  size?: "md" | "post";
   linked?: boolean;
   children?: ReactNode;
 }) {
@@ -51,15 +51,13 @@ export function Byline({
   }
   const face =
     kind === "person" ? (
-      <PersonAvatar name={name} imageUrl={imageUrl} size={size === "sm" ? "2xs" : "xs"} tone="garden" />
-    ) : size === "sm" ? (
-      <PersonAvatar name={name} imageUrl={imageUrl} size="2xs" tone="garden" shape="square" />
+      <PersonAvatar name={name} imageUrl={imageUrl} size="xs" tone="garden" />
     ) : (
       <OrgLogo name={name} logoUrl={imageUrl} size="xs" />
     );
   // Names are never truncated on a card — it wraps to fit instead.
   const label = (
-    <span className={size === "sm" ? "text-xs break-words" : "text-sm"} style={{ color: "var(--garden-muted)" }}>
+    <span className="text-sm" style={{ color: "var(--garden-muted)" }}>
       {name}
       {children}
     </span>

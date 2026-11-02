@@ -4,7 +4,8 @@
 // cropped. Children sit on top: chips, an owner's button. `square` is a
 // list's picture (Today's open projects on a phone): cropped to fill the
 // square, the way Instagram's grid crops and its post shows the whole thing
-// (Rick, 2026-10-27: crop in the list, whole on the detail page).
+// (Rick, 2026-10-27: crop in the list, whole on the detail page). A list is
+// unbounded, so its pictures load as they near the screen.
 
 import type { ReactNode } from "react";
 import { ImageFill } from "./ImageFill";
@@ -25,7 +26,7 @@ export function CoverFrame({
   return (
     <div className={`relative ${square ? "aspect-square" : "aspect-[4/5]"} overflow-hidden ${className}`}>
       {square ? (
-        <img src={src} alt={alt} decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+        <img src={src} alt={alt} decoding="async" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
       ) : (
         <ImageFill src={src} alt={alt} />
       )}

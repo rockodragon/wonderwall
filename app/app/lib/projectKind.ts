@@ -10,6 +10,8 @@ import { budgetAmountLabel, budgetKindLabel, type BudgetDeclaration } from "./bu
 
 /** An open role as api.garden.projects.listProjects sends it. */
 export type OpenRoleLike = {
+  /** What a save of this role names (favorites.toggle's targetId). */
+  roleId?: string;
   title: string;
   budgetType?: string | null;
   budget?: number | null;

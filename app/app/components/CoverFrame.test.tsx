@@ -13,6 +13,11 @@ describe("CoverFrame", () => {
     expect(html).not.toContain("blur-2xl");
   });
 
+  // A list is unbounded; its pictures load as they near the screen.
+  it("loads a list's square picture lazily", () => {
+    expect(renderToStaticMarkup(<CoverFrame src="/c.jpg" alt="" square />)).toMatch(/<img [^>]*loading="lazy"/);
+  });
+
   it("shows the whole picture in the 4:5 cover", () => {
     const html = renderToStaticMarkup(<CoverFrame src="/c.jpg" alt="" />);
     expect(html).toContain("aspect-[4/5]");

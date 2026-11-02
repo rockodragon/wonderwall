@@ -41,8 +41,7 @@ describe("SupportButtons with no name", () => {
   const post = '<span class="text-[15px] font-semibold tabular-nums pr-2" style="color:var(--app-text)">3<span class="sr-only"> supporters</span></span>';
 
   it("is byte for byte what it was, at every size", () => {
-    const draw = (size?: "sm" | "md" | "post") => markup(<SupportButtons raising count={3} onSupport={() => {}} size={size} />);
-    expect(draw("sm")).toBe(was("w-9 h-9", "var(--garden-paper)", small));
+    const draw = (size?: "md" | "post") => markup(<SupportButtons raising count={3} onSupport={() => {}} size={size} />);
     expect(draw("md")).toBe(was("w-10 h-10", "var(--garden-paper)", small));
     expect(draw()).toBe(was("w-10 h-10", "var(--garden-paper)", small));
     expect(draw("post")).toBe(was("w-11 h-11", "var(--app-text)", post));
