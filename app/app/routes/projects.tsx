@@ -46,6 +46,7 @@ import { signupHref } from "../lib/pendingIntent";
 import { bylineOf } from "../lib/byline";
 import { Byline } from "../components/Byline";
 import { SupportButtons, useProjectSupport, type SupportMode } from "../components/ProjectSupport";
+import { PostActions, PostMaker, PostTitle, ProjectCover, type PostViewer } from "../components/ProjectPost";
 
 // The four chips (Projects, Seeking funding, Seeking people, Jobs and gigs),
 // the Stage menu and the pure filtering live in lib/browse/projectsFilter.ts,
@@ -97,6 +98,10 @@ export default function Projects() {
   const [hiring, setHiring] = useState(false);
   const navigate = useNavigate();
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
+  // Who is looking, for each post's Save (lib/projectPick.ts canSaveProject):
+  // held until the profile has loaded, so the lead never sees Save flash.
+  const profile = useQuery(api.profiles.getMyProfile);
+  const viewer = { signedIn: isAuthenticated, profile };
   // Anyone can browse; posting and cheering need an account. A visitor has
   // none yet, so they go to sign up (Rick, 2026-10-09), which brings them
   // back here.
@@ -381,9 +386,10 @@ export default function Projects() {
             )}
             {/* The make-one card is first from sm up, so an empty list is
                 just the grid with that one card in it. A phone reads the
-                list as a feed: one column, each project edge to edge
-                (ProjectCard's feed look), no tile. */}
-            <div className="-mx-4 grid grid-cols-1 gap-7 sm:mx-0 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+                list as a feed: one column of posts, each picture edge to
+                edge (ProjectCard's feed look, the same as Today's), no tile.
+                The space between posts is what sets them apart. */}
+            <div className="grid grid-cols-1 gap-7 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
               <div className="hidden sm:block">
                 <CreateCard label={create.label} onClick={create.kind === "hire" ? hireSomeone : startProject} />
               </div>
@@ -393,6 +399,7 @@ export default function Projects() {
                   project={project}
                   lens={lens}
                   feed
+                  viewer={viewer}
                   onSupport={(mode) => support(project, mode)}
                   matched={hasMatchFilter && isMatch(project)}
                 />
@@ -528,21 +535,28 @@ function PostMenu({
   );
 }
 
+// Nobody is looking: no Save. What a card without a viewer reads.
+const NO_VIEWER: PostViewer = { signedIn: false, profile: undefined };
+
 export function ProjectCard({
   project,
   lens,
   onSupport,
   matched,
   feed = false,
+  viewer = NO_VIEWER,
 }: {
   project: any;
   lens: ProjectsLens;
   onSupport: (mode: SupportMode) => void;
   matched?: boolean;
-  /** The feed look on a phone (docs/features/phone-screens.md): no frame,
-   * the cover edge to edge and the words under it. From sm up the framed
-   * grid card either way. Only /projects passes it. */
+  /** The Projects tab's look (docs/features/phone-screens.md): a feed post,
+   * the same as Today's Open projects (components/ProjectPost.tsx) — the
+   * maker, a square picture, the words, then cheer, back and save — at every
+   * width, framed from sm up. Only /projects passes it. */
   feed?: boolean;
+  /** Who is looking, for the feed post's Save (canSaveProject). */
+  viewer?: PostViewer;
 }) {
   // The photo first, then the pasted link's still, then the first attached
   // artifact's file (docs/features/creator-media-cross-post.md, Round 2).
@@ -589,11 +603,241 @@ export function ProjectCard({
   // Posted as an organization: the organization, not the person who runs it.
   const byline = bylineOf(project);
 
+  // What the card says about the project, in the order it says it: the stage,
+  // the gig's schedule, whether members respond, the roles, how far the goal
+  // got, the tags and the blurb. The same words under the framed card's title
+  // and under a feed post's.
+  const details = (
+    <>
+      <div className="flex flex-wrap items-center gap-1.5 mb-2">
+        {/* Stage always shows — see docs/features/project-teams.md §7 —
+            right beside the money/budget badge above it. Days-left folds
+            into the same pill instead of getting its own, so a passion
+            campaign near its deadline doesn't need two near-identical
+            pills to say one thing ("active" + "5 days left"). The
+            nonprofit-funding note lives on the project's own detail page
+            (projects.$id.tsx) — it's provenance, not a browse-time
+            decision factor, so it doesn't need a pill here too. */}
+        <span
+          className="self-start px-2 py-0.5 rounded-full text-[12px] font-medium uppercase tracking-[0.06em]"
+          style={{
+            fontFamily: "var(--garden-font-mono)",
+            backgroundColor: "rgba(198,198,190,0.1)",
+            color: "var(--garden-muted)",
+          }}
+        >
+          {stageLabel(stage)}
+          {daysLeft !== null && ` · ${daysLeft} ${daysLeft === 1 ? "day" : "days"} left`}
+        </span>
+        {matched && (
+          <span
+            className="self-start px-2 py-0.5 rounded-full text-[12px] font-medium uppercase tracking-[0.06em]"
+            style={{
+              fontFamily: "var(--garden-font-mono)",
+              backgroundColor: "rgba(254,226,104,0.14)",
+              color: "var(--garden-citron)",
+            }}
+          >
+            Matches you
+          </span>
+        )}
+        {/* Stage (above) now carries the lifecycle signal on every card;
+            this legacy status pill is kept only for archived, per
+            docs/features/project-teams.md §7. */}
+        {project.status === "archived" && (
+          <span
+            className="self-start px-2 py-0.5 rounded-full text-[12px] font-medium uppercase tracking-[0.06em]"
+            style={{
+              fontFamily: "var(--garden-font-mono)",
+              backgroundColor: "rgba(198,198,190,0.1)",
+              color: "var(--garden-muted)",
+            }}
+          >
+            {STATUS_LABELS[project.status] ?? project.status}
+          </span>
+        )}
+      </div>
+      {project.gig && (
+        // Live booking: the schedule in one line — the card's real
+        // decision factor for a musician scanning for work.
+        <p className="text-[13px] mb-2" style={{ color: "var(--garden-body)" }}>
+          {project.gig.venueName ? `${project.gig.venueName} · ` : ""}
+          {project.gig.schedule}
+          {project.gig.status === "open" && project.gig.nextDateLabel
+            ? ` · next ${project.gig.nextDateLabel}`
+            : project.gig.status === "paused"
+              ? " · paused"
+              : project.gig.status === "ended"
+                ? " · ended"
+                : ""}
+          {project.gig.status === "open" && project.gig.openCount > 0 && (
+            <span style={{ color: "var(--garden-citron)" }}>
+              {" "}· {project.gig.openCount} {project.gig.openCount === 1 ? "date" : "dates"} open
+            </span>
+          )}
+        </p>
+      )}
+      {project.viewerGate && (
+        // The card is one big link, so this is words, not a nested link;
+        // the project page carries the membership link.
+        <p className="text-[13px] mb-2" style={{ color: "var(--garden-body)" }}>
+          Members respond.{project.viewerGate.upgradePath ? ` ${project.viewerGate.upgradePath}` : ""}
+        </p>
+      )}
+      {otherRoles.length > 0 &&
+        (spellRoles ? (
+          <ul className="text-[13px] mb-2 flex flex-col gap-0.5" style={{ color: "var(--garden-body)" }}>
+            {otherRoles.slice(0, 3).map((r) => (
+              <li key={r.roleId} className="flex justify-between gap-2">
+                <span className="min-w-0 break-words">{r.title}</span>
+                {r.budgetType && (
+                  <span className="shrink-0" style={{ color: "var(--garden-citron)", fontFamily: "var(--garden-font-mono)" }}>
+                    {budgetAmountLabel(r) ?? budgetKindLabel(r)}
+                  </span>
+                )}
+              </li>
+            ))}
+            {otherRoles.length > 3 && (
+              <li style={{ color: "var(--garden-muted)" }}>+{otherRoles.length - 3} more</li>
+            )}
+          </ul>
+        ) : (
+          <p className="text-[13px] mb-2" style={{ color: "var(--garden-citron)" }}>
+            Looking for {openRoles.length} {openRoles.length === 1 ? "person" : "people"}
+          </p>
+        ))}
+      {raising && (project.goal ?? 0) > 0 && (
+        <GoalProgress raisedCents={project.raisedCents ?? 0} goal={project.goal} compact />
+      )}
+      {project.interests && project.interests.length > 0 && (
+        // Capped at 3 — a browse card is a scan, not the full tag list
+        // (that's what the detail page is for); every tag rendered here
+        // was competing with the title and blurb for the same glance.
+        <div className="flex flex-wrap gap-1 mb-2">
+          {project.interests.slice(0, 3).map((tag: string) => (
+            <span
+              key={tag}
+              className="px-2 py-0.5 rounded-full text-[12px] font-medium"
+              style={{
+                fontFamily: "var(--garden-font-body)",
+                backgroundColor: "rgba(198,198,190,0.1)",
+                color: "var(--garden-muted)",
+              }}
+            >
+              {tag}
+            </span>
+          ))}
+          {project.interests.length > 3 && (
+            <span
+              className="px-2 py-0.5 rounded-full text-[12px] font-medium"
+              style={{
+                fontFamily: "var(--garden-font-body)",
+                color: "var(--garden-dim)",
+              }}
+            >
+              +{project.interests.length - 3}
+            </span>
+          )}
+        </div>
+      )}
+      {project.blurb && (
+        <p className="text-sm line-clamp-2 mb-3" style={{ color: "var(--garden-dim)" }}>
+          {project.blurb}
+        </p>
+      )}
+    </>
+  );
+
+  // Something to pin to the top of the cover: the first line, the money, or both.
+  const badges = hasBadge && (
+    // One row, so a long first line and the money never sit on each other.
+    <div className="absolute inset-x-2 top-2 flex items-start justify-between gap-2">
+      {kindWord && (
+        <span
+          className="min-w-0 px-2 py-0.5 rounded-[14px] text-[12px] font-semibold uppercase tracking-[0.06em] leading-snug line-clamp-2"
+          style={{
+            fontFamily: "var(--garden-font-mono)",
+            backgroundColor: "rgba(20,20,18,0.72)",
+            color: "var(--garden-paper)",
+          }}
+        >
+          {kindWord}
+        </span>
+      )}
+      {moneyWord && (
+        <span
+          className="ml-auto shrink-0 px-2.5 py-1 rounded-full text-xs font-bold"
+          style={{
+            fontFamily: "var(--garden-font-mono)",
+            backgroundColor: "var(--garden-citron)",
+            color: "var(--garden-ink)",
+          }}
+        >
+          {moneyWord}
+        </span>
+      )}
+    </div>
+  );
+
+  // The Projects tab's look (docs/features/phone-screens.md): a feed post, the
+  // same as Today's Open projects (components/ProjectPost.tsx). The maker,
+  // the square picture with the kind and the money over it, the title, the
+  // words, then cheer, back and save as the last row. A project with no
+  // picture has the abstract cover with its title on it. On a phone no frame;
+  // from sm up the grid card, the maker on top inside it. It is one article:
+  // the project link is stretched over it and the maker and the buttons sit
+  // above that, so no link or button is inside another.
+  if (feed) {
+    const hasCover = !!thumb || !!mediaEmbed;
+    return (
+      <article
+        className="relative isolate flex flex-col sm:rounded-2xl sm:border sm:bg-[var(--garden-ink-raised)]"
+        style={{ borderColor: "var(--garden-hairline)" }}
+      >
+        {byline && (
+          <div className="sm:px-4 sm:pt-3">
+            <PostMaker project={project} />
+          </div>
+        )}
+        <Link
+          to={`/projects/${project._id}`}
+          className="group grid flex-1 grid-cols-[minmax(0,1fr)] content-start after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-[var(--app-accent-ink)]"
+        >
+          {/* Edge to edge on a phone (the page's side gutter taken back). The
+              badges sit beside the picture, not inside it, so it dissolves in
+              as the post scrolls into view and they don't. */}
+          <div className="relative col-start-1 row-start-1 -mx-4 sm:mx-0">
+            {thumb || !mediaEmbed ? (
+              <Dissolve style={{ backgroundColor: "#121212" }}>
+                <ProjectCover cover={thumb} seed={project._id} square />
+              </Dissolve>
+            ) : (
+              <Dissolve>
+                <div className="relative aspect-square overflow-hidden" style={{ backgroundColor: "var(--garden-ink)" }}>
+                  <EmbedStill embed={mediaEmbed} previewUrl={project.mediaPreviewUrl} title={project.title} badgeSize="sm" />
+                </div>
+              </Dissolve>
+            )}
+            {badges}
+          </div>
+          <PostTitle title={title} hasCover={hasCover} className="sm:px-4" />
+          <div className={`min-w-0 sm:px-4 [&>:last-child]:mb-0 ${hasCover ? "mt-1.5" : "mt-3"}`}>{details}</div>
+        </Link>
+        {/* A job or gig is paid, not backed, so it has no Cheer or Back. */}
+        <PostActions
+          project={project}
+          viewer={viewer}
+          support={project.kind === "passion" && lens !== "work"}
+          onSupport={onSupport}
+          className="sm:px-4 sm:pb-2"
+        />
+      </article>
+    );
+  }
+
   const card = (
     <div
-      className={`group overflow-hidden h-full flex flex-col transition-colors ${
-        feed ? "sm:rounded-2xl sm:border sm:bg-[var(--garden-ink-raised)]" : "rounded-2xl border bg-[var(--garden-ink-raised)]"
-      }`}
+      className="group overflow-hidden h-full flex flex-col transition-colors rounded-2xl border bg-[var(--garden-ink-raised)]"
       style={{ borderColor: "var(--garden-hairline)" }}
     >
       {/* Same fixed overlay spot Classes uses: kind top-left, money top-right
@@ -632,179 +876,16 @@ export function ProjectCard({
             style={EMPTY_COVER}
           />
         )}
-        {/* One row, so a long first line and the money never sit on each other. */}
-        {hasBadge && (
-          <div className="absolute inset-x-2 top-2 flex items-start justify-between gap-2">
-            {kindWord && (
-              <span
-                className="min-w-0 px-2 py-0.5 rounded-[14px] text-[12px] font-semibold uppercase tracking-[0.06em] leading-snug line-clamp-2"
-                style={{
-                  fontFamily: "var(--garden-font-mono)",
-                  backgroundColor: "rgba(20,20,18,0.72)",
-                  color: "var(--garden-paper)",
-                }}
-              >
-                {kindWord}
-              </span>
-            )}
-            {moneyWord && (
-              <span
-                className="ml-auto shrink-0 px-2.5 py-1 rounded-full text-xs font-bold"
-                style={{
-                  fontFamily: "var(--garden-font-mono)",
-                  backgroundColor: "var(--garden-citron)",
-                  color: "var(--garden-ink)",
-                }}
-              >
-                {moneyWord}
-              </span>
-            )}
-          </div>
-        )}
+        {badges}
       </div>
-      <div className={`flex-1 flex flex-col min-w-0 ${feed ? "px-4 py-3 sm:p-4" : "p-4"}`}>
+      <div className="flex-1 flex flex-col min-w-0 p-4">
         <h3
           className="font-semibold line-clamp-2 mb-1"
           style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
         >
           {title}
         </h3>
-        <div className="flex flex-wrap items-center gap-1.5 mb-2">
-          {/* Stage always shows — see docs/features/project-teams.md §7 —
-              right beside the money/budget badge above it. Days-left folds
-              into the same pill instead of getting its own, so a passion
-              campaign near its deadline doesn't need two near-identical
-              pills to say one thing ("active" + "5 days left"). The
-              nonprofit-funding note lives on the project's own detail page
-              (projects.$id.tsx) — it's provenance, not a browse-time
-              decision factor, so it doesn't need a pill here too. */}
-          <span
-            className="self-start px-2 py-0.5 rounded-full text-[12px] font-medium uppercase tracking-[0.06em]"
-            style={{
-              fontFamily: "var(--garden-font-mono)",
-              backgroundColor: "rgba(198,198,190,0.1)",
-              color: "var(--garden-muted)",
-            }}
-          >
-            {stageLabel(stage)}
-            {daysLeft !== null && ` · ${daysLeft} ${daysLeft === 1 ? "day" : "days"} left`}
-          </span>
-          {matched && (
-            <span
-              className="self-start px-2 py-0.5 rounded-full text-[12px] font-medium uppercase tracking-[0.06em]"
-              style={{
-                fontFamily: "var(--garden-font-mono)",
-                backgroundColor: "rgba(254,226,104,0.14)",
-                color: "var(--garden-citron)",
-              }}
-            >
-              Matches you
-            </span>
-          )}
-          {/* Stage (above) now carries the lifecycle signal on every card;
-              this legacy status pill is kept only for archived, per
-              docs/features/project-teams.md §7. */}
-          {project.status === "archived" && (
-            <span
-              className="self-start px-2 py-0.5 rounded-full text-[12px] font-medium uppercase tracking-[0.06em]"
-              style={{
-                fontFamily: "var(--garden-font-mono)",
-                backgroundColor: "rgba(198,198,190,0.1)",
-                color: "var(--garden-muted)",
-              }}
-            >
-              {STATUS_LABELS[project.status] ?? project.status}
-            </span>
-          )}
-        </div>
-        {project.gig && (
-          // Live booking: the schedule in one line — the card's real
-          // decision factor for a musician scanning for work.
-          <p className="text-[13px] mb-2" style={{ color: "var(--garden-body)" }}>
-            {project.gig.venueName ? `${project.gig.venueName} · ` : ""}
-            {project.gig.schedule}
-            {project.gig.status === "open" && project.gig.nextDateLabel
-              ? ` · next ${project.gig.nextDateLabel}`
-              : project.gig.status === "paused"
-                ? " · paused"
-                : project.gig.status === "ended"
-                  ? " · ended"
-                  : ""}
-            {project.gig.status === "open" && project.gig.openCount > 0 && (
-              <span style={{ color: "var(--garden-citron)" }}>
-                {" "}· {project.gig.openCount} {project.gig.openCount === 1 ? "date" : "dates"} open
-              </span>
-            )}
-          </p>
-        )}
-        {project.viewerGate && (
-          // The card is one big link, so this is words, not a nested link;
-          // the project page carries the membership link.
-          <p className="text-[13px] mb-2" style={{ color: "var(--garden-body)" }}>
-            Members respond.{project.viewerGate.upgradePath ? ` ${project.viewerGate.upgradePath}` : ""}
-          </p>
-        )}
-        {otherRoles.length > 0 &&
-          (spellRoles ? (
-            <ul className="text-[13px] mb-2 flex flex-col gap-0.5" style={{ color: "var(--garden-body)" }}>
-              {otherRoles.slice(0, 3).map((r) => (
-                <li key={r.roleId} className="flex justify-between gap-2">
-                  <span className="min-w-0 break-words">{r.title}</span>
-                  {r.budgetType && (
-                    <span className="shrink-0" style={{ color: "var(--garden-citron)", fontFamily: "var(--garden-font-mono)" }}>
-                      {budgetAmountLabel(r) ?? budgetKindLabel(r)}
-                    </span>
-                  )}
-                </li>
-              ))}
-              {otherRoles.length > 3 && (
-                <li style={{ color: "var(--garden-muted)" }}>+{otherRoles.length - 3} more</li>
-              )}
-            </ul>
-          ) : (
-            <p className="text-[13px] mb-2" style={{ color: "var(--garden-citron)" }}>
-              Looking for {openRoles.length} {openRoles.length === 1 ? "person" : "people"}
-            </p>
-          ))}
-        {raising && (project.goal ?? 0) > 0 && (
-          <GoalProgress raisedCents={project.raisedCents ?? 0} goal={project.goal} compact />
-        )}
-        {project.interests && project.interests.length > 0 && (
-          // Capped at 3 — a browse card is a scan, not the full tag list
-          // (that's what the detail page is for); every tag rendered here
-          // was competing with the title and blurb for the same glance.
-          <div className="flex flex-wrap gap-1 mb-2">
-            {project.interests.slice(0, 3).map((tag: string) => (
-              <span
-                key={tag}
-                className="px-2 py-0.5 rounded-full text-[12px] font-medium"
-                style={{
-                  fontFamily: "var(--garden-font-body)",
-                  backgroundColor: "rgba(198,198,190,0.1)",
-                  color: "var(--garden-muted)",
-                }}
-              >
-                {tag}
-              </span>
-            ))}
-            {project.interests.length > 3 && (
-              <span
-                className="px-2 py-0.5 rounded-full text-[12px] font-medium"
-                style={{
-                  fontFamily: "var(--garden-font-body)",
-                  color: "var(--garden-dim)",
-                }}
-              >
-                +{project.interests.length - 3}
-              </span>
-            )}
-          </div>
-        )}
-        {project.blurb && (
-          <p className="text-sm line-clamp-2 mb-3" style={{ color: "var(--garden-dim)" }}>
-            {project.blurb}
-          </p>
-        )}
+        {details}
         {/* Who made it, and the two ways to show up for it as icons at the
             end of the same line, the way a feed post carries its heart. A
             job or gig is paid, not backed, so it has none. */}

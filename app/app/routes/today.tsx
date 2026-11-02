@@ -21,10 +21,7 @@ import { formatMoney } from "../garden/ui";
 import { CLAIMS } from "../constants/claims";
 import { resolveStage, stageLabel } from "../lib/stage";
 import { Dissolve } from "../hooks/useReveal";
-import { AbstractCover } from "../components/AbstractCover";
-import { CoverFrame } from "../components/CoverFrame";
-import { canSaveProject, coverOf, fundingOf, moneyOf, pickProjects } from "../lib/projectPick";
-import { isRaising } from "../lib/browse/projectsFilter";
+import { coverOf, fundingOf, moneyOf, pickProjects } from "../lib/projectPick";
 import { FF_DESK } from "../lib/featureFlags";
 import { Desk } from "../desk/Desk";
 import { useIsDesktop } from "../hooks/useMediaQuery";
@@ -40,9 +37,8 @@ import { GardenLockup } from "../brand/GardenMark";
 import { useDeskCommunity } from "../desk/deskState";
 import { shownInterests } from "../constants/interests";
 import { bylineOf } from "../lib/byline";
-import { Byline } from "../components/Byline";
-import { FavoriteButton } from "../components/FavoriteButton";
-import { SupportButtons, useProjectSupport, type SupportMode } from "../components/ProjectSupport";
+import { useProjectSupport, type SupportMode } from "../components/ProjectSupport";
+import { PostActions, PostMaker, PostTitle, ProjectCover } from "../components/ProjectPost";
 
 export function meta() {
   return [{ title: "Today — The Garden" }];
@@ -495,30 +491,6 @@ function StatusPill({ live, when }: { live: boolean; when: string | null }) {
 // Projects
 // ——————————————————————————————————————————————————————————————
 
-/** A project's picture in the 4:5 cover shape (docs/features/cover-4x5.md),
-    shown whole; without one, the abstract cover in the same box so the
-    page doesn't jump when a picture arrives. */
-function ProjectCover({
-  cover,
-  seed,
-  className = "",
-  square = false,
-}: {
-  cover: string | null;
-  seed: string;
-  className?: string;
-  square?: boolean;
-}) {
-  if (cover) return <CoverFrame src={cover} alt="" className={className} square={square} />;
-  return (
-    <div className={`relative ${square ? "aspect-square" : "aspect-[4/5]"} overflow-hidden ${className}`}>
-      <div className="absolute inset-0">
-        <AbstractCover seed={seed} />
-      </div>
-    </div>
-  );
-}
-
 function FeaturedProject({ project }: { project: Project }) {
   // The team and its open roles are what someone deciding whether to join
   // needs; only the featured card pays for these two lookups.
@@ -619,6 +591,10 @@ function FeaturedProject({ project }: { project: Project }) {
     are separate links, and the buttons sit outside both, so nothing is
     nested. Where it sits in the words column is `wordsCol`.
 
+    The maker's header, the picture (and the title that goes on it when there
+    is none) and the actions row are components/ProjectPost.tsx's, shared
+    with the Projects tab's cards, which lay them out as a column.
+
     The picture-and-words link is a stretched link: a real box at every
     width (a `display: contents` anchor can't take focus in Chrome, and older
     Safari drops it from the accessibility tree), whose ::after covers the
@@ -640,29 +616,19 @@ export function ProjectRow({
   const cover = coverOf(project);
   const funded = fundingOf(project, formatMoney);
   const daysLeft = project.raiseByDate && project.raiseByDate > Date.now() ? Math.max(1, Math.ceil((project.raiseByDate - Date.now()) / 86400000)) : null;
-  const byline = bylineOf(project);
   const meta = [
     stageLabel(resolveStage(project)),
     funded ? `${funded.raised} of ${funded.goal}` : null,
     daysLeft ? `${daysLeft} ${daysLeft === 1 ? "day" : "days"} left` : null,
   ].filter(Boolean);
-  const raising = isRaising(project);
-  const canSave = canSaveProject(viewer, project);
   const wordsCol = flip ? "md:col-start-1" : "md:col-start-2";
   const pictureCol = flip ? "md:col-start-2" : "md:col-start-1";
   const hasBlurb = !!project.blurb;
-  const titleStyle: CSSProperties = { ...DISPLAY, color: "var(--app-text)" };
   return (
     <article
       className={`relative isolate md:grid md:gap-x-14 md:grid-rows-[1fr_repeat(6,auto)_1fr] ${flip ? "md:grid-cols-[minmax(0,1fr)_320px]" : "md:grid-cols-[320px_minmax(0,1fr)]"}`}
     >
-      {byline && (
-        <div className={`relative z-10 w-fit max-w-full mb-1 md:mb-5 md:row-start-2 ${wordsCol}`}>
-          <Byline byline={byline} size="post" linked>
-            {project.community ? `in ${project.community.name}` : undefined}
-          </Byline>
-        </div>
-      )}
+      <PostMaker project={project} className={`md:mb-5 md:row-start-2 ${wordsCol}`} />
       <Link
         to={`/projects/${project._id}`}
         className="group grid grid-cols-[minmax(0,1fr)] after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-[var(--app-accent-ink)] md:col-span-full md:row-span-full md:grid-cols-subgrid md:grid-rows-subgrid"
@@ -682,22 +648,12 @@ export function ProjectRow({
             one it lies over the bottom of the abstract cover (the same grid
             cell as the picture), on a scrim so it reads over any of the
             shapes, and from md it moves into the words like any other. */}
-        <div
-          className={`md:row-start-4 md:m-0 md:p-0 md:self-auto md:bg-none ${wordsCol} ${
-            cover
-              ? "mt-3 md:mt-0"
-              : "relative z-10 col-start-1 row-start-1 self-end -mx-4 sm:mx-0 px-4 pb-4 pt-20 bg-[linear-gradient(to_top,rgba(18,18,18,0.92),rgba(18,18,18,0.6)_55%,transparent)]"
-          }`}
-        >
-          <h3
-            className={`tracking-[-0.01em] group-hover:underline group-focus-visible:underline md:text-[30px] md:leading-tight md:line-clamp-none ${
-              cover ? "text-[17px] leading-snug font-semibold line-clamp-2 md:font-semibold" : "text-[34px] leading-[1.05] font-bold line-clamp-4 md:font-semibold"
-            }`}
-            style={titleStyle}
-          >
-            {project.title}
-          </h3>
-        </div>
+        <PostTitle
+          title={project.title}
+          hasCover={!!cover}
+          className={`md:row-start-4 md:m-0 md:p-0 md:self-auto md:bg-none ${wordsCol}`}
+          wide
+        />
         {project.blurb && (
           <p
             className={`${cover ? "mt-1" : "mt-3"} text-[15px] leading-snug line-clamp-2 md:mt-3 md:row-start-5 md:leading-relaxed md:line-clamp-3 ${wordsCol}`}
@@ -715,29 +671,15 @@ export function ProjectRow({
           </p>
         )}
       </Link>
-      {/* The post's last row, outside the link: the heart (with how many
-          cheered or backed it), Back this while it's raising, and Save at
-          the far right. 44px targets; the margins pull the icons' own edges
-          level with the words. Each group sits above the link's cover; the
-          empty space between them is the cover, so it opens the project. */}
-      <div className={`mt-1 flex items-center md:mt-6 md:row-start-7 ${wordsCol}`}>
-        {project.kind === "passion" && (
-          <div className="relative z-10 -ml-[9px]">
-            <SupportButtons
-              raising={raising}
-              count={project.supportCount}
-              onSupport={(mode) => onSupport(project, mode)}
-              size="post"
-              name={project.title}
-            />
-          </div>
-        )}
-        {canSave && (
-          <div className="ml-auto relative z-10 -mr-2.5 flex items-center">
-            <FavoriteButton targetType="project" targetId={project._id} name={project.title} look="icon" />
-          </div>
-        )}
-      </div>
+      {/* The post's last row, outside the link (components/ProjectPost.tsx):
+          cheer, back and save. Only a passion project is cheered or backed. */}
+      <PostActions
+        project={project}
+        viewer={viewer}
+        support={project.kind === "passion"}
+        onSupport={(mode) => onSupport(project, mode)}
+        className={`md:mt-6 md:row-start-7 ${wordsCol}`}
+      />
     </article>
   );
 }

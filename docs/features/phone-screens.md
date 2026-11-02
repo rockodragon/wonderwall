@@ -29,6 +29,11 @@ in `app/app/components/phone/`:
   `feed`; only their own browse pages pass it. From sm up the framed grid
   card is unchanged, and the dashed "make one" tile is back in first place
   (a phone has the action in the bar instead).
+  A project's feed card is a post, the same as Today's Open projects
+  (`components/ProjectPost.tsx`): who made it on top, a square picture, the
+  title and words, then Cheer, Back this and Save as its last row. It has
+  that layout at every width, framed from sm up with the maker inside the
+  frame. With no picture the title is set on the abstract cover.
 
 The bar and the tabs bleed out of the page's `p-4 sm:p-6` gutter
 (`PHONE_BLEED`) and put the gutter back inside themselves, so they span the
