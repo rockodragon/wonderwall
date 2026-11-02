@@ -243,6 +243,16 @@ const RULES: Rule[] = [
     use: "textParagraphs in app/lib/textParagraphs.ts",
   },
   {
+    name: "viewer for Save built by hand (one place)",
+    // { signedIn, profile }: who is looking, as canSaveProject reads it. Three
+    // pages built it themselves; a fourth would drift (how it holds while the
+    // profile loads is the part that matters).
+    pattern: /\{\s*signedIn:\s*isAuthenticated,\s*profile\b/g,
+    limit: 0,
+    home: "app/lib/useViewer.ts",
+    use: "useViewer() in app/lib/useViewer.ts",
+  },
+  {
     name: "CSV cell escaped by hand (one place)",
     // The quote doubling at the heart of a CSV escaper. The copies had
     // drifted: one forgot that a \r needs quoting too.

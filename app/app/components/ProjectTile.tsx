@@ -5,8 +5,9 @@ import { stageLabel, type Stage } from "../lib/stage";
 import { CoverFrame } from "./CoverFrame";
 import { EMPTY_COVER } from "./emptyCover";
 
-/** A project on a profile or an organization's page, in the Projects page's
- * card (routes/projects.tsx ProjectCard): the 4:5 cover with what it is
+/** A project on a profile or an organization's page, in the framed card the
+ * Projects page drew before it became a feed (it is a post now, routes/
+ * projects.tsx ProjectCard): the 4:5 cover with what it is
  * and its pay on top, then the title, the person's part in it (a profile;
  * `role` is null on an organization's page) and what it's after. Takes a
  * row from garden.projectTeam's listAffiliations or listOrgProjects. */
@@ -40,7 +41,7 @@ export function ProjectTile({ project: a }: { project: any }) {
           <CoverFrame src={a.imageUrl} alt={a.title} />
         ) : (
           // No photo: a strip on a phone, the full 4:5 where cards sit side
-          // by side and rows must line up (same as ProjectCard).
+          // by side and rows must line up.
           <div className="h-16 sm:h-auto sm:aspect-[4/5]" style={EMPTY_COVER} />
         )}
         <div className="absolute inset-x-2 top-2 flex items-start justify-between gap-2">

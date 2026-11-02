@@ -92,6 +92,15 @@ export function moneyOf(p: BudgetDeclaration & { gig?: { status: string } | null
   return amount && p.gig && p.budgetType === "amount" ? `${amount}/date` : amount;
 }
 
+/** Who is looking at a project: whether they are signed in, and their
+ * profile (profiles:getMyProfile's answer: null when they have none,
+ * undefined while it loads). The one shape every page that offers Save reads;
+ * useViewer (lib/useViewer.ts) draws it from the live queries. */
+export type PostViewer = {
+  signedIn: boolean;
+  profile: { userId?: string } | null | undefined;
+};
+
 /** Whether this profile leads the project (profiles:getMyProfile's userId
  * against the project's). False while the profile loads or signed out. */
 export function isProjectOwner(
@@ -110,7 +119,7 @@ export function isProjectOwner(
  * The project page and Today's posts both read it from here.
  */
 export function canSaveProject(
-  viewer: { signedIn: boolean; profile: { userId?: string } | null | undefined },
+  viewer: PostViewer,
   project: { userId?: string; status: string },
 ): boolean {
   return (

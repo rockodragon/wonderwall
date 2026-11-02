@@ -34,16 +34,15 @@ describe("Byline", () => {
   const org = { kind: "org", name: "Abiding Practice", imageUrl: null, href: "/orgs/abiding-practice" } as const;
 
   it("is a round avatar for a person", () => {
-    const html = renderToStaticMarkup(<Byline byline={person} size="sm" />);
+    const html = renderToStaticMarkup(<Byline byline={person} />);
     expect(html).toContain("rounded-full");
-    expect(html).toContain("h-5 w-5");
+    expect(html).toContain("h-6 w-6");
     expect(html).toContain("Mara Lin");
     expect(html).not.toContain("<a ");
   });
 
   it("is a square logo for an organization", () => {
-    const card = renderToStaticMarkup(<Byline byline={org} size="sm" />);
-    expect(card).toContain("h-5 w-5");
+    const card = renderToStaticMarkup(<Byline byline={org} />);
     expect(card).not.toContain("rounded-full");
     const page = renderToStaticMarkup(
       <MemoryRouter>

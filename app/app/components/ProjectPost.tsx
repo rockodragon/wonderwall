@@ -1,7 +1,7 @@
 // The parts of a project drawn as a feed post, shared by Today's Open
 // projects (routes/today.tsx ProjectRow) and the Projects tab's cards
-// (routes/projects.tsx ProjectCard with `feed`), so a post is one layout and
-// not two (Rick, 2026-11-02: make the Projects tab match Today).
+// (routes/projects.tsx ProjectCard), so a post is one layout and not two
+// (Rick, 2026-11-02: make the Projects tab match Today).
 //
 // Top to bottom a post is: who made it (PostMaker), the picture in a square
 // (ProjectCover), the title (PostTitle: under the picture, or set large on
@@ -17,19 +17,12 @@
 import type { CSSProperties } from "react";
 import { bylineOf } from "../lib/byline";
 import { isRaising } from "../lib/browse/projectsFilter";
-import { canSaveProject } from "../lib/projectPick";
+import { canSaveProject, type PostViewer } from "../lib/projectPick";
 import { AbstractCover } from "./AbstractCover";
 import { Byline } from "./Byline";
 import { CoverFrame } from "./CoverFrame";
 import { FavoriteButton } from "./FavoriteButton";
 import { SupportButtons, type SupportMode } from "./ProjectSupport";
-
-/** Who is looking: whether they are signed in, and their profile (undefined
- *  while it loads), the two things canSaveProject reads. */
-export type PostViewer = {
-  signedIn: boolean;
-  profile: { userId?: string } | null | undefined;
-};
 
 /** A project's picture in the 4:5 cover shape (docs/features/cover-4x5.md),
     shown whole; `square` is a list's picture, cropped to fill. Without one,
@@ -129,12 +122,17 @@ export function PostTitle({
     the project (canSaveProject). Each group sits above the link's cover; the
     empty space between them is the cover, so it opens the project. Each
     button is named for the project, so a page of posts isn't a row of
-    identical Cheers. */
+    identical Cheers.
+
+    A post led by one of its roles (the Jobs and gigs list shows a project as
+    "Drummer", the role) passes that `role`: Save then saves the role, as on
+    the project's own page, under the same rule, and is named for it. */
 export function PostActions({
   project,
   viewer,
   support,
   onSupport,
+  role,
   className = "",
 }: {
   project: {
@@ -152,6 +150,8 @@ export function PostActions({
   viewer: PostViewer;
   support: boolean;
   onSupport: (mode: SupportMode) => void;
+  /** The open role the post leads with, when its title is the role's. */
+  role?: { roleId: string; title: string } | null;
   className?: string;
 }) {
   const canSave = canSaveProject(viewer, project);
@@ -170,7 +170,11 @@ export function PostActions({
       )}
       {canSave && (
         <div className="ml-auto relative z-10 -mr-2.5 flex items-center">
-          <FavoriteButton targetType="project" targetId={project._id} name={project.title} look="icon" />
+          {role ? (
+            <FavoriteButton targetType="role" targetId={role.roleId} name={role.title} look="icon" />
+          ) : (
+            <FavoriteButton targetType="project" targetId={project._id} name={project.title} look="icon" />
+          )}
         </div>
       )}
     </div>

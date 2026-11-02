@@ -72,6 +72,7 @@ import { useProfileLinks } from "../lib/useProfileLinks";
 import { signupHref } from "../lib/pendingIntent";
 import { bylineOf } from "../lib/byline";
 import { canSaveProject, isProjectOwner } from "../lib/projectPick";
+import { useViewer } from "../lib/useViewer";
 import { Byline } from "../components/Byline";
 import { PersonAvatar } from "../components/PersonAvatar";
 import { PortfolioSamplePicker } from "../components/PortfolioSamples";
@@ -202,7 +203,9 @@ const TABS_ROW_ID = "project-tabs";
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const project = useQuery(api.garden.projects.getProject, id ? { projectId: id } : "skip");
-  const myProfile = useQuery(api.profiles.getMyProfile);
+  // Who is looking (lib/useViewer.ts): signed in, and the profile.
+  const viewer = useViewer();
+  const myProfile = viewer.profile;
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   // Names link to profiles only for a member (profiles aren't public).
   const profileLinks = useProfileLinks();
@@ -264,7 +267,7 @@ export default function ProjectDetail() {
   // signed-in member who isn't the lead, on a project the browse lists show.
   // favorites.toggle refuses the rest, so the page never offers a save that
   // would fail. Held until the profile loads, so the lead never sees it flash.
-  const canSave = canSaveProject({ signedIn: isAuthenticated, profile: myProfile }, project);
+  const canSave = canSaveProject(viewer, project);
   const raising = isRaising(project);
   const isPassion = project.kind === "passion";
   // No chip for a plain project: "Project" on a project's own page says nothing.

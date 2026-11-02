@@ -25,15 +25,18 @@ in `app/app/components/phone/`:
   Upcoming · Saved · Past). Not `components/project/Tabs.tsx`, which is the
   WAI-ARIA tabs-over-panels pattern for one page.
 - **The feed.** One column, each item edge to edge: the cover across the
-  screen, the words under it, no frame. `EventCard` and `ProjectCard` take
-  `feed`; only their own browse pages pass it. From sm up the framed grid
-  card is unchanged, and the dashed "make one" tile is back in first place
-  (a phone has the action in the bar instead).
-  A project's feed card is a post, the same as Today's Open projects
-  (`components/ProjectPost.tsx`): who made it on top, a square picture, the
-  title and words, then Cheer, Back this and Save as its last row. It has
-  that layout at every width, framed from sm up with the maker inside the
-  frame. With no picture the title is set on the abstract cover.
+  screen, the words under it, no frame. `EventCard` takes `feed`; only its
+  own browse page passes it. From sm up its framed grid card is unchanged,
+  and the dashed "make one" tile is back in first place (a phone has the
+  action in the bar instead).
+  A project is a post, the same as Today's Open projects
+  (`ProjectCard`, `components/ProjectPost.tsx`): who made it on top, a
+  square picture, the title and words, then Cheer, Back this and Save as its
+  last row. There is one `ProjectCard`: it has that layout at every width,
+  framed from sm up with the maker inside the frame (or the picture, rounded,
+  when it has no maker). The picture is the one Today shows (`coverOf`), and
+  with none the title is set on the abstract cover. A role-led card (Jobs and
+  gigs) saves the role.
 
 The bar and the tabs bleed out of the page's `p-4 sm:p-6` gutter
 (`PHONE_BLEED`) and put the gutter back inside themselves, so they span the

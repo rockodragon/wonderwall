@@ -33,8 +33,6 @@ import { TagFilterPills } from "../components/TagFilterPills";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import { Dissolve } from "../hooks/useReveal";
 import { EmbedStill } from "../components/EmbedStill";
-import { CoverFrame } from "../components/CoverFrame";
-import { EMPTY_COVER } from "../components/emptyCover";
 import { CreateCard } from "../components/CreateCard";
 import { ProjectModal } from "../components/ProjectModal";
 import { INTEREST_OPTIONS } from "../lib/browse/peopleFilter";
@@ -44,9 +42,10 @@ import { Plus } from "@phosphor-icons/react";
 import { shareProjectHref, spendStartLink } from "../lib/shareProject";
 import { signupHref } from "../lib/pendingIntent";
 import { bylineOf } from "../lib/byline";
-import { Byline } from "../components/Byline";
-import { SupportButtons, useProjectSupport, type SupportMode } from "../components/ProjectSupport";
-import { PostActions, PostMaker, PostTitle, ProjectCover, type PostViewer } from "../components/ProjectPost";
+import { coverOf, type PostViewer } from "../lib/projectPick";
+import { useViewer } from "../lib/useViewer";
+import { useProjectSupport, type SupportMode } from "../components/ProjectSupport";
+import { PostActions, PostMaker, PostTitle, ProjectCover } from "../components/ProjectPost";
 
 // The four chips (Projects, Seeking funding, Seeking people, Jobs and gigs),
 // the Stage menu and the pure filtering live in lib/browse/projectsFilter.ts,
@@ -98,10 +97,9 @@ export default function Projects() {
   const [hiring, setHiring] = useState(false);
   const navigate = useNavigate();
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
-  // Who is looking, for each post's Save (lib/projectPick.ts canSaveProject):
-  // held until the profile has loaded, so the lead never sees Save flash.
-  const profile = useQuery(api.profiles.getMyProfile);
-  const viewer = { signedIn: isAuthenticated, profile };
+  // Who is looking, for each post's Save (lib/useViewer.ts): held until the
+  // profile has loaded, so the lead never sees Save flash.
+  const viewer = useViewer();
   // Anyone can browse; posting and cheering need an account. A visitor has
   // none yet, so they go to sign up (Rick, 2026-10-09), which brings them
   // back here.
@@ -387,7 +385,7 @@ export default function Projects() {
             {/* The make-one card is first from sm up, so an empty list is
                 just the grid with that one card in it. A phone reads the
                 list as a feed: one column of posts, each picture edge to
-                edge (ProjectCard's feed look, the same as Today's), no tile.
+                edge (ProjectCard, the same post as Today's), no tile.
                 The space between posts is what sets them apart. */}
             <div className="grid grid-cols-1 gap-7 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
               <div className="hidden sm:block">
@@ -398,7 +396,6 @@ export default function Projects() {
                   key={project._id}
                   project={project}
                   lens={lens}
-                  feed
                   viewer={viewer}
                   onSupport={(mode) => support(project, mode)}
                   matched={hasMatchFilter && isMatch(project)}
@@ -535,37 +532,37 @@ function PostMenu({
   );
 }
 
-// Nobody is looking: no Save. What a card without a viewer reads.
-const NO_VIEWER: PostViewer = { signedIn: false, profile: undefined };
-
+/** One project on the Projects tab, drawn as a feed post, the same as Today's
+ * Open projects (components/ProjectPost.tsx; docs/features/phone-screens.md):
+ * the maker, a square picture with the kind and the money over it, the title,
+ * the words, then cheer, back and save as the last row. A project with no
+ * picture has the abstract cover with its title on it. On a phone no frame;
+ * from sm up the grid card, the maker on top inside it. It is one article:
+ * the project link is stretched over it and the maker and the buttons sit
+ * above that, so no link or button is inside another. */
 export function ProjectCard({
   project,
   lens,
   onSupport,
   matched,
-  feed = false,
-  viewer = NO_VIEWER,
+  viewer,
 }: {
   project: any;
   lens: ProjectsLens;
   onSupport: (mode: SupportMode) => void;
   matched?: boolean;
-  /** The Projects tab's look (docs/features/phone-screens.md): a feed post,
-   * the same as Today's Open projects (components/ProjectPost.tsx) — the
-   * maker, a square picture, the words, then cheer, back and save — at every
-   * width, framed from sm up. Only /projects passes it. */
-  feed?: boolean;
-  /** Who is looking, for the feed post's Save (canSaveProject). */
-  viewer?: PostViewer;
+  /** Who is looking, for Save (canSaveProject; lib/useViewer.ts). */
+  viewer: PostViewer;
 }) {
-  // The photo first, then the pasted link's still, then the first attached
-  // artifact's file (docs/features/creator-media-cross-post.md, Round 2).
-  // The still is static — a grid never loads a player.
+  // The photo first, then the pasted link's still (the embed's, shown with its
+  // play badge), then the project's cover as Today picks it (lib/projectPick.ts
+  // coverOf: a link's preview, else the first attached image — never an audio
+  // or link artifact, which has no picture) so both pages show the same one
+  // (docs/features/creator-media-cross-post.md, Round 2). The still is static
+  // — a grid never loads a player.
   const photo = project.resolvedPhotoUrl ?? null;
   const mediaEmbed = photo ? null : toEmbedUrl(project.mediaUrl);
-  const thumb =
-    photo ??
-    (mediaEmbed ? null : (project.media.find((m: any) => m.resolvedMediaUrl)?.resolvedMediaUrl ?? null));
+  const thumb = mediaEmbed ? null : coverOf(project);
   // Passion-only campaign deadline (docs/the-exchange-v1-prd.md §7 review
   // follow-up) — a past raiseByDate just means the badge doesn't render;
   // building a distinct "expired" state is explicitly out of scope.
@@ -779,140 +776,54 @@ export function ProjectCard({
     </div>
   );
 
-  // The Projects tab's look (docs/features/phone-screens.md): a feed post, the
-  // same as Today's Open projects (components/ProjectPost.tsx). The maker,
-  // the square picture with the kind and the money over it, the title, the
-  // words, then cheer, back and save as the last row. A project with no
-  // picture has the abstract cover with its title on it. On a phone no frame;
-  // from sm up the grid card, the maker on top inside it. It is one article:
-  // the project link is stretched over it and the maker and the buttons sit
-  // above that, so no link or button is inside another.
-  if (feed) {
-    const hasCover = !!thumb || !!mediaEmbed;
-    return (
-      <article
-        className="relative isolate flex flex-col sm:rounded-2xl sm:border sm:bg-[var(--garden-ink-raised)]"
-        style={{ borderColor: "var(--garden-hairline)" }}
-      >
-        {byline && (
-          <div className="sm:px-4 sm:pt-3">
-            <PostMaker project={project} />
-          </div>
-        )}
-        <Link
-          to={`/projects/${project._id}`}
-          className="group grid flex-1 grid-cols-[minmax(0,1fr)] content-start after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-[var(--app-accent-ink)]"
-        >
-          {/* Edge to edge on a phone (the page's side gutter taken back). The
-              badges sit beside the picture, not inside it, so it dissolves in
-              as the post scrolls into view and they don't. */}
-          <div className="relative col-start-1 row-start-1 -mx-4 sm:mx-0">
-            {thumb || !mediaEmbed ? (
-              <Dissolve style={{ backgroundColor: "#121212" }}>
-                <ProjectCover cover={thumb} seed={project._id} square />
-              </Dissolve>
-            ) : (
-              <Dissolve>
-                <div className="relative aspect-square overflow-hidden" style={{ backgroundColor: "var(--garden-ink)" }}>
-                  <EmbedStill embed={mediaEmbed} previewUrl={project.mediaPreviewUrl} title={project.title} badgeSize="sm" />
-                </div>
-              </Dissolve>
-            )}
-            {badges}
-          </div>
-          <PostTitle title={title} hasCover={hasCover} className="sm:px-4" />
-          <div className={`min-w-0 sm:px-4 [&>:last-child]:mb-0 ${hasCover ? "mt-1.5" : "mt-3"}`}>{details}</div>
-        </Link>
-        {/* A job or gig is paid, not backed, so it has no Cheer or Back. */}
-        <PostActions
-          project={project}
-          viewer={viewer}
-          support={project.kind === "passion" && lens !== "work"}
-          onSupport={onSupport}
-          className="sm:px-4 sm:pb-2"
-        />
-      </article>
-    );
-  }
-
-  const card = (
-    <div
-      className="group overflow-hidden h-full flex flex-col transition-colors rounded-2xl border bg-[var(--garden-ink-raised)]"
+  const hasCover = !!thumb || !!mediaEmbed;
+  return (
+    <article
+      className="relative isolate flex flex-col sm:rounded-2xl sm:border sm:bg-[var(--garden-ink-raised)]"
       style={{ borderColor: "var(--garden-hairline)" }}
     >
-      {/* Same fixed overlay spot Classes uses: kind top-left, money top-right
-          of the image area, in the SAME place whether or not there's a
-          photo — founder item (Classes redesign) was explicit that a
-          photo-dependent position defeats the point of a fixed badge.
-          The cover is 4:5 (docs/features/cover-4x5.md). Without a photo the
-          area collapses to a strip on a phone, where a portrait empty box
-          was most of a screen of nothing, and goes altogether when there's
-          no badge for the strip to hold; it keeps the full 4:5 box from sm
-          up, where cards sit side by side and rows must line up. The
-          badges sit beside the cover, not inside it, so the picture
-          dissolves in as the card scrolls into view and they don't. */}
-      <div className="relative">
-        {thumb ? (
-          <Dissolve>
-            <CoverFrame src={thumb} alt={project.title} />
-          </Dissolve>
-        ) : mediaEmbed ? (
-          <Dissolve>
-            <div
-              className="relative aspect-[4/5] overflow-hidden"
-              style={{ backgroundColor: "var(--garden-ink)" }}
-            >
-              <EmbedStill
-                embed={mediaEmbed}
-                previewUrl={project.mediaPreviewUrl}
-                title={project.title}
-                badgeSize="sm"
-              />
-            </div>
-          </Dissolve>
-        ) : (
-          <div
-            className={hasBadge ? "h-16 sm:h-auto sm:aspect-[4/5]" : "hidden sm:block sm:aspect-[4/5]"}
-            style={EMPTY_COVER}
-          />
-        )}
-        {badges}
-      </div>
-      <div className="flex-1 flex flex-col min-w-0 p-4">
-        <h3
-          className="font-semibold line-clamp-2 mb-1"
-          style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
-        >
-          {title}
-        </h3>
-        {details}
-        {/* Who made it, and the two ways to show up for it as icons at the
-            end of the same line, the way a feed post carries its heart. A
-            job or gig is paid, not backed, so it has none. */}
-        <div className="mt-auto flex items-center justify-between gap-2 pt-2 min-w-0">
-          {byline && (
-            <Byline byline={byline} size="sm">
-              {project.community && (
-                <span style={{ color: "var(--garden-dim)" }}> · in {project.community.name}</span>
-              )}
-            </Byline>
-          )}
-          {project.kind === "passion" && lens !== "work" && (
-            <div className="ml-auto">
-              <SupportButtons raising={raising} onSupport={onSupport} count={project.supportCount} size="sm" />
-            </div>
-          )}
+      {byline && (
+        <div className="sm:px-4 sm:pt-3">
+          <PostMaker project={project} />
         </div>
-      </div>
-    </div>
+      )}
+      <Link
+        to={`/projects/${project._id}`}
+        className="group grid flex-1 grid-cols-[minmax(0,1fr)] content-start after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-[var(--app-accent-ink)]"
+      >
+        {/* Edge to edge on a phone (the page's side gutter taken back). The
+            badges sit beside the picture, not inside it, so it dissolves in
+            as the post scrolls into view and they don't. With no maker the
+            picture is the top of the frame, so from sm up it takes the
+            frame's rounded corners. */}
+        <div className={`relative col-start-1 row-start-1 -mx-4 sm:mx-0${byline ? "" : " sm:overflow-hidden sm:rounded-t-2xl"}`}>
+          {thumb || !mediaEmbed ? (
+            <Dissolve style={{ backgroundColor: "#121212" }}>
+              <ProjectCover cover={thumb} seed={project._id} square />
+            </Dissolve>
+          ) : (
+            <Dissolve>
+              <div className="relative aspect-square overflow-hidden" style={{ backgroundColor: "var(--garden-ink)" }}>
+                <EmbedStill embed={mediaEmbed} previewUrl={project.mediaPreviewUrl} title={project.title} badgeSize="sm" />
+              </div>
+            </Dissolve>
+          )}
+          {badges}
+        </div>
+        <PostTitle title={title} hasCover={hasCover} className="sm:px-4" />
+        <div className={`min-w-0 sm:px-4 [&>:last-child]:mb-0 ${hasCover ? "mt-1.5" : "mt-3"}`}>{details}</div>
+      </Link>
+      {/* A job or gig is paid, not backed, so it has no Cheer or Back. */}
+      <PostActions
+        project={project}
+        viewer={viewer}
+        support={project.kind === "passion" && lens !== "work"}
+        onSupport={onSupport}
+        role={role?.roleId ? { roleId: role.roleId, title: role.title } : null}
+        className="sm:px-4 sm:pb-2"
+      />
+    </article>
   );
-
-  // Every card is now a real, working link — before this it only linked
-  // anywhere at all when an attached portfolio artifact existed, and even
-  // then it diverted to that artifact's own /works page rather than the
-  // project's own page. That left most cards (any project with no attached
-  // media) not clickable at all.
-  return <Link to={`/projects/${project._id}`}>{card}</Link>;
 }
 
 function chipStyle(on: boolean) {

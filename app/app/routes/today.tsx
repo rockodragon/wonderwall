@@ -13,7 +13,7 @@
 // Hooks stay above every return — a Rules-of-Hooks violation crashed a
 // Garden page before.
 
-import { useConvexAuth, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { Link } from "react-router";
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
@@ -21,7 +21,8 @@ import { formatMoney } from "../garden/ui";
 import { CLAIMS } from "../constants/claims";
 import { resolveStage, stageLabel } from "../lib/stage";
 import { Dissolve } from "../hooks/useReveal";
-import { coverOf, fundingOf, moneyOf, pickProjects } from "../lib/projectPick";
+import { coverOf, fundingOf, moneyOf, pickProjects, type PostViewer } from "../lib/projectPick";
+import { useViewer } from "../lib/useViewer";
 import { FF_DESK } from "../lib/featureFlags";
 import { Desk } from "../desk/Desk";
 import { useIsDesktop } from "../hooks/useMediaQuery";
@@ -78,7 +79,11 @@ export default function Today() {
 function TodayPage() {
   const projects = useProjects();
   const events = useQuery(api.events.list, {});
-  const profile = useQuery(api.profiles.getMyProfile);
+  // Who is looking, for each post's Save: signed in, and the profile (held
+  // until it loads, so the lead never sees Save flash). The same as Projects
+  // and a project's own page (lib/useViewer.ts).
+  const viewer = useViewer();
+  const { profile } = viewer;
   // Read defensively: before the backend deploy this query doesn't exist and
   // the card simply doesn't show.
   const giving = useQuery(api.garden.giving.getMyGiving);
@@ -88,9 +93,7 @@ function TodayPage() {
   // Cheering and backing from a post, and who may save one: the same rules
   // as the Projects page and a project's own page (components/
   // ProjectSupport.tsx, lib/projectPick.ts).
-  const { isAuthenticated } = useConvexAuth();
   const { support, modal: supportModal } = useProjectSupport();
-  const viewer = { signedIn: isAuthenticated, profile };
 
   const episode = useMemo(() => pickEpisode(events ?? []), [events]);
 
@@ -610,7 +613,7 @@ export function ProjectRow({
 }: {
   project: Project;
   flip: boolean;
-  viewer: { signedIn: boolean; profile: { userId?: string } | null | undefined };
+  viewer: PostViewer;
   onSupport: (project: Project, mode: SupportMode) => void;
 }) {
   const cover = coverOf(project);

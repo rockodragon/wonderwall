@@ -37,7 +37,7 @@ export function SupportButtons({
   raising: boolean;
   onSupport: (mode: SupportMode) => void;
   count?: number;
-  size?: "sm" | "md" | "post";
+  size?: "md" | "post";
   /** What is being cheered or backed, said in each button's accessible name
    *  ("Cheer Songs of Safety", "Back Songs of Safety") so a page of posts
    *  isn't a row of identical Cheers. Without it: "Cheer" and "Back this". */
@@ -46,8 +46,8 @@ export function SupportButtons({
   // `post` is a feed post's action row (Today): 44px targets, a bigger
   // heart, and the count in the page's own text colour at 15px semibold.
   const post = size === "post";
-  const box = post ? "w-11 h-11" : size === "sm" ? "w-9 h-9" : "w-10 h-10";
-  const icon = post ? 26 : size === "sm" ? 20 : 22;
+  const box = post ? "w-11 h-11" : "w-10 h-10";
+  const icon = post ? 26 : 22;
   const cheerLabel = name ? `Cheer ${name}` : "Cheer";
   const backLabel = name ? `Back ${name}` : "Back this";
   const click = (mode: SupportMode) => (e: React.MouseEvent) => {

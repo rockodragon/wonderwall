@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { renderToString } from "react-dom/server";
 import { MemoryRouter } from "react-router";
-import { PostActions, PostMaker, PostTitle, ProjectCover, type PostViewer } from "./ProjectPost";
+import { PostActions, PostMaker, PostTitle, ProjectCover } from "./ProjectPost";
+import type { PostViewer } from "../lib/projectPick";
 
 // The parts Today's Open projects and the Projects tab's cards share. Save is
 // a Convex-backed button, so the hooks are stood in for.
@@ -9,9 +10,13 @@ vi.mock("../lib/featureFlags", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../lib/featureFlags")>()),
   FF_BACKING: true,
 }));
+const asked = vi.hoisted(() => ({ saves: [] as { targetType: string; targetId: string }[] }));
 vi.mock("convex/react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("convex/react")>()),
-  useQuery: () => undefined,
+  useQuery: (_fn: unknown, args?: { targetType: string; targetId: string }) => {
+    if (typeof args === "object" && args && "targetType" in args) asked.saves.push(args);
+    return undefined;
+  },
   useMutation: () => async () => {},
   useAction: () => async () => {},
 }));
@@ -62,6 +67,8 @@ describe("ProjectCover", () => {
     const picture = draw(<ProjectCover cover="/c.jpg" seed="p1" square />);
     expect(picture).toContain("aspect-square");
     expect(picture).toContain("object-cover");
+    // A list's pictures load as they near the screen.
+    expect(picture).toContain('loading="lazy"');
     const bare = draw(<ProjectCover cover={null} seed="p1" square />);
     expect(bare).toContain("aspect-square");
     expect(bare).toContain('<svg viewBox="0 0 160 100"');
@@ -123,6 +130,20 @@ describe("PostActions", () => {
     expect(html).not.toContain("Cheer");
     expect(html).not.toContain('aria-label="Back ');
     expect(html).toContain('aria-label="Save Harbor Mural"');
+  });
+
+  it("saves a role instead of the project when the post leads with one, named for it, under the same rule", () => {
+    asked.saves = [];
+    const role = { roleId: "r1", title: "Drummer" };
+    const html = row({ role });
+    expect(html).toContain('aria-label="Save Drummer"');
+    expect(html).not.toContain("Save Harbor Mural");
+    expect(asked.saves).toEqual([{ targetType: "role", targetId: "r1" }]);
+    expect(row({ role, viewer: { signedIn: false, profile: null } })).not.toContain("Save");
+    expect(row({ role, project: { ...project, userId: "u-me" } })).not.toContain("Save");
+    asked.saves = [];
+    expect(row({ role: null })).toContain('aria-label="Save Harbor Mural"');
+    expect(asked.saves).toEqual([{ targetType: "project", targetId: "p1" }]);
   });
 
   it("offers Save by canSaveProject: not on your own project, signed out, before the profile loads, or on a hidden one", () => {
