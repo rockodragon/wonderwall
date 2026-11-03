@@ -52,7 +52,7 @@ const percentText = (part: number, whole: number) => {
 const waitText = (minutes: number | null) => (minutes === null ? NONE : formatWait(minutes));
 
 const TH = `${admin.hint} pb-2 text-left align-bottom font-medium`;
-const TH_NUMBER = `${TH} text-right`;
+const TH_NUMBER = `${TH} pl-3 text-right`;
 const TD = "py-2 text-[14px] text-[color:var(--app-text)]";
 const TD_NUMBER = `${TD} pl-3 text-right tabular-nums`;
 
@@ -87,12 +87,12 @@ function Report() {
           columns="grid-cols-3"
           items={[
             { label: "Answered", value: report.responses.replied },
-            { label: "Read, no answer", value: report.responses.readNoReply },
-            { label: "Not read yet", value: report.responses.unread },
+            { label: "Read only", value: report.responses.readNoReply },
+            { label: "Unread", value: report.responses.unread },
           ]}
         />
       </Panel>
-      <Panel title="How long they run" hint={`${since} By messages sent in each.`}>
+      <Panel title="How long they run" hint={`${since}. By messages sent in each.`}>
         <Stats
           columns="grid-cols-2 sm:grid-cols-4"
           items={[

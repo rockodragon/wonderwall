@@ -17,6 +17,7 @@ import { ProfilePage, type ProfileData } from "../../../app/routes/profile";
 import { MyCodePage } from "../../../app/routes/code";
 import Settings from "../../../app/routes/settings";
 import Onboarding from "../../../app/routes/onboarding";
+import AdminMessages from "../../../app/routes/admin.messages";
 import { myPage, theirPage } from "./data";
 import "./fixture.css";
 
@@ -72,6 +73,8 @@ const router = createBrowserRouter([
       { path: "messages/:conversationId", element: <Elsewhere what="a conversation" /> },
       // The Profile tab of Settings: where the bar's Profile tab lands.
       { path: "settings", Component: Settings },
+      // Counts only, made up (data.ts messageReport); open it with ?admin.
+      { path: "admin/messages", Component: AdminMessages },
       { path: "*", element: <Elsewhere what="somewhere else" /> },
     ],
   },

@@ -98,7 +98,7 @@ describe("messages report page", () => {
 
   it("shows what happens next and how long conversations run", () => {
     const html = render();
-    for (const label of ["Answered", "Read, no answer", "Not read yet", "1 message", "2–3", "4–9", "10 or more"]) expect(html).toContain(label);
+    for (const label of ["Answered", "Read only", "Unread", "1 message", "2–3", "4–9", "10 or more"]) expect(html).toContain(label);
     expect(html).toContain(">20<");
     expect(html).toContain(">8<");
     expect(html).toContain(">7<");
