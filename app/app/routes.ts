@@ -156,6 +156,9 @@ export default [
     route("admin/engagement-loops", "routes/admin.engagement-loops.tsx"),
     route("admin/garden", "routes/admin.garden.tsx"),
     route("admin/ledger", "routes/admin.ledger.tsx"),
+    // Messages sent each week and how often they get an answer — counts
+    // only, never anyone's words (convex/admin/messageReport.ts).
+    route("admin/messages", "routes/admin.messages.tsx"),
     route("admin/waitlist", "routes/admin.waitlist.tsx"),
     // The cards members see on their canvas (docs/features/desk-updates.md).
     route("admin/updates", "routes/admin.updates.tsx"),

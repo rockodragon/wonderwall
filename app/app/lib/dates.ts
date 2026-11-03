@@ -31,6 +31,17 @@ export function timeAgo(ms: number, now = Date.now()): string {
   return "just now";
 }
 
+/** A length of time in whole minutes as a short span, for how long a wait
+ *  was: "under 1m", "35m", "2h", "3d". The nearest whole unit, so 90 minutes
+ *  reads "2h" and 25 hours reads "1d". */
+export function formatWait(minutes: number): string {
+  if (minutes < 1) return "under 1m";
+  if (minutes < 60) return `${Math.round(minutes)}m`;
+  const hours = minutes / 60;
+  if (hours < 24) return `${Math.round(hours)}h`;
+  return `${Math.round(hours / 24)}d`;
+}
+
 /** The last millisecond of a calendar date's day, for "has it closed yet". */
 export function calendarDayEnd(ms: number): number {
   const day = new Date(ms);

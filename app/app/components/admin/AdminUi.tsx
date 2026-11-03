@@ -2,8 +2,9 @@
 // loading and access-denied states, a notice box, and the sort button for
 // table headers. Class strings live in adminStyles.ts.
 
-import type { AriaAttributes, ReactNode } from "react";
+import { Component, type AriaAttributes, type ReactNode } from "react";
 import { Link } from "react-router";
+import { errorMessage } from "../../lib/convexError";
 import { PAGE_WIDTH, type PageWidth } from "../../lib/pageWidth";
 import { admin } from "./adminStyles";
 
@@ -89,6 +90,31 @@ export function AdminAccessDenied() {
       </div>
     </AdminCenter>
   );
+}
+
+/** Keeps a server error inside one part of a page, as one line, instead of
+    taking the whole page down: useQuery throws when the server refuses or
+    fails, and nothing above it catches that. Put the part that reads the
+    query inside this; `fallback` is what to say when the server gives no
+    reason of its own. */
+export class AdminErrorBoundary extends Component<
+  { fallback: string; children: ReactNode },
+  { error: unknown }
+> {
+  state = { error: null as unknown };
+  static getDerivedStateFromError(error: unknown) {
+    return { error };
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <p role="alert" className={`mt-3 ${admin.meta}`}>
+          {errorMessage(this.state.error, this.props.fallback)}
+        </p>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 export type NoticeTone = keyof typeof admin.notice;

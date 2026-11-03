@@ -18,7 +18,7 @@ import {
 } from "../components/admin/DestinationCards";
 import { MembersTable } from "../components/admin/MembersTable";
 import { CountsPanel } from "../components/admin/CountsPanel";
-import { Binoculars, CopySimple, HourglassMedium, Megaphone, PaperPlaneTilt, Plant, Pulse, Receipt, Trophy } from "@phosphor-icons/react";
+import { Binoculars, ChatsCircle, CopySimple, HourglassMedium, Megaphone, PaperPlaneTilt, Plant, Pulse, Receipt, Trophy } from "@phosphor-icons/react";
 
 // Where each admin tool lives. A grid of cards, not a column of rows.
 const DESTINATIONS: readonly Destination[] = [
@@ -76,6 +76,12 @@ const DESTINATIONS: readonly Destination[] = [
     title: "Needs attention",
     icon: PaperPlaneTilt,
     blurb: "Review unanswered messages, new members and accepted invites.",
+  },
+  {
+    to: "/admin/messages",
+    title: "Messages",
+    icon: ChatsCircle,
+    blurb: "How many messages members send each week, and how often they get an answer. Counts only.",
   },
   {
     to: "/admin/showcase",
