@@ -13,6 +13,7 @@ import type * as admin_accountToOrganization from "../admin/accountToOrganizatio
 import type * as admin_duplicates from "../admin/duplicates.js";
 import type * as admin_mergeOrganizations from "../admin/mergeOrganizations.js";
 import type * as admin_mergeUsers from "../admin/mergeUsers.js";
+import type * as admin_messageReport from "../admin/messageReport.js";
 import type * as admin_refileProject from "../admin/refileProject.js";
 import type * as adminEmails from "../adminEmails.js";
 import type * as analytics from "../analytics.js";
@@ -197,6 +198,7 @@ declare const fullApi: ApiFromModules<{
   "admin/duplicates": typeof admin_duplicates;
   "admin/mergeOrganizations": typeof admin_mergeOrganizations;
   "admin/mergeUsers": typeof admin_mergeUsers;
+  "admin/messageReport": typeof admin_messageReport;
   "admin/refileProject": typeof admin_refileProject;
   adminEmails: typeof adminEmails;
   analytics: typeof analytics;

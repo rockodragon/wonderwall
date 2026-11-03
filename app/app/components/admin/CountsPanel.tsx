@@ -4,13 +4,12 @@
 // what "last 7 days" means (new in that row, never "touched").
 //
 // A failed count stays inside this panel: useQuery throws on a server
-// error, and without the boundary below that took down all of /admin
-// (2026-10-25, prod backend deployed from a stale checkout).
+// error, and without the boundary around it (AdminErrorBoundary) that took
+// down all of /admin (2026-10-25, prod backend deployed from a stale checkout).
 
-import { Component, type ReactNode } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { errorMessage } from "../../lib/convexError";
+import { AdminErrorBoundary } from "./AdminUi";
 import { admin } from "./adminStyles";
 
 const TH =
@@ -27,29 +26,11 @@ export function CountsPanel() {
         </h2>
         <p className={admin.hint}>7 days = new this week. Sample postings left out.</p>
       </div>
-      <CountsBoundary>
+      <AdminErrorBoundary fallback="Couldn't count right now. The rest of this page still works.">
         <Counts />
-      </CountsBoundary>
+      </AdminErrorBoundary>
     </section>
   );
-}
-
-/** Keeps a server error in the panel, as one line, instead of the page. */
-class CountsBoundary extends Component<{ children: ReactNode }, { error: unknown }> {
-  state = { error: null as unknown };
-  static getDerivedStateFromError(error: unknown) {
-    return { error };
-  }
-  render() {
-    if (this.state.error) {
-      return (
-        <p role="alert" className={`mt-3 ${admin.meta}`}>
-          {errorMessage(this.state.error, "Couldn't count right now. The rest of this page still works.")}
-        </p>
-      );
-    }
-    return this.props.children;
-  }
 }
 
 function Counts() {

@@ -402,11 +402,41 @@ const myProjects = [
  *  onboarding screens can be walked as a new member sees them. */
 const fresh = { _id: "me", userId: "u-me", name: "Rick Moy", interests: [], isAdmin: false, plan: "free", attributes: {} };
 const isFresh = () => new URLSearchParams(window.location.search).has("fresh");
+/** `?admin` in the address: you as an admin, for /admin/messages. */
+const isAdminView = () => new URLSearchParams(window.location.search).has("admin");
+
+/** /admin/messages: thirteen made-up weeks of counts, oldest first, the last
+ *  one part-way (convex/admin/messageReport.ts says what each number is). */
+const WEEK = 7 * DAY;
+const monday = Date.UTC(2026, 10, 2);
+const weekly = [12, 18, 9, 22, 30, 26, 41, 38, 52, 47, 61, 58, 14];
+const messageReport = {
+  weeks: weekly.map((messages, i) => ({
+    weekStart: monday - (weekly.length - 1 - i) * WEEK,
+    messages,
+    conversationsStarted: Math.round(messages / 4),
+    senders: Math.round(messages / 3),
+    startedReplied: Math.round(messages / 7),
+    medianReplyMinutes: 90 + i * 20,
+  })),
+  periods: {
+    recent: { messages: 218, conversationsStarted: 54, startedReplied: 31, medianReplyMinutes: 160 },
+    before: { messages: 135, conversationsStarted: 34, startedReplied: 17, medianReplyMinutes: 240 },
+  },
+  kinds: [
+    { kind: "project", started: 21, replied: 15, medianReplyMinutes: 95 },
+    { kind: "host", started: 9, replied: 3, medianReplyMinutes: 600 },
+    { kind: "admin", started: 30, replied: 12, medianReplyMinutes: 1500 },
+    { kind: "member", started: 46, replied: 24, medianReplyMinutes: 180 },
+  ],
+  responses: { replied: 54, readNoReply: 31, unread: 21 },
+  depth: { one: 52, twoToThree: 33, fourToNine: 15, tenPlus: 6 },
+};
 
 export const answers: Record<string, unknown | ((args: unknown) => unknown)> = {
   "garden/projectTeam:listAffiliations": myProjects,
   "invites:getInviteStats": null,
-  "profiles:getMyProfile": () => (isFresh() ? fresh : me),
+  "profiles:getMyProfile": () => (isFresh() ? fresh : isAdminView() ? { ...me, isAdmin: true } : me),
   // Onboarding's address check: everything is free but "dee".
   "handles:checkHandle": (args: unknown) => {
     const handle = String((args as { handle?: string } | undefined)?.handle ?? "");
@@ -428,6 +458,7 @@ export const answers: Record<string, unknown | ((args: unknown) => unknown)> = {
     const found = q ? people.filter((p) => p.name.toLowerCase().includes(q)) : people;
     return { people: found, total: found.length, visitor: false };
   },
+  "admin/messageReport:getMessageReport": messageReport,
   "messaging:getUnreadCount": 1,
   "notifications:getUnreadCount": 1,
   "notifications:getNotifications": notifications,

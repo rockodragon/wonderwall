@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { calendarDay, calendarDayEnd, shortDay, timeAgo } from "./dates";
+import { calendarDay, calendarDayEnd, formatWait, shortDay, timeAgo } from "./dates";
 
 // West of UTC, where a calendar date's UTC midnight is the evening before.
 // Node rereads TZ when it's set; it's put back after, so it stays in this file.
@@ -64,5 +64,18 @@ describe("timeAgo", () => {
 
   it("reads a clock a little ahead as just now", () => {
     expect(timeAgo(NOW + 5 * MIN, NOW)).toBe("just now");
+  });
+});
+
+describe("formatWait", () => {
+  it("reads a wait in the nearest whole minute, hour or day", () => {
+    expect(formatWait(0)).toBe("under 1m");
+    expect(formatWait(35)).toBe("35m");
+    expect(formatWait(59)).toBe("59m");
+    expect(formatWait(90)).toBe("2h");
+    expect(formatWait(5 * 60)).toBe("5h");
+    expect(formatWait(23 * 60)).toBe("23h");
+    expect(formatWait(25 * 60)).toBe("1d");
+    expect(formatWait(3 * 24 * 60)).toBe("3d");
   });
 });
