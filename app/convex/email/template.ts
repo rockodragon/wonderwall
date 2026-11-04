@@ -14,6 +14,7 @@
 // behind body text.
 
 import { PLATFORM_NAME } from "./sender";
+import { isGardenUrl } from "../garden/brandHosts";
 
 export function escapeHtml(input: string): string {
   return input
@@ -70,7 +71,9 @@ function absolutizeLinks(body: string, baseUrl: string): string {
 export function renderNotificationEmail(args: RenderNotificationEmailArgs): RenderedEmail {
   const { heading, previewText, ctaText, baseUrl, unsubscribeUrl } = args;
   const body = absolutizeLinks(args.body, baseUrl);
-  const ctaUrl = args.ctaUrl ? `${baseUrl}${args.ctaUrl}` : undefined;
+  // A path lands on the site; an email from The Garden may send its button
+  // to The Garden's own address instead (garden/brandHosts.ts isGardenUrl).
+  const ctaUrl = args.ctaUrl ? (isGardenUrl(args.ctaUrl) ? args.ctaUrl : `${baseUrl}${args.ctaUrl}`) : undefined;
 
   const safeHeading = escapeHtml(heading);
   const safePreviewText = escapeHtml(previewText);

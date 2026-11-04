@@ -8,6 +8,7 @@ import { fail } from "./errors";
 import { resolveEntryCommunity } from "./garden/communityDomains";
 import { resolveSenderCommunity } from "./email/senderCommunity";
 import { escapeHtml } from "./email/template";
+import { gardenOriginFor } from "./garden/brandHosts";
 
 function computePriorityScore(a: {
   role?: string;
@@ -234,14 +235,16 @@ export const approveEntry = mutation({
       approvedAt: Date.now(),
     });
 
-    // The code gets them into the community they signed up for (the first
-    // one on the entry), else The Garden. That's the name on the email, in
-    // the From and in the text; the platform name only when no community
-    // exists to name.
+    // The email names the community they asked to join (the first one on
+    // the entry, while it's open), else The Garden: in the From and in the
+    // text; the platform name only when no community exists to name. The
+    // button goes to that community's own address, so a Garden email opens
+    // The Garden's signup page (createthegarden.com), not the main site.
     const community = await resolveSenderCommunity(ctx, {
       communityId: entry.communityIds?.[0],
     });
     const placeName = community?.name ?? "TheCreative.exchange";
+    const signupOrigin = gardenOriginFor(community) ?? "";
 
     await ctx.scheduler.runAfter(0, internal.emails.sendNotificationEmail, {
       to: entry.email,
@@ -250,7 +253,7 @@ export const approveEntry = mutation({
       heading: "You're in!",
       body: `Good news — you're approved to join ${escapeHtml(placeName)}. Use invite code <strong>${code}</strong> when you sign up, or just tap the button below and it'll be filled in for you.`,
       ctaText: "Create your account",
-      ctaUrl: `/signup/${code}`,
+      ctaUrl: `${signupOrigin}/signup/${code}`,
       // No opt-out (they asked for this), but it's the community writing.
       category: "transactional",
       sender: "community",

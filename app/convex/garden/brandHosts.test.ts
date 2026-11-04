@@ -1,5 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { allowedAuthRedirect, isGardenHost, siteNameForUrl } from "./brandHosts";
+import { allowedAuthRedirect, gardenOriginFor, isGardenHost, isGardenUrl, siteNameForUrl } from "./brandHosts";
+
+describe("gardenOriginFor and isGardenUrl", () => {
+  it("sends a community on one of The Garden's addresses to createthegarden.com, any other to the main site", () => {
+    expect(gardenOriginFor({ domains: ["garden.thecreative.exchange", "createthegarden.com"] })).toBe(
+      "https://createthegarden.com",
+    );
+    expect(gardenOriginFor({ domains: ["createsd.org"] })).toBeNull();
+    expect(gardenOriginFor({})).toBeNull();
+    expect(gardenOriginFor(null)).toBeNull();
+  });
+
+  it("takes only https links on The Garden's addresses", () => {
+    expect(isGardenUrl("https://createthegarden.com/signup/X")).toBe(true);
+    expect(isGardenUrl("https://www.garden.thecreative.exchange/x")).toBe(true);
+    expect(isGardenUrl("http://createthegarden.com/x")).toBe(false);
+    expect(isGardenUrl("https://createthegarden.com.evil.example/x")).toBe(false);
+    expect(isGardenUrl("/signup/X")).toBe(false);
+  });
+});
 
 const SITE = "https://thecreative.exchange";
 

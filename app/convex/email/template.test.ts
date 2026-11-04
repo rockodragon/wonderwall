@@ -91,6 +91,15 @@ describe("renderNotificationEmail", () => {
     expect(text).toContain("View Message: https://thecreative.exchange/messages/abc123");
   });
 
+  it("keeps a button link on The Garden's address, and reads any other full address as a path", () => {
+    const button = (ctaUrl: string) =>
+      renderNotificationEmail({ heading: "h", previewText: "p", body: "b", ctaText: "Go", ctaUrl, baseUrl: BASE_URL });
+    expect(button("https://createthegarden.com/signup/RICK42").text).toContain("Go: https://createthegarden.com/signup/RICK42");
+    expect(button("https://createthegarden.com/signup/RICK42").html).toContain('href="https://createthegarden.com/signup/RICK42"');
+    expect(button("https://evil.example/x").text).toContain("Go: https://thecreative.exchangehttps://evil.example/x");
+    expect(button("http://createthegarden.com/x").text).toContain("Go: https://thecreative.exchangehttp://createthegarden.com/x");
+  });
+
   it("makes relative links in the body absolute, and leaves the rest alone", () => {
     const { html } = renderNotificationEmail({
       heading: "Digest",
