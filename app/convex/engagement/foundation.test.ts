@@ -52,6 +52,17 @@ describe("admin attention", () => {
     expect(ctx.scheduler.runAfter).not.toHaveBeenCalled();
   });
 
+  it("measures from the page's asOf, never from later than now", async () => {
+    const ctx = world();
+    await ensureConversationSummaries(ctx, ctx.store.conversations[0]);
+    // The message came in two days ago; a list opened 1.5 days ago saw it
+    // as under a day old, and keeps that range when it re-runs.
+    expect((await run(list, ctx, { reason: "unanswered", asOf: NOW - 1.5 * DAY })).items).toHaveLength(0);
+    expect((await run(list, ctx, { reason: "unanswered", asOf: NOW })).items).toHaveLength(1);
+    const ahead = await run(list, ctx, { reason: "unanswered", asOf: NOW + 5 * DAY });
+    expect(ahead.asOf).toBe(NOW);
+  });
+
   it("rejects stale actions after a reply and distinguishes unknown legacy activation", async () => {
     const ctx = world();
     await ensureConversationSummaries(ctx, ctx.store.conversations[0]);

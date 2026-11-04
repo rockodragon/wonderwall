@@ -82,11 +82,15 @@ async function candidate(ctx: ReadCtx, reason: Reason, sourceId: string, now: nu
   };
 }
 
+/** `asOf`: the moment the page opened, from the page. The index ranges below
+ * are measured from it, so they stay the same when the query re-runs (an
+ * admin assigns someone, the reminder switches): a paginated query whose
+ * range moved on a re-run fails with InvalidCursor. Never later than now. */
 export const list = query({
-  args: { reason: reasonValidator, cursor: v.optional(v.string()) },
-  handler: async (ctx, { reason, cursor }) => {
+  args: { reason: reasonValidator, cursor: v.optional(v.string()), asOf: v.optional(v.number()) },
+  handler: async (ctx, { reason, cursor, asOf }) => {
     await requireAdminCtx(ctx);
-    const now = Date.now();
+    const now = Math.min(asOf ?? Date.now(), Date.now());
     const cutoff = now - UNREAD_REMINDER_DELAY_MS;
     const options = { cursor: cursor ?? null, numItems: PAGE_SIZE };
     const page = reason === "unanswered"
