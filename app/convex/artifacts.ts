@@ -4,6 +4,7 @@ import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { fail } from "./errors";
 import { canonicalMediaUrl, schedulePreviewFetch, wantsPreviewFetch } from "./linkPreview";
+import { isBandcampPageLink, toMusicEmbed } from "./musicEmbed";
 import { toEmbedUrl } from "./videoEmbed";
 import { deriveProjectTitle } from "./garden/artifactsMigration";
 import { slugifyTitle, resolveAvailableSlug } from "./garden/stories";
@@ -120,7 +121,12 @@ async function schedulePreview(
   url: string | undefined,
   type: string,
 ) {
-  if (!url || (type !== "link" && type !== "video")) return;
+  if (!url) return;
+  // A Bandcamp page, whatever the piece's type: the server reads the
+  // player's number off it (convex/musicEmbed.ts), so it plays here. Once it
+  // is a player link there is nothing left to fetch.
+  if (isBandcampPageLink(url)) return schedulePreviewFetch(ctx, "artifact", artifactId, url);
+  if (toMusicEmbed(url) || (type !== "link" && type !== "video")) return;
   // Instagram and TikTok stills come through convex/linkPreview.ts (which
   // knows how to ask each provider); YouTube's comes from the resolver
   // (img.youtube.com); Vimeo has none we can reach without a key and embeds
@@ -278,8 +284,10 @@ export const create = mutation({
     // A still for the card, unless the resolver already has one — or the
     // creative uploaded a cover beside the link, which is the picture they
     // chose: a fetched still would delete it and take its place. The owner's
-    // explicit Refresh Preview (refetchOgImage) may still do that.
-    if (!args.coverStorageId) {
+    // explicit Refresh Preview (refetchOgImage) may still do that. A
+    // Bandcamp page is fetched anyway, for its player; its still never
+    // replaces a cover.
+    if (!args.coverStorageId || isBandcampPageLink(mediaUrl)) {
       await schedulePreview(ctx, artifactId, mediaUrl, args.type);
     }
 
@@ -389,7 +397,7 @@ export const update = mutation({
     // the creator chose is never replaced by a fetched still; the owner's
     // Refresh Preview (refetchOgImage) may.
     const hasPreview = !!artifact.ogImageUrl || !!artifact.ogTitle || !!artifact.coverStorageId;
-    if (linkChanged || !hasPreview) {
+    if (linkChanged || !hasPreview || isBandcampPageLink(mediaUrl)) {
       await schedulePreview(ctx, args.artifactId, mediaUrl, artifact.type);
     }
   },

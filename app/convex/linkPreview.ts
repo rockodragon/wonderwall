@@ -17,6 +17,12 @@
 //   TikTok    — public oEmbed, no key; a short link is followed first.
 //   YouTube   — img.youtube.com, derived client-side; nothing to fetch.
 //   Vimeo     — nothing without a key; the player carries its own image.
+//   Bandcamp  — a piece's album or track page (pieces only, not events or
+//               projects). The fetch is for the player more than the still:
+//               the page's bc-page-properties carries the number the player
+//               needs, and the player link replaces the page link
+//               (convex/musicEmbed.ts). Its still never replaces one the
+//               piece already has.
 // Every provider's image URL expires (Instagram `oe=`, TikTok `x-expires`),
 // so the bytes are copied into Convex storage and the storage URL is what
 // gets stored.
@@ -32,6 +38,7 @@ import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { isSafeHttpUrl, normalizeUrl } from "./garden/richText";
 import { isTikTokShortLink, toEmbedUrl } from "./videoEmbed";
+import { bandcampPlayerLink, isBandcampPageLink, toMusicEmbed } from "./musicEmbed";
 import { storedFileUrl } from "./images";
 import { claimFor, deleteStoredFile } from "./uploads";
 
@@ -77,7 +84,8 @@ export function wantsPreviewFetch(url: string | undefined): boolean {
 /**
  * Schedules the fetch for a row that just got a pasted link. Call from the
  * mutation that stored it. A no-op for links that need nothing, so callers
- * don't have to check first.
+ * don't have to check first. A Bandcamp page is fetched for a piece only: an
+ * event or a project shows its link as a video or not at all.
  */
 export async function schedulePreviewFetch(
   ctx: MutationCtx,
@@ -85,7 +93,8 @@ export async function schedulePreviewFetch(
   id: Id<"artifacts"> | Id<"events"> | Id<"projects">,
   url: string | undefined,
 ): Promise<void> {
-  if (!url || !wantsPreviewFetch(url)) return;
+  const wanted = wantsPreviewFetch(url) || (target === "artifact" && isBandcampPageLink(url));
+  if (!url || !wanted) return;
   await ctx.scheduler.runAfter(0, internal.linkPreview.fetchPreview, { target, id, url });
 }
 
@@ -95,6 +104,9 @@ export interface ResolvedPreview {
   canonicalUrl: string;
   title?: string;
   imageUrl?: string;
+  /** The still only fills a gap: a piece that has one keeps it. Set when the
+      fetch was for something else (Bandcamp's player). */
+  stillIfNone?: boolean;
 }
 
 const CRAWLER_UAS = [
@@ -207,12 +219,52 @@ async function resolveTikTok(url: string): Promise<ResolvedPreview | null> {
   };
 }
 
+/** The player link, title and still on a Bandcamp album or track page, or
+    null when the page names no album or track. bc-page-properties is the
+    page's own record of what it is; the twitter:player link is the fallback.
+    Pure, so it is unit-tested against a saved page (linkPreview.test.ts). */
+export function parseBandcampPreview(html: string): ResolvedPreview | null {
+  let canonicalUrl: string | null = null;
+  try {
+    const props = JSON.parse(metaContent(html, "bc-page-properties") ?? "null") as {
+      item_type?: unknown;
+      item_id?: unknown;
+    } | null;
+    const item = props?.item_type === "a" ? "album" : props?.item_type === "t" ? "track" : null;
+    if (item && props?.item_id != null) canonicalUrl = bandcampPlayerLink(item, String(props.item_id));
+  } catch {
+    // Not JSON: fall through to the player link.
+  }
+  canonicalUrl ??= toMusicEmbed(metaContent(html, "twitter:player"))?.canonicalUrl ?? null;
+  if (!canonicalUrl) return null;
+  // "Christmas DALL Vol.1, by DALL": the work's title is before the byline.
+  const title = metaContent(html, "og:title")?.replace(/, by [^,]+$/, "").trim().slice(0, 120);
+  const imageUrl = metaContent(html, "og:image");
+  return {
+    canonicalUrl,
+    title: title || undefined,
+    imageUrl: imageUrl && /^https:\/\//.test(imageUrl) ? imageUrl : undefined,
+    stillIfNone: true,
+  };
+}
+
+async function resolveBandcamp(url: string): Promise<ResolvedPreview | null> {
+  const res = await fetch(url, {
+    redirect: "follow",
+    headers: { "User-Agent": BROWSER_UA, "Accept-Language": "en-US,en;q=0.9" },
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!res.ok) return null;
+  return parseBandcampPreview(await res.text());
+}
+
 /** The still and title for a pasted link, or null when there is nothing to
     fetch. Never throws for a provider that simply won't answer. */
 export async function resolveLinkPreview(url: string): Promise<ResolvedPreview | null> {
   const embed = toEmbedUrl(url);
   if (embed?.kind === "instagram") return resolveInstagram(embed.canonicalUrl);
   if (embed?.kind === "tiktok" || isTikTokShortLink(url)) return resolveTikTok(url);
+  if (isBandcampPageLink(url)) return resolveBandcamp(url);
   return null;
 }
 
@@ -261,6 +313,7 @@ export const fetchPreview = internalAction({
         title: preview.title,
         imageUrl,
         imageStorageId,
+        stillIfNone: preview.stillIfNone,
       });
     } catch (error) {
       console.log(`Error fetching preview for ${args.target} ${args.id} (${args.url}):`, error);
@@ -287,6 +340,7 @@ export const apply = internalMutation({
     title: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
     imageStorageId: v.optional(v.id("_storage")),
+    stillIfNone: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const dropImage = () => deleteStoredFile(ctx, args.imageStorageId);
@@ -302,7 +356,9 @@ export const apply = internalMutation({
       if (!id || !artifact || linkChanged(artifact.mediaUrl)) return dropImage();
       const patch: Partial<Doc<"artifacts">> = {};
       if (artifact.mediaUrl !== args.canonicalUrl) patch.mediaUrl = args.canonicalUrl;
-      if (hasImage && args.imageStorageId) {
+      // A still that only fills a gap leaves the piece's own picture be.
+      if (hasImage && args.stillIfNone && artifact.ogImageUrl) await dropImage();
+      else if (hasImage && args.imageStorageId) {
         if (artifact.coverStorageId !== args.imageStorageId) {
           await deleteStoredFile(ctx, artifact.coverStorageId);
         }
@@ -318,7 +374,7 @@ export const apply = internalMutation({
       if (fillTitle && args.title) {
         if (artifact.projectId) {
           const project = await ctx.db.get(artifact.projectId);
-          if (project && /^Untitled( video| link)?$/.test(project.title)) {
+          if (project && /^Untitled( video| link| audio)?$/.test(project.title)) {
             await ctx.db.patch(project._id, { title: args.title, updatedAt: Date.now() });
           }
         }
@@ -354,10 +410,12 @@ export const apply = internalMutation({
 
 // ————— backfill —————
 //
-// Reels pasted before this module existed have a player but no still. Run
-// once after deploy, from the dashboard or the CLI:
+// Reels pasted before this module existed have a player but no still, and
+// Bandcamp pages pasted before it read them have no player. Run once after
+// deploy, from the dashboard or the CLI:
 //   npx convex run linkPreview:backfillArtifactPreviews
-// Idempotent: a row that already has a still is skipped, and the fetch is
+// Idempotent: a reel that already has a still is skipped, a Bandcamp page
+// link is fetched until it has become a player link, and the fetch is
 // scheduled a second apart so Instagram's rate limit isn't tripped.
 export const backfillArtifactPreviews = internalMutation({
   args: {},
@@ -365,7 +423,9 @@ export const backfillArtifactPreviews = internalMutation({
     const artifacts = await ctx.db.query("artifacts").collect();
     let scheduled = 0;
     for (const a of artifacts) {
-      if (a.ogImageUrl || !a.mediaUrl || !wantsPreviewFetch(a.mediaUrl)) continue;
+      if (!a.mediaUrl) continue;
+      const needsPlayer = isBandcampPageLink(a.mediaUrl);
+      if (!needsPlayer && (a.ogImageUrl || !wantsPreviewFetch(a.mediaUrl))) continue;
       await ctx.scheduler.runAfter(scheduled * 1000, internal.linkPreview.fetchPreview, {
         target: "artifact",
         id: a._id,

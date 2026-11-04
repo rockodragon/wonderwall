@@ -402,3 +402,34 @@ describe("a shared piece's page (Rick, 2026-10-27)", () => {
     expect(about.split('id="project-panel-')[1] ?? "").not.toContain("Morning 1 on the pier.");
   });
 });
+
+// A piece posted as Audio with a Bandcamp link (createthegarden.com, 11/4):
+// the page drew an <audio> pointed at the album page, which never plays.
+describe("a piece's music link", () => {
+  const PAGE = "https://whatadall.bandcamp.com/album/christmas-dall-vol-1";
+  const PLAYER = "https://bandcamp.com/EmbeddedPlayer/album=3356185885/";
+  const song = (over: Record<string, unknown>) =>
+    bareProject({
+      origin: "portfolio",
+      media: [{ _id: "artifacts:song", profileId: "profiles:lead", type: "audio", title: "Christmas DALL, Vol. 1", ...over }],
+    });
+
+  it("plays a Bandcamp player link in Bandcamp's player", () => {
+    const html = page({ viewer: "visitor", project: song({ mediaUrl: PLAYER, resolvedMediaUrl: PLAYER }) });
+    expect(html).toMatch(/<iframe[^>]*src="https:\/\/bandcamp\.com\/EmbeddedPlayer\/album=3356185885\/size=large\//);
+    expect(html).not.toContain("<audio");
+  });
+
+  it("links to a Bandcamp page the server hasn't read yet, rather than a dead player", () => {
+    const html = page({ viewer: "visitor", project: song({ mediaUrl: PAGE, resolvedMediaUrl: PAGE }) });
+    expect(html).not.toContain("<audio");
+    expect(html).toContain(`href="${PAGE}"`);
+  });
+
+  it("still plays an uploaded file, and a linked audio file", () => {
+    const upload = page({ viewer: "visitor", project: song({ mediaStorageId: "_storage:song", resolvedMediaUrl: "https://files.test/song" }) });
+    expect(upload).toMatch(/<audio[^>]*src="https:\/\/files\.test\/song"/);
+    const file = page({ viewer: "visitor", project: song({ mediaUrl: "https://cdn.test/song.mp3", resolvedMediaUrl: "https://cdn.test/song.mp3" }) });
+    expect(file).toMatch(/<audio[^>]*src="https:\/\/cdn\.test\/song\.mp3"/);
+  });
+});

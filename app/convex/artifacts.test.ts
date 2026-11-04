@@ -686,3 +686,30 @@ describe("sharing a piece with words and a note (create)", () => {
     expect(ctx.store.artifacts).toEqual([]);
   });
 });
+
+describe("a Bandcamp page pasted as a piece", () => {
+  const PAGE = "https://whatadall.bandcamp.com/album/christmas-dall-vol-1";
+  const PAGE_FETCH = (id: string) => ({ name: "linkPreview:fetchPreview", args: { target: "artifact", id, url: PAGE } });
+
+  it.each(["audio", "link"])("is fetched for its player when posted as %s", async (type) => {
+    const { ctx, scheduled } = setup([]);
+    const id = await run(create, ctx, { type, title: "Christmas DALL, Vol. 1", mediaUrl: PAGE });
+    expect(fetches(scheduled)).toEqual([PAGE_FETCH(id)]);
+  });
+
+  it("is fetched even with a cover beside it (the still never replaces the cover)", async () => {
+    const { ctx, scheduled } = setup([], ["_storage:cover"]);
+    const id = await run(create, ctx, { type: "audio", mediaUrl: PAGE, coverStorageId: "_storage:cover" });
+    expect(fetches(scheduled)).toEqual([PAGE_FETCH(id)]);
+  });
+
+  it("is fetched again on Update until it has become a player link, then never", async () => {
+    const page = setup([piece({ type: "audio", mediaUrl: PAGE, ogImageUrl: "https://files.test/mine" })]);
+    await run(update, page.ctx, titleOnly());
+    expect(fetches(page.scheduled)).toEqual([PAGE_FETCH(PIECE)]);
+
+    const player = setup([piece({ type: "audio", mediaUrl: "https://bandcamp.com/EmbeddedPlayer/album=3356185885/" })]);
+    await run(update, player.ctx, titleOnly());
+    expect(fetches(player.scheduled)).toEqual([]);
+  });
+});

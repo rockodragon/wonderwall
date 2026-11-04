@@ -3,8 +3,10 @@
 import type { ReactNode } from "react";
 import type { PortfolioSample as ResolvedPortfolioSample } from "../../convex/portfolioSamples";
 import { toEmbedUrl } from "../lib/videoEmbed";
+import { toMusicEmbed } from "../lib/musicEmbed";
 import { isSafeHttpUrl } from "../lib/richText";
 import { EmbedPlayer } from "./EmbedPlayer";
+import { MusicPlayer } from "./MusicPlayer";
 
 export type PortfolioSample = Pick<ResolvedPortfolioSample, "type"> &
   Partial<Omit<ResolvedPortfolioSample, "artifactId" | "type">> & { resolvedMediaUrl?: string | null };
@@ -70,6 +72,8 @@ export function PortfolioSamplePicker<T extends string>({
 export function PortfolioSamplePreview({ sample }: { sample: PortfolioSample }) {
   const mediaUrl = sample.resolvedMediaUrl ?? sample.mediaUrl;
   const embed = toEmbedUrl(sample.linkUrl ?? mediaUrl ?? undefined);
+  const music = toMusicEmbed(sample.linkUrl ?? mediaUrl ?? undefined);
+  if (music) return <MusicPlayer music={music} title={sample.title} className="rounded-lg overflow-hidden" />;
   if (sample.type === "image" && mediaUrl) {
     return <img src={mediaUrl} alt={sample.title || "Work sample"} loading="lazy" className="w-full max-h-80 object-contain rounded-lg" />;
   }
