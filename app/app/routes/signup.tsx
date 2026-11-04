@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { normalizePhone } from "../../convex/phone";
+import { isValidEmail } from "../../convex/emailAddress";
 import { normalizeInviteCode } from "../../convex/inviteCode";
 import { codeRequestParams, ensureOAuthHost, oauthReturnTo } from "../lib/oauthHost";
 import { AgreementsConsent } from "../components/AgreementsConsent";
@@ -97,9 +98,11 @@ export default function Signup() {
   const [phoneStep, setPhoneStep] = useState<"phone" | "code">("phone");
   // Phone code or password. Both ask for the name first, so the account is
   // never unnamed (convex/names.ts) when the invite is credited and its
-  // sender is told who joined (invites.ts redeemBySlug); the password path
-  // also asks for email.
-  // (login.tsx's phone box makes accounts with no name; onboarding asks then.)
+  // sender is told who joined (invites.ts redeemBySlug). Both ask for an
+  // email too: a phone account without one gets no message alerts, cheers
+  // or nudges (34 of 72 sign-ups in the two weeks to 2026-11-02).
+  // (login.tsx's phone box makes accounts with no name or email; onboarding
+  // asks then.)
   const [method, setMethod] = useState<"phone" | "password">("phone");
   const [phoneError, setPhoneError] = useState("");
   const [phoneLoading, setPhoneLoading] = useState(false);
@@ -209,6 +212,10 @@ export default function Signup() {
 
     if (!name.trim()) {
       setPhoneError("Add your name.");
+      return;
+    }
+    if (!isValidEmail(email)) {
+      setPhoneError("Add an email we can reach you at.");
       return;
     }
 
@@ -501,7 +508,6 @@ export default function Signup() {
                 />
                 <PersonNameHint name={name} />
               </div>
-              {method === "password" && (
               <div>
                 <label htmlFor="email" className="block text-[13.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Email
@@ -517,7 +523,6 @@ export default function Signup() {
                   required
                 />
               </div>
-              )}
               <div
                 className="grid grid-cols-2 gap-1 rounded-lg p-1 bg-gray-100 dark:bg-gray-900"
                 role="group"

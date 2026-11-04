@@ -27,6 +27,7 @@ import {
 } from "./ticketLink";
 import { isPayPalPaymentLink, nextTicketState } from "./ticketLink";
 import { normalizePhone } from "../phone";
+import { isValidEmail } from "../emailAddress";
 import { eventHasEnded } from "../eventWindow";
 import { getCommunityMember, joinTicketCommunity, resolveCommunityJoin, type TicketJoin } from "./communities";
 import { findMyRsvp } from "../eventGuests";
@@ -39,14 +40,10 @@ import { hasRealName } from "../names";
 
 // ——— Pure core ———
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export { isValidEmail };
 
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
-}
-
-export function isValidEmail(email: string): boolean {
-  return EMAIL_RE.test(email.trim());
 }
 
 /** True when this account's verified email is the one Stripe took the
