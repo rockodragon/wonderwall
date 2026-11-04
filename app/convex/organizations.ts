@@ -75,6 +75,32 @@ export async function primaryOrgByUserId(
   return org ? { name: org.name, slug: org.slug, websiteUrl: org.websiteUrl } : null;
 }
 
+const CHURCH_CATEGORY: (typeof ORG_CATEGORIES)[number] = "Church";
+
+/** Which of these people hold a current position at a church: on an
+ * event's guest list they come as the church (eventGuestList.ts). Each
+ * organization is read once. */
+export async function userIdsAtChurch(ctx: Ctx, userIds: Id<"users">[]): Promise<Set<string>> {
+  const orgs = new Map<string, Promise<Doc<"organizations"> | null>>();
+  const out = new Set<string>();
+  for (const userId of new Set(userIds)) {
+    const positions = await ctx.db
+      .query("orgPositions")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .collect();
+    for (const p of positions) {
+      if (!isCurrent(p)) continue;
+      const key = String(p.organizationId);
+      if (!orgs.has(key)) orgs.set(key, ctx.db.get(p.organizationId));
+      if ((await orgs.get(key))?.category === CHURCH_CATEGORY) {
+        out.add(String(userId));
+        break;
+      }
+    }
+  }
+  return out;
+}
+
 /** User ids whose primary organization is this one — whose events it hosts. */
 export async function hostUserIdsForOrg(ctx: Ctx, organizationId: Id<"organizations">) {
   const out = new Set<string>();

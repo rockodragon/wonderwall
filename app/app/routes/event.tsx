@@ -68,7 +68,20 @@ import { toEmbedUrl } from "../lib/videoEmbed";
 import { buildTicketLink, isCheckoutSessionId, isPayPalPaymentLink } from "../../convex/garden/ticketLink";
 import { claimPendingTickets, stashTicketSession } from "../lib/pendingTicket";
 import { setPendingIntent } from "../lib/pendingIntent";
-import { guestsToCsv, summarizeGuests, paidLabel } from "../../convex/eventGuests";
+import {
+  GUEST_ROLE_LABEL,
+  GUEST_ROLES,
+  SELF_GUEST_ROLES,
+  guestMix,
+  guestRoleCount,
+  guestsToCsv,
+  isTaggableGuestKey,
+  paidLabel,
+  summarizeGuests,
+  type GuestRole,
+} from "../../convex/eventGuests";
+import { InfoTip } from "../components/InfoTip";
+import { DOORS } from "../constants/roles";
 import { formatCents } from "../../convex/money";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { eventCta, type EventCta } from "../lib/eventCta";
@@ -2266,6 +2279,9 @@ function StripeTicketCard({
         <p style={{ color: "var(--garden-body)", fontSize: 14, margin: "4px 0 16px" }}>
           Payment received. Stripe is emailing your receipt.
         </p>
+        {isCheckoutSessionId(searchParams.get("session")) && (
+          <TicketRoleAsk sessionId={searchParams.get("session")!} />
+        )}
         <button
           type="button"
           onClick={() => {
@@ -2308,6 +2324,85 @@ function StripeTicketCard({
       note="Secure checkout with Stripe."
       extra={join ? <TicketJoinLine join={join} /> : null}
     />
+  );
+}
+
+/** The onboarding doors in the buyer's own words, and a church
+ * (eventGuests.ts SELF_GUEST_ROLES). */
+const TICKET_ROLE_CHOICES: { role: (typeof SELF_GUEST_ROLES)[number]; label: string }[] = [
+  ...DOORS.map((d) => ({ role: d.role, label: d.label })),
+  { role: "church", label: "I'm with a church" },
+];
+
+/** "Which are you?" for a buyer back from Stripe with no account: the
+ * answer puts them in the hosts' count of who's coming
+ * (eventGuestList.ts answerTicketRole). Stripe's webhook can trail the
+ * redirect, so a ticket not saved yet is tried again for about half a
+ * minute. */
+function TicketRoleAsk({ sessionId }: { sessionId: string }) {
+  const answer = useMutation(api.eventGuestList.answerTicketRole);
+  const [picked, setPicked] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Only the latest tap may save or speak: an earlier one still waiting on
+  // the webhook would otherwise overwrite it.
+  const latest = useRef(0);
+
+  async function pick(role: string) {
+    const mine = ++latest.current;
+    setPicked(role);
+    setSaved(false);
+    setError(null);
+    for (let tries = 0; tries < 10; tries++) {
+      if (mine !== latest.current) return;
+      try {
+        if ((await answer({ sessionId, role })) === "saved") {
+          if (mine === latest.current) setSaved(true);
+          return;
+        }
+      } catch (err) {
+        if (mine === latest.current) setError(errorMessage(err, "That didn't save."));
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    }
+    if (mine === latest.current) setError("That didn't save. Try again in a minute.");
+  }
+
+  return (
+    <div style={{ margin: "0 0 16px" }}>
+      <p style={{ color: "var(--garden-paper)", fontSize: 15, fontWeight: 600, margin: "0 0 8px" }}>
+        Which are you?
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {TICKET_ROLE_CHOICES.map(({ role: r, label }) => (
+          <button
+            key={r}
+            type="button"
+            aria-pressed={picked === r}
+            onClick={() => pick(r)}
+            className="rounded-lg"
+            style={{
+              padding: "8px 14px",
+              fontSize: 13.5,
+              fontWeight: 600,
+              border: "1px solid var(--garden-hairline-raised)",
+              ...(picked === r
+                ? { backgroundColor: "var(--garden-paper)", color: "var(--garden-ink)" }
+                : { backgroundColor: "transparent", color: "var(--garden-paper)" }),
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {saved &&<p style={{ color: "var(--garden-body)", fontSize: 14, margin: "8px 0 0" }}>Thanks.</p>}
+      {error && (
+        <p role="alert" style={{ color: "var(--garden-body)", fontSize: 14, margin: "8px 0 0" }}>
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -2694,6 +2789,7 @@ function GuestsPanel({
   const me = useQuery(api.profiles.getMyProfile);
   const setStatus = useMutation(api.events.updateApplicationStatus);
   const [filter, setFilter] = useState<GuestFilter>("going");
+  const [roleFilter, setRoleFilter] = useState<GuestRole | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   if (guests === undefined) {
@@ -2701,8 +2797,13 @@ function GuestsPanel({
   }
 
   const summary = summarizeGuests(guests);
+  const mix = guestMix(guests);
+  // The four a host fills a room with always show, a zero included; hosts
+  // and unknown only when there are some, or while picked (so it can be
+  // turned off after its last guest is re-tagged).
+  const mixRoles = GUEST_ROLES.filter((r) => (r !== "host" && r !== "unknown") || mix[r] > 0 || r === roleFilter);
   const by = (s: GuestFilter) => guests.filter((g) => g.status === s);
-  const shown = filter === "waitlist" ? [] : by(filter);
+  const shown = filter === "waitlist" ? [] : by(filter).filter((g) => !roleFilter || g.role === roleFilter);
   const waiting = waitlist ?? [];
   const tabs: { id: GuestFilter; label: string }[] = [
     { id: "going", label: capacity ? `Going ${summary.going} of ${capacity}` : `Going ${summary.going}` },
@@ -2760,6 +2861,31 @@ function GuestsPanel({
         ))}
       </div>
 
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        {mixRoles.map((r) => (
+          <button
+            key={r}
+            aria-pressed={roleFilter === r}
+            onClick={() => setRoleFilter(roleFilter === r ? null : r)}
+            className={`px-3 py-1.5 rounded-full border text-[13.5px] font-medium ${
+              roleFilter === r
+                ? "border-gray-900 bg-gray-900 text-white dark:border-white dark:bg-white dark:text-gray-900"
+                : "border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800"
+            }`}
+          >
+            {guestRoleCount(r, mix[r])}
+          </button>
+        ))}
+        <InfoTip
+          label="Where these come from"
+          lines={[
+            "Tickets going, by who's coming. Someone's other guests count with them.",
+            "It comes from their profile. Change anyone with the menu on their row.",
+            "Buyers with no account are asked after they pay.",
+          ]}
+        />
+      </div>
+
       {filter === "waitlist" ? (
         <WaitlistPanel rows={waiting} spotsOpen={capacity ? capacity - summary.going : null} />
       ) : shown.length === 0 ? (
@@ -2794,6 +2920,9 @@ function GuestsPanel({
                 )}
               </div>
               <div className="flex flex-wrap gap-2">
+                {isTaggableGuestKey(g.key) && (
+                  <GuestRoleSelect eventId={eventId} guestKey={g.key} name={g.name} role={g.role ?? "unknown"} />
+                )}
                 {/* Someone who RSVP'd by email alone has no account to write
                     to; the group message still emails them. */}
                 {g.userId && g.userId !== me?.userId && <MessageGuestButton userId={g.userId} />}
@@ -2830,7 +2959,102 @@ function GuestsPanel({
         </ul>
       )}
 
+      {filter !== "waitlist" && <NotComingYet eventId={eventId} role={roleFilter} />}
+
       <AnnouncementComposer targetType="event" targetId={eventId} heading="Message attendees" />
+    </div>
+  );
+}
+
+/** A host says who a guest is (eventGuestList.ts setGuestRole). The list
+ * and the counts above it update on their own. */
+function GuestRoleSelect({
+  eventId,
+  guestKey,
+  name,
+  role,
+}: {
+  eventId: Id<"events">;
+  guestKey: string;
+  name: string;
+  role: GuestRole;
+}) {
+  const save = useMutation(api.eventGuestList.setGuestRole);
+  const [error, setError] = useState<string | null>(null);
+
+  async function change(next: string) {
+    setError(null);
+    try {
+      await save({ eventId, guestKey, role: next });
+    } catch (err) {
+      setError(errorMessage(err, "That didn't save."));
+    }
+  }
+
+  return (
+    <>
+      <select
+        aria-label={`Who ${name} is`}
+        value={role}
+        onChange={(e) => change(e.target.value)}
+        className="px-2 py-1.5 rounded-lg text-[13.5px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 border-0"
+      >
+        {GUEST_ROLES.map((r) => (
+          <option key={r} value={r}>
+            {GUEST_ROLE_LABEL[r]}
+          </option>
+        ))}
+      </select>
+      {error && (
+        <span role="alert" className="text-[13.5px] text-red-600 dark:text-red-400">
+          {error}
+        </span>
+      )}
+    </>
+  );
+}
+
+const NOT_COMING_SHOWN = 20;
+
+/** People in the event's community without a ticket yet
+ * (eventGuestList.ts getInviteSuggestions). With no role picked above:
+ * churches, partners and patrons, the ones a room is usually short of. */
+function NotComingYet({ eventId, role }: { eventId: Id<"events">; role: GuestRole | null }) {
+  const people = useQuery(api.eventGuestList.getInviteSuggestions, { eventId });
+  const [all, setAll] = useState(false);
+  if (!people) return null;
+  const wanted = people.filter((p) => (role ? p.role === role : p.role !== "creative"));
+  if (wanted.length === 0) return null;
+  const shown = all ? wanted : wanted.slice(0, NOT_COMING_SHOWN);
+
+  return (
+    <div className="mb-8">
+      <h3 className="text-[15px] font-semibold text-gray-900 dark:text-white mb-2">Not coming yet</h3>
+      <ul className="rounded-xl border border-gray-200 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
+        {shown.map((p) => (
+          <li key={p.userId} className="px-3 py-2.5 flex flex-wrap items-center gap-3">
+            <PersonAvatar name={p.name} imageUrl={p.imageUrl} size="rowXs" tone="gray" />
+            <div className="flex-1 min-w-0">
+              <Link
+                to={`/profile/${p.profileId}`}
+                className="block text-[15px] text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 truncate"
+              >
+                {p.name}
+              </Link>
+              <span className="text-[13.5px] text-gray-700 dark:text-gray-200">{GUEST_ROLE_LABEL[p.role]}</span>
+            </div>
+            <MessageGuestButton userId={p.userId} />
+          </li>
+        ))}
+      </ul>
+      {wanted.length > shown.length && (
+        <button
+          onClick={() => setAll(true)}
+          className="mt-2 px-3 py-1.5 rounded-lg text-[13.5px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700"
+        >
+          Show all {wanted.length}
+        </button>
+      )}
     </div>
   );
 }

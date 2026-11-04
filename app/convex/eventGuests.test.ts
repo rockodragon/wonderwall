@@ -1,5 +1,16 @@
 import { describe, it, expect } from "vitest";
-import { mergeGuests, summarizeGuests, guestsToCsv, paidLabel } from "./eventGuests";
+import {
+  mergeGuests,
+  summarizeGuests,
+  guestsToCsv,
+  paidLabel,
+  roleFromProfile,
+  guestMix,
+  guestRoleCount,
+  guestTagKeys,
+  guestKeyOf,
+  isTaggableGuestKey,
+} from "./eventGuests";
 import { formatCents } from "./money";
 
 describe("mergeGuests", () => {
@@ -48,7 +59,7 @@ describe("summary and csv", () => {
     const csv = guestsToCsv([
       { key: "k", userId: null, name: 'Smith, "J"', email: "j@x.com", status: "going", paidCents: null, tickets: 1, guestNames: null, applicationId: null, message: null, addedAt: 0 },
     ]);
-    expect(csv.split("\n")[1]).toBe('"Smith, ""J""",j@x.com,going,1,,Free,1970-01-01');
+    expect(csv.split("\n")[1]).toBe('"Smith, ""J""",j@x.com,,going,1,,Free,1970-01-01');
   });
   it("counts every ticket as going, and lists the other guests' names", () => {
     const rows = mergeGuests([
@@ -56,7 +67,54 @@ describe("summary and csv", () => {
       { name: "B", email: "b@x.com", status: "going", addedAt: 2 },
     ]);
     expect(summarizeGuests(rows)).toEqual({ going: 4, paid: 1, collectedCents: 7500 });
-    expect(guestsToCsv(rows).split("\n")[1]).toBe('A,a@x.com,going,3,"Ann, Ben",$75,1970-01-01');
+    expect(guestsToCsv(rows).split("\n")[1]).toBe('A,a@x.com,,going,3,"Ann, Ben",$75,1970-01-01');
+    expect(guestsToCsv([{ ...rows[0], role: "patron" }]).split("\n")[1]).toContain("a@x.com,Patron,going");
+  });
+});
+
+describe("guest roles", () => {
+  it("reads a profile: church first, then the signup pick, then the roles held", () => {
+    expect(roleFromProfile({ primaryRole: "creative" }, true)).toBe("church");
+    expect(roleFromProfile({ primaryRole: "creative", partnerRole: true }, false)).toBe("creative");
+    expect(roleFromProfile({ primaryRole: "patron" }, false)).toBe("patron");
+    expect(roleFromProfile({ patronRole: true }, false)).toBe("patron");
+    expect(roleFromProfile({ partnerRole: true, patronRole: true }, false)).toBe("partner");
+    expect(roleFromProfile({ primaryRole: "creative" }, false)).toBe("creative");
+    expect(roleFromProfile({}, false)).toBe("unknown");
+    expect(roleFromProfile(null, false)).toBe("unknown");
+  });
+  it("counts going tickets by role, with no role as unknown", () => {
+    const mix = guestMix([
+      { status: "going", tickets: 3, role: "patron" },
+      { status: "going", tickets: 1, role: "creative" },
+      { status: "going", tickets: 2 },
+      { status: "pending", tickets: 1, role: "church" },
+    ]);
+    expect(mix).toEqual({ creative: 1, patron: 3, partner: 0, church: 0, host: 0, unknown: 2 });
+  });
+  it("says counts the way a host reads them", () => {
+    expect(guestRoleCount("church", 1)).toBe("1 church");
+    expect(guestRoleCount("church", 0)).toBe("0 churches");
+    expect(guestRoleCount("creative", 12)).toBe("12 creatives");
+    expect(guestRoleCount("unknown", 27)).toBe("27 unknown");
+  });
+  it("files a tag under the row's key, its account and its email", () => {
+    const [row] = mergeGuests([
+      { name: "Di", email: "Di@x.com", status: "going", addedAt: 1 },
+      { userId: "u9", name: "Di", email: "di@x.com", status: "going", addedAt: 2 },
+    ]);
+    expect(row.key).toBe("e:di@x.com");
+    expect(guestTagKeys(row)).toEqual(["e:di@x.com", "u:u9"]);
+    expect(guestKeyOf({ email: " Di@X.com " })).toBe("e:di@x.com");
+    expect(guestKeyOf({ userId: "u9", email: "di@x.com" })).toBe("u:u9");
+    expect(guestKeyOf({ email: "" })).toBeNull();
+  });
+  it("lets a host tag only keys mergeGuests makes", () => {
+    expect(isTaggableGuestKey("u:abc")).toBe(true);
+    expect(isTaggableGuestKey("e:a@x.com")).toBe(true);
+    expect(isTaggableGuestKey("x:3")).toBe(false);
+    expect(isTaggableGuestKey("e:nope")).toBe(false);
+    expect(isTaggableGuestKey("u:" + "a".repeat(400))).toBe(false);
   });
 });
 

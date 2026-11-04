@@ -10,7 +10,7 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { ConvexError } from "convex/values";
-import { mutation, query, type MutationCtx } from "../_generated/server";
+import { mutation, query, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { isEventHost } from "../eventHosts";
 import { canSeeEvent } from "./eventVisibility";
@@ -880,6 +880,21 @@ export function planTicketClaim(
   return String(row.userId) === userId ? "already_yours" : "taken";
 }
 
+/** The RSVP bought in this checkout session on the ticket's Payment Link
+ * (apGifts.ts files it under `ap:<session id>`), or null. The session id on
+ * the page's return address is the buyer's proof (claimTicketBySession,
+ * ticketSessionOpensSignup, eventGuestList.ts answerTicketRole). */
+export async function rsvpByTicketSession(
+  ctx: Pick<MutationCtx, "db"> | Pick<QueryCtx, "db">,
+  sessionId: string,
+): Promise<Doc<"eventRsvps"> | null> {
+  if (!isCheckoutSessionId(sessionId)) return null;
+  return ctx.db
+    .query("eventRsvps")
+    .withIndex("by_stripeRef", (q) => q.eq("stripeRef", `ap:${sessionId}`))
+    .unique();
+}
+
 export const claimTicketBySession = mutation({
   args: { sessionId: v.string() },
   handler: async (ctx, args): Promise<TicketClaimResult> => {
@@ -888,10 +903,7 @@ export const claimTicketBySession = mutation({
     if (!isCheckoutSessionId(args.sessionId)) return "not_found";
 
     const stripeRef = `ap:${args.sessionId}`;
-    const rsvp = await ctx.db
-      .query("eventRsvps")
-      .withIndex("by_stripeRef", (q) => q.eq("stripeRef", stripeRef))
-      .unique();
+    const rsvp = await rsvpByTicketSession(ctx, args.sessionId);
     const result = planTicketClaim(rsvp, String(userId));
     if (result !== "claimed" || !rsvp) return result;
 
@@ -925,11 +937,7 @@ export const claimTicketBySession = mutation({
 export const ticketSessionOpensSignup = query({
   args: { sessionId: v.string() },
   handler: async (ctx, args): Promise<boolean> => {
-    if (!isCheckoutSessionId(args.sessionId)) return false;
-    const rsvp = await ctx.db
-      .query("eventRsvps")
-      .withIndex("by_stripeRef", (q) => q.eq("stripeRef", `ap:${args.sessionId}`))
-      .unique();
+    const rsvp = await rsvpByTicketSession(ctx, args.sessionId);
     return !!rsvp && !rsvp.userId && !!rsvp.paidCents;
   },
 });

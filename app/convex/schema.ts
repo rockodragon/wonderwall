@@ -1883,6 +1883,24 @@ export default defineSchema({
     // The member's own RSVPs, for the Shortlist's Going (convex/shortlist.ts).
     .index("by_userId", ["userId"]),
 
+  // Who a guest is, when their profile doesn't say or says wrong
+  // (eventGuestList.ts): a host's pick on the Guests tab, or what a buyer
+  // answered to "Which are you?" after paying. One row per guest per event.
+  eventGuestRoles: defineTable({
+    eventId: v.id("events"),
+    // The guest's key on the list (eventGuests.ts guestKeyOf): "u:<userId>"
+    // or "e:<lowercased email>". A string, not an id: most buyers have no
+    // account.
+    guestKey: v.string(),
+    role: v.string(), // eventGuests.ts GUEST_ROLES
+    // "host" | "guest". A host's pick wins; a guest's answer never
+    // replaces one.
+    source: v.string(),
+    updatedAt: v.number(),
+  })
+    .index("by_eventId", ["eventId"])
+    .index("by_eventId_guestKey", ["eventId", "guestKey"]),
+
   // Completed event-ticket purchases — written exclusively by the Stripe
   // webhook (checkout.session.completed, mode "payment", kind "event_ticket";
   // see garden/stripeHandlers.ts). Idempotent upsert keyed by
