@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeCtx, run } from "../test-support/convexContext";
-import { dismissTextsAsk, getMyTextSettings, isStartWord, isStopWord, setMyTexts, TEXT_CONSENT_LABEL, TEXT_CONSENT_LINE, TEXT_CONSENT_QUESTION, TEXT_CONSENT_WORDING } from "./textConsent";
+import { dismissTextsAsk, getMyTextSettings, isStartWord, isStopWord, setMyTexts, TEXT_CONSENT_CARD_BUTTON, TEXT_CONSENT_LABEL, TEXT_CONSENT_LINE, TEXT_CONSENT_QUESTION, TEXT_CONSENT_WORDING } from "./textConsent";
 import { MESSAGE_TEXT_DAILY_CAP } from "./messageAlerts";
+import { fillMissingBasics } from "./profiles";
+import { get as getEmailPreferences } from "./emailPreferences";
 
 const ANA = "users:ana";
 const PHONE = "+16195550100";
@@ -80,7 +82,7 @@ describe("setMyTexts and the card", () => {
   it("saves the words of the place it was asked: the card's question or Settings' label", async () => {
     const card = world(PHONE_ONLY);
     await run(setMyTexts, card, { on: true, from: "card" });
-    expect(card.store.textConsents[0].wording).toBe(`${TEXT_CONSENT_QUESTION}\n${TEXT_CONSENT_LINE}`);
+    expect(card.store.textConsents[0].wording).toBe(`${TEXT_CONSENT_QUESTION}\n${TEXT_CONSENT_CARD_BUTTON}\n${TEXT_CONSENT_LINE}`);
     const settings = world(PHONE_ONLY);
     await run(setMyTexts, settings, { on: true, from: "settings" });
     expect(settings.store.textConsents[0].wording).toBe(`${TEXT_CONSENT_LABEL}\n${TEXT_CONSENT_LINE}`);
@@ -110,5 +112,23 @@ describe("setMyTexts and the card", () => {
     await run(dismissTextsAsk, ctx, {});
     expect(ctx.store.textConsents).toEqual([expect.objectContaining({ dismissedAt: NOW })]);
     expect(await run(getMyTextSettings, ctx, {})).toMatchObject({ available: true, on: false, decided: true });
+  });
+});
+
+describe("an email added from the card or Settings", () => {
+  it("saves the address, closes the card and shows the email switches", async () => {
+    const ctx = world(PHONE_ONLY);
+    expect(await run(getEmailPreferences, ctx, {})).toMatchObject({ hasEmail: false });
+    await run(fillMissingBasics, ctx, { email: " Ana@Example.com " });
+    expect(ctx.store.users[0].email).toBe("ana@example.com");
+    expect(await run(getEmailPreferences, ctx, {})).toMatchObject({ hasEmail: true });
+    expect((await run(getMyTextSettings, ctx, {}))?.available).toBe(false);
+  });
+
+  it("refuses a typo with a line the page can show", async () => {
+    const ctx = world(PHONE_ONLY);
+    const err = await run(fillMissingBasics, ctx, { email: "ana@example" }).catch(e => e);
+    expect(err.data).toEqual({ code: "invalid_email", reason: "That doesn't look like a valid email." });
+    expect(ctx.store.users[0].email).toBeUndefined();
   });
 });

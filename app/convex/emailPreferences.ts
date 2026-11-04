@@ -13,6 +13,7 @@ import type { MutationCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { isGuestEmailToken, stopGuestEmails } from "./garden/eventRsvps";
+import { getUserEmail } from "./emailHelpers";
 
 const categoryValidator = v.union(
   v.literal("activity"),
@@ -66,13 +67,17 @@ export const get = query({
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .unique();
 
+    // No address on file (a phone-only signup): Settings asks for one in
+    // place of switches for email that can't reach them.
+    const hasEmail = !!(await getUserEmail(ctx, userId));
     if (!row) {
-      return { activity: true, digest: true, announcements: true };
+      return { activity: true, digest: true, announcements: true, hasEmail };
     }
     return {
       activity: row.activity,
       digest: row.digest,
       announcements: row.announcements,
+      hasEmail,
     };
   },
 });

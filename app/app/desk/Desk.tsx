@@ -83,9 +83,10 @@ const BELOW_NEEDS = 32;
 /** The card under the greeting (Share a project, or the invite nudge), gap
  *  included: the resting cards' clear zone grows to cover it while one is up. */
 const BELOW_GREETING_CLEAR = { w: 600, h: 72 };
-/** The texts card is taller: padding, the question, the consent line on two
- *  lines with its link, and the two buttons (about 150px), plus the gap. */
-const BELOW_GREETING_CLEAR_TEXTS = { w: 600, h: 176 };
+/** The how-we-reach-you card is taller: padding, the question, the email box,
+ *  the two buttons and the consent line on two lines (about 210px), plus the
+ *  gap. */
+const BELOW_GREETING_CLEAR_TEXTS = { w: 600, h: 236 };
 const NO_IDS: readonly string[] = [];
 
 export function Desk() {

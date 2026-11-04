@@ -288,18 +288,18 @@ describe("the card under the greeting", () => {
 
   it("asks about texts once a project of theirs is up", () => {
     const html = desk("/today", world([OWN]));
-    expect(html).toContain('aria-label="Message texts"');
+    expect(html).toContain('aria-label="How we reach you"');
     expect(html).not.toContain('aria-label="Share a project"');
   });
 
   it("shows the share card, not the texts card, until they have a project", () => {
     const html = desk("/today", world([]));
     expect(html).toContain('aria-label="Share a project"');
-    expect(html).not.toContain('aria-label="Message texts"');
+    expect(html).not.toContain('aria-label="How we reach you"');
   });
 
   it("shows neither texts card while the project list is still loading", () => {
     const html = desk("/today", { ...world([]), answers: { "profiles:getMyProfile": ME, "garden/projects:listProjects": undefined, "textConsent:getMyTextSettings": CAN_TEXT } });
-    expect(html).not.toContain('aria-label="Message texts"');
+    expect(html).not.toContain('aria-label="How we reach you"');
   });
 });

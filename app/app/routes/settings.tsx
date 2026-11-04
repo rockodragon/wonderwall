@@ -17,6 +17,7 @@ import { EmbedStill, PlayBadge } from "../components/EmbedStill";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
 import { useSignOut } from "../lib/useSignOut";
+import { useAddMyEmail } from "../lib/useAddMyEmail";
 import { INTERESTS, shownInterests } from "../constants/interests";
 import { LEVEL_LABEL } from "../garden/capabilities";
 import { normalizeHandle, type PayoutKind } from "../../convex/garden/gigRules";
@@ -995,6 +996,9 @@ function EmailSection() {
 
   // Still loading — render nothing rather than flash a default state.
   if (prefs === undefined) return null;
+  // A phone-only account: switches for email that can't reach them say
+  // nothing, so ask for an address instead. Once saved the switches show.
+  if (prefs.hasEmail === false) return <AddEmailSection />;
 
   async function handleToggle(
     category: "activity" | "digest" | "announcements",
@@ -1043,6 +1047,51 @@ function EmailSection() {
       <p className="mt-4 text-xs" style={{ color: "var(--app-text-dim)" }}>
         Receipts, approvals and invitations are always sent.
       </p>
+    </div>
+  );
+}
+
+function AddEmailSection() {
+  const addEmail = useAddMyEmail();
+  return (
+    <div>
+      <h2 className="text-lg font-semibold mb-2" style={{ color: "var(--app-text)" }}>
+        Email
+      </h2>
+      <p className="text-sm" style={{ color: "var(--app-text-dim)" }}>
+        Add an email to hear when someone messages you.
+      </p>
+      <form
+        noValidate
+        onSubmit={(e) => {
+          e.preventDefault();
+          void addEmail.save();
+        }}
+        className="flex flex-col gap-3 max-w-sm mt-3"
+      >
+        <input
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          aria-label="Email"
+          value={addEmail.email}
+          onChange={(e) => addEmail.setEmail(e.target.value)}
+          placeholder="you@example.com"
+          className="w-full px-3 py-2 border rounded-lg text-base outline-none placeholder:text-[var(--app-text-dim)] focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
+          style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)", color: "var(--app-text)" }}
+        />
+        {addEmail.error && <p role="alert" className="text-sm text-red-400">{addEmail.error}</p>}
+        <div>
+          <button
+            type="submit"
+            disabled={addEmail.pending || !addEmail.email.trim()}
+            className="px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50"
+            style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
+          >
+            {addEmail.pending ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

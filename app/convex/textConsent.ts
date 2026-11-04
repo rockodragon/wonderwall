@@ -15,7 +15,8 @@ import { currentUserId, requireUserId } from "./helpers";
 import { consentWordingFor } from "./textConsentWording";
 
 export {
-  TEXT_CONSENT_LABEL, TEXT_CONSENT_LINE, TEXT_CONSENT_QUESTION, TEXT_CONSENT_WORDING, isStartWord, isStopWord,
+  TEXT_CONSENT_CARD_BUTTON, TEXT_CONSENT_LABEL, TEXT_CONSENT_LINE, TEXT_CONSENT_QUESTION, TEXT_CONSENT_WORDING,
+  isStartWord, isStopWord,
 } from "./textConsentWording";
 
 type ReadCtx = Pick<QueryCtx, "db"> | Pick<MutationCtx, "db">;
