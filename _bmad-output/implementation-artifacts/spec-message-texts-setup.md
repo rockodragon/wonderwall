@@ -99,6 +99,8 @@ Privacy section "Text messages": "If you sign in with a phone number, we text yo
 
 ## Spec Change Log
 
+- 2026-11-04, Rick: "Add it" (email-first ask). 39 accounts have only a phone and there was nowhere to add an email. The card now asks "How should we reach you when someone messages you?": an email box with Email me first, then "Text me instead" (the text opt-in, consent line under it), then Not now. Settings → Email shows an add-email box in place of the switches when the account has no address (emailPreferences.get returns hasEmail; missing means show the switches, for an older backend). Saving reuses profiles.fillMissingBasics, now on the shared isValidEmail and a { code, reason } error. The card's saved wording is question + "Text me instead" + consent line. The Canvas clearance grew to 236px. The toll-free card picture was re-shot.
+
 ## Review Triage Log
 
 Pass 1, 2026-11-04. VG = verification gap, BH = blind hunter, EC = edge case hunter.
@@ -132,3 +134,4 @@ Pass 1, 2026-11-04. VG = verification gap, BH = blind hunter, EC = edge case hun
 | EC13 | The texts card is taller than Desk's 72px under-greeting clearance | medium | `BELOW_GREETING_CLEAR = { w: 600, h: 72 }` (Desk.tsx:85); the card is three rows | patch |
 | EC14 | The Desk card flashes while `hasProject` is loading | low | The chain shows texts when `hasProject` is undefined | patch |
 | EC16 | A dry run reports a text when the updates number is unset | low | The check lives only in `claimMessageText` | patch |
+- 11/4 email-first review (one reviewer): kept the clear-on-typing, role="alert", and submit-button test points. Dismissed the "typed email takes over the owner's sign-in" point: Google and emailed-code sign-in only link to an account that signs in by password with that email (auth.ts / authLinking.ts), so the owner gets a new account. Dismissed the deploy-order wording point: the card has never shipped, and front and back ship from the same merge. Left as is: an email already on another account is still saved, the same as at signup.

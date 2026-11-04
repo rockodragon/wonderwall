@@ -5,11 +5,15 @@
 export const TEXT_CONSENT_LABEL = "Text me when someone messages me";
 export const TEXT_CONSENT_LINE =
   "Up to 3 texts a day. Message and data rates may apply. Reply STOP to stop, HELP for help.";
-/** The Canvas card's question: what the card showed in place of the label. */
-export const TEXT_CONSENT_QUESTION = "Get a text when someone messages you?";
+/** The Canvas card's question. It offers email first; texting is its
+ * second button (components/TextsAskCard.tsx). */
+export const TEXT_CONSENT_QUESTION = "How should we reach you when someone messages you?";
+export const TEXT_CONSENT_CARD_BUTTON = "Text me instead";
 /** What was shown, saved verbatim with the consent, per place it was asked. */
 export const consentWordingFor = (from: "settings" | "card") =>
-  `${from === "card" ? TEXT_CONSENT_QUESTION : TEXT_CONSENT_LABEL}\n${TEXT_CONSENT_LINE}`;
+  from === "card"
+    ? `${TEXT_CONSENT_QUESTION}\n${TEXT_CONSENT_CARD_BUTTON}\n${TEXT_CONSENT_LINE}`
+    : `${TEXT_CONSENT_LABEL}\n${TEXT_CONSENT_LINE}`;
 export const TEXT_CONSENT_WORDING = consentWordingFor("settings");
 
 const STOP_WORDS = new Set(["stop", "stopall", "unsubscribe", "cancel", "end", "quit", "revoke", "optout", "opt out"]);

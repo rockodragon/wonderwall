@@ -277,3 +277,30 @@ describe("Settings → Phone number: message texts", () => {
     expect(html).not.toContain("Text me when someone messages me");
   });
 });
+
+describe("Settings → Email: an account with no address", () => {
+  const emailFor = (prefs: unknown) => {
+    answers = { ...answers, "emailPreferences:get": prefs };
+    return settings("/settings?tab=account");
+  };
+  const on = { activity: true, digest: true, announcements: true };
+
+  it("asks for an address in place of the switches", async () => {
+    const html = await emailFor({ ...on, hasEmail: false });
+    expect(html).toContain("Add an email to hear when someone messages you.");
+    expect(html).toMatch(/<input[^>]*type="email"/);
+    expect(html).not.toContain("Activity");
+  });
+
+  it("shows the switches once there is an address", async () => {
+    const html = await emailFor({ ...on, hasEmail: true });
+    expect(html).toContain("Activity");
+    expect(html).not.toContain("Add an email to hear");
+  });
+
+  it("shows the switches when the server doesn't say (a backend from before this)", async () => {
+    const html = await emailFor(on);
+    expect(html).toContain("Activity");
+    expect(html).not.toContain("Add an email to hear");
+  });
+});

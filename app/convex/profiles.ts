@@ -3,6 +3,8 @@ import { internalAction, internalMutation, internalQuery, mutation, query, type 
 import { api, internal } from "./_generated/api";
 import { currentUserId, getProfileByUserId, isOwnerOrAdmin, requireProfile, requireUserId } from "./helpers";
 import { hasRealName } from "./names";
+import { INVALID_EMAIL, isValidEmail } from "./emailAddress";
+import { fail } from "./errors";
 import type { Doc } from "./_generated/dataModel";
 import { profileForHandle } from "./handles";
 import { normalizeHandle, PAYOUT_KINDS, type PayoutHandles } from "./garden/gigRules";
@@ -241,9 +243,7 @@ export const fillMissingBasics = mutation({
 
     const email = args.email?.trim().toLowerCase();
     if (email) {
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        throw new ConvexError("That doesn't look like a valid email.");
-      }
+      if (!isValidEmail(email)) fail("invalid_email", INVALID_EMAIL);
       const user = await ctx.db.get(userId);
       if (user && !(user as { email?: string }).email) {
         await ctx.db.patch(userId, { email });
