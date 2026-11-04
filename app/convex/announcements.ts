@@ -25,6 +25,7 @@ import { resolveSenderCommunityName } from "./email/senderCommunity";
 import { normalizeUpdateBody } from "./garden/stories";
 import { displayNameOf, isAdmin } from "./helpers";
 import { insertNotification } from "./notify";
+import { REMINDER_DAY_BEFORE_MS, REMINDER_SOON_MS } from "./reminderTimes";
 
 const targetTypeValidator = v.union(
   v.literal("project"),
@@ -37,8 +38,9 @@ const MAX_BODY_LENGTH = 2000; // same cap messaging.ts enforces on messages.cont
 const MAX_AUDIENCE_SIZE = 500; // cap on the resolve-and-record transaction only
 const BROADCAST_DAILY_LIMIT = 2; // per target per 24h
 const BATCH_SIZE = 25; // deliverAnnouncementBatch claims this many pending rows per invocation
-const REMINDER_WINDOW_MS = 24 * 60 * 60 * 1000;
-const SOON_REMINDER_WINDOW_MS = 2 * 60 * 60 * 1000;
+// The host's page shows these same times (convex/reminderTimes.ts).
+const REMINDER_WINDOW_MS = REMINDER_DAY_BEFORE_MS;
+const SOON_REMINDER_WINDOW_MS = REMINDER_SOON_MS;
 // Counts reminders actually created in one cron run, not targets scanned —
 // see the loop in sendDueReminders.
 const MAX_REMINDER_TARGETS_PER_RUN = 20;
@@ -669,6 +671,18 @@ export const deliverAnnouncementBatch = internalMutation({
               ctaUrl,
               category: "announcements",
               communityId: target?.hostOrgId,
+              // Past the 24h contact cooldown, and starting none, for the
+              // people coming to an event or class: the day-before reminder
+              // must not cancel the 2-hours-before one, and a digest must not
+              // cancel the host's message (emailContactPolicy.ts). A
+              // project's message to its backers keeps the cooldown. Still
+              // off when they turned announcements off.
+              contact: {
+                dedupeKey: `announcement:${args.announcementId}:${recipient.userId}`,
+                policy: announcement.targetType === "project" ? "standard" : "announcement",
+                sourceType: "announcement",
+                sourceId: args.announcementId,
+              },
             });
           } else {
             // Guest (email-only) recipient — no userId, so no preferences

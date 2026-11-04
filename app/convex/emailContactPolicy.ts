@@ -15,15 +15,24 @@ export const CONTACT_LEASE_MS = 5 * 60 * 1000;
 export const CONTACT_MAX_ATTEMPTS = 3;
 
 /** "standard" waits out the 24h contact cooldown. The named exceptions skip
- * it: "transactional" (no opt-out), "first_cheer", and "message" — a direct
+ * it: "transactional" (no opt-out), "first_cheer", "message" — a direct
  * message's email is what the person is waiting for, so an earlier digest or
- * nudge must not cancel it. "first_cheer" still reserves the cooldown when
- * claimed; "transactional" and "message" reserve nothing, so a message email
- * never holds back a nudge, digest, announcement or reminder. */
+ * nudge must not cancel it — and "announcement": a host's message to the
+ * people coming, and the automatic reminders 24 hours and 2 hours before
+ * (convex/announcements.ts). Before 11/4 the day-before reminder's own email
+ * cancelled the 2-hours-before one for every member.
+ * "first_cheer" still reserves the cooldown when claimed; the others reserve
+ * nothing, so they never hold back a nudge, digest or each other. */
 export const contactPolicyValidator = v.union(
   v.literal("standard"), v.literal("transactional"), v.literal("first_cheer"), v.literal("message"),
+  v.literal("announcement"),
 );
 export type ContactPolicy = Infer<typeof contactPolicyValidator>;
+
+/** Whether a claimed email starts the 24h cooldown for its recipient. */
+export function reservesCooldown(policy: ContactPolicy | undefined): boolean {
+  return policy !== "transactional" && policy !== "message" && policy !== "announcement";
+}
 export type ContactGoal = "no_project" | "unread_message";
 
 export type EmailContactMetadata = {

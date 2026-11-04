@@ -162,6 +162,28 @@ describe("correlated email lifecycle", () => {
     expect(row().cooldownAt).toBeUndefined();
   });
 
+  it("an announcement email (a host's message or a reminder) is claimed through another email's cooldown, and reserves none", async () => {
+    const ctx = world({ emailDeliveries: [{
+      _id: "emailDeliveries:dayBefore", recipientUserId: USER, to: "person@example.com", category: "announcements", policy: "standard",
+      status: "accepted", cooldownAt: NOW - 22 * 60 * 60 * 1000, createdAt: NOW - 22 * 60 * 60 * 1000,
+    }] });
+    expect(await contactEligibility(ctx, { userId: USER as any, category: "announcements" })).toMatchObject({ eligible: false, reason: "contact_cooldown" });
+    const soon = await queueEmailContact(ctx, {
+      to: "person@example.com", subject: "Starting soon: Open Mic", category: "announcements", recipientUserId: USER as any,
+      contact: { dedupeKey: "announcement:announcements:two:users:recipient", policy: "announcement", sourceType: "announcement" },
+    });
+    expect(await run(claimForDispatch, ctx, { contactId: soon.contactId })).toMatchObject({ claimed: true, attempts: 1 });
+    const row = () => ctx.store.emailDeliveries.find((r: any) => r._id === soon.contactId);
+    expect(row()).toMatchObject({ status: "queued", policy: "announcement" });
+    expect(row().cooldownAt).toBeUndefined();
+  });
+
+  it("an announcement email still honors the announcements switch", async () => {
+    const ctx = world();
+    ctx.store.emailPreferences[0].announcements = false;
+    expect(await contactEligibility(ctx, { userId: USER as any, category: "announcements", policy: "announcement" })).toMatchObject({ eligible: false, reason: "email_off" });
+  });
+
   it.each([
     ["a nudge", "activity", { journeyKey: "share_project_day1", nudgeLogId: LOG as any }],
     ["a digest", "digest", {}],

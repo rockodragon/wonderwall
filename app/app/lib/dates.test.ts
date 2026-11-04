@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { calendarDay, calendarDayEnd, formatWait, shortDay, timeAgo } from "./dates";
+import { calendarDay, calendarDayEnd, weekdayAndTime, formatWait, shortDay, timeAgo } from "./dates";
 
 // West of UTC, where a calendar date's UTC midnight is the evening before.
 // Node rereads TZ when it's set; it's put back after, so it stays in this file.
@@ -77,5 +77,12 @@ describe("formatWait", () => {
     expect(formatWait(23 * 60)).toBe("23h");
     expect(formatWait(25 * 60)).toBe("1d");
     expect(formatWait(3 * 24 * 60)).toBe("3d");
+  });
+});
+
+describe("weekdayAndTime", () => {
+  it("says the weekday, date and time in the viewer's zone, with plain spaces", () => {
+    expect(weekdayAndTime(Date.UTC(2026, 10, 6, 2))).toBe("Thu, Nov 5, 6:00 PM");
+    expect(weekdayAndTime(Date.UTC(2026, 10, 7, 0))).toBe("Fri, Nov 6, 4:00 PM");
   });
 });

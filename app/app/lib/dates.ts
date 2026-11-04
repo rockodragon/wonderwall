@@ -1,6 +1,14 @@
 // Dates the way the app writes them. One home, so "Oct 7" reads the same on
 // the desk, the Shortlist and the Updates admin.
 
+/** "Thu, Nov 5, 6:00 PM", in the viewer's time zone. */
+export function weekdayAndTime(ms: number): string {
+  return new Date(ms)
+    .toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
+    // Newer ICU puts a narrow no-break space before AM/PM.
+    .replace(/[\u202f\u00a0]/g, " ");
+}
+
 /** "Oct 7", in the viewer's time zone. */
 export function shortDay(ms: number): string {
   return new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric" });
