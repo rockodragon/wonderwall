@@ -28,7 +28,7 @@ import { blockBetween } from "./blocks";
 import { trackEvent } from "./posthog";
 import { internal } from "./_generated/api";
 import {
-  acceptsProviderEvent, CONTACT_GAP_MS, CONTACT_LEASE_MS, CONTACT_MAX_ATTEMPTS, contactPolicyValidator,
+  acceptsProviderEvent, CONTACT_GAP_MS, CONTACT_LEASE_MS, CONTACT_MAX_ATTEMPTS, contactPolicyValidator, reservesCooldown,
   contactRetryAt, emailSendValidators, reservedUntil, type ContactGoal, type ContactPolicy,
   type EmailContactMetadata, type ProviderStatus,
 } from "./emailContactPolicy";
@@ -222,9 +222,9 @@ export const claimForDispatch = internalMutation({
       ? (await getOrCreatePreferences(ctx, row.recipientUserId)).unsubscribeToken : undefined;
     await ctx.db.patch(contactId, {
       attempts, lastAttemptAt: now, leaseUntil: now + CONTACT_LEASE_MS, nextAttemptAt: undefined,
-      // Transactional and message emails reserve no cooldown: a direct
-      // message's email must not hold back a nudge, digest or announcement.
-      cooldownAt: row.policy === "transactional" || row.policy === "message" ? undefined : now,
+      // Transactional, message and announcement emails reserve no cooldown
+      // (emailContactPolicy.ts reservesCooldown).
+      cooldownAt: reservesCooldown(row.policy) ? now : undefined,
       to: decision.email, lastEventAt: now,
     });
     return { claimed: true as const, attempts, to: decision.email, unsubscribeToken };

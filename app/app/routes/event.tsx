@@ -659,7 +659,12 @@ export default function EventDetail() {
 
         {isHost && (
           <div className="mb-8">
-            <AnnouncementComposer targetType="event" targetId={event._id} heading="Message attendees" />
+            <AnnouncementComposer
+              targetType="event"
+              targetId={event._id}
+              heading="Message attendees"
+              startsAt={event.status === "published" ? event.datetime : undefined}
+            />
           </div>
         )}
 
@@ -843,7 +848,12 @@ export default function EventDetail() {
         )}
 
         {tab === "guests" && isHost && (
-          <GuestsPanel eventId={event._id} title={event.title} capacity={event.capacity} />
+          <GuestsPanel
+            eventId={event._id}
+            title={event.title}
+            capacity={event.capacity}
+            startsAt={event.status === "published" ? event.datetime : undefined}
+          />
         )}
 
         {tab === "setup" && isHost && (
@@ -2778,11 +2788,14 @@ function GuestsPanel({
   eventId,
   title,
   capacity,
+  startsAt,
 }: {
   eventId: Id<"events">;
   title: string;
   /** The event's limit, or null (events.get capacity). */
   capacity: number | null;
+  /** Its start, when it's published and so gets the automatic reminders. */
+  startsAt?: number;
 }) {
   const guests = useQuery(api.events.getGuestList, { eventId });
   const waitlist = useQuery(api.garden.eventWaitlist.getWaitlist, { eventId });
@@ -2961,7 +2974,7 @@ function GuestsPanel({
 
       {filter !== "waitlist" && <NotComingYet eventId={eventId} role={roleFilter} />}
 
-      <AnnouncementComposer targetType="event" targetId={eventId} heading="Message attendees" />
+      <AnnouncementComposer targetType="event" targetId={eventId} heading="Message attendees" startsAt={startsAt} />
     </div>
   );
 }

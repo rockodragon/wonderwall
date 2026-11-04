@@ -304,7 +304,12 @@ export default function OfferingDetail() {
 
       {isOwner && (
         <div className="mb-6">
-          <AnnouncementComposer targetType="offering" targetId={offering._id} heading="Message participants" />
+          <AnnouncementComposer
+            targetType="offering"
+            targetId={offering._id}
+            heading="Message participants"
+            startsAt={offering.status === "active" && !offering.pause.paused ? offering.startDate : undefined}
+          />
         </div>
       )}
 

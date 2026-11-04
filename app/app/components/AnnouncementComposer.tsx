@@ -2,7 +2,8 @@ import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { errorMessage } from "../lib/convexError";
-import { timeAgo } from "../lib/dates";
+import { weekdayAndTime, timeAgo } from "../lib/dates";
+import { upcomingReminderTimes } from "../../convex/reminderTimes";
 
 // Shared across the three owner-facing surfaces (docs/announcements-prd.md,
 // UI/UX Specifications: "one <AnnouncementComposer targetType targetId />
@@ -21,12 +22,30 @@ interface AnnouncementComposerProps {
   targetType: TargetType;
   targetId: string;
   heading: string;
+  /** When it starts, for an event or class that gets the automatic
+   * reminders (convex/reminderTimes.ts). Left out, no reminder line. */
+  startsAt?: number;
+}
+
+/** "Reminders go out around Thu, Nov 5, 6:00 PM and Fri, Nov 6, 4:00 PM.",
+ * for the ones still ahead. Around: the cron runs every 15 minutes. `sentAt`
+ * is when this target's reminders went out. */
+export function reminderLine(startsAt: number | undefined, now: number, sentAt: readonly number[] = []): string | null {
+  if (startsAt === undefined) return null;
+  const [first, second] = upcomingReminderTimes(startsAt, now, sentAt);
+  if (first === undefined) return null;
+  const when = (at: number | "now") => (at === "now" ? "in the next 15 minutes" : `around ${weekdayAndTime(at)}`);
+  if (second === undefined) return `A reminder goes out ${when(first)}.`;
+  // Both times: "around X and Y", not "around X and around Y".
+  const rest = typeof second === "number" && first !== "now" ? weekdayAndTime(second) : when(second);
+  return `Reminders go out ${when(first)} and ${rest}.`;
 }
 
 export function AnnouncementComposer({
   targetType,
   targetId,
   heading,
+  startsAt,
 }: AnnouncementComposerProps) {
   const audience = useQuery(api.announcements.getAnnouncementAudience, {
     targetType,
@@ -47,6 +66,17 @@ export function AnnouncementComposer({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<string | null>(null);
+
+  const reminders = reminderLine(
+    startsAt,
+    Date.now(),
+    history?.filter((item) => item.kind === "reminder").map((item) => item.createdAt),
+  );
+  const reminderNote = reminders ? (
+    <p className="mt-2" style={{ color: "var(--garden-dim)", fontSize: 13.5 }}>
+      {reminders}
+    </p>
+  ) : null;
 
   const oneDayAgo = Date.now() - DAY_MS;
   const broadcastsToday =
@@ -134,6 +164,7 @@ export function AnnouncementComposer({
           )}
           {historyToggle}
         </div>
+        {reminderNote}
         {historyList}
       </div>
     );

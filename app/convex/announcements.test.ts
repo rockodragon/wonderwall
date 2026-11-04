@@ -9,6 +9,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeCtx, run, type Row } from "../test-support/convexContext";
 import { deliverAnnouncementBatch, sendDueReminders } from "./announcements";
+import { claimForDispatch, finishDispatch } from "./emailDeliveries";
 
 const HOUR = 60 * 60 * 1000;
 const MIN = 60 * 1000;
@@ -345,5 +346,51 @@ describe("delivery copy", () => {
     await ctx.db.patch(e._id, { status: "cancelled" });
     await run(deliverAnnouncementBatch, ctx, { announcementId: announcements(ctx)[0]._id });
     expect(ctx.store.notifications ?? []).toHaveLength(0);
+  });
+});
+
+describe("a member's reminder emails", () => {
+  it("the day-before email doesn't cancel the 2-hours-before one", async () => {
+    const e = event("a", 23 * HOUR + 50 * MIN, { title: "Open Mic" });
+    const { ctx } = world({ events: [e], eventRsvps: [rsvp("a", GOING)] });
+    const sendAll = async () => {
+      for (const a of announcements(ctx)) await run(deliverAnnouncementBatch, ctx, { announcementId: a._id });
+      for (const row of (ctx.store.emailDeliveries ?? []).filter((r: Row) => r.status === "queued")) {
+        const claim = await run(claimForDispatch, ctx, { contactId: row._id });
+        if (claim.claimed) await run(finishDispatch, ctx, { contactId: row._id, attempt: claim.attempts, provider: "resend", providerId: `p-${row._id}` });
+      }
+    };
+    await run(sendDueReminders, ctx);
+    await sendAll();
+    vi.setSystemTime(NOW + 22 * HOUR); // the cron's tick inside the 2-hour mark
+    await run(sendDueReminders, ctx);
+    await sendAll();
+    const rows = ctx.store.emailDeliveries as Row[];
+    expect(rows.map((r) => [r.subject, r.status])).toEqual([
+      ["Reminder: Open Mic is tomorrow", "accepted"],
+      ["Starting soon: Open Mic", "accepted"],
+    ]);
+    expect(rows.every((r) => r.policy === "announcement" && r.cooldownAt === undefined)).toBe(true);
+  });
+
+  it("a project's message to its backers keeps the 24-hour cooldown", async () => {
+    const { ctx } = world({
+      projects: [{ _id: "projects:p", title: "Mural", userId: "users:host" }],
+      projectSupport: [{ _id: "projectSupport:s", projectId: "projects:p", supporterUserId: GOING }],
+      announcements: [{ _id: "announcements:b", targetType: "project", targetId: "projects:p", senderUserId: "users:host", kind: "broadcast", body: "Thanks!", recipientCount: 1, emailedCount: 0, unreachableCount: 0, createdAt: NOW }],
+      announcementRecipients: [{ _id: "announcementRecipients:r", announcementId: "announcements:b", userId: GOING, createdAt: NOW }],
+    });
+    await run(deliverAnnouncementBatch, ctx, { announcementId: "announcements:b" });
+    expect(ctx.store.emailDeliveries).toEqual([expect.objectContaining({ policy: "standard", recipientUserId: GOING })]);
+  });
+
+  it("an event host's message to the people coming skips it", async () => {
+    const { ctx } = world({
+      events: [event("a", 30 * HOUR)],
+      announcements: [{ _id: "announcements:b", targetType: "event", targetId: "events:a", senderUserId: "users:host", kind: "broadcast", body: "Parking is in back.", recipientCount: 1, emailedCount: 0, unreachableCount: 0, createdAt: NOW }],
+      announcementRecipients: [{ _id: "announcementRecipients:r", announcementId: "announcements:b", userId: GOING, createdAt: NOW }],
+    });
+    await run(deliverAnnouncementBatch, ctx, { announcementId: "announcements:b" });
+    expect(ctx.store.emailDeliveries).toEqual([expect.objectContaining({ policy: "announcement", recipientUserId: GOING })]);
   });
 });
