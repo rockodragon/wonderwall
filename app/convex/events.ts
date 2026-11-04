@@ -10,7 +10,7 @@ import { assertCommunityMember } from "./garden/communities";
 import { resolveCommunities } from "./garden/communityLookup";
 import { formatFollowedEventDate, notifyFollowers } from "./follows";
 import { canonicalMediaUrl, schedulePreviewFetch } from "./linkPreview";
-import { mergeGuests, summarizeGuests, type GuestInput } from "./eventGuests";
+import { loadGuests, withGuestRoles } from "./eventGuestList";
 import {
   assertEventHasRoom,
   eventCapacity,
@@ -22,7 +22,6 @@ import {
 } from "./eventSpots";
 import { findMyRsvp } from "./eventGuests";
 import { addressIsHidden, redactHiddenAddress } from "./eventAddress";
-import { getUserEmail } from "./emailHelpers";
 import { hostOf, isEventHost, planAddCoHost, planRemoveCoHost, planDisplayHosts, requireEventHost, syncCoHosts, MAX_HOST_NAME, newlyListedUsers } from "./eventHosts";
 import { canSeeEvent, eventVisibilityChecker, isFreeEvent } from "./garden/eventVisibility";
 import { communityVisibility, isHiddenCommunityId } from "./garden/communityVisibility";
@@ -1098,74 +1097,14 @@ export const getApplications = query({
 });
 
 // Host-only guest list: applications, RSVPs and paid tickets, one row per
-// person. Emails are host-visible only (same rule as getEventRsvps).
+// person, each with who they are (eventGuestList.ts). Emails are
+// host-visible only (same rule as getEventRsvps).
 export const getGuestList = query({
   args: { eventId: v.id("events") },
   handler: async (ctx, args) => {
-    if (!(await hostOf(ctx, args.eventId))) return [];
-
-    const inputs: GuestInput[] = [];
-
-    const applications = await ctx.db
-      .query("eventApplications")
-      .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
-      .collect();
-    for (const app of applications) {
-      const profile = await getProfileByUserId(ctx, app.applicantId);
-      inputs.push({
-        userId: String(app.applicantId),
-        applicationId: String(app._id),
-        message: app.message ?? null,
-        name: profile?.name ?? "Anonymous",
-        email: await getUserEmail(ctx, app.applicantId),
-        status:
-          app.status === "accepted" ? "going" : app.status === "declined" ? "declined" : "pending",
-        addedAt: app.createdAt,
-      });
-    }
-
-    const rsvps = await ctx.db
-      .query("eventRsvps")
-      .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
-      .collect();
-    for (const r of rsvps) {
-      inputs.push({
-        userId: r.userId ? String(r.userId) : null,
-        name: r.name,
-        email: r.email,
-        status: "going",
-        paidCents: r.paidCents ?? null,
-        tickets: r.ticketCount ?? 1,
-        guestNames: r.guestNames ?? null,
-        sentToPayPal: !!r.paypalOpenedAt,
-        addedAt: r.createdAt,
-      });
-    }
-
-    const purchases = await ctx.db
-      .query("ticketPurchases")
-      .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
-      .collect();
-    for (const p of purchases) {
-      if (p.status !== "paid") continue;
-      let name = p.buyerEmail ?? "Ticket buyer";
-      let email = p.buyerEmail ?? null;
-      if (p.userId) {
-        const profile = await getProfileByUserId(ctx, p.userId!);
-        if (profile?.name) name = profile.name;
-        email = email ?? (await getUserEmail(ctx, p.userId));
-      }
-      inputs.push({
-        userId: p.userId ? String(p.userId) : null,
-        name,
-        email,
-        status: "going",
-        paidCents: p.amountCents,
-        addedAt: p.createdAt,
-      });
-    }
-
-    return mergeGuests(inputs);
+    const host = await hostOf(ctx, args.eventId);
+    if (!host) return [];
+    return withGuestRoles(ctx, host.event, await loadGuests(ctx, args.eventId));
   },
 });
 

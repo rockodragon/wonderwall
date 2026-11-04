@@ -7,6 +7,92 @@ import { formatCents } from "./money";
 
 export type GuestStatus = "going" | "pending" | "declined";
 
+/** Who a guest is, for the host's mix (eventGuestList.ts withGuestRoles):
+ * what a host picked, what the buyer said after paying, or what their
+ * profile says. */
+export const GUEST_ROLES = ["creative", "patron", "partner", "church", "host", "unknown"] as const;
+export type GuestRole = (typeof GUEST_ROLES)[number];
+
+/** What a buyer can say they are ("Which are you?" after paying). */
+export const SELF_GUEST_ROLES = ["creative", "patron", "partner", "church"] as const;
+
+export function isGuestRole(role: string): role is GuestRole {
+  return (GUEST_ROLES as readonly string[]).includes(role);
+}
+
+export const GUEST_ROLE_LABEL: Record<GuestRole, string> = {
+  creative: "Creative",
+  patron: "Patron",
+  partner: "Partner",
+  church: "Church",
+  host: "Host",
+  unknown: "Unknown",
+};
+
+const GUEST_ROLE_PLURAL: Record<GuestRole, string> = {
+  creative: "creatives",
+  patron: "patrons",
+  partner: "partners",
+  church: "churches",
+  host: "hosts",
+  unknown: "unknown",
+};
+
+/** "12 creatives", "1 church", "27 unknown". */
+export function guestRoleCount(role: GuestRole, n: number): string {
+  return `${n} ${n === 1 ? GUEST_ROLE_LABEL[role].toLowerCase() : GUEST_ROLE_PLURAL[role]}`;
+}
+
+/** A profile's role. Someone at a church comes as the church; then the
+ * onramp they picked at signup (what the operator counts read,
+ * garden/operatorCounts.ts); with none picked, the roles they hold. */
+export function roleFromProfile(
+  profile: { primaryRole?: string; patronRole?: boolean; partnerRole?: boolean } | null,
+  atChurch: boolean,
+): GuestRole {
+  if (atChurch) return "church";
+  if (!profile) return "unknown";
+  const picked = profile.primaryRole;
+  if (picked === "creative" || picked === "patron" || picked === "partner") return picked;
+  if (profile.partnerRole) return "partner";
+  if (profile.patronRole) return "patron";
+  return "unknown";
+}
+
+/** Tickets going, by role. A buyer's other guests count as the buyer's role. */
+export function guestMix(rows: Pick<GuestRow, "status" | "tickets" | "role">[]): Record<GuestRole, number> {
+  const mix = Object.fromEntries(GUEST_ROLES.map((r) => [r, 0])) as Record<GuestRole, number>;
+  for (const r of rows) {
+    if (r.status !== "going") continue;
+    mix[r.role ?? "unknown"] += r.tickets;
+  }
+  return mix;
+}
+
+const userGuestKey = (userId: string) => `u:${userId}`;
+const emailGuestKey = (email: string) => `e:${normalizeGuestEmail(email)}`;
+
+/** The key a guest's row gets in mergeGuests, for an RSVP on its own. */
+export function guestKeyOf(g: { userId?: string | null; email?: string | null }): string | null {
+  if (g.userId) return userGuestKey(g.userId);
+  return g.email?.trim() ? emailGuestKey(g.email) : null;
+}
+
+/** Every key a role picked for this row may be filed under: the row's own,
+ * its account's and its email's (a row merged from a request and a ticket
+ * keeps one key but answers to both). */
+export function guestTagKeys(row: Pick<GuestRow, "key" | "userId" | "email">): string[] {
+  const keys = [row.key];
+  if (row.userId) keys.push(userGuestKey(row.userId));
+  if (row.email) keys.push(emailGuestKey(row.email));
+  return [...new Set(keys)];
+}
+
+/** A key a host may tag: one mergeGuests makes from an account or an email. */
+export function isTaggableGuestKey(key: string): boolean {
+  return key.length <= 320 && /^(u:\S+|e:\S+@\S+)$/.test(key);
+}
+
 export interface GuestRow {
   key: string;
   /** Their account, when they have one: lets a host message them. */
@@ -27,6 +113,8 @@ export interface GuestRow {
   /** What they wrote when they asked to join. */
   message: string | null;
   addedAt: number;
+  /** Who they are (withGuestRoles). Unset straight out of mergeGuests. */
+  role?: GuestRole;
 }
 
 export interface GuestInput {
@@ -52,8 +140,8 @@ export function mergeGuests(inputs: GuestInput[]): GuestRow[] {
   const keyAlias = new Map<string, string>(); // email -> key of the row already holding it
   for (const g of inputs) {
     const email = (g.email ?? "").trim().toLowerCase();
-    const uKey = g.userId ? `u:${g.userId}` : null;
-    const eKey = email ? `e:${email}` : null;
+    const uKey = g.userId ? userGuestKey(g.userId) : null;
+    const eKey = email ? emailGuestKey(email) : null;
     const key =
       (uKey && byKey.has(uKey) ? uKey : null) ??
       (eKey && keyAlias.get(eKey)) ??
@@ -123,11 +211,12 @@ export function paidLabel(r: Pick<GuestRow, "paidCents" | "sentToPayPal">): stri
 }
 
 export function guestsToCsv(rows: GuestRow[]): string {
-  const head = ["Name", "Email", "Status", "Tickets", "Other guests", "Paid", "Added"];
+  const head = ["Name", "Email", "Role", "Status", "Tickets", "Other guests", "Paid", "Added"];
   const lines = rows.map((r) =>
     [
       r.name,
       r.email,
+      r.role ? GUEST_ROLE_LABEL[r.role] : "",
       r.status,
       String(r.tickets),
       r.guestNames ?? "",

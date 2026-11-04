@@ -188,15 +188,16 @@ export const deleteEvent = mutation({
     });
     if (blocker) throw new ConvexError({ code: "has_money", reason: blocker });
 
-    const [video, applications, favorites] = await Promise.all([
+    const [video, applications, favorites, guestRoles] = await Promise.all([
       ctx.db.query("eventVideo").withIndex("by_eventId", (q) => q.eq("eventId", eventId)).collect(),
       ctx.db.query("eventApplications").withIndex("by_eventId", (q) => q.eq("eventId", eventId)).collect(),
       ctx.db
         .query("favorites")
         .withIndex("by_target", (q) => q.eq("targetType", "event").eq("targetId", eventId))
         .collect(),
+      ctx.db.query("eventGuestRoles").withIndex("by_eventId", (q) => q.eq("eventId", eventId)).collect(),
     ]);
-    await deleteAll(ctx, [...video, ...applications, ...favorites, ...rsvps]);
+    await deleteAll(ctx, [...video, ...applications, ...favorites, ...guestRoles, ...rsvps]);
     await deleteAnnouncements(ctx, "event", eventId);
     // Synced to no co-hosts: its eventCoHosts rows go with it.
     await syncCoHosts(ctx, eventId, []);
