@@ -51,8 +51,8 @@ export const LEGAL_ENTITY = {
   /** Bump both when either document changes materially. */
   termsUpdated: "October 2026",
   termsEffective: "October 26, 2026",
-  privacyUpdated: "October 2026",
-  privacyEffective: "October 22, 2026",
+  privacyUpdated: "November 2026",
+  privacyEffective: "November 4, 2026",
   /** The naming policy (routes/legal.names.tsx). */
   namesUpdated: "October 2026",
   namesEffective: "October 25, 2026",

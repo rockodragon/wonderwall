@@ -2611,9 +2611,32 @@ export default defineSchema({
     createdAt: v.number(),
     claimedAt: v.optional(v.number()), // handed to the send action; counts toward the daily cap from here
     sentAt: v.optional(v.number()),
+    telnyxId: v.optional(v.string()), // Telnyx's message id, to match its delivery webhook
+    deliveryStatus: v.optional(v.string()), // Telnyx's last status: delivered, delivery_failed, ...
+    deliveryDetail: v.optional(v.string()), // Telnyx's error code, when it gave one
   })
     .index("by_recipientUserId_createdAt", ["recipientUserId", "createdAt"])
-    .index("by_dedupeKey", ["dedupeKey"]),
+    .index("by_dedupeKey", ["dedupeKey"])
+    .index("by_telnyxId", ["telnyxId"]),
+
+  // Who switched message texts on, one row per person (convex/textConsent.ts).
+  // The wording is what they saw when they agreed; the phone is the number
+  // they agreed for (a changed number needs a new yes).
+  textConsents: defineTable({
+    userId: v.id("users"),
+    phone: v.optional(v.string()),
+    agreedAt: v.optional(v.number()),
+    wording: v.optional(v.string()),
+    revokedAt: v.optional(v.number()),
+    dismissedAt: v.optional(v.number()), // "Not now" on the Canvas card
+  }).index("by_userId", ["userId"]),
+
+  // A STOP reply, per phone number (convex/telnyxWebhook.ts). START clears it.
+  smsOptOuts: defineTable({
+    phone: v.string(),
+    optedOutAt: v.number(),
+    optedInAt: v.optional(v.number()),
+  }).index("by_phone", ["phone"]),
 
   // Durable domain-event outbox. Retries keep occurrence time and UUID.
   productEvents: defineTable({

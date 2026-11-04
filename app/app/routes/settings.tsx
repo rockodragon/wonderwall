@@ -11,6 +11,8 @@ import { MyProfileIcons } from "../components/MyShareActions";
 import { OWN_PAGE_BUTTON_STYLE, OWN_PAGE_ICON } from "../components/ownPageButton";
 import { InfoTip } from "../components/InfoTip";
 import { SwitchRow } from "../components/SwitchRow";
+import { displayPhone } from "../../convex/phone";
+import { TEXT_CONSENT_LABEL, TEXT_CONSENT_LINE } from "../../convex/textConsentWording";
 import { EmbedStill, PlayBadge } from "../components/EmbedStill";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
@@ -1045,6 +1047,48 @@ function EmailSection() {
   );
 }
 
+// Under the number: switch on a text when someone messages you. Only for an
+// account with a verified phone and no email (convex/textConsent.ts).
+function MessageTextsSwitch() {
+  const settings = useQuery(api.textConsent.getMyTextSettings);
+  const setMyTexts = useMutation(api.textConsent.setMyTexts);
+  const [error, setError] = useState("");
+  if (!settings?.available) return null;
+
+  async function change(on: boolean) {
+    setError("");
+    try {
+      await setMyTexts({ on });
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  }
+
+  if (settings.optedOut) {
+    // A STOP wins over the switch: texts come back only with START.
+    return (
+      <p className="mt-4 max-w-md text-xs" style={{ color: "var(--app-text-dim)" }}>
+        {settings.updatesNumber
+          ? `You replied STOP. Text START to ${displayPhone(settings.updatesNumber)} to turn texts back on.`
+          : "You replied STOP. Reply START to the number that texted you to turn texts back on."}
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-4 max-w-md">
+      <SwitchRow label={TEXT_CONSENT_LABEL} on={settings.on} onChange={change} />
+      <p className="mt-1 text-xs" style={{ color: "var(--app-text-dim)" }}>
+        {TEXT_CONSENT_LINE}{" "}
+        <Link to="/legal/privacy" className="underline">
+          Privacy Policy
+        </Link>
+      </p>
+      {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+    </div>
+  );
+}
+
 // Settings → "Phone number" (convex/phoneLink.ts). Lets an already
 // signed-in member attach a number so they can later sign in with a text
 // code, without creating a second account the way sign-in-by-phone alone
@@ -1138,6 +1182,8 @@ function PhoneSection() {
           </button>
         </div>
       ) : null}
+
+      {myPhone && step === "idle" ? <MessageTextsSwitch /> : null}
 
       {!myPhone && step === "idle" && (
         <div className="flex items-center justify-between gap-3">

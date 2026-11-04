@@ -48,12 +48,12 @@ const event = (i: number) => ({
 
 const FUND = { org: { slug: "abiding-practice", name: "Abiding Practice" }, balanceCents: 250000 };
 
-type World = { projects?: unknown[]; events?: unknown[]; fund?: unknown; directory?: unknown };
+type World = { projects?: unknown[]; events?: unknown[]; fund?: unknown; directory?: unknown; answers?: Record<string, unknown> };
 
 const NOBODY = { people: [], total: 0, visitor: false };
 
 /** The desk at `url`, as the page it renders. */
-function desk(url: string, { projects = [], events = [], fund = null, directory = NOBODY }: World = {}) {
+function desk(url: string, { projects = [], events = [], fund = null, directory = NOBODY, answers = {} }: World = {}) {
   mock.answers = {
     "updates:listMine": [],
     "events:list": events,
@@ -64,6 +64,7 @@ function desk(url: string, { projects = [], events = [], fund = null, directory 
     "profiles:getMyProfile": { _id: "me", name: "Rick Moy", isAdmin: false },
     "profiles:directory": directory,
     "organizations:list": [],
+    ...answers,
   };
   return renderToString(
     <MemoryRouter initialEntries={[url]}>
@@ -276,5 +277,29 @@ describe("the desk's People › Everyone pages", () => {
     const html = desk("/today?view=people&tab=following", { directory: { people: people(24), total: 30, visitor: false } });
     expect(mock.asked["profiles:directory"]).toBeUndefined();
     expect(html).not.toContain(">Load more<");
+  });
+});
+
+describe("the card under the greeting", () => {
+  const ME = { _id: "me", userId: "u-me", name: "Rick Moy", isAdmin: false };
+  const CAN_TEXT = { available: true, on: false, optedOut: false, decided: false, updatesNumber: null };
+  const OWN = { ...project(9), userId: "u-me" };
+  const world = (projects: unknown[]) => ({ projects, answers: { "profiles:getMyProfile": ME, "textConsent:getMyTextSettings": CAN_TEXT } });
+
+  it("asks about texts once a project of theirs is up", () => {
+    const html = desk("/today", world([OWN]));
+    expect(html).toContain('aria-label="Message texts"');
+    expect(html).not.toContain('aria-label="Share a project"');
+  });
+
+  it("shows the share card, not the texts card, until they have a project", () => {
+    const html = desk("/today", world([]));
+    expect(html).toContain('aria-label="Share a project"');
+    expect(html).not.toContain('aria-label="Message texts"');
+  });
+
+  it("shows neither texts card while the project list is still loading", () => {
+    const html = desk("/today", { ...world([]), answers: { "profiles:getMyProfile": ME, "garden/projects:listProjects": undefined, "textConsent:getMyTextSettings": CAN_TEXT } });
+    expect(html).not.toContain('aria-label="Message texts"');
   });
 });

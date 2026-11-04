@@ -41,7 +41,7 @@ const SECTIONS: LegalSection[] = [
     heading: "Information we collect",
     paragraphs: ["What you provide:"],
     bullets: [
-      "Account information: your name, email address, and — unless you sign in with Google — a password, which is stored hashed and is never visible to us in the clear.",
+      "Account information: your name, email address or phone number, and — unless you sign in with Google — a password, which is stored hashed and is never visible to us in the clear.",
       "Profile information: bio, photo, interests, links, social handles, employer or organization, and the role you chose at signup (creative, patron, or partner).",
       "Location: the place you type into the location field, which we resolve through Google's places service. We keep the display string you see plus the structured result behind it — city, region, postal code, country, coordinates, and the place identifier — so that search and nearby-event matching work.",
       "Content: projects, works, images, video, audio, writing, prompts, and replies you post, together with any file you upload.",
@@ -126,8 +126,16 @@ const SECTIONS: LegalSection[] = [
       "Radar — enriching event place data.",
       "PostHog — product analytics, processed in the United States.",
       "Resend — sending transactional and notification email.",
+      "Telnyx — sending text messages: sign-in codes and the message alerts you turn on.",
       "Stripe — processing payments. Stripe handles card details directly.",
       "OpenAI — generating the search embeddings described above.",
+    ],
+  },
+  {
+    heading: "Text messages",
+    paragraphs: [
+      "If you sign in with a phone number, we text you one-time sign-in codes. If you turn on texts, in Settings or when we ask on your Canvas, we text you when someone messages you, up to three a day. Message and data rates may apply. Reply STOP to stop texts or HELP for help, or turn them off in Settings. No mobile information will be sold or shared with third parties for promotional or marketing purposes.",
+      "We keep a record of when you agreed, the words you saw and the number, and of any STOP reply, so we can honor it.",
     ],
   },
   {

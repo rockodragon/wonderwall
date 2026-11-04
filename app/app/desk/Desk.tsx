@@ -52,6 +52,7 @@ import { shortlistCard } from "./shortlistCards";
 import { ShortlistBody, TodayNeedsYou, shortlistHeader } from "./ShortlistView";
 import { InviteNudgeCard, useInviteNudge } from "../components/InviteNudge";
 import { ShareProjectCard } from "../components/ShareProjectCard";
+import { TextsAskCard, useTextsAskShown } from "../components/TextsAskCard";
 import { withFinishedStage } from "../lib/shareProject";
 import { DESK, DESK_SANS, FOCUS_RING_CLASS, MOTION_MS, motion, deskSurfaceStyle, useDeskTint } from "./tokens";
 import { useDeskData } from "./useDeskData";
@@ -82,6 +83,9 @@ const BELOW_NEEDS = 32;
 /** The card under the greeting (Share a project, or the invite nudge), gap
  *  included: the resting cards' clear zone grows to cover it while one is up. */
 const BELOW_GREETING_CLEAR = { w: 600, h: 72 };
+/** The texts card is taller: padding, the question, the consent line on two
+ *  lines with its link, and the two buttons (about 150px), plus the gap. */
+const BELOW_GREETING_CLEAR_TEXTS = { w: 600, h: 176 };
 const NO_IDS: readonly string[] = [];
 
 export function Desk() {
@@ -254,8 +258,12 @@ export function Desk() {
   const needsProject = hasProject === false;
   const nudge = useInviteNudge(hasProject !== true);
   const startHref = deskCreateHref(searchParams, "project");
+  // Only once a project is known to be up, so it never flips to the share card.
+  const textsAsk = useTextsAskShown() && hasProject === true;
   const underGreeting = needsProject ? (
     <ShareProjectCard tone="desk" makingHref={startHref} finishedHref={withFinishedStage(startHref)} />
+  ) : textsAsk ? (
+    <TextsAskCard tone="desk" />
   ) : nudge.show ? (
     <InviteNudgeCard tone="desk" onClose={nudge.dismiss} />
   ) : null;
@@ -276,9 +284,9 @@ export function Desk() {
         scrollTop,
         shown: shownIds,
         rowTop: todayNeeds ? header.total + BELOW_NEEDS : undefined,
-        belowGreeting: hasUnderGreeting ? BELOW_GREETING_CLEAR : undefined,
+        belowGreeting: hasUnderGreeting ? (textsAsk && !needsProject ? BELOW_GREETING_CLEAR_TEXTS : BELOW_GREETING_CLEAR) : undefined,
       }),
-    [layoutCards, view, openId, size.w, size.h, header.total, scrollTop, shownIds, todayNeeds, hasUnderGreeting],
+    [layoutCards, view, openId, size.w, size.h, header.total, scrollTop, shownIds, todayNeeds, hasUnderGreeting, textsAsk, needsProject],
   );
   const places = layout.places;
 
