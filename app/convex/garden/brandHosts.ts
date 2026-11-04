@@ -44,6 +44,25 @@ export function isGardenHost(host: string): boolean {
   return (GARDEN_HOSTS as readonly string[]).includes(normalizeHost(host));
 }
 
+/** Where a link for a community starts: The Garden's main address when the
+ *  community answers on one of The Garden's addresses (its hostOrgs.domains),
+ *  else null for the main site (SITE_URL). Only The Garden's addresses can
+ *  take a sign-in back (allowedAuthRedirect), so no other domain counts. */
+export function gardenOriginFor(community: { domains?: string[] } | null | undefined): string | null {
+  return (community?.domains ?? []).some(isGardenHost) ? GARDEN_ORIGIN : null;
+}
+
+/** A full https address on one of The Garden's addresses: an email may link
+ *  there as it is (email/template.ts); any other link is a path on the site. */
+export function isGardenUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" && isGardenHost(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
 /** The Garden, when `url` (where a sign-in code's link would land: the page
  *  it was asked from) is on one of its addresses; nothing otherwise. */
 export function gardenNameForUrl(url: string | undefined): string | undefined {
