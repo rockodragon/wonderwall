@@ -3514,7 +3514,7 @@ function SupportersList({ projectId }: { projectId: Id<"projects"> }) {
     <div className="mb-6">
       <div className="space-y-1.5">
         {show.map((s: any) => (
-          <div key={s._id} className="flex items-center gap-2 text-sm">
+          <div key={s._id} className="flex items-start gap-2 text-sm">
             <span
               className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
               style={{
@@ -3524,30 +3524,35 @@ function SupportersList({ projectId }: { projectId: Id<"projects"> }) {
             >
               {(s.supporterName || "A").charAt(0).toUpperCase()}
             </span>
-            <span style={{ color: "var(--garden-body)" }}>
-              {s.supporterName}
-            </span>
-            {s.tierName && (
-              <span
-                className="text-xs uppercase tracking-[0.06em] px-1.5 py-0.5 rounded"
-                style={{
-                  backgroundColor: "var(--garden-muted, #e5e5e5)",
-                  color: "var(--garden-dim)",
-                }}
-              >
-                {s.tierName}
-              </span>
-            )}
-            {!s.tierName && s.type && (
-              <span className="text-xs" style={{ color: "var(--garden-dim)" }}>
-                {SUPPORT_TYPE_LABEL[s.type] ?? ""}
-              </span>
-            )}
-            {s.message && (
-              <span className="text-xs truncate max-w-[200px]" style={{ color: "var(--garden-dim)" }}>
-                "{s.message}"
-              </span>
-            )}
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-h-6">
+                <span style={{ color: "var(--garden-body)" }}>
+                  {s.supporterName}
+                </span>
+                {s.tierName && (
+                  <span
+                    className="text-xs uppercase tracking-[0.06em] px-1.5 py-0.5 rounded"
+                    style={{
+                      backgroundColor: "var(--garden-muted, #e5e5e5)",
+                      color: "var(--garden-dim)",
+                    }}
+                  >
+                    {s.tierName}
+                  </span>
+                )}
+                {!s.tierName && s.type && (
+                  <span className="text-xs" style={{ color: "var(--garden-dim)" }}>
+                    {SUPPORT_TYPE_LABEL[s.type] ?? ""}
+                  </span>
+                )}
+              </div>
+              {/* The whole note, under the name: it's what they came to say. */}
+              {s.message && (
+                <p className="mt-0.5 text-[13px] whitespace-pre-wrap break-words" style={{ color: "var(--garden-muted)" }}>
+                  "{s.message}"
+                </p>
+              )}
+            </div>
           </div>
         ))}
       </div>

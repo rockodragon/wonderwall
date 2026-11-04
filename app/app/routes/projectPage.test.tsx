@@ -433,3 +433,24 @@ describe("a piece's music link", () => {
     expect(file).toMatch(/<audio[^>]*src="https:\/\/cdn\.test\/song\.mp3"/);
   });
 });
+
+// A supporter's note showed its first ~30 characters and an ellipsis
+// (Rick, 2026-11-04): the whole note shows, under their name.
+describe("a supporter's note", () => {
+  const NOTE =
+    "Thank you for sharing this sacred piece. Your daughter's light shines through every brushstroke, and it gave me hope today.";
+
+  it("shows in full, not cut to one line", () => {
+    const html = page({
+      viewer: "visitor",
+      project: bareProject({ supportCount: 1 }),
+      answers: {
+        "garden/support:listSupportForProject": [
+          { _id: "projectSupport:1", supporterName: "David Russo", type: "encouragement", message: NOTE },
+        ],
+      },
+    });
+    expect(html).toContain(NOTE.replace("'", "&#x27;"));
+    expect(html).not.toMatch(/class="[^"]*truncate[^"]*"[^>]*>&quot;Thank you/);
+  });
+});
