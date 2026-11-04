@@ -82,6 +82,14 @@ describe("an invite link on The Garden", () => {
     expect(text(html)).not.toContain("same account as");
   });
 
+  // Texting a code is the default, and a phone account with no email gets no
+  // message alerts, cheers or nudges (34 of 72 sign-ups, 2026-10-19 to 11-02).
+  it("asks for an email on the text-a-code path too", async () => {
+    const html = await page("/signup/sol");
+    expect(html).toContain('id="phone"');
+    expect(html).toContain('id="email"');
+  });
+
   it("names no one else who joined with the link", async () => {
     expect(text(await page("/signup/sol"))).not.toMatch(/Also connected here|Be one of the first/);
   });
