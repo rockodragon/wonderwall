@@ -8,6 +8,7 @@ import {
   proxy as posthogProxy,
   proxyPreflight as posthogPreflight,
 } from "./posthog";
+import { telnyxEventOf } from "./telnyxWebhook";
 import {
   handleResendEvent,
   verifySvixSignature,
@@ -198,6 +199,39 @@ http.route({
       status: 200,
       headers: { "Content-Type": "text/plain" },
     });
+  }),
+});
+
+// ————————————————————————————————————————————————————————————————
+// Telnyx webhook: STOP / START replies and final delivery status of the
+// message texts (convex/telnyxWebhook.ts). Configure the updates number's
+// messaging profile webhook URL as <this deployment's .convex.site origin>
+// /telnyx/webhook, and copy the account's public key into TELNYX_PUBLIC_KEY.
+// The Ed25519 check needs node:crypto, so an action does it (telnyxSignature.ts).
+// ————————————————————————————————————————————————————————————————
+
+http.route({
+  path: "/telnyx/webhook",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!process.env.TELNYX_PUBLIC_KEY) {
+      console.error("[telnyx webhook] TELNYX_PUBLIC_KEY is not set");
+      return new Response("Webhook not configured", { status: 500 });
+    }
+    const rawBody = await request.text();
+    const verified: boolean = await ctx.runAction(internal.telnyxSignature.verifyTelnyxSignature, {
+      body: rawBody,
+      signature: request.headers.get("telnyx-signature-ed25519") ?? undefined,
+      timestamp: request.headers.get("telnyx-timestamp") ?? undefined,
+    });
+    if (!verified) {
+      console.error("[telnyx webhook] signature verification failed");
+      return new Response("Invalid signature", { status: 401 });
+    }
+    const event = telnyxEventOf(rawBody);
+    if (!event) return new Response("Invalid body", { status: 400 });
+    await ctx.runMutation(internal.telnyxWebhook.applyTelnyxEvent, event);
+    return new Response(null, { status: 200 });
   }),
 });
 

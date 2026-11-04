@@ -42,6 +42,7 @@ const HANDLED_USER_FIELDS = new Set([
   "profileViews.viewerId",
   "communityMembers.userId",
   "emailPreferences.userId",
+  "textConsents.userId",
   // Named in mergeUsers' lists since 2026-10-26; this tool already removed
   // or now moves them.
   "orgPositions.userId",
@@ -213,6 +214,7 @@ export const accountToOrganization = internalMutation({
       ["orgPositions", refersTo("userId", userId)],
       ["communityMembers", refersTo("userId", userId)],
       ["emailPreferences", refersTo("userId", userId)],
+      ["textConsents", refersTo("userId", userId)],
       ["updateReads", refersTo("userId", userId)],
       ["nudgeLog", refersTo("userId", userId)],
     ];

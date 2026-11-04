@@ -243,3 +243,37 @@ describe("Work & Portfolio cards", () => {
     expect(html).toMatch(/<div[^>]*text-shadow-[^>]*><p[^>]*>Mural<\/p>/);
   });
 });
+
+describe("Settings → Phone number: message texts", () => {
+  const phone = { "phoneLink:getMyPhone": "•••• 0100" };
+  const settingsFor = (textSettings: unknown) => {
+    answers = { ...answers, ...phone, "textConsent:getMyTextSettings": textSettings };
+    return settings("/settings?tab=account");
+  };
+
+  it("shows the switch, the rates line and the Privacy Policy link for an account that can switch on", async () => {
+    const html = await settingsFor({ available: true, on: false, optedOut: false, decided: false, updatesNumber: "+18005550199" });
+    expect(html).toContain("Text me when someone messages me");
+    expect(html).toContain("Up to 3 texts a day. Message and data rates may apply. Reply STOP to stop, HELP for help.");
+    expect(html).toMatch(/<a[^>]*href="\/legal\/privacy"[^>]*>Privacy Policy<\/a>/);
+    expect(html).not.toContain("You replied STOP");
+  });
+
+  it("shows the switch on, with aria-checked true, when texts are on", async () => {
+    const html = await settingsFor({ available: true, on: true, optedOut: false, decided: true, updatesNumber: "+18005550199" });
+    expect(html).toMatch(/role="switch"[^>]*aria-checked="true"/);
+  });
+
+  it("after a STOP shows only the note, with the number formatted, and no switch", async () => {
+    const html = await settingsFor({ available: true, on: true, optedOut: true, decided: true, updatesNumber: "+18005550199" });
+    expect(html).toContain("You replied STOP. Text START to (800) 555-0199 to turn texts back on.");
+    expect(html).not.toContain('role="switch"');
+    const unset = await settingsFor({ available: true, on: true, optedOut: true, decided: true, updatesNumber: null });
+    expect(unset).toContain("Reply START to the number that texted you to turn texts back on.");
+  });
+
+  it("hides the switch when the account can't switch on", async () => {
+    const html = await settingsFor({ available: false, on: false, optedOut: false, decided: false, updatesNumber: null });
+    expect(html).not.toContain("Text me when someone messages me");
+  });
+});

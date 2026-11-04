@@ -149,6 +149,18 @@ describe("Share a project on a phone's Today", () => {
     expect(html).toContain("Your profile is empty");
   });
 
+  const CAN_TEXT = { available: true, on: false, optedOut: false, decided: false, updatesNumber: null };
+
+  it("asks about texts only once a project is up, and the share card stands alone until then", async () => {
+    scene.answers = { "profiles:getMyProfile": me, "garden/projects:listProjects": [mine], "textConsent:getMyTextSettings": CAN_TEXT };
+    const withProject = await today();
+    expect(withProject).toContain('aria-label="Message texts"');
+    scene.answers = { "profiles:getMyProfile": me, "garden/projects:listProjects": [], "textConsent:getMyTextSettings": CAN_TEXT };
+    const without = await today();
+    expect(without).toContain('aria-label="Share a project"');
+    expect(without).not.toContain('aria-label="Message texts"');
+  });
+
   it("shows neither while the list or the profile is still loading", async () => {
     scene.answers = { "profiles:getMyProfile": me };
     const html = await today();

@@ -8,10 +8,11 @@
 // otherwise one text to a verified phone. A text never carries the message
 // itself, and neither does an analytics event or the resend tool's output.
 //
-// Texts are OFF until an operator turns them on (setMessageTexts below). They
-// would go out from the sign-in number, where a STOP reply also stops sign-in
-// codes, so they wait for a separate Telnyx number, notice in Settings and the
-// privacy policy, and a 10DLC campaign that covers notifications.
+// Texts are OFF until an operator turns them on (setMessageTexts below). Even
+// then a text needs the person's own opt-in (convex/textConsent.ts), goes out
+// only from the updates number (TELNYX_UPDATES_FROM, never the sign-in
+// number, where a STOP reply would also stop sign-in codes), and stops for a
+// phone that replied STOP (convex/telnyxWebhook.ts).
 //
 // No "use node": sendSms only needs fetch.
 
@@ -29,8 +30,10 @@ import { getUserEmail, scheduleNotificationEmail } from "./emailHelpers";
 import type { EmailContactMetadata } from "./emailContactPolicy";
 import { conversationReminderEligibility } from "./engagement/conversations";
 import { getLoopRow } from "./engagement/settings";
+import { fail } from "./errors";
 import { displayNameOf } from "./helpers";
 import { sendSms } from "./smsSender";
+import { activeConsentFor, isOptedOut, textPhoneFor } from "./textConsent";
 
 /** The engagementLoops row that switches texts on. Missing means off. */
 export const MESSAGE_TEXTS_KEY = "message_texts";
@@ -66,13 +69,18 @@ export async function messageTextsEnabled(ctx: Pick<QueryCtx, "db">): Promise<bo
 /**
  * Operator CLI only:
  *   npx convex run messageAlerts:setMessageTexts '{"enabled":true}' --prod
- * Turn texts on only once they go out from their own Telnyx number (a STOP
- * reply to the sign-in number blocks sign-in codes), Settings and the privacy
- * policy mention them, and the 10DLC campaign covers notification texts.
+ * Turn texts on only once the Telnyx toll-free verification is approved, the
+ * updates number's messaging profile webhook points at /telnyx/webhook, and
+ * TELNYX_UPDATES_FROM and TELNYX_PUBLIC_KEY are set on the deployment. Turning
+ * on is refused while either variable is missing.
  */
 export const setMessageTexts = internalMutation({
   args: { enabled: v.boolean() },
   handler: async (ctx, { enabled }) => {
+    if (enabled) {
+      const missing = ["TELNYX_UPDATES_FROM", "TELNYX_PUBLIC_KEY"].filter(name => !process.env[name]);
+      if (missing.length) fail("texts_not_ready", `Set ${missing.join(" and ")} before turning texts on.`);
+    }
     const row = await getLoopRow(ctx, MESSAGE_TEXTS_KEY);
     const data = { enabled, updatedAt: Date.now() };
     if (row) await ctx.db.patch(row._id, data);
@@ -123,12 +131,14 @@ async function textEligibility(
   now: number,
   excludeTextId?: Id<"messageTexts">,
 ): Promise<TextDecision> {
-  const user = await ctx.db.get(recipientId);
-  if (!user) return { eligible: false, reason: "unknown_user" };
-  const phone = user.phone || undefined;
-  // Anyone with an address on file gets email, even one that bounced.
-  if (await getUserEmail(ctx, recipientId)) return { eligible: false, reason: "has_email", phone };
-  if (!phone || !user.phoneVerificationTime) return { eligible: false, reason: "unverified_phone", phone };
+  const found = await textPhoneFor(ctx, recipientId);
+  if (!found.ok) return { eligible: false, reason: found.reason, phone: found.phone };
+  const phone = found.phone;
+  // Texts go out only from the updates number, never the sign-in number.
+  if (!process.env.TELNYX_UPDATES_FROM) return { eligible: false, reason: "no_updates_number", phone };
+  // Their own yes, for this number, and no STOP from it.
+  if (!(await activeConsentFor(ctx, recipientId, phone))) return { eligible: false, reason: "no_text_consent", phone };
+  if (await isOptedOut(ctx, phone)) return { eligible: false, reason: "opted_out", phone };
   const preferences = await ctx.db.query("emailPreferences")
     .withIndex("by_userId", q => q.eq("userId", recipientId)).unique();
   if (preferences?.activity === false) return { eligible: false, reason: "activity_off", phone };
@@ -248,7 +258,7 @@ export function textFailureDetail(error: unknown): string {
 
 type TextClaim =
   | { claimed: false }
-  | { claimed: true; to: string; senderName: string; brand: string; conversationId: Id<"conversations"> };
+  | { claimed: true; to: string; from: string; senderName: string; brand: string; conversationId: Id<"conversations"> };
 
 /** Recheck at send time: texts still on, still no email, still unread and
  * unanswered, not blocked, under the daily cap. A claimed row is never
@@ -269,19 +279,23 @@ export const claimMessageText = internalMutation({
     const decision = await textEligibility(ctx, row.recipientUserId, message, now, textId);
     if (!decision.eligible) return skip(decision.reason);
     await ctx.db.patch(textId, { claimedAt: now, phone: decision.phone });
+    // Never the sign-in number: a STOP there would end sign-in codes too.
+    const from = process.env.TELNYX_UPDATES_FROM!;
     return {
-      claimed: true, to: decision.phone, conversationId: row.conversationId,
+      claimed: true, to: decision.phone, from, conversationId: row.conversationId,
       senderName: await displayNameOf(ctx, message.senderId), brand: await textBrand(ctx, row.recipientUserId),
     };
   },
 });
 
 export const finishMessageText = internalMutation({
-  args: { textId: v.id("messageTexts"), detail: v.optional(v.string()) },
-  handler: async (ctx, { textId, detail }): Promise<null> => {
+  args: { textId: v.id("messageTexts"), detail: v.optional(v.string()), telnyxId: v.optional(v.string()) },
+  handler: async (ctx, { textId, detail, telnyxId }): Promise<null> => {
     const row = await ctx.db.get(textId);
     if (!row || row.status !== "queued") return null;
-    await ctx.db.patch(textId, detail ? { status: "failed", detail } : { status: "sent", sentAt: Date.now() });
+    await ctx.db.patch(textId, detail
+      ? { status: "failed", detail }
+      : { status: "sent", sentAt: Date.now(), ...(telnyxId ? { telnyxId } : {}) });
     return null;
   },
 });
@@ -294,12 +308,15 @@ export const sendMessageText = internalAction({
     const claim: TextClaim = await ctx.runMutation(internal.messageAlerts.claimMessageText, { textId });
     if (!claim.claimed) return null;
     let detail: string | undefined;
+    let telnyxId: string | undefined;
     try {
-      await sendSms(claim.to, messageTextBody(claim));
+      telnyxId = (await sendSms(claim.to, messageTextBody(claim), claim.from)).id;
     } catch (error) {
       detail = textFailureDetail(error);
     }
-    await ctx.runMutation(internal.messageAlerts.finishMessageText, { textId, ...(detail ? { detail } : {}) });
+    await ctx.runMutation(internal.messageAlerts.finishMessageText, {
+      textId, ...(detail ? { detail } : {}), ...(telnyxId ? { telnyxId } : {}),
+    });
     return null;
   },
 });

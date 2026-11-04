@@ -12,7 +12,7 @@ import { sendSms } from "./smsSender";
 import { trackEvent } from "./posthog";
 
 vi.mock("./posthog", () => ({ trackEvent: vi.fn(async () => {}) }));
-vi.mock("./smsSender", () => ({ sendSms: vi.fn(async () => {}) }));
+vi.mock("./smsSender", () => ({ sendSms: vi.fn(async () => ({ id: "telnyx-1" })) }));
 
 const NOW = 1_800_000_000_000;
 const HOUR = 60 * 60 * 1000;
@@ -21,16 +21,23 @@ const DAVID = "users:david";
 const ANA = "users:ana";
 const C = "conversations:one";
 const PHONE = "+16195550100";
+const UPDATES = "+18005550199";
 const SECRET = "private words";
 const PHONE_ONLY = { phone: PHONE, phoneVerificationTime: 1 };
 const textsSwitch = (enabled: boolean) => ({
   _id: "engagementLoops:texts", key: MESSAGE_TEXTS_KEY, enabled, subject: "", body: "", updatedAt: 1,
 });
 const TEXTS_ON = { engagementLoops: [textsSwitch(true)] };
+/** An active opt-in for every user with a verified phone, as if each had switched texts on. */
+const consentsFor = (users: Record<string, any>[]) => users
+  .filter(user => user.phone && user.phoneVerificationTime)
+  .map(user => ({ _id: `textConsents:${user._id}`, userId: user._id, phone: user.phone, agreedAt: 1, wording: "w" }));
 
 function world(recipient: Record<string, unknown> = PHONE_ONLY, extra: Record<string, any[]> = {}, lastMessageAt = 1) {
+  const users = [{ _id: DAVID, email: "david@example.com" }, { _id: ANA, ...recipient }];
   const ctx = makeCtx({
-    users: [{ _id: DAVID, email: "david@example.com" }, { _id: ANA, ...recipient }],
+    users,
+    textConsents: consentsFor(users),
     profiles: [
       { _id: "profiles:david", userId: DAVID, name: "David Russo", isAdmin: true },
       { _id: "profiles:ana", userId: ANA, name: "Ana", isAdmin: true },
@@ -67,6 +74,7 @@ const textOf = (conversationId: string, brand = PLATFORM_NAME, sender = "David R
   `${sender} sent you a message on ${brand}: https://site.test/messages/${conversationId}\nReply STOP to opt out.`;
 
 beforeEach(() => {
+  vi.stubEnv("TELNYX_UPDATES_FROM", UPDATES);
   vi.useFakeTimers();
   vi.setSystemTime(NOW);
   vi.clearAllMocks();
@@ -89,7 +97,7 @@ describe("a message to someone with no email", () => {
     })]);
     await deliverTexts(ctx);
     expect(sendSms).toHaveBeenCalledTimes(1);
-    expect(sendSms).toHaveBeenCalledWith(PHONE, textOf(C));
+    expect(sendSms).toHaveBeenCalledWith(PHONE, textOf(C), UPDATES);
     expect(texts(ctx)[0]).toMatchObject({ status: "sent", sentAt: NOW, claimedAt: NOW });
     expect(JSON.stringify(vi.mocked(sendSms).mock.calls)).not.toContain(SECRET);
     expect(events()).not.toContain(SECRET);
@@ -106,7 +114,7 @@ describe("a message to someone with no email", () => {
     });
     await send(ctx);
     await deliverTexts(ctx);
-    expect(sendSms).toHaveBeenCalledWith(PHONE, textOf(C, "San Diego Creatives"));
+    expect(sendSms).toHaveBeenCalledWith(PHONE, textOf(C, "San Diego Creatives"), UPDATES);
   });
 
   it("texts a message sendMessage stamped 1ms ahead of the clock", async () => {
@@ -158,6 +166,51 @@ describe("a message to someone with no email", () => {
     expect(scheduled(ctx, "messageAlerts:sendMessageText")).toHaveLength(0);
     await deliverTexts(ctx);
     expect(sendSms).not.toHaveBeenCalled();
+  });
+
+  it("stores Telnyx's id on a sent text", async () => {
+    const ctx = world();
+    await send(ctx);
+    await deliverTexts(ctx);
+    expect(texts(ctx)[0]).toMatchObject({ status: "sent", telnyxId: "telnyx-1" });
+  });
+
+  it("never texts without an opt-in, or after the number changed", async () => {
+    const none = world(PHONE_ONLY, { textConsents: [] });
+    await send(none);
+    expect(texts(none)).toEqual([expect.objectContaining({ status: "skipped", detail: "no_text_consent" })]);
+    const moved = world(PHONE_ONLY, { textConsents: [{ _id: "textConsents:a", userId: ANA, phone: "+16195550999", agreedAt: 1, wording: "w" }] });
+    await send(moved);
+    expect(texts(moved)).toEqual([expect.objectContaining({ status: "skipped", detail: "no_text_consent" })]);
+    const revoked = world(PHONE_ONLY, { textConsents: [{ _id: "textConsents:a", userId: ANA, phone: PHONE, agreedAt: 1, revokedAt: 2, wording: "w" }] });
+    await send(revoked);
+    expect(texts(revoked)).toEqual([expect.objectContaining({ status: "skipped", detail: "no_text_consent" })]);
+    expect(sendSms).not.toHaveBeenCalled();
+  });
+
+  it("skips a phone that replied STOP, queued or not, and texts again after START", async () => {
+    const stopped = world(PHONE_ONLY, { smsOptOuts: [{ _id: "smsOptOuts:a", phone: PHONE, optedOutAt: 5 }] });
+    await send(stopped);
+    expect(texts(stopped)).toEqual([expect.objectContaining({ status: "skipped", detail: "opted_out" })]);
+    const queued = world();
+    await send(queued);
+    queued.store.smsOptOuts = [{ _id: "smsOptOuts:a", phone: PHONE, optedOutAt: 5 }];
+    await deliverTexts(queued);
+    expect(sendSms).not.toHaveBeenCalled();
+    expect(texts(queued)[0]).toMatchObject({ status: "skipped", detail: "opted_out" });
+    const back = world(PHONE_ONLY, { smsOptOuts: [{ _id: "smsOptOuts:a", phone: PHONE, optedOutAt: 5, optedInAt: 6 }] });
+    await send(back);
+    expect(texts(back)[0]).toMatchObject({ status: "queued" });
+  });
+
+  it("sends nothing when the updates number is unset, and never from the sign-in number", async () => {
+    vi.stubEnv("TELNYX_UPDATES_FROM", "");
+    vi.stubEnv("TELNYX_FROM", "+18005550100");
+    const ctx = world();
+    await send(ctx);
+    await deliverTexts(ctx);
+    expect(sendSms).not.toHaveBeenCalled();
+    expect(texts(ctx)[0]).toMatchObject({ status: "skipped", detail: "no_updates_number" });
   });
 
   it("rechecks a block made after queueing", async () => {
@@ -221,6 +274,33 @@ describe("a message to someone with no email", () => {
     expect(textFailureDetail(new Error(`fetch failed for ${PHONE}: ${SECRET}`))).toBe("send_error");
   });
 
+  it("sends the real request from the updates number and stores Telnyx's id; a direct sendSms uses TELNYX_FROM", async () => {
+    const { sendSms: realSendSms } = await vi.importActual<typeof import("./smsSender")>("./smsSender");
+    vi.mocked(sendSms).mockImplementationOnce(realSendSms);
+    vi.stubEnv("TELNYX_API_KEY", "test-key");
+    vi.stubEnv("TELNYX_FROM", "+18005550100");
+    const fetchMock = vi.fn(async (_url: string, _init: any) => new Response(JSON.stringify({ data: { id: "tx-9" } }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const ctx = world();
+    await send(ctx);
+    await deliverTexts(ctx);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ from: UPDATES, to: PHONE });
+    expect(texts(ctx)[0]).toMatchObject({ status: "sent", telnyxId: "tx-9" });
+    expect(await realSendSms(PHONE, "code 123456")).toEqual({ id: "tx-9" });
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({ from: "+18005550100" });
+  });
+
+  it("a dry run reports no text while the updates number is unset", async () => {
+    vi.stubEnv("TELNYX_UPDATES_FROM", "");
+    const ctx = world();
+    await send(ctx);
+    const message = ctx.store.messages[0];
+    const outcome = await scheduleMessageAlert(ctx, {
+      recipientId: ANA as any, messageId: message._id, senderName: "David Russo", dedupeKey: "message-resend:x",
+    }, { dryRun: true });
+    expect(outcome).toEqual({ channel: "none", reason: "no_updates_number" });
+  });
+
   it("reads the status code from sendSms's own error, and nothing Telnyx said back", async () => {
     const { sendSms: realSendSms } = await vi.importActual<typeof import("./smsSender")>("./smsSender");
     vi.mocked(sendSms).mockImplementationOnce(realSendSms);
@@ -271,7 +351,22 @@ describe("texts switched off", () => {
     expect(texts(ctx)[0]).toMatchObject({ status: "skipped", detail: "texts_off" });
   });
 
+  it("setMessageTexts refuses to turn on without the updates number and the webhook key, naming what's missing", async () => {
+    const ctx = world();
+    vi.stubEnv("TELNYX_UPDATES_FROM", "");
+    vi.stubEnv("TELNYX_PUBLIC_KEY", "");
+    await expect(run(setMessageTexts, ctx, { enabled: true })).rejects.toMatchObject({
+      data: { code: "texts_not_ready", reason: expect.stringContaining("TELNYX_UPDATES_FROM and TELNYX_PUBLIC_KEY") },
+    });
+    vi.stubEnv("TELNYX_UPDATES_FROM", UPDATES);
+    await expect(run(setMessageTexts, ctx, { enabled: true })).rejects.toMatchObject({
+      data: { reason: expect.stringContaining("TELNYX_PUBLIC_KEY") },
+    });
+    await run(setMessageTexts, ctx, { enabled: false });
+  });
+
   it("setMessageTexts turns the switch on and off", async () => {
+    vi.stubEnv("TELNYX_PUBLIC_KEY", "key");
     const ctx = world(PHONE_ONLY, { engagementLoops: [] });
     await run(setMessageTexts, ctx, { enabled: true });
     expect(ctx.store.engagementLoops).toEqual([expect.objectContaining({ key: MESSAGE_TEXTS_KEY, enabled: true, subject: "", body: "" })]);
@@ -311,7 +406,7 @@ describe("the text's wording", () => {
     ctx.store.profiles[0].name = "Claim your prize at prize.win";
     await send(ctx);
     await deliverTexts(ctx);
-    expect(sendSms).toHaveBeenCalledWith(PHONE, textOf(C, PLATFORM_NAME, "Someone"));
+    expect(sendSms).toHaveBeenCalledWith(PHONE, textOf(C, PLATFORM_NAME, "Someone"), UPDATES);
   });
 });
 
@@ -332,9 +427,11 @@ describe("resendMissedMessageAlerts", () => {
   ] as const;
 
   async function resendWorld(textsOn = true) {
+    const users = [{ _id: DAVID, email: "david@example.com" }, { _id: CHRISTINA, email: "christina@example.com" },
+      ...people.map(([_id, fields]) => ({ _id, ...fields }))];
     const ctx = makeCtx({
-      users: [{ _id: DAVID, email: "david@example.com" }, { _id: CHRISTINA, email: "christina@example.com" },
-        ...people.map(([_id, fields]) => ({ _id, ...fields }))],
+      users,
+      textConsents: consentsFor(users),
       profiles: [
         { _id: "profiles:david", userId: DAVID, name: "David Russo" },
         { _id: "profiles:christina", userId: CHRISTINA, name: "Christina Bumann" },
@@ -446,7 +543,7 @@ describe("resendMissedMessageAlerts", () => {
     expect(scheduled(ctx, "messageAlerts:sendMessageText")).toHaveLength(1);
     await deliverTexts(ctx);
     expect(sendSms).toHaveBeenCalledTimes(1);
-    expect(sendSms).toHaveBeenCalledWith("+16195550101", textOf("conversations:texted"));
+    expect(sendSms).toHaveBeenCalledWith("+16195550101", textOf("conversations:texted"), UPDATES);
     expect(JSON.stringify(vi.mocked(sendSms).mock.calls)).not.toContain(SECRET);
     expect(events()).not.toContain(SECRET);
     expect(JSON.stringify(result)).not.toContain(SECRET);

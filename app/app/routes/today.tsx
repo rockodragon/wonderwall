@@ -28,6 +28,7 @@ import { Desk } from "../desk/Desk";
 import { useIsDesktop } from "../hooks/useMediaQuery";
 import { InviteNudge } from "../components/InviteNudge";
 import { ShareProjectCard } from "../components/ShareProjectCard";
+import { TextsAskCard, useTextsAskShown } from "../components/TextsAskCard";
 import { SHARE_PROJECT_PATH, ownsAProject, withFinishedStage } from "../lib/shareProject";
 import { UpdatesStack } from "../components/UpdatesStack";
 import { CelebrationStack } from "../components/CelebrationStack";
@@ -109,6 +110,7 @@ function TodayPage() {
   // stays until they have one up, and only then is an empty profile raised.
   const owns = ownsAProject(projects, profile);
   const needsProject = owns === false;
+  const textsAsk = useTextsAskShown() && owns === true;
   const profileEmpty = owns === true && profile !== undefined && profile !== null && !profile.bio && !profile.imageUrl;
   const loading = projects === undefined;
 
@@ -154,7 +156,10 @@ function TodayPage() {
       <UpdatesStack />
       {/* The third day back: their invite link, once (components/InviteNudge.tsx),
           held until a project is up so it never sits beside the ask below. */}
-      <InviteNudge tone="page" className="mb-8 md:mb-10" hold={owns !== true} />
+      <InviteNudge tone="page" className="mb-8 md:mb-10" hold={owns !== true || textsAsk} />
+      {/* Texts about messages, for an account with a phone and no email that
+          hasn't decided (components/TextsAskCard.tsx). */}
+      {owns === true && <TextsAskCard tone="page" className="mb-8 md:mb-10" />}
 
       {openGift && <YourHalfCard amountCents={openGift.amountCents} />}
 
