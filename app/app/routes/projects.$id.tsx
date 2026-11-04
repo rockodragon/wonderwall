@@ -24,11 +24,13 @@ import { Link, useLocation, useParams, useRouteError, useSearchParams } from "re
 import { api } from "../../convex/_generated/api";
 import { formatCents } from "../../convex/money";
 import { EMBED_PROVIDER_LABEL, toEmbedUrl } from "../lib/videoEmbed";
+import { isAudioFileLink, toMusicEmbed } from "../lib/musicEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { AdminMenu, HiddenNotice } from "../components/AdminMenu";
 import { InviteToThis } from "../components/InviteToThis";
 import { EmbedPlayer } from "../components/EmbedPlayer";
+import { MusicPlayer } from "../components/MusicPlayer";
 import { CoverFrame } from "../components/CoverFrame";
 import { ImageFill } from "../components/ImageFill";
 import { describeMediaLink, MediaLinkField } from "../components/MediaLinkField";
@@ -655,10 +657,16 @@ function PieceMedia({ piece: m, project }: { piece: any; project: any }) {
   if (embed) {
     return <EmbedPlayer embed={embed} title={m.title ?? project.title} className="rounded-2xl overflow-hidden" style={frame} />;
   }
+  const music = toMusicEmbed(m.mediaUrl ?? undefined);
+  if (music) {
+    return <MusicPlayer music={music} title={m.title ?? project.title} className="rounded-2xl overflow-hidden" style={frame} />;
+  }
   if (m.type === "video" && m.resolvedMediaUrl) {
     return <video src={m.resolvedMediaUrl} controls playsInline className="w-full rounded-2xl" style={frame} />;
   }
-  if (m.type === "audio" && m.resolvedMediaUrl) {
+  // An upload or an audio file plays here. A music page that isn't a player
+  // link (yet) gets the link below; an <audio> pointed at it never plays.
+  if (m.type === "audio" && m.resolvedMediaUrl && (m.mediaStorageId || isAudioFileLink(m.resolvedMediaUrl))) {
     return (
       <div className="rounded-2xl p-4" style={frame}>
         {m.title && (
