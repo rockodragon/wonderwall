@@ -2911,7 +2911,17 @@ function GuestsPanel({
             <li key={g.key} className="px-3 py-3 flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-[15px] text-gray-900 dark:text-white">
-                  {g.name}
+                  {/* A buyer with no account has no profile to open. */}
+                  {g.profileId ? (
+                    <Link
+                      to={`/profile/${g.profileId}`}
+                      className="hover:text-blue-600 dark:hover:text-blue-400 hover:underline"
+                    >
+                      {g.name}
+                    </Link>
+                  ) : (
+                    g.name
+                  )}
                   {g.tickets > 1 && (
                     <span className="ml-2 text-[13.5px] text-gray-700 dark:text-gray-200">
                       +{g.tickets - 1} {g.tickets === 2 ? "guest" : "guests"}

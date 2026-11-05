@@ -10,7 +10,9 @@ import { assertCommunityMember } from "./garden/communities";
 import { resolveCommunities } from "./garden/communityLookup";
 import { formatFollowedEventDate, notifyFollowers } from "./follows";
 import { canonicalMediaUrl, schedulePreviewFetch } from "./linkPreview";
-import { loadGuests, withGuestRoles } from "./eventGuestList";
+import { guestEventIds, loadGuests, withGuestRoles } from "./eventGuestList";
+import { canSeeProfile } from "./profiles";
+import { blockBetween } from "./blocks";
 import {
   assertEventHasRoom,
   eventCapacity,
@@ -363,6 +365,49 @@ export const listForOrganization = query({
       .sort((a, b) => b.datetime - a.datetime)
       .slice(0, 6);
     return { upcoming: await toCardEvents(ctx, upcoming), past: await toCardEvents(ctx, past) };
+  },
+});
+
+/** The most Past events a profile lists. */
+export const PAST_EVENTS_MAX = 30;
+
+/**
+ * "Past events" on a person's profile: events they went to, newest first —
+ * an accepted request, an RSVP or a paid ticket, as the Guests tab counts
+ * going (eventGuestList.ts guestEventIds). Published and past only (the
+ * archive's rule, isEventListed), so nothing cancelled or still a draft.
+ *
+ * Who sees it (Rick, 2026-11-04): signed-in members only, as with the names
+ * on an event's Going list; never a visitor, never when the person turned
+ * it off in Settings (profiles.hidePastEvents), never across a block either
+ * way. Each event only when the viewer could open its page (canSeeEvent:
+ * not hidden, not in a test community they're outside of), and a Table's
+ * event only when they may see its roster, as getAttendees.
+ */
+export const listPastForProfile = query({
+  args: { profileId: v.id("profiles") },
+  handler: async (ctx, { profileId }) => {
+    const viewerId = await currentUserId(ctx);
+    if (!viewerId) return [];
+    const profile = await ctx.db.get(profileId);
+    if (!profile || profile.hidePastEvents || !(await canSeeProfile(ctx, profile))) return [];
+    if (await blockBetween(ctx, viewerId, profile.userId)) return [];
+
+    const now = Date.now();
+    const went: Doc<"events">[] = [];
+    for (const eventId of await guestEventIds(ctx, profile.userId, "going")) {
+      const event = await ctx.db.get(eventId);
+      if (!event || event.status !== "published" || isEventListed(event, now)) continue;
+      if (!(await canSeeEvent(ctx, event, viewerId))) continue;
+      if (event.tableId) {
+        const table = await ctx.db.get(event.tableId);
+        const participation = table ? await getTableParticipation(ctx, table, viewerId) : null;
+        if (!participation?.canSeeRoster) continue;
+      }
+      went.push(event);
+    }
+    went.sort((a, b) => b.datetime - a.datetime);
+    return toCardEvents(ctx, went.slice(0, PAST_EVENTS_MAX));
   },
 });
 
@@ -1097,14 +1142,21 @@ export const getApplications = query({
 });
 
 // Host-only guest list: applications, RSVPs and paid tickets, one row per
-// person, each with who they are (eventGuestList.ts). Emails are
+// person, each with who they are (eventGuestList.ts) and their profile, so
+// the name opens it. A buyer with no account has none. Emails are
 // host-visible only (same rule as getEventRsvps).
 export const getGuestList = query({
   args: { eventId: v.id("events") },
   handler: async (ctx, args) => {
     const host = await hostOf(ctx, args.eventId);
     if (!host) return [];
-    return withGuestRoles(ctx, host.event, await loadGuests(ctx, args.eventId));
+    const rows = await withGuestRoles(ctx, host.event, await loadGuests(ctx, args.eventId));
+    return Promise.all(
+      rows.map(async (row) => ({
+        ...row,
+        profileId: row.userId ? ((await getProfileByUserId(ctx, row.userId as Id<"users">))?._id ?? null) : null,
+      })),
+    );
   },
 });
 

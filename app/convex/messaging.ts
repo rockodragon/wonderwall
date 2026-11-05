@@ -7,6 +7,7 @@ import { currentUserId, getProfileByUserId, requireUserId } from "./helpers";
 import { insertNotification } from "./notify";
 import type { Doc, Id } from "./_generated/dataModel";
 import { isEventHost } from "./eventHosts";
+import { guestEventIds } from "./eventGuestList";
 import { hasPaidMembership } from "./garden/entitlements";
 import { profileImageUrl } from "./images";
 import { hasRealName } from "./names";
@@ -88,26 +89,7 @@ export async function isHostsGuest(
   hostId: Id<"users">,
   guestId: Id<"users">,
 ): Promise<boolean> {
-  const eventIds = new Set<Id<"events">>();
-  for (const a of await ctx.db
-    .query("eventApplications")
-    .withIndex("by_applicantId", (q) => q.eq("applicantId", guestId))
-    .collect()) {
-    eventIds.add(a.eventId);
-  }
-  for (const r of await ctx.db
-    .query("eventRsvps")
-    .withIndex("by_userId", (q) => q.eq("userId", guestId))
-    .collect()) {
-    eventIds.add(r.eventId);
-  }
-  for (const p of await ctx.db
-    .query("ticketPurchases")
-    .withIndex("by_userId", (q) => q.eq("userId", guestId))
-    .collect()) {
-    if (p.status === "paid") eventIds.add(p.eventId);
-  }
-  for (const eventId of eventIds) {
+  for (const eventId of await guestEventIds(ctx, guestId, "any")) {
     const event = await ctx.db.get(eventId);
     if (event && isEventHost(event, hostId)) return true;
   }

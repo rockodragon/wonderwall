@@ -82,6 +82,12 @@ describe("getGuestList roles", () => {
     const rows = await run(getGuestList, makeCtx(world(), HOST), { eventId: EVENT });
     expect(roles(rows)).toEqual({ Rick: "host", Pat: "patron", Cody: "church", Juan: "unknown" });
   });
+
+  it("gives each guest with an account their profile, so the name opens it", async () => {
+    const rows = await run(getGuestList, makeCtx(world(), HOST), { eventId: EVENT });
+    const profiles = Object.fromEntries(rows.map((r: { name: string; profileId: string | null }) => [r.name, r.profileId]));
+    expect(profiles).toEqual({ Rick: "profiles:host", Pat: "profiles:patron", Cody: "profiles:pastor", Juan: null });
+  });
 });
 
 describe("setGuestRole", () => {
