@@ -21,6 +21,12 @@ import { createRecorderSession, recorderEnv, useAudioRecorderSupported, type Rec
 /** Writes a recording down: the sound and its type in, the text out. */
 export type Transcriber = (audio: ArrayBuffer, mime: string) => Promise<string>;
 
+/** The longest take (Rick, 2026-11-05: "three to ... four minutes"). A
+ *  take stops by itself here and is written down. Voice notes keep their
+ *  own limit (useAudioRecorder's MAX_NOTE_SECONDS). convex/transcribe.ts
+ *  sizes its byte and text caps to this. */
+export const MAX_TALK_SECONDS = 240;
+
 export type TalkState = { recording: boolean; transcribing: boolean; error: string | null };
 export const TALK_IDLE: TalkState = { recording: false, transcribing: false, error: null };
 
@@ -51,13 +57,17 @@ export function createTalkSession(
     handlers.onChange(state);
   };
 
-  const recorder = createRecorderSession(env, {
-    onChange: (r) => {
-      if (r.error) set({ recording: false, transcribing: false, error: r.error });
-      else if (r.recording !== state.recording) set(r.recording ? { recording: true, error: null } : { recording: false });
+  const recorder = createRecorderSession(
+    env,
+    {
+      onChange: (r) => {
+        if (r.error) set({ recording: false, transcribing: false, error: r.error });
+        else if (r.recording !== state.recording) set(r.recording ? { recording: true, error: null } : { recording: false });
+      },
+      onFinish: (blob) => void writeDown(blob),
     },
-    onFinish: (blob) => void writeDown(blob),
-  });
+    MAX_TALK_SECONDS,
+  );
 
   async function writeDown(blob: Blob) {
     const mine = epoch;
