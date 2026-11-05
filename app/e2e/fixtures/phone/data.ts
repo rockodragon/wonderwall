@@ -126,6 +126,17 @@ const projects = [
     stage: "working",
     creator: { _id: "u-june", name: "June Park", imageUrl: "/campaign/june.jpg", interests: ["Music"], location: "San Diego" },
   }),
+  // Its only piece is a YouTube video: the card shows the video's still
+  // (convex/coverRules.ts), not the abstract cover.
+  project({
+    _id: "p-zoo",
+    title: "Field notes from the zoo",
+    blurb: "A short documentary, one take, nineteen seconds.",
+    interests: ["Film"],
+    stage: "working",
+    creator: { _id: "u-shua", name: "Shua Lim", imageUrl: "/campaign/shua.jpg", interests: ["Film"], location: "San Diego" },
+    media: [{ _id: "a-zoo", profileId: "u-shua", type: "video", mediaUrl: "https://www.youtube.com/watch?v=jNQXAC9IVRw", resolvedMediaUrl: "https://www.youtube.com/watch?v=jNQXAC9IVRw", order: 0, createdAt: now - 2 * DAY }],
+  }),
   // No picture, and posted as an organization: Today's post sets the title on
   // the abstract cover, and the maker's square is the logo's initial.
   project({
@@ -433,6 +444,31 @@ const messageReport = {
   depth: { one: 52, twoToThree: 33, fourToNine: 15, tenPlus: 6 },
 };
 
+/** /admin/voting (with `?admin`): a portrait cover, a wide one and a
+ * project with no picture, the three a ballot card has to draw. */
+const ballot = (id: string, title: string, photoUrl: string | null, blurb: string) => ({
+  _id: id,
+  title,
+  blurb,
+  kind: "passion",
+  stage: "completed",
+  byName: "Kai Moy",
+  photoUrl,
+  createdAt: 0,
+  cheers: 2,
+  backers: 0,
+  status: "new",
+  tally: { yes: 0, maybe: 0, no: 0 },
+  votes: [],
+  myVote: null,
+  myNote: null,
+});
+const votingRows = [
+  ballot("v-river", "To the River", "/campaign/church.jpg", "Baptisms at the river, a photo series."),
+  ballot("v-table", "The long table", "/showcase/table-drawing.jpg", "A drawing of the supper table, wide."),
+  ballot("v-surf", "Discipleship for Young Adult Surfers", null, "A short film; its only piece is a video."),
+];
+
 export const answers: Record<string, unknown | ((args: unknown) => unknown)> = {
   "garden/projectTeam:listAffiliations": myProjects,
   "invites:getInviteStats": null,
@@ -459,6 +495,7 @@ export const answers: Record<string, unknown | ((args: unknown) => unknown)> = {
     return { people: found, total: found.length, visitor: false };
   },
   "admin/messageReport:getMessageReport": messageReport,
+  "showcase:adminList": votingRows,
   "messaging:getUnreadCount": 1,
   "notifications:getUnreadCount": 1,
   "notifications:getNotifications": notifications,

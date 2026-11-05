@@ -16,7 +16,10 @@
 //               og:image wins.
 //   TikTok    — public oEmbed, no key; a short link is followed first.
 //   YouTube   — img.youtube.com, derived client-side; nothing to fetch.
-//   Vimeo     — nothing without a key; the player carries its own image.
+//   Vimeo     — public oEmbed, no key; an unlisted video answers when the
+//               link carries its hash. The still only (checked 2026-11-04:
+//               a Vimeo title is often the file's name, "CSALTtestimony-
+//               Youtube").
 //   Bandcamp  — a piece's album or track page (pieces only, not events or
 //               projects). The fetch is for the player more than the still:
 //               the page's bc-page-properties carries the number the player
@@ -74,12 +77,12 @@ export function canonicalMediaUrl(raw: string | undefined): string | undefined {
   return toEmbedUrl(url)?.canonicalUrl ?? url;
 }
 
-/** True when a link is one this module can fetch a still for. YouTube and
-    Vimeo are embeds too, but need nothing from the server. */
+/** True when a link is one this module can fetch a still for. YouTube is
+    an embed too, but its still comes from the URL alone (videoEmbed.ts). */
 export function wantsPreviewFetch(url: string | undefined): boolean {
   if (!url) return false;
   const kind = toEmbedUrl(url)?.kind;
-  return kind === "instagram" || kind === "tiktok" || isTikTokShortLink(url);
+  return kind === "instagram" || kind === "tiktok" || kind === "vimeo" || isTikTokShortLink(url);
 }
 
 /**
@@ -220,6 +223,31 @@ async function resolveTikTok(url: string): Promise<ResolvedPreview | null> {
   };
 }
 
+/** The still in Vimeo's oEmbed answer. No title: a Vimeo title is often
+    the uploaded file's name. A cover the maker uploaded is kept the way it
+    is for Instagram and TikTok: artifacts.create and update don't fetch
+    over one, the backfill skips a piece that has a still, and only the
+    owner's Refresh Preview replaces it. Pure, so it is unit-tested against
+    a saved answer (linkPreview.test.ts). */
+export function parseVimeoPreview(data: unknown, canonicalUrl: string): ResolvedPreview {
+  const thumb = (data as { thumbnail_url?: unknown } | null)?.thumbnail_url;
+  return {
+    canonicalUrl,
+    imageUrl: typeof thumb === "string" && /^https:\/\//.test(thumb) ? thumb : undefined,
+  };
+}
+
+async function resolveVimeo(canonicalUrl: string): Promise<ResolvedPreview | null> {
+  // width=1280 asks for a still big enough for a full-width cover.
+  const res = await fetch(
+    `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(canonicalUrl)}&width=1280`,
+    { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(15000) },
+  );
+  // A private video answers 403 or 404: no still, and nothing to change.
+  if (!res.ok) return null;
+  return parseVimeoPreview(await res.json(), canonicalUrl);
+}
+
 /** The player link, title and still on a Bandcamp album or track page, or
     null when the page names no album or track. bc-page-properties is the
     page's own record of what it is; the twitter:player link is the fallback.
@@ -265,6 +293,7 @@ export async function resolveLinkPreview(url: string): Promise<ResolvedPreview |
   const embed = toEmbedUrl(url);
   if (embed?.kind === "instagram") return resolveInstagram(embed.canonicalUrl);
   if (embed?.kind === "tiktok" || isTikTokShortLink(url)) return resolveTikTok(url);
+  if (embed?.kind === "vimeo") return resolveVimeo(embed.canonicalUrl);
   if (isBandcampPageLink(url)) return resolveBandcamp(url);
   return null;
 }
@@ -437,5 +466,32 @@ export const backfillArtifactPreviews = internalMutation({
       scheduled += 1;
     }
     return { scheduled };
+  },
+});
+
+// Vimeo links pasted before their stills were fetched (2026-11-04) play but
+// show no picture on a card: pieces, projects and events alike. Run once
+// after deploy:
+//   npx convex run --prod linkPreview:backfillVimeoStills
+// Idempotent: a row that has its still is skipped, and the fetches are half a
+// second apart.
+export const backfillVimeoStills = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const isVimeo = (url: string | undefined) => toEmbedUrl(url)?.kind === "vimeo";
+    const todo: { target: PreviewTarget; id: string; url: string }[] = [];
+    for (const a of await ctx.db.query("artifacts").collect()) {
+      if (a.mediaUrl && isVimeo(a.mediaUrl) && !a.ogImageUrl) todo.push({ target: "artifact", id: a._id, url: a.mediaUrl });
+    }
+    for (const p of await ctx.db.query("projects").collect()) {
+      if (p.mediaUrl && isVimeo(p.mediaUrl) && !p.mediaPreviewUrl) todo.push({ target: "project", id: p._id, url: p.mediaUrl });
+    }
+    for (const e of await ctx.db.query("events").collect()) {
+      if (e.mediaUrl && isVimeo(e.mediaUrl) && !e.mediaPreviewUrl) todo.push({ target: "event", id: e._id, url: e.mediaUrl });
+    }
+    for (const [i, row] of todo.entries()) {
+      await ctx.scheduler.runAfter(i * 500, internal.linkPreview.fetchPreview, row);
+    }
+    return { scheduled: todo.length };
   },
 });

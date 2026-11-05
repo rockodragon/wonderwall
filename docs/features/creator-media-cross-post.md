@@ -55,6 +55,20 @@ Rick's review of the first deploy, and what changed:
 - **Events take a pasted link.** Creating or editing an event, the organizer can paste an Instagram, TikTok, YouTube or Vimeo link instead of uploading a cover. The event page plays it; cards show its still; an uploaded cover still wins when both exist.
 - **Projects take a pasted link.** A hiring call or a passion project posted as an Instagram post or reel: paste it when posting. The project page plays it, /projects and /opportunities cards show its still, and the story page uses it as the hero. A photo still wins on cards when both exist.
 
+## Round 3 · 2026-11-04 · Vimeo stills, every Vimeo link, video covers on cards
+
+Rick, 2026-11-04: "make sure that we can embed Vimeo videos via the link and get the thumbnails", and "youtube video embeds also dont seem to grab and show the thumbnails".
+
+- **Every Vimeo link plays.** `toEmbedUrl` used to take only `vimeo.com/ID` and the player link. It now also takes:
+  - an unlisted video's `vimeo.com/ID/HASH`, which plays as `player.vimeo.com/video/ID?h=HASH` (an unlisted video won't play without its hash);
+  - links from a channel, a group or a showcase;
+  - the maker's own `vimeo.com/manage/videos/ID` page.
+- **Vimeo stills.** Vimeo's public oEmbed (`vimeo.com/api/oembed.json`, no key) gives a 1280px still. `linkPreview.ts` copies it into storage for pieces, events and projects, like Instagram and TikTok. It fetches the still only, not the title, because a Vimeo title is often the uploaded file's name. A cover the maker uploaded is kept, as with Instagram and TikTok. Only the owner's Refresh Preview replaces it. Links pasted before this get their stills from a one-time run after deploy: `npx convex run --prod linkPreview:backfillVimeoStills`.
+- **Video covers on cards.** Today, Projects and the Canvas pick a project's picture with `coverOf`, which looked only at image pieces. So a project whose only piece was a YouTube or Vimeo video showed the abstract cover. `convex/coverRules.ts` now holds the one rule, and the server's cards (`projectCover.ts`) and `coverOf` both read it. The order is:
+  1. the project's photo;
+  2. its pasted link's still (fetched, or YouTube's own);
+  3. the first piece that has a picture: its still, the image itself, or its YouTube video's.
+
 ## Tier 1 · Paste
 
 Built as specified here, with these differences from the first draft:

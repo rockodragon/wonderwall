@@ -2,6 +2,7 @@
 // Moved out of routes/today.tsx so the Today page and the desk pick the same
 // way. Pure, so both can test against it.
 
+import { linkStill, pieceStill } from "../../convex/coverRules";
 import { VISIBLE_PROJECT_STATUSES } from "../../convex/moderationRules";
 import { budgetAmountLabel, budgetKindLabel, type BudgetDeclaration } from "./budgetLabel";
 
@@ -9,18 +10,27 @@ import { budgetAmountLabel, budgetKindLabel, type BudgetDeclaration } from "./bu
 export type CoverSource = {
   resolvedPhotoUrl?: string | null;
   mediaPreviewUrl?: string | null;
-  media: readonly { resolvedMediaUrl?: string | null; type?: string }[];
+  mediaUrl?: string | null;
+  media: readonly {
+    resolvedMediaUrl?: string | null;
+    type?: string;
+    ogImageUrl?: string | null;
+    mediaUrl?: string | null;
+  }[];
 };
 
-/** The first picture a project has: its photo, a pasted link's still, then
- * its first image artifact. */
+/** The first picture a project has, by the rule the server's cards use too
+ * (convex/coverRules.ts): its photo, its pasted link's picture, then the
+ * first piece that has one (a still, an image, a YouTube video's). */
 export function coverOf(p: CoverSource): string | null {
-  return (
-    p.resolvedPhotoUrl ??
-    p.mediaPreviewUrl ??
-    p.media.find((m) => m.resolvedMediaUrl && m.type === "image")?.resolvedMediaUrl ??
-    null
-  );
+  if (p.resolvedPhotoUrl) return p.resolvedPhotoUrl;
+  const link = linkStill(p);
+  if (link) return link;
+  for (const m of p.media) {
+    const still = pieceStill(m, m.resolvedMediaUrl);
+    if (still) return still;
+  }
+  return null;
 }
 
 /** The fields the picking rule reads. */

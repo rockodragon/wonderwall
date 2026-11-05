@@ -19,7 +19,9 @@ Then open http://127.0.0.1:8802/today in a 390px-wide window (or the
 `phone-preview` entry in `.claude/launch.json`). Onboarding is at
 `/onboarding?fresh` as a brand-new member sees it (a name from Google and
 nothing else; every address but "dee" is free), or `/onboarding` as a
-member changing their answers. A query with no sample
+member changing their answers. The admin pages take `?admin`:
+`/admin/messages?admin`, and `/admin/voting?admin` with a portrait cover,
+a wide one and a project with no picture. A query with no sample
 answer warns once in the console and stays loading, which is also how the
 screen draws before the real answer arrives.
 
