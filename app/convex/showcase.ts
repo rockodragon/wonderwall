@@ -39,6 +39,7 @@ import { projectPhotoUrl } from "./images";
 import { isListedProject } from "./moderationRules";
 import { orgByline } from "./organizations";
 import { resolveStage } from "./stages";
+import { isGivenSupport, supportKind } from "./garden/support";
 
 /** Applications close at 23:59 Pacific on Thursday 2026-10-22 (=
     2026-10-23T06:59Z; still PDT, UTC-7 — DST ends 2026-11-01). The date is
@@ -295,6 +296,20 @@ export const adminList = query({
     const projects = (await ctx.db.query("projects").collect()).filter(isListedProject);
     const votes = await ctx.db.query("showcaseProjectVotes").collect();
 
+    // The public's vote: the cheers and backings people gave each project
+    // (garden/support.ts isGivenSupport, the Shortlist's rule). One read of
+    // the table, grouped, rather than an indexed read per project.
+    const support = new Map<string, { cheers: number; backers: number }>();
+    for (const row of await ctx.db.query("projectSupport").collect()) {
+      if (!isGivenSupport(row)) continue;
+      const kind = supportKind(row.type);
+      if (kind !== "cheer" && kind !== "money") continue;
+      const counts = support.get(row.projectId) ?? { cheers: 0, backers: 0 };
+      if (kind === "cheer") counts.cheers += 1;
+      else counts.backers += 1;
+      support.set(row.projectId, counts);
+    }
+
     // One profile read per DISTINCT person, voter or creator.
     const names = new Map<string, string | null>();
     for (const userId of [...votes.map((vote) => vote.userId), ...projects.map((project) => project.userId)]) {
@@ -313,6 +328,7 @@ export const adminList = query({
     const rows = await Promise.all(
       projects.map(async (project) => {
         const cast = byProject.get(project._id) ?? [];
+        const mine = cast.find((vote) => vote.userId === me);
         const organization = await orgByline(ctx, project.organizationId);
         return {
           _id: project._id,
@@ -324,6 +340,8 @@ export const adminList = query({
           byName: organization?.name ?? nameOf(project.userId, "A Garden creative"),
           photoUrl: (await projectPhotoUrl(ctx, project)) ?? project.mediaPreviewUrl ?? null,
           createdAt: project.createdAt,
+          cheers: support.get(project._id)?.cheers ?? 0,
+          backers: support.get(project._id)?.backers ?? 0,
           status: (project.showcaseStatus ?? "new") as ShowcaseStatus,
           tally: {
             yes: cast.filter((vote) => vote.vote === "yes").length,
@@ -336,7 +354,8 @@ export const adminList = query({
             vote: vote.vote,
             note: vote.note,
           })),
-          myVote: cast.find((vote) => vote.userId === me)?.vote ?? null,
+          myVote: mine?.vote ?? null,
+          myNote: mine?.note ?? null,
         };
       }),
     );

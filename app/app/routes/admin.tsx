@@ -84,10 +84,10 @@ const DESTINATIONS: readonly Destination[] = [
     blurb: "How many messages members send each week, and how often they get an answer. Counts only.",
   },
   {
-    to: "/admin/showcase",
-    title: "Showcase jury",
+    to: "/admin/voting",
+    title: "Project voting",
     icon: Trophy,
-    blurb: "Vote on projects for the November 6 showcase.",
+    blurb: "Vote on projects for the showcase, a grant or a community fund.",
   },
 ];
 
