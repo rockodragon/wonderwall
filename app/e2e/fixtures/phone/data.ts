@@ -543,6 +543,9 @@ export const answers: Record<string, unknown | ((args: unknown) => unknown)> = {
   "garden/communities:listMyCommunities": [{ ...community, role: "member", status: "active", isHome: true }],
   "garden/communities:listCommunities": [{ ...community, memberCount: 40 }],
   "garden/projects:listProjects": projects,
+  // No Sophia Fund here. The desktop Canvas's Projects waits for this answer
+  // before it lists anything.
+  "garden/allocations:getFundPage": null,
   "garden/projects:getProject": (args: unknown) => {
     const id = (args as { projectId?: string } | undefined)?.projectId;
     return [...projects, ...pieceProjects].find((p) => (p as { _id?: string })._id === id) ?? null;
@@ -554,11 +557,29 @@ export const answers: Record<string, unknown | ((args: unknown) => unknown)> = {
   // the cards count.
   "garden/projectTeam:getTeam": (args: unknown) => {
     const piece = pieceProject(args);
-    if (!piece) return { accepted: [{ userId: "u-marta" }, { userId: "u-june" }] };
+    if (!piece) {
+      // A project's page reads its lead from here (TeamCard).
+      const id = (args as { projectId?: string } | undefined)?.projectId;
+      const creator = projects.find((p) => (p as { _id?: string })._id === id)?.creator;
+      const lead = creator ? { profileId: creator._id, userId: creator._id, name: creator.name, imageUrl: creator.imageUrl } : undefined;
+      const accepted = [
+        { profileId: "u-marta", userId: "u-marta", name: "Marta Reyes", imageUrl: null },
+        { profileId: "u-june", userId: "u-june", name: "June Park", imageUrl: null },
+      ];
+      return { lead, accepted, credits: [], acceptingPeople: false };
+    }
     const { creator, userId } = piece;
     return { lead: { profileId: creator._id, userId, name: creator.name, imageUrl: creator.imageUrl }, accepted: [], credits: [], acceptingPeople: false };
   },
-  "garden/projectTeam:listRoles": (args: unknown) => (pieceProject(args) ? [] : [{ status: "open" }, { status: "open" }]),
+  // Two open roles everywhere but a shared piece's page, drawn whole enough
+  // for a project page's Team tab.
+  "garden/projectTeam:listRoles": (args: unknown) =>
+    pieceProject(args)
+      ? []
+      : [
+          { roleId: "r-sound", title: "Sound mixer", status: "open", budgetType: "amount", budget: 300, description: "", interests: [] },
+          { roleId: "r-light", title: "Gaffer", status: "open", budgetType: "volunteer", description: "", interests: [] },
+        ],
   "garden/support:listSupportForProject": [],
   "garden/patronTiers:listTiers": [],
   "garden/giving:getMyGiving": { open: [{ amountCents: 500 }] },

@@ -105,12 +105,14 @@ export function ErrorBoundary() {
   );
 }
 
-function PageShell({ children }: { children: ReactNode }) {
+/** `over`: drawn over the Canvas's grid (desk/ProjectOverlay.tsx), whose
+ *  panel gives the width and the ground. */
+function PageShell({ children, over = false }: { children: ReactNode; over?: boolean }) {
   return (
-    <div className="min-h-screen bg-[var(--garden-ink)]">
+    <div className={over ? undefined : "min-h-screen bg-[var(--garden-ink)]"}>
       <link rel="stylesheet" href="/tokens.css" />
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
-      <div className={`p-4 sm:p-6 ${PAGE_WIDTH.reading} mx-auto`}>{children}</div>
+      <div className={over ? "p-5 sm:p-7" : `p-4 sm:p-6 ${PAGE_WIDTH.reading} mx-auto`}>{children}</div>
     </div>
   );
 }
@@ -191,6 +193,26 @@ const TABS_ROW_ID = "project-tabs";
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
+  return <ProjectView projectId={id} />;
+}
+
+/** The open section. On the page's own address it's ?tab=. Over the Canvas,
+ *  whose address has a ?tab= of its own, it's held here and starts at About. */
+function useSectionTab(over: boolean): [string | null, (next: ProjectTab) => void] {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [held, setHeld] = useState<string | null>(null);
+  if (over) return [held, setHeld];
+  return [
+    searchParams.get("tab"),
+    // Replace the history entry, and stay where the page is scrolled.
+    (next) => setSearchParams(withProjectTab(searchParams, next), { replace: true, preventScrollReset: true }),
+  ];
+}
+
+/** A project's page: at /projects/:id, or `over` the Canvas's grid
+ *  (desk/ProjectOverlay.tsx, Rick 2026-11-05), where the Canvas's X closes it
+ *  and there's no Back. */
+export function ProjectView({ projectId: id, over = false }: { projectId: string | undefined; over?: boolean }) {
   const project = useQuery(api.garden.projects.getProject, id ? { projectId: id } : "skip");
   // Who is looking (lib/useViewer.ts): signed in, and the profile.
   const viewer = useViewer();
@@ -207,7 +229,7 @@ export default function ProjectDetail() {
   const roles = useQuery(api.garden.projectTeam.listRoles, id ? { projectId: id as Id<"projects"> } : "skip");
   const updates = useQuery(api.garden.stories.listProjectUpdates, id ? { projectId: id } : "skip");
   const location = useLocation();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [rawTab, setTab] = useSectionTab(over);
   const { support: openSupport, modal: supportModal } = useProjectSupport();
   // Lifted so the owner's "Next steps" nudge can open the support editor.
   const [editingSupport, setEditingSupport] = useState(false);
@@ -221,7 +243,6 @@ export default function ProjectDetail() {
   // Sections the owner opened from "Next steps" this visit, so an empty one
   // has somewhere to be filled in (lib/projectTabs.ts ownerSections).
   const [opened, setOpened] = useState<Set<ProjectTab>>(() => new Set());
-  const rawTab = searchParams.get("tab");
   useEffect(() => {
     if (!scrollAfterTab.current) return;
     scrollAfterTab.current = false;
@@ -238,8 +259,8 @@ export default function ProjectDetail() {
 
   if (project === undefined) {
     return (
-      <PageShell>
-        <BackLink />
+      <PageShell over={over}>
+        {!over && <BackLink />}
         <Loading />
       </PageShell>
     );
@@ -247,8 +268,8 @@ export default function ProjectDetail() {
 
   if (project === null) {
     return (
-      <PageShell>
-        <BackLink />
+      <PageShell over={over}>
+        {!over && <BackLink />}
         <p className="text-sm" style={{ color: "var(--garden-dim)" }}>
           Check the link — this project isn't here anymore.
         </p>
@@ -309,10 +330,7 @@ export default function ProjectDetail() {
   const tabbed = tabs.length > 1;
   // A section a viewer has no tab for isn't drawn at all, hidden or not.
   const hasTab = (id: ProjectTab) => tabs.some((t) => t.id === id);
-  function selectTab(next: ProjectTab) {
-    // Replace the history entry, and stay where the page is scrolled.
-    setSearchParams(withProjectTab(searchParams, next), { replace: true, preventScrollReset: true });
-  }
+  const selectTab = setTab;
   // Every action asks a visitor for an account first, and signup brings them
   // back to this page (signup.tsx stashes it; _app.tsx replays it).
   // Still checking the token reads as a member, not a visitor: no detour.
@@ -330,10 +348,10 @@ export default function ProjectDetail() {
   }
 
   return (
-    <PageShell>
+    <PageShell over={over}>
       <div className="flex items-start justify-between gap-3">
-        <BackLink />
-        <div className="flex items-center gap-1">
+        {!over && <BackLink />}
+        <div className="ml-auto flex items-center gap-1">
           {theaterSlides.length > 0 && <TheaterButton onClick={() => setTheaterAt(null)} />}
           {isOwner && <ProjectMenu project={project} />}
           <AdminMenu target={{ kind: "project", id: project._id }} title={project.title} hidden={hiddenByAdmin} />

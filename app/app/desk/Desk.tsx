@@ -58,6 +58,8 @@ import { DESK, DESK_SANS, FOCUS_RING_CLASS, MOTION_MS, motion, deskSurfaceStyle,
 import { useDeskData } from "./useDeskData";
 import { useUpdateReads } from "./useUpdateReads";
 import { DeskTables } from "../tables/DeskTables";
+import { isTyping, PALETTE_SELECTOR } from "./deskKeys";
+import { ProjectOverlay, preloadProjectPage } from "./ProjectOverlay";
 import { useAwardConfetti, useCelebrationReads } from "./useCelebrations";
 import { FF_TABLES } from "../lib/featureFlags";
 
@@ -187,7 +189,19 @@ export function Desk() {
   const leaving = useLeaving(current, reduced);
   const allCards = useMemo(() => (leaving.length ? [...current, ...leaving] : current), [current, leaving]);
 
-  const openId = cardParam && current.some((c) => c.id === cardParam) ? cardParam : null;
+  // A project opens as its own page over the grid (ProjectOverlay.tsx), not
+  // as a card (Rick, 2026-11-05). A Shortlist row's project keeps its card,
+  // whose buttons are the Shortlist's. On Today that waits for the
+  // Shortlist, so a Needs you row never opens as a page first.
+  const pageCard =
+    cardParam &&
+    !shortlistOn &&
+    !shortlistOpen &&
+    (view !== "today" || shortlist.status === "ready") &&
+    current.some((c) => c.id === cardParam && c.kind === "project")
+      ? cardParam
+      : null;
+  const openId = cardParam && !pageCard && current.some((c) => c.id === cardParam) ? cardParam : null;
 
   // An Update that opens is seen; one that closes is done and leaves the desk.
   // A celebration that closes is read and leaves too. An award on show gets
@@ -427,6 +441,44 @@ export function Desk() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [openId, close]);
 
+  // A project's page steps through the projects on show, in the grid's
+  // order. The step replaces the URL, so Back still closes the page.
+  const pageIds: string[] = useMemo(() => (shown ?? []).filter((c) => c.kind === "project").map((c) => c.id), [shown]);
+  const pageAt = pageCard ? pageIds.indexOf(pageCard) : -1;
+  const stepPage = useCallback(
+    (to: string | undefined) => {
+      if (!to) return undefined;
+      return () => {
+        const next = new URLSearchParams(paramsRef.current);
+        next.set("card", to);
+        navigate({ search: `?${next.toString()}` }, { replace: true });
+      };
+    },
+    [navigate],
+  );
+  // Its code is fetched while project cards are on show, so the first
+  // click opens at once.
+  const projectsOnShow = pageIds.length > 0;
+  useEffect(() => {
+    if (!projectsOnShow) return;
+    const timer = setTimeout(preloadProjectPage, 1200);
+    return () => clearTimeout(timer);
+  }, [projectsOnShow]);
+  // Closed, focus goes back to the card for the project last on show, else
+  // to the one that was opened.
+  const lastPage = useRef<string | null>(null);
+  useEffect(() => {
+    const was = lastPage.current;
+    lastPage.current = pageCard;
+    if (!was || pageCard) return;
+    for (const id of [was, openedFirst.current]) {
+      const el = id ? rootRef.current?.querySelector<HTMLElement>(cardSelector(id)) : null;
+      if (!el) continue;
+      el.focus({ preventScroll: true });
+      if (document.activeElement === el) break;
+    }
+  }, [pageCard]);
+
   // Where focus goes if the open card's row has gone by the time it closes
   // (its action removed it). Read off the page while the row is still there.
   const focusNext = useRef<string[]>([]);
@@ -504,6 +556,8 @@ export function Desk() {
       <div
         ref={scrollRef}
         onScroll={onScroll}
+        // Behind a project's page, the grid can't be reached.
+        inert={!!pageCard}
         style={{
           position: "absolute",
           inset: 0,
@@ -575,6 +629,15 @@ export function Desk() {
           transition: motion(["opacity"], reduced),
         }}
       />
+
+      {pageCard && (
+        <ProjectOverlay
+          projectId={pageCard.slice("project:".length)}
+          onClose={() => close()}
+          onPrev={stepPage(pageIds[pageAt - 1])}
+          onNext={pageAt >= 0 ? stepPage(pageIds[pageAt + 1]) : undefined}
+        />
+      )}
 
       <DeskCreate />
       <DeskToast />
@@ -780,16 +843,6 @@ function focusFallbacks(root: HTMLElement | null, id: string): string[] {
     ...nearestFirst(rows, rows.indexOf(id)).map((rowId) => `[data-shortlist-rows] ${cardSelector(rowId)}`),
     ...(at < 0 ? [] : [headings[at], ...nearestFirst(headings, at)]).map((key) => `[data-shortlist-heading="${CSS.escape(key)}"]`),
   ];
-}
-
-/** The palette's corner: it sits above the opened card on purpose, so the
- * keyboard can reach it while a card is open. */
-const PALETTE_SELECTOR = '.desk-pal, [aria-label="Navigation"]';
-
-/** Focus is in something that takes arrow keys for itself. */
-function isTyping(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  return target.isContentEditable || target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT";
 }
 
 function trapTab(e: KeyboardEvent) {

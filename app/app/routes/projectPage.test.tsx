@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderToString } from "react-dom/server";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { getFunctionName } from "convex/server";
-import ProjectDetail from "./projects.$id";
+import ProjectDetail, { ProjectView } from "./projects.$id";
 
 const scene = vi.hoisted(() => ({ signedIn: false, answers: {} as Record<string, unknown> }));
 
@@ -73,6 +73,7 @@ function page({
   accepting = false,
   url = "/projects/p1",
   answers = {},
+  over = false,
 }: {
   viewer: "visitor" | "owner" | "member" | "admin";
   project?: Record<string, unknown>;
@@ -85,6 +86,8 @@ function page({
   url?: string;
   /** More answers, by function name. */
   answers?: Record<string, unknown>;
+  /** Drawn over the Canvas's grid (desk/ProjectOverlay.tsx), at `url`. */
+  over?: boolean;
 }): string {
   scene.signedIn = viewer !== "visitor";
   const me =
@@ -111,9 +114,13 @@ function page({
   };
   return renderToString(
     <MemoryRouter initialEntries={[url]}>
-      <Routes>
-        <Route path="/projects/:id" element={<ProjectDetail />} />
-      </Routes>
+      {over ? (
+        <ProjectView projectId="p1" over />
+      ) : (
+        <Routes>
+          <Route path="/projects/:id" element={<ProjectDetail />} />
+        </Routes>
+      )}
     </MemoryRouter>,
   ).replace(/<!-- -->/g, "");
 }
@@ -489,5 +496,27 @@ describe("a supporter's note", () => {
     });
     expect(html).toContain(NOTE.replace("'", "&#x27;"));
     expect(html).not.toMatch(/class="[^"]*truncate[^"]*"[^>]*>&quot;Thank you/);
+  });
+});
+
+describe("the project page over the Canvas's grid", () => {
+  const team = {
+    lead,
+    accepted: [{ memberId: "m1", profileId: "profiles:mo", userId: "users:mo", name: "Mo Diaz", imageUrl: null, role: "Sound", status: "accepted" }],
+    credits: [],
+    acceptingPeople: true,
+  };
+
+  it("has no Back: the Canvas's X closes it", () => {
+    expect(page({ viewer: "member", team })).toContain("← Back");
+    const html = page({ viewer: "member", team, over: true, url: "/today?view=projects&card=project:p1" });
+    expect(html).toContain("Harbor Mural");
+    expect(html).not.toContain("← Back");
+  });
+
+  it("keeps its own sections, and starts at About whatever the Canvas's ?tab= says", () => {
+    const html = page({ viewer: "member", team, over: true, url: "/today?view=projects&tab=team&card=project:p1" });
+    expect(tabs(html)).toEqual(["About", "Team"]);
+    expect(html).toMatch(/aria-selected="true"[^>]*>About</);
   });
 });
