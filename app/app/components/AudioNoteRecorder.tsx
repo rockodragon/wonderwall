@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Microphone, Stop } from "@phosphor-icons/react";
 import type { Id } from "../../convex/_generated/dataModel";
 import { errorMessage } from "../lib/convexError";
@@ -36,6 +36,9 @@ type Props = {
   onRecorded: (storageId: Id<"_storage">) => Promise<unknown> | unknown;
   /** Removes the saved note. Absent = no Remove control. */
   onRemove?: () => Promise<unknown> | unknown;
+  /** Told when a take starts and stops going up, so a form around it can
+   *  hold its Save until the note is there (components/piece/PieceEditor). */
+  onBusyChange?: (busy: boolean) => void;
 };
 
 type Uploader = Pick<FileUpload, "upload" | "reset">;
@@ -72,7 +75,7 @@ export async function removeNote(uploader: Uploader, onRemove: () => Promise<unk
 // can't record, unless a note is already saved: that still plays. Recording
 // goes through useAudioRecorder, the upload through useFileUpload (it checks
 // the size and words the problems), and the parent saves the file's id.
-export function AudioNoteRecorder({ url, generateUploadUrl, onRecorded, onRemove }: Props) {
+export function AudioNoteRecorder({ url, generateUploadUrl, onRecorded, onRemove, onBusyChange }: Props) {
   const upload = useFileUpload({ kinds: ["audio"], generateUploadUrl });
   const [working, setWorking] = useState<"saving" | "removing" | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -93,6 +96,15 @@ export function AudioNoteRecorder({ url, generateUploadUrl, onRecorded, onRemove
   const remove = () => (onRemove ? work("removing", () => removeNote(upload, onRemove)) : undefined);
 
   const recorder = useAudioRecorder({ onFinish: (take) => void save(take) });
+
+  // Recording, or a take going up: a form around this waits (onBusyChange).
+  const holding = recorder.recording || working !== null || upload.uploading;
+  const onBusyRef = useRef(onBusyChange);
+  onBusyRef.current = onBusyChange;
+  useEffect(() => {
+    onBusyRef.current?.(holding);
+  }, [holding]);
+  useEffect(() => () => onBusyRef.current?.(false), []);
 
   const src = url ?? upload.preview;
   if (!recorder.supported && !src) return null;

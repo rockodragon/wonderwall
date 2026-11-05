@@ -18,6 +18,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { shapeCredits } from "./allocations";
 import { resolveProjectPhotoUrl } from "./projectsPublic";
 import { profileImageUrl } from "../images";
+import { linkStill } from "../coverRules";
 import { currentUserId, displayNameOf, getProfileByUserId } from "../helpers";
 import { projectVisibleTo } from "./projectVisibility";
 import { notifyFollowers } from "../follows";
@@ -564,7 +565,7 @@ export const getStoryPage = query({
         // 2: posted from /projects) wins over the companion artifact's,
         // which only a quick share from /works has.
         mediaUrl: project.mediaUrl ?? heroMedia?.mediaUrl,
-        coverUrl: project.mediaPreviewUrl ?? heroMedia?.ogImageUrl,
+        coverUrl: linkStill(project) ?? heroMedia?.ogImageUrl,
         byName: ownerProfile?.name ?? "",
       },
       updates: await Promise.all(

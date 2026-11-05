@@ -4,6 +4,7 @@ import { fail } from "./errors";
 import { requireEventHost } from "./eventHosts";
 import { requireOwner, requireOwnProfileRow, requireProfile, requireUserId } from "./helpers";
 import { storedFileUrl } from "./images";
+import { safeHref } from "./garden/richText";
 import { claimUpload, deleteEventCover, deleteStoredFile } from "./uploads";
 
 // Generate an upload URL for the client to upload a file directly to Convex.
@@ -85,13 +86,16 @@ export const saveProfileImageUrl = mutation({
     const userId = await requireUserId(ctx);
 
     const profile = await requireProfile(ctx, userId);
+    // A web address only: it lands in every <img> that shows this face.
+    const imageUrl = safeHref(args.imageUrl);
+    if (!imageUrl) fail("invalid_input", "That link didn't work. Paste the address of a picture.");
 
     // Delete old storage image if exists
     await deleteStoredFile(ctx, profile.imageStorageId);
 
     // Update profile with external URL and clear storage ID
     await ctx.db.patch(profile._id, {
-      imageUrl: args.imageUrl,
+      imageUrl,
       imageStorageId: undefined,
       updatedAt: Date.now(),
     });

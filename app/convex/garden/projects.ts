@@ -28,13 +28,14 @@ import { claimUploads, deleteStoredFile } from "../uploads";
 import { summarizeGig } from "./gigSummary";
 import { can } from "./capabilities";
 import { getGardenUser } from "./entitlements";
+import { insertPiece, pieceValidator, readyPiece } from "../pieces";
 import { trackEvent } from "../posthog";
 // A pasted Instagram, TikTok, YouTube or Vimeo link that IS the project's
 // media — the Instagram post a poster is hiring from, the reel a passion
 // project is (docs/features/creator-media-cross-post.md, Round 2) — is
 // checked and stored the way artifacts and events store one.
-import { canonicalMediaUrl, schedulePreviewFetch } from "../linkPreview";
-import { currentUserId, displayNameOf, getProfileByUserId, isAdmin, requireOwner } from "../helpers";
+import { canonicalMediaUrl, dropLinkPreview, schedulePreviewFetch } from "../linkPreview";
+import { currentUserId, displayNameOf, getProfileByUserId, isAdmin, requireOwner, requireProfile } from "../helpers";
 import { placeForViewer, projectVisibleTo, seesProjectAddress } from "./projectVisibility";
 import { insertNotification } from "../notify";
 import { scheduleProjectEmbedding } from "../searchIndexing";
@@ -124,8 +125,14 @@ export const createPassionProject = mutation({
     goal: v.optional(v.number()),
     photoUrl: v.optional(v.string()),
     // A pasted link instead of (or as well as) a photo — see canonicalMediaUrl
-    // in convex/linkPreview.ts.
+    // in convex/linkPreview.ts. The start form sends `piece` now; this stays
+    // for older callers.
     mediaUrl: v.optional(v.string()),
+    // The work itself, from the start form's "Show it": an upload or a link,
+    // saved as the project's first piece the way every piece is saved
+    // (convex/pieces.ts), so a project started here plays what a profile's
+    // shared piece plays.
+    piece: v.optional(pieceValidator),
     // Passion-only campaign fields (review follow-up) — deliberately not on
     // createPaidProject, see the schema comment on `projects.raiseByDate`.
     raiseByDate: v.optional(v.number()),
@@ -167,6 +174,9 @@ export const createPassionProject = mutation({
       await assertCommunityMember(ctx, args.hostOrgId, userId);
     }
     if (args.organizationId) await assertCanPostAs(ctx, userId, args.organizationId);
+    // Checked before the project is made, so a refused piece leaves nothing.
+    const piece = args.piece ? await readyPiece(ctx, userId, args.piece) : null;
+    const profile = piece ? await requireProfile(ctx, userId) : null;
 
     const mediaUrl = canonicalMediaUrl(args.mediaUrl);
     const now = Date.now();
@@ -203,6 +213,7 @@ export const createPassionProject = mutation({
     });
     // The still for the card (Instagram, TikTok); a no-op for the rest.
     await schedulePreviewFetch(ctx, "project", id, mediaUrl);
+    if (piece && profile) await insertPiece(ctx, { profileId: profile._id, projectId: id, piece });
     await scheduleProjectEmbedding(ctx, id);
     await notifyFollowersOfProject(ctx, userId, id, args.title, args.hostOrgId);
     await trackEvent(ctx, "project_created", userId, { kind: "passion", project_id: id, community_id: args.hostOrgId ?? null });
@@ -271,10 +282,8 @@ export const updateProject = mutation({
     if (args.mediaUrl !== undefined) {
       const next = canonicalMediaUrl(args.mediaUrl);
       if (next !== project.mediaUrl) {
-        await deleteStoredFile(ctx, project.mediaPreviewStorageId);
+        Object.assign(patch, await dropLinkPreview(ctx, project));
         patch.mediaUrl = next;
-        patch.mediaPreviewUrl = undefined;
-        patch.mediaPreviewStorageId = undefined;
         fetchPreviewFor = next;
       }
     }

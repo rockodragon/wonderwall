@@ -29,6 +29,7 @@ describe("toMusicEmbed", () => {
       height: 120,
       maxWidth: 700,
       canonicalUrl: PLAYER,
+      item: "album",
     });
   });
 
@@ -64,5 +65,82 @@ describe("isAudioFileLink", () => {
     expect(isAudioFileLink("https://open.spotify.com/track/1")).toBe(false);
     expect(isAudioFileLink("https://soundcloud.com/jane/track")).toBe(false);
     expect(isAudioFileLink(undefined)).toBe(false);
+  });
+});
+
+describe("toMusicEmbed: Spotify", () => {
+  const ID = "4cOdK2wGLETKBW3PvgPWqT";
+
+  it("plays a track compact and a list tall, from the link the app copies", () => {
+    expect(toMusicEmbed(`https://open.spotify.com/track/${ID}?si=abc123`)).toEqual({
+      kind: "spotify",
+      embedUrl: `https://open.spotify.com/embed/track/${ID}?theme=0`,
+      height: 152,
+      maxWidth: 700,
+      canonicalUrl: `https://open.spotify.com/track/${ID}`,
+      item: "track",
+    });
+    expect(toMusicEmbed(`https://open.spotify.com/album/${ID}`)?.height).toBe(352);
+    expect(toMusicEmbed(`https://open.spotify.com/playlist/${ID}`)?.item).toBe("playlist");
+  });
+
+  it("reads a localized link and a player link down to the same canonical link", () => {
+    expect(toMusicEmbed(`https://open.spotify.com/intl-de/track/${ID}`)?.canonicalUrl).toBe(`https://open.spotify.com/track/${ID}`);
+    expect(toMusicEmbed(`https://open.spotify.com/embed/track/${ID}?utm_source=generator`)?.canonicalUrl).toBe(
+      `https://open.spotify.com/track/${ID}`,
+    );
+  });
+
+  it("is null for a short link, a page that isn't a work, a bad id, or a lookalike host", () => {
+    expect(toMusicEmbed("https://spotify.link/AbCdEf")).toBeNull();
+    expect(toMusicEmbed(`https://open.spotify.com/user/${ID}`)).toBeNull();
+    expect(toMusicEmbed("https://open.spotify.com/track/short")).toBeNull();
+    expect(toMusicEmbed(`https://open.spotify.com/track/${ID}/extra`)).toBeNull();
+    expect(toMusicEmbed(`https://open.spotify.com.evil.example/track/${ID}`)).toBeNull();
+  });
+});
+
+describe("toMusicEmbed: SoundCloud", () => {
+  it("plays a track from its link, share tokens and mobile host stripped", () => {
+    const track = "https://soundcloud.com/whatadall/o-little-town";
+    expect(toMusicEmbed(`https://m.soundcloud.com/whatadall/o-little-town?si=xyz&utm_source=clipboard`)).toEqual({
+      kind: "soundcloud",
+      embedUrl: `https://w.soundcloud.com/player/?url=${encodeURIComponent(track)}&color=%23ff5500&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false`,
+      height: 166,
+      maxWidth: 700,
+      canonicalUrl: track,
+      item: "track",
+    });
+  });
+
+  it("plays a set, and a private track or set with its secret token", () => {
+    expect(toMusicEmbed("https://soundcloud.com/whatadall/sets/christmas")).toMatchObject({ item: "playlist", height: 352 });
+    expect(toMusicEmbed("https://soundcloud.com/whatadall/demo/s-AbC123")?.canonicalUrl).toBe(
+      "https://soundcloud.com/whatadall/demo/s-AbC123",
+    );
+    expect(toMusicEmbed("https://soundcloud.com/whatadall/sets/demo/s-AbC123")?.item).toBe("playlist");
+  });
+
+  it("is null for an artist's own pages, the site's pages, short links and odd paths", () => {
+    expect(toMusicEmbed("https://soundcloud.com/whatadall")).toBeNull();
+    expect(toMusicEmbed("https://soundcloud.com/whatadall/likes")).toBeNull();
+    expect(toMusicEmbed("https://soundcloud.com/discover/sets")).toBeNull();
+    expect(toMusicEmbed("https://on.soundcloud.com/AbCdE")).toBeNull();
+    expect(toMusicEmbed("https://soundcloud.com/whatadall/demo/not-a-token")).toBeNull();
+    expect(toMusicEmbed('https://soundcloud.com/whatadall/x"onload=y')).toBeNull();
+  });
+});
+
+describe("toMusicEmbed: Spotify kinds are its own, never an object's", () => {
+  const ID = "4cOdK2wGLETKBW3PvgPWqT";
+  it.each(["constructor", "__proto__", "toString", "hasOwnProperty"])("refuses /%s/", (kind) => {
+    expect(toMusicEmbed(`https://open.spotify.com/${kind}/${ID}`)).toBeNull();
+  });
+
+  it("plays an older playlist link that names its owner", () => {
+    expect(toMusicEmbed(`https://open.spotify.com/user/dall/playlist/${ID}`)).toMatchObject({
+      item: "playlist",
+      canonicalUrl: `https://open.spotify.com/playlist/${ID}`,
+    });
   });
 });

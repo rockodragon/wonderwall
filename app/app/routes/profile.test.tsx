@@ -5,7 +5,7 @@ import Profile from "./profile";
 
 // A profile page, as its owner and as someone else. The queries answer by
 // name; whatever isn't listed is still loading.
-const scene = vi.hoisted(() => ({ me: "ana", leader: false }));
+const scene = vi.hoisted(() => ({ me: "ana", leader: false, links: [] as { _id: string; label: string; url: string }[] }));
 
 vi.mock("convex/react", async () => {
   const { getFunctionName } = await import("convex/server");
@@ -18,7 +18,7 @@ vi.mock("convex/react", async () => {
         case "profiles:getMyProfile":
           return { _id: scene.me, name: "Ana Reyes" };
         case "profiles:getProfile":
-          return { _id: "ana", userId: "u-ana", name: "Ana Reyes", imageUrl: "/ana.jpg", interests: ["Photography"], artifacts: [], organizations: [], isLeader: scene.leader };
+          return { _id: "ana", userId: "u-ana", name: "Ana Reyes", imageUrl: "/ana.jpg", interests: ["Photography"], artifacts: [], organizations: [], isLeader: scene.leader, links: scene.links };
         default:
           return undefined;
       }
@@ -36,6 +36,22 @@ async function profilePage() {
 }
 
 describe("a profile page", () => {
+  it("links a saved address that is http(s) and never one that is not", async () => {
+    scene.me = "other";
+    scene.links = [
+      { _id: "l1", label: "My site", url: "example.com" },
+      { _id: "l2", label: "Sneaky", url: "javascript:alert(1)" },
+    ];
+    try {
+      const html = await profilePage();
+      expect(html).toContain('href="https://example.com"');
+      expect(html).toContain("Sneaky");
+      expect(html).not.toContain("javascript:");
+    } finally {
+      scene.links = [];
+    }
+  });
+
   it("gives its owner a clear way to their Shortlist", async () => {
     scene.me = "ana";
     const html = await profilePage();

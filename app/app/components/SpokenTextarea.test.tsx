@@ -107,7 +107,7 @@ describe("SpokenNote", () => {
     const html = note({ error: "Microphone access was blocked." });
     expect(html).toContain('role="alert"');
     expect(html).toContain("Microphone access was blocked.");
-    expect(html).toContain("color:#fca5a5");
+    expect(html).toContain("color:var(--garden-error)");
   });
 
   it("says the words are being sorted, as a status", () => {

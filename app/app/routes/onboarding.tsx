@@ -83,7 +83,7 @@ const MUTED = "var(--garden-muted)";
 const DIM = "var(--garden-dim)";
 const CITRON = "var(--garden-citron)";
 const LINE = "var(--garden-hairline-raised)";
-const ERROR = "#fca5a5";
+const ERROR = "var(--garden-error)";
 
 // The type scale (Rick: bigger, with room to breathe; nothing under 12px,
 // and body text 9:1 or better on ink): questions and fields 17px (16 or more

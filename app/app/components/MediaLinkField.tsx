@@ -1,10 +1,11 @@
 import { useId } from "react";
-import { describeMediaLink } from "../lib/mediaLink";
+import { describeMediaLink, type MediaLinkAccept } from "../lib/mediaLink";
 import { gardenField } from "./gardenField";
 
-// The "paste a link" field shared by the event forms, the project forms and
-// the project page's inline editor, so they can't drift on copy or on what
-// counts as playable. The rule itself is app/lib/mediaLink.ts; this is the
+// The "paste a link" field shared by the event forms, the hire form, the
+// project page's inline editor and the piece editor, so they can't drift on
+// copy or on what counts as playable. `accept` says which: a video only
+// (the default), or anything a piece can be (lib/mediaLink.ts). The rule itself is app/lib/mediaLink.ts; this is the
 // label, the input and the line beneath it.
 //
 // The hosts sit on two designs: the event modal is Tailwind gray/dark, the
@@ -48,6 +49,7 @@ export function MediaLinkField({
   autoFocus,
   id,
   variant = "default",
+  accept = "video",
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -56,11 +58,12 @@ export function MediaLinkField({
   autoFocus?: boolean;
   id?: string;
   variant?: keyof typeof STYLES;
+  accept?: MediaLinkAccept;
 }) {
   const generatedId = useId();
   const inputId = id ?? generatedId;
   const s = STYLES[variant];
-  const link = describeMediaLink(value);
+  const link = describeMediaLink(value, accept);
   return (
     <div>
       <label htmlFor={inputId} className={s.label} style={s.labelStyle}>

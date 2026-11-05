@@ -39,6 +39,7 @@ import { shownInterests } from "../constants/interests";
 import { shortDay } from "../lib/dates";
 import type { ShortlistButton } from "./shortlistCards";
 import { isEventListed } from "../../convex/eventWindow";
+import { linkStill } from "../../convex/coverRules";
 
 // ——————————————————————————————————————————————————————————————
 // Types
@@ -148,6 +149,8 @@ export type DeskEventInput = {
   coverImageUrl?: string | null;
   /** The still for a pasted reel or video link, used when there is no cover. */
   mediaPreviewUrl?: string | null;
+  /** The pasted link itself, so a YouTube link gives its thumbnail (linkStill). */
+  mediaUrl?: string | null;
   attendeeCount?: number;
   hosts?: (EventHost | null | undefined)[];
   status?: string | null;
@@ -456,7 +459,7 @@ export function eventCard(e: DeskEventInput, sections: DeskView[], now?: number)
     sections,
     note: false,
     tone: toneFor(id),
-    image: e.coverImageUrl || e.mediaPreviewUrl || null,
+    image: e.coverImageUrl || linkStill(e),
     face: { kicker: dateKicker(e.datetime), title: e.title, foot },
     detail: {
       meta: [dateKicker(e.datetime), timeLabel(e.datetime), foot?.toUpperCase()].filter(Boolean).join(" · "),

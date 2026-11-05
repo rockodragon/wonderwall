@@ -19,6 +19,7 @@ import {
   stepAfter,
   stepBefore,
   stepTitle,
+  stepsFor,
   type ProjectEditTarget,
   type ProjectStep,
 } from "./ProjectModal";
@@ -74,16 +75,18 @@ describe("ProjectModal screens", () => {
     expect(sheet({ edit: EDIT })).not.toContain("Edit project");
   });
 
-  it("opens on the first, and 'show' opens on the third (the project page's Add a link)", () => {
+  it("opens on the first; an edit has no Show it, since pieces are edited on the page", () => {
     expect(visibleScreens(sheet())).toEqual(["name"]);
     const html = sheet({ edit: EDIT, initialStep: "show" });
-    expect(visibleScreens(html)).toEqual(["show"]);
-    expect(progress(html)).toEqual(["3", "4", "Show it"]);
+    expect(visibleScreens(html)).toEqual(["name"]);
+    expect(html).not.toContain('data-step="show"');
+    expect(progress(html)).toEqual(["1", "3", "Title"]);
   });
 
   it("names the field when editing, instead of asking", () => {
-    expect(progress(sheet({ edit: EDIT }))).toEqual(["1", "4", "Title"]);
-    expect(progress(sheet({ edit: EDIT, initialStep: "about" }))).toEqual(["2", "4", "About it"]);
+    expect(progress(sheet({ edit: EDIT }))).toEqual(["1", "3", "Title"]);
+    expect(progress(sheet({ edit: EDIT, initialStep: "about" }))).toEqual(["2", "3", "About it"]);
+    expect(progress(sheet({ edit: EDIT, initialStep: "details" }))).toEqual(["3", "3", "Details"]);
     expect(stepTitle("name", false, true)).toBe("Title");
   });
 
@@ -94,7 +97,11 @@ describe("ProjectModal screens", () => {
       forward.push(stepAfter(forward[forward.length - 1]));
     }
     expect(forward).toEqual(ids);
-    expect([...ids].reverse().map(stepBefore)).toEqual(["show", "about", "name", "name"]);
+    expect([...ids].reverse().map((id) => stepBefore(id))).toEqual(["show", "about", "name", "name"]);
+    // An edit skips Show it both ways.
+    const edit = stepsFor(true);
+    expect(stepAfter("about", edit)).toBe("details");
+    expect(stepBefore("details", edit)).toBe("about");
   });
 
   it("keeps every field mounted, so Back finds the title where it was left", () => {
@@ -191,5 +198,23 @@ describe("ProjectModal description box", () => {
   it("asks what you made for finished work, and holds a project's saved words when editing", () => {
     expect(box({ initialStage: "completed" })).toContain('placeholder="What you made, and why"');
     expect(box({ edit: { ...EDIT, blurb: "A short film." } })).toContain(">A short film.</textarea>");
+  });
+});
+
+describe("ProjectModal Show it", () => {
+  const show = () => sheet({ initialStep: "show" });
+
+  it("takes the work the way a piece anywhere does: an upload, or any link", () => {
+    const html = show();
+    expect(html).toContain("Upload a picture, video or song");
+    expect(html).toContain("Or paste a link");
+    expect(html).toContain('placeholder="YouTube, Vimeo, Bandcamp, Spotify, SoundCloud or any page"');
+  });
+
+  it("asks only for the work: the title and words are the project's own screens", () => {
+    const html = show();
+    expect(html).not.toContain("Title (optional)");
+    expect(html).not.toContain("Voice note");
+    expect(html).not.toContain("Write something instead");
   });
 });

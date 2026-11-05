@@ -167,6 +167,27 @@ export function normalizeUrl(raw: string): string {
   return `https://${trimmed}`;
 }
 
+/** The address to put in an href for a link someone pasted or saved: bare
+    hosts get https://, and anything that isn't http(s) comes back null. Use
+    this, not normalizeUrl alone, wherever a stored link becomes an href. */
+export function safeHref(raw: string | undefined | null): string | null {
+  const url = normalizeUrl(raw ?? "");
+  return isSafeHttpUrl(url) ? url : null;
+}
+
+/** A link's site, the way a card names it ("vimeo.com", no "www."), or null
+    when it isn't a link at all. A bare host the person pasted counts. Every
+    page that says where a link goes reads it here. */
+export function linkHost(raw: string | undefined | null): string | null {
+  const url = normalizeUrl(raw ?? "");
+  if (!url) return null;
+  try {
+    return new URL(url).hostname.replace(/^www\./, "") || null;
+  } catch {
+    return null;
+  }
+}
+
 // ——————————————————————————————————————————————————————————————
 // Inline marks
 // ——————————————————————————————————————————————————————————————

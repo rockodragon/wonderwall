@@ -261,6 +261,60 @@ const RULES: Rule[] = [
     home: "convex/csv.ts",
     use: "csvCell in convex/csv.ts",
   },
+  {
+    name: "a link's site read by hand",
+    // Four pages each wrote "new URL(x).hostname minus www." and they had
+    // drifted on what a bare host or a bad link gives (2026-11-04). The one
+    // left is eventCta's https-only check, which is a different question.
+    pattern: /hostname\.replace\(\/\^www/g,
+    limit: 1,
+    home: "convex/garden/richText.ts",
+    use: "linkHost in convex/garden/richText.ts (app/lib/richText)",
+  },
+  {
+    name: "a link helper written in a page (one place)",
+    // Settings, the old work page and offerings each had their own
+    // normalizer or site-name reader; one turned `HTTPS://x` into
+    // `https://HTTPS://x`, and none checked the scheme before an href
+    // (2026-11-04). An href from a stored link goes through safeHref.
+    pattern: /function (?:normalizeUrl|ensureHttps|domainFromUrl|getDomainFromUrl|domainOf)\b/g,
+    limit: 0,
+    home: "convex/garden/richText.ts",
+    use: "normalizeUrl, safeHref or linkHost in convex/garden/richText.ts (app/lib/richText)",
+  },
+  {
+    name: "a card's picture chosen by hand",
+    // The share kit, the Shortlist, the Canvas and the sample picker each
+    // picked a still their own way, and a YouTube-only piece or event got no
+    // picture (2026-11-04). `x ?? null` is a plain pass-through, not a rule.
+    pattern: /(?:mediaPreviewUrl|ogImageUrl) \?\? (?!null\b)/g,
+    limit: 0,
+    home: "convex/coverRules.ts",
+    use: "linkStill or pieceStill in convex/coverRules.ts",
+  },
+  {
+    name: "an uploaded video's poster drawn by hand (one place)",
+    pattern: /\$\{[^}]+\}#t=0\.1/g,
+    limit: 0,
+    home: "app/components/EmbedStill.tsx",
+    use: "UploadedVideoStill in app/components/EmbedStill.tsx",
+  },
+  {
+    name: "the error colour written by hand",
+    // Five copies of the same pink on the Garden's dark pages (2026-11-04).
+    pattern: /#fca5a5/gi,
+    limit: 0,
+    use: "var(--garden-error) (public/tokens.css)",
+  },
+  {
+    name: "a piece's player picked by hand (one place)",
+    // The project page and the work samples each chose how a piece plays,
+    // and had drifted (2026-11-04). Music plays only where a piece does.
+    pattern: /<MusicPlayer\b/g,
+    limit: 0,
+    home: "app/components/piece/PieceMedia.tsx",
+    use: "PieceMedia in app/components/piece/PieceMedia.tsx",
+  },
 ];
 
 describe("drift guard: no new copies of a shared rule", () => {
@@ -288,9 +342,11 @@ describe("drift guard: no new copies of a shared rule", () => {
 // `mutation(...)`, from its `export const` to the next one: a stored-file id
 // arrives as v.id("_storage"), inside a rich-text body (richDocValidator), or
 // through a shared args object (`const x = { ... }` or `const x =
-// v.object({ ... })`, used as `args: x`, `...x` or `field: x`). It checks
-// for a claim call per mutation block, not per argument.
-const FILE_ID_ARG = /v\.id\(\s*"_storage"\s*\)|richDocValidator/;
+// v.object({ ... })`, used as `args: x`, `...x` or `field: x`), or as a
+// piece (pieceFields / pieceValidator, whose files readyPiece claims). It
+// checks for a claim call per mutation block, not per argument.
+// A piece's args (convex/pieces.ts) carry its file, cover and voice note.
+const FILE_ID_ARG = /v\.id\(\s*"_storage"\s*\)|richDocValidator|\bpieceFields\b|\bpieceValidator\b/;
 
 /** Public mutations that take a stored-file id without attaching it. Only
  * ever shrinks. */
@@ -313,7 +369,8 @@ function mutationsTakingAFileIdUnclaimed(): string[] {
       if (m[2] !== "mutation") return;
       const block = f.text.slice(m.index, exports[i + 1]?.index ?? f.text.length);
       const takesFileId = FILE_ID_ARG.test(block) || shared.some((name) => new RegExp(`\\b${name}\\b`).test(block));
-      if (takesFileId && !/\bclaimUploads?\(/.test(block)) found.push(`${f.path} ${m[1]}`);
+      // readyPiece and swapAudioNote claim a piece's files (convex/pieces.ts).
+      if (takesFileId && !/\bclaimUploads?\(|\breadyPiece\(|\bswapAudioNote\(/.test(block)) found.push(`${f.path} ${m[1]}`);
     });
   }
   return found;

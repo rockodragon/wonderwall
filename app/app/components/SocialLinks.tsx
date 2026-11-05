@@ -1,17 +1,12 @@
 import { socialUrl, type SocialKind } from "../../convex/organizationRules";
+import { linkHost } from "../lib/richText";
 
 // Website + Instagram / X / LinkedIn for an organization page. The website
 // reads as its own host name (what Instagram does under a bio); the
 // networks are round icon buttons. Stored values are already normalized
 // (convex/organizationRules.ts), so this only builds links.
 
-function hostOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-}
+const hostOf = (url: string): string => linkHost(url) ?? url;
 
 const GLYPHS: Record<SocialKind, { label: string; icon: React.ReactNode }> = {
   instagram: {

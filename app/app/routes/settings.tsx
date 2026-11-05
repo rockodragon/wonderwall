@@ -2,7 +2,6 @@ import { usePostHog } from "@posthog/react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from "react";
 import { Link, useLocation, useSearchParams } from "react-router";
-import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -13,7 +12,11 @@ import { InfoTip } from "../components/InfoTip";
 import { SwitchRow } from "../components/SwitchRow";
 import { displayPhone } from "../../convex/phone";
 import { TEXT_CONSENT_LABEL, TEXT_CONSENT_LINE } from "../../convex/textConsentWording";
-import { EmbedStill, PlayBadge } from "../components/EmbedStill";
+import { EmbedStill, UploadedVideoStill } from "../components/EmbedStill";
+import { ProjectModal } from "../components/ProjectModal";
+import { PieceEditor } from "../components/piece/PieceEditor";
+import { FINISHED_STAGE } from "../lib/shareProject";
+import { pieceStill } from "../../convex/coverRules";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
 import { useSignOut } from "../lib/useSignOut";
@@ -26,6 +29,7 @@ import { HANDLE_FORWARD_DAYS, HANDLE_MAX_LENGTH, profilePath } from "../../conve
 import { errorMessage } from "../lib/convexError";
 import { claimPendingAddress, useHandleCheck } from "../lib/useHandleCheck";
 import { LEGAL_ENTITY } from "../legal/entity";
+import { normalizeUrl, safeHref } from "../lib/richText";
 import { LinkedText } from "../components/LinkedText";
 import { NetworkTab } from "../components/NetworkTab";
 import { PersonAvatar } from "../components/PersonAvatar";
@@ -47,16 +51,6 @@ const SETTINGS_TABS = [
   { id: "account", label: "Account" },
 ] as const;
 type SettingsTab = (typeof SETTINGS_TABS)[number]["id"];
-
-// Normalize URL by adding https:// if missing
-function normalizeUrl(url: string): string {
-  const trimmed = url.trim();
-  if (!trimmed) return trimmed;
-  if (!/^https?:\/\//i.test(trimmed)) {
-    return `https://${trimmed}`;
-  }
-  return trimmed;
-}
 
 export default function Settings() {
   const handleSignOut = useSignOut();
@@ -1616,9 +1610,15 @@ function ProfileEditForm({
     if (!imageUrlInput.trim()) return;
     photo.reset();
     setUrlError(null);
+    // The server stores what it is handed, so only an http(s) address goes.
+    const imageUrl = safeHref(imageUrlInput);
+    if (!imageUrl) {
+      setUrlError("That link didn't work. Check it and try again.");
+      return;
+    }
     setSavingUrl(true);
     try {
-      await saveProfileImageUrl({ imageUrl: normalizeUrl(imageUrlInput) });
+      await saveProfileImageUrl({ imageUrl });
       setImageUrlInput("");
     } catch (err) {
       setUrlError(errorMessage(err, "That link didn't work. Check it and try again."));
@@ -2105,10 +2105,13 @@ function LinksSection() {
   const [label, setLabel] = useState("");
   const [url, setUrl] = useState("");
   const [saving, setSaving] = useState(false);
+  // The server refuses what isn't a web link (convex/links.ts); say why.
+  const [linkError, setLinkError] = useState<string | null>(null);
 
   function resetForm() {
     setLabel("");
     setUrl("");
+    setLinkError(null);
     setShowAddForm(false);
     setEditingId(null);
   }
@@ -2116,9 +2119,12 @@ function LinksSection() {
   async function handleAdd() {
     if (!label.trim() || !url.trim()) return;
     setSaving(true);
+    setLinkError(null);
     try {
       await addLink({ label: label.trim(), url: normalizeUrl(url) });
       resetForm();
+    } catch (err) {
+      setLinkError(errorMessage(err, "That link didn't work. Check it and try again."));
     } finally {
       setSaving(false);
     }
@@ -2127,6 +2133,7 @@ function LinksSection() {
   async function handleUpdate(linkId: string) {
     if (!label.trim() || !url.trim()) return;
     setSaving(true);
+    setLinkError(null);
     try {
       await updateLink({
         linkId: linkId as any,
@@ -2134,6 +2141,8 @@ function LinksSection() {
         url: normalizeUrl(url),
       });
       resetForm();
+    } catch (err) {
+      setLinkError(errorMessage(err, "That link didn't work. Check it and try again."));
     } finally {
       setSaving(false);
     }
@@ -2202,6 +2211,11 @@ function LinksSection() {
             className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
             style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface)", color: "var(--app-text)" }}
           />
+          {linkError && (
+            <p className="text-sm" style={{ color: "var(--app-text)" }} role="alert">
+              {linkError}
+            </p>
+          )}
           <div className="flex gap-2">
             <button
               onClick={() =>
@@ -2304,7 +2318,7 @@ function LinksSection() {
                   {link.label}
                 </p>
                 <a
-                  href={normalizeUrl(link.url)}
+                  href={safeHref(link.url) ?? undefined}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-xs hover:underline truncate block"
@@ -2430,26 +2444,16 @@ function ArtifactsSection({
   onEditComplete?: () => void;
 }) {
   const artifacts = useQuery(api.artifacts.getMyArtifacts);
-  const createArtifact = useMutation(api.artifacts.create);
-  const updateArtifact = useMutation(api.artifacts.update);
   const removeArtifact = useMutation(api.artifacts.remove);
   const refetchOgImage = useMutation(api.artifacts.refetchOgImage);
-  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
 
-  const [showAddForm, setShowAddForm] = useState(false);
+  // Adding work is starting a finished project, the same sheet as anywhere
+  // (ProjectModal); changing a piece is the piece editor, the same as on its
+  // project's page (components/piece/PieceEditor.tsx). This section used to
+  // carry a form of its own, without words, a voice note or a cover.
+  const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [type, setType] = useState("text");
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [mediaUrl, setMediaUrl] = useState("");
-  // The piece being edited already has its file or link, so a title change
-  // alone can be saved; the server keeps the media when none is sent.
-  const [editingHasMedia, setEditingHasMedia] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
-  const piece = useFileUpload({ kinds: ["image", "video", "audio"], generateUploadUrl, takesLinks: true });
-  const uploadedStorageId = piece.storageId;
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const sectionRef = useRef<HTMLDivElement>(null);
   // A card's round icon button: 36px, white on a dark glass circle, so it
   // stays visible on a pale picture.
@@ -2458,93 +2462,20 @@ function ArtifactsSection({
 
   // Auto-start editing if editArtifactId is provided
   useEffect(() => {
-    if (editArtifactId && artifacts) {
-      const artifact = artifacts.find((a) => a._id === editArtifactId);
-      if (artifact) {
-        startEdit(artifact);
-        // Scroll to the artifacts section
-        sectionRef.current?.scrollIntoView({ behavior: "smooth" });
-      }
+    if (editArtifactId && artifacts?.some((a) => a._id === editArtifactId)) {
+      setEditingId(editArtifactId);
+      sectionRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [editArtifactId, artifacts]);
 
-  function resetForm() {
-    setType("text");
-    setTitle("");
-    setContent("");
-    setMediaUrl("");
-    setEditingHasMedia(false);
-    piece.reset();
-    setShowAddForm(false);
+  function doneEditing() {
     setEditingId(null);
     // Clear the URL param if we were editing from a deep link
     onEditComplete?.();
   }
 
-  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    // The piece takes the kind of the file picked.
-    const uploaded = await piece.onPick(e);
-    if (uploaded) setType(uploaded.kind);
-  }
-
-  async function handleCreate() {
-    if (type === "text" && !content.trim()) return;
-    if (type !== "text" && !mediaUrl.trim() && !uploadedStorageId) return;
-
-    const mediaStorageId = uploadedStorageId ?? undefined;
-    const isFirstArtifact = !artifacts || artifacts.length === 0;
-
-    setSaving(true);
-    try {
-      await createArtifact({
-        type,
-        title: title.trim() || undefined,
-        content: type === "text" ? content.trim() : undefined,
-        mediaUrl:
-          type !== "text" && !uploadedStorageId
-            ? normalizeUrl(mediaUrl)
-            : undefined,
-        mediaStorageId,
-      });
-      resetForm();
-
-      // Celebrate first work added with confetti
-      if (isFirstArtifact) {
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 },
-        });
-      }
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleUpdate(artifactId: string) {
-    const mediaStorageId = uploadedStorageId ?? undefined;
-
-    setSaving(true);
-    try {
-      await updateArtifact({
-        artifactId: artifactId as any,
-        title: title.trim() || undefined,
-        content: type === "text" ? content.trim() : undefined,
-        // Blank keeps the piece's current file or link (artifacts.update).
-        mediaUrl:
-          type !== "text" && !uploadedStorageId && mediaUrl.trim()
-            ? normalizeUrl(mediaUrl)
-            : undefined,
-        mediaStorageId,
-      });
-      resetForm();
-    } finally {
-      setSaving(false);
-    }
-  }
-
   async function handleDelete(artifactId: string) {
-    if (!confirm("Delete this artifact?")) return;
+    if (!confirm("Delete this piece?")) return;
     await removeArtifact({ artifactId: artifactId as any });
   }
 
@@ -2560,26 +2491,7 @@ function ArtifactsSection({
     }
   }
 
-  function startEdit(artifact: any) {
-    setEditingId(artifact._id);
-    setType(artifact.type);
-    // A link needs a title to save; an old one may only have the site's.
-    setTitle(artifact.title || (artifact.type === "link" ? artifact.ogTitle : "") || "");
-    setContent(artifact.content || "");
-    setMediaUrl(artifact.mediaUrl || "");
-    setEditingHasMedia(!!(artifact.mediaUrl || artifact.mediaStorageId));
-    piece.reset();
-  }
-
-  const hasMedia = mediaUrl.trim().length > 0 || !!uploadedStorageId || (!!editingId && editingHasMedia);
-  const hasTitle = title.trim().length > 0;
-
-  const canSubmit =
-    type === "text"
-      ? content.trim().length > 0
-      : type === "link"
-        ? hasMedia && hasTitle // Links require both URL and title
-        : hasMedia;
+  const editing = editingId ? artifacts?.find((a) => a._id === editingId) : undefined;
 
   return (
     <div ref={sectionRef}>
@@ -2591,14 +2503,14 @@ function ArtifactsSection({
           <InfoTip
             label="About work and portfolio"
             lines={[
-              "Add text, pictures, video, audio or links.",
+              "Add pictures, video, music, words or links.",
               `Pictures up to ${maxSize("image")}. Video and audio up to ${maxSize("video")}.`,
             ]}
           />
         </div>
-        {!showAddForm && !editingId && (
+        {!editing && (
           <button
-            onClick={() => setShowAddForm(true)}
+            onClick={() => setAdding(true)}
             className="text-sm font-medium hover:opacity-80"
             style={{ color: "var(--app-accent-ink)" }}
           >
@@ -2606,177 +2518,10 @@ function ArtifactsSection({
           </button>
         )}
       </div>
-      {/* Add/Edit Form */}
-      {(showAddForm || editingId) && (
-        <div className="mb-6 p-4 rounded-xl" style={{ backgroundColor: "var(--app-surface-raised)" }}>
-          <div className="flex flex-wrap gap-2 mb-4">
-            {ARTIFACT_TYPES.map((t) => (
-              <button
-                key={t.value}
-                onClick={() => {
-                  setType(t.value);
-                  // A link has no file: drop one picked under another type,
-                  // whose reset button the link form doesn't show.
-                  if (t.value === "link") piece.reset();
-                }}
-                className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
-                style={
-                  type === t.value
-                    ? { backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }
-                    : { backgroundColor: "var(--app-hairline)", color: "var(--app-text-muted)" }
-                }
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Title input for all types */}
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder={
-              type === "link"
-                ? "Title (required for links)"
-                : "Title (optional)"
-            }
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent mb-3"
-            style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface)", color: "var(--app-text)" }}
-          />
-
-          {type === "text" ? (
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Write something..."
-              rows={4}
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent resize-none mb-3"
-              style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface)", color: "var(--app-text)" }}
-            />
-          ) : (
-            <div className="space-y-3 mb-3">
-              {/* A link is an address, never a file: no upload for it. */}
-              {type !== "link" && (
-              <>
-              {/* File upload */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept={
-                  type === "image"
-                    ? "image/*"
-                    : type === "video"
-                      ? "video/*"
-                      : type === "audio"
-                        ? "audio/*"
-                        : "image/*,video/*,audio/*"
-                }
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-
-              {uploadedStorageId ? (
-                <div className="relative">
-                  {piece.kind === "image" && piece.preview ? (
-                    <img
-                      src={piece.preview}
-                      alt="Preview"
-                      className="w-full h-40 object-cover rounded-lg"
-                    />
-                  ) : (
-                    <div className="w-full h-20 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-                      <span className="text-green-600 dark:text-green-400 text-sm">
-                        File uploaded successfully
-                      </span>
-                    </div>
-                  )}
-                  <button
-                    onClick={piece.reset}
-                    className="absolute top-2 right-2 w-6 h-6 bg-red-600 text-white rounded-full flex items-center justify-center text-sm"
-                  >
-                    ×
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={piece.uploading}
-                  className="w-full py-8 border-2 border-dashed rounded-lg transition-colors hover:border-[var(--app-accent)] hover:text-[var(--app-accent-ink)]"
-                  style={{ borderColor: "var(--app-hairline)", color: "var(--app-text-dim)" }}
-                >
-                  {piece.uploading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-400 border-t-transparent" />
-                      Uploading...
-                    </span>
-                  ) : (
-                    <span>Click to upload {type}</span>
-                  )}
-                </button>
-              )}
-              {piece.error && (
-                <p className="text-sm" style={{ color: "var(--app-text)" }} role="alert">
-                  {piece.error}
-                </p>
-              )}
-
-              {/* Or use URL */}
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t" style={{ borderColor: "var(--app-hairline)" }} />
-                </div>
-                <div className="relative flex justify-center text-xs">
-                  <span className="px-2" style={{ backgroundColor: "var(--app-surface-raised)", color: "var(--app-text-dim)" }}>
-                    or paste URL
-                  </span>
-                </div>
-              </div>
-              </>
-              )}
-
-              <input
-                type="text"
-                value={mediaUrl}
-                onChange={(e) => setMediaUrl(e.target.value)}
-                aria-label={type === "link" ? "Link" : "Or paste a URL"}
-                placeholder={
-                  editingId && editingHasMedia && !mediaUrl.trim()
-                    ? "Leave empty to keep the current one"
-                    : type === "image"
-                    ? "example.com/image.jpg"
-                    : type === "video"
-                      ? "youtube.com/watch?v=..."
-                      : type === "audio"
-                        ? "soundcloud.com/..."
-                        : "example.com"
-                }
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
-                style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface)", color: "var(--app-text)" }}
-                disabled={!!uploadedStorageId}
-              />
-            </div>
-          )}
-
-          <div className="flex gap-2">
-            <button
-              onClick={() =>
-                editingId ? handleUpdate(editingId) : handleCreate()
-              }
-              disabled={saving || !canSubmit}
-              className="px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50"
-              style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
-            >
-              {saving ? "Saving..." : editingId ? "Update" : "Add"}
-            </button>
-            <button
-              onClick={resetForm}
-              className="px-4 py-2 text-sm"
-              style={{ color: "var(--app-text-dim)" }}
-            >
-              Cancel
-            </button>
-          </div>
+      {adding && <ProjectModal initialStage={FINISHED_STAGE} onClose={() => setAdding(false)} />}
+      {editing && (
+        <div className="mb-6">
+          <PieceEditor key={editing._id} target={{ mode: "edit", piece: editing }} onDone={doneEditing} />
         </div>
       )}
 
@@ -2796,6 +2541,9 @@ function ArtifactsSection({
             const embed = toEmbedUrl(artifact.mediaUrl);
             // A link's own title, else the site's (fetched with its picture).
             const shownTitle = artifact.title || artifact.ogTitle;
+            // A song's, a link's or a cover's picture: the cards' rule
+            // (convex/coverRules.ts).
+            const still = pieceStill(artifact, null);
             // What the card's buttons are for, said to a screen reader.
             const cardName = shownTitle || typeInfo?.label || artifact.type;
 
@@ -2826,19 +2574,12 @@ function ArtifactsSection({
                     // of black; the badge is the neutral one (Vimeo's colour)
                     // because this is the creative's own file, not a platform's.
                     <div className="relative w-full h-full bg-gray-900">
-                      <video
-                        src={`${mediaUrl}#t=0.1`}
-                        className="w-full h-full object-cover"
-                        preload="metadata"
-                        muted
-                        playsInline
-                      />
-                      <PlayBadge kind="vimeo" size="sm" />
+                      <UploadedVideoStill src={mediaUrl} badgeSize="sm" />
                     </div>
                   )
-                ) : artifact.type === "link" && artifact.ogImageUrl ? (
-                  // The site's own picture (its og:image), as on your page.
-                  <img src={artifact.ogImageUrl} alt="" className="w-full h-full object-cover" />
+                ) : still ? (
+                  // The piece's still: a cover, a site's or a song's picture.
+                  <img src={still} alt="" className="w-full h-full object-cover" />
                 ) : (
                   <div
                     className={`w-full h-full bg-gradient-to-br ${typeInfo?.gradient || "from-gray-400 to-gray-500"}`}
@@ -2852,7 +2593,7 @@ function ArtifactsSection({
                     buttons above it still act on the piece. */}
                 {artifact.type === "link" && artifact.mediaUrl && (
                   <a
-                    href={normalizeUrl(artifact.mediaUrl)}
+                    href={safeHref(artifact.mediaUrl) ?? undefined}
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={`Open ${cardName}`}
@@ -2885,7 +2626,7 @@ function ArtifactsSection({
                         </button>
                       )}
                       <button
-                        onClick={() => startEdit(artifact)}
+                        onClick={() => setEditingId(artifact._id)}
                         className={`${iconButton} hover:bg-black/65`}
                         aria-label={`Edit ${cardName}`}
                         title="Edit"
@@ -2927,7 +2668,7 @@ function ArtifactsSection({
             );
           })}
         </div>
-      ) : !showAddForm ? (
+      ) : artifacts ? (
         <div className="text-center py-8">
           <div
             className="w-16 h-16 mx-auto mb-3 rounded-2xl flex items-center justify-center"

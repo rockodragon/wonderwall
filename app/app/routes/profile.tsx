@@ -2,13 +2,15 @@ import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useLocation, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
+import { SHARE_PROJECT_PATH, withFinishedStage } from "../lib/shareProject";
+import { linkHost } from "../lib/richText";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
 import { profilePath } from "../../convex/handleRules";
-import { normalizeUrl } from "../../convex/garden/richText";
+import { safeHref } from "../../convex/garden/richText";
 import { loginHref } from "../lib/loginHref";
 import { canonicalProfileUrl, profileDescription, profileTitle } from "../lib/profileHead";
-import { EmbedStill, PlayBadge } from "../components/EmbedStill";
+import { EmbedStill, UploadedVideoStill } from "../components/EmbedStill";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { LeaderBadge } from "../components/LeaderBadge";
 import { ShareButton } from "../components/ShareButton";
@@ -455,18 +457,26 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
               the person's own addresses elsewhere. */}
           {links.length > 0 && (
             <nav aria-label="Links" className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-              {links.map((link) => (
-                <a
-                  key={link._id}
-                  href={normalizeUrl(link.url)}
-                  target="_blank"
-                  rel="me noopener"
-                  className="font-medium hover:underline"
-                  style={{ color: "var(--app-accent-ink)" }}
-                >
-                  {link.label}
-                </a>
-              ))}
+              {links.map((link) => {
+                // A stored address that isn't http(s) is shown, never linked.
+                const href = safeHref(link.url);
+                return href ? (
+                  <a
+                    key={link._id}
+                    href={href}
+                    target="_blank"
+                    rel="me noopener"
+                    className="font-medium hover:underline"
+                    style={{ color: "var(--app-accent-ink)" }}
+                  >
+                    {link.label}
+                  </a>
+                ) : (
+                  <span key={link._id} className="font-medium" style={{ color: "var(--app-text-muted)" }}>
+                    {link.label}
+                  </span>
+                );
+              })}
             </nav>
           )}
         </div>
@@ -706,14 +716,7 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
                       className="relative w-full h-full"
                       style={{ backgroundColor: "var(--garden-ink)" }}
                     >
-                      <video
-                        src={`${artifact.mediaUrl}#t=0.1`}
-                        className="w-full h-full object-cover"
-                        preload="metadata"
-                        muted
-                        playsInline
-                      />
-                      <PlayBadge kind="vimeo" size="sm" />
+                      <UploadedVideoStill src={artifact.mediaUrl} badgeSize="sm" />
                     </div>
                   ) : artifact.type === "text" && artifact.content ? (
                     <div
@@ -807,7 +810,7 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
               You haven't shared any work yet.
             </p>
             <Link
-              to="/works"
+              to={withFinishedStage(SHARE_PROJECT_PATH)}
               className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-medium transition-opacity hover:opacity-90"
               style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
             >
@@ -995,19 +998,8 @@ function ProfileOverflowMenu({
   );
 }
 
-// A bare host the creative pasted ("abidingpractice.com") has no scheme, so
-// `new URL()` throws on it directly — same reasoning as convex/garden/
-// richText.ts's normalizeUrl, duplicated here since this is a small pure
-// helper on the client rather than a Convex import.
-function domainOf(url?: string | null): string | null {
-  if (!url) return null;
-  const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(url) ? url : `https://${url}`;
-  try {
-    return new URL(withScheme).hostname.replace(/^www\./, "");
-  } catch {
-    return null;
-  }
-}
+// A bare host the creative pasted ("abidingpractice.com") counts (linkHost).
+const domainOf = (url?: string | null): string | null => linkHost(url);
 
 // Shown when a link artifact has no fetched cover yet (still pending, or the
 // site gave us nothing to work with) — a muted placeholder with whatever we

@@ -3,10 +3,11 @@ import { Link } from "react-router";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { CreateWorkComposer } from "../components/CreateWorkComposer";
-import { EmbedStill, PlayBadge } from "../components/EmbedStill";
+import { EmbedStill, UploadedVideoStill } from "../components/EmbedStill";
 import { toEmbedUrl, type EmbedAspect } from "../lib/videoEmbed";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { useImageAspect } from "../lib/useImageAspect";
+import { linkHost } from "../lib/richText";
 
 const TYPE_FILTERS = [
   { label: "All", value: "" },
@@ -260,14 +261,7 @@ function BentoCard({ artifact, featured }: { artifact: any; featured: boolean })
           is the creative's own file, not a platform's. */}
       {artifact.type === "video" && artifact.resolvedMediaUrl && !embed && (
         <div className="relative w-full h-full">
-          <video
-            src={`${artifact.resolvedMediaUrl}#t=0.1`}
-            className="w-full h-full object-cover"
-            preload="metadata"
-            muted
-            playsInline
-          />
-          <PlayBadge kind="vimeo" />
+          <UploadedVideoStill src={artifact.resolvedMediaUrl} />
         </div>
       )}
 
@@ -380,17 +374,7 @@ function LinkFallbackCard({
   title?: string | null;
   url?: string | null;
 }) {
-  // Extract domain from URL for display
-  const domain = url
-    ? (() => {
-        try {
-          const parsed = new URL(url);
-          return parsed.hostname.replace("www.", "");
-        } catch {
-          return null;
-        }
-      })()
-    : null;
+  const domain = linkHost(url);
 
   return (
     <div className="w-full h-full p-5 flex flex-col justify-between bg-gradient-to-br from-emerald-50 to-cyan-50 dark:from-emerald-900/30 dark:to-cyan-900/30">

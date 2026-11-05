@@ -64,7 +64,7 @@ import { AdminMenu, HiddenNotice } from "../components/AdminMenu";
 import { AddToCalendar } from "../components/AddToCalendar";
 import { EmbedPlayer } from "../components/EmbedPlayer";
 import { codeRequestParams } from "../lib/oauthHost";
-import { toEmbedUrl } from "../lib/videoEmbed";
+import { toEmbedUrl, type VideoEmbed } from "../lib/videoEmbed";
 import { buildTicketLink, isCheckoutSessionId, isPayPalPaymentLink } from "../../convex/garden/ticketLink";
 import { claimPendingTickets, stashTicketSession } from "../lib/pendingTicket";
 import { setPendingIntent } from "../lib/pendingIntent";
@@ -1353,21 +1353,13 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // iframe is the same one api.eventVideo.get already decided this viewer may
 // have; a viewer who resolves to "none" never reaches this code with a URL in
 // hand, because there is no URL in the payload to reach it with.
-const EMBED_ALLOW =
-  "accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share";
-
-function VideoPlayer({ embedUrl, title }: { embedUrl: string; title: string }) {
+function VideoPlayer({ embed, title }: { embed: VideoEmbed; title: string }) {
   return (
-    <div className="relative w-full aspect-video overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800 bg-black">
-      <iframe
-        src={embedUrl}
-        title={title}
-        className="absolute inset-0 h-full w-full"
-        allow={EMBED_ALLOW}
-        allowFullScreen
-        referrerPolicy="strict-origin-when-cross-origin"
-      />
-    </div>
+    <EmbedPlayer
+      embed={embed}
+      title={title}
+      className="relative overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800 bg-black"
+    />
   );
 }
 
@@ -1460,7 +1452,7 @@ function EventVideoSection({
 
       {liveEmbed ? (
         <div>
-          <VideoPlayer embedUrl={liveEmbed.embedUrl} title={`${title} — live`} />
+          <VideoPlayer embed={liveEmbed} title={`${title} — live`} />
           {/* The proxy, never the raw URL — the redirect target can change
               without invalidating anything already handed out. */}
           <OpenInNewTab href={`/j/${eventId}`}>Open the room in a new tab</OpenInNewTab>
@@ -1468,7 +1460,7 @@ function EventVideoSection({
       ) : recordingEmbed && video.recordingUrl ? (
         <div>
           <VideoPlayer
-            embedUrl={recordingEmbed.embedUrl}
+            embed={recordingEmbed}
             title={`${title} — recording`}
           />
           <OpenInNewTab href={video.recordingUrl}>

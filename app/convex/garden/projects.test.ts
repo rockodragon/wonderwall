@@ -11,9 +11,10 @@
 // world), and that every other query the page makes agrees with it on a
 // project it hides.
 
+import { getFunctionName } from "convex/server";
 import { describe, expect, it } from "vitest";
 import { makeCtx, run, type Row } from "../../test-support/convexContext";
-import { getProject, listProjects, listedProjectCount, validateBudgetDeclaration } from "./projects";
+import { createPassionProject, getProject, listProjects, listedProjectCount, validateBudgetDeclaration } from "./projects";
 import { DIRECTORY_PAGE } from "../directoryRules";
 import { getSchedule } from "./gigs";
 import { listTiers } from "./patronTiers";
@@ -351,5 +352,77 @@ describe("a visitor's page of projects", () => {
 
   it("is everything when there is less than a page", async () => {
     expect(await run(listProjects, makeCtx(many(5), null))).toHaveLength(5);
+  });
+});
+
+describe("createPassionProject with a first piece", () => {
+  const ME = "users:me";
+  const world = () => {
+    const ctx = makeCtx(
+      {
+        users: [{ _id: ME }, { _id: "users:other" }],
+        profiles: [
+          { _id: "profiles:me", userId: ME, name: "Mia", interests: [], createdAt: 0 },
+          { _id: "profiles:other", userId: "users:other", name: "Olu", interests: [], createdAt: 0 },
+        ],
+        projects: [],
+        artifacts: [{ _id: "artifacts:old", profileId: "profiles:me", type: "text", content: "x", order: 2, createdAt: 0 }],
+        uploadClaims: [],
+        _storage: [
+          { _id: "_storage:mine", _creationTime: Date.now() },
+          { _id: "_storage:cover", _creationTime: Date.now() },
+        ],
+      },
+      ME,
+    );
+    const scheduled: { name: string; args: any }[] = [];
+    ctx.scheduler.runAfter = async (_ms: number, fn: unknown, args: any) => {
+      scheduled.push({ name: getFunctionName(fn as any), args });
+    };
+    return { ctx, scheduled };
+  };
+
+  it("saves the piece as the project's first artifact, on the creator's profile", async () => {
+    const { ctx } = world();
+    const { projectId } = await run(createPassionProject, ctx, {
+      title: "Harbor series",
+      piece: { type: "image", mediaStorageId: "_storage:mine", description: " From the pier. " },
+    });
+    const added = ctx.store.artifacts.filter((a: Row) => a._id !== "artifacts:old");
+    expect(added).toMatchObject([
+      { projectId, profileId: "profiles:me", type: "image", mediaStorageId: "_storage:mine", description: "From the pier.", order: 3 },
+    ]);
+    expect(ctx.store.uploadClaims).toMatchObject([{ storageId: "_storage:mine", userId: ME }]);
+  });
+
+  it("a music link piece is stored canonical and fetched for its title", async () => {
+    const { ctx, scheduled } = world();
+    const track = "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC";
+    await run(createPassionProject, ctx, { title: "Single", piece: { type: "audio", mediaUrl: `${track}?si=abc` } });
+    const added = ctx.store.artifacts.find((a: Row) => a._id !== "artifacts:old") as Row;
+    expect(added.mediaUrl).toBe(track);
+    expect(scheduled.filter((s) => s.name === "linkPreview:fetchPreview")).toEqual([
+      { name: "linkPreview:fetchPreview", args: { target: "artifact", id: added._id, url: track } },
+    ]);
+  });
+
+  it("no piece leaves the project alone, as before", async () => {
+    const { ctx } = world();
+    await run(createPassionProject, ctx, { title: "Just an idea" });
+    expect(ctx.store.projects).toHaveLength(1);
+    expect(ctx.store.artifacts).toHaveLength(1);
+  });
+
+  it.each([
+    ["an unknown type", { type: "bogus", mediaUrl: "https://example.com/a" }, "invalid_input"],
+    ["a piece with nothing in it", { type: "video" }, "invalid_input"],
+    ["a file someone else uploaded", { type: "image", mediaStorageId: "_storage:theirs" }, "forbidden"],
+  ])("%s is refused and leaves no project row", async (_n, piece, code) => {
+    const { ctx } = world();
+    ctx.store._storage.push({ _id: "_storage:theirs", _creationTime: Date.now() });
+    ctx.store.uploadClaims.push({ _id: "uploadClaims:1", storageId: "_storage:theirs", userId: "users:other", claimedAt: Date.now() });
+    await expect(run(createPassionProject, ctx, { title: "Nope", piece })).rejects.toMatchObject({ data: { code } });
+    expect(ctx.store.projects).toEqual([]);
+    expect(ctx.store.artifacts).toHaveLength(1);
   });
 });
