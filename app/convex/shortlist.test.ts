@@ -1462,6 +1462,15 @@ describe("getMine — what people you follow last posted", () => {
     });
   });
 
+  it("an event that is a YouTube link with no stored still gets the video's thumbnail", async () => {
+    const latest = await latestOf(
+      world({
+        events: [event("tube", { organizerId: ANA, createdAt: 200, mediaUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" })],
+      }),
+    );
+    expect(latest?.thumbUrl).toMatch(/^https:\/\/img\.youtube\.com\/vi\/dQw4w9WgXcQ\//);
+  });
+
   it("a recording with no picture is audio; a video piece is video", async () => {
     const audio = await latestOf(
       world({

@@ -1,6 +1,15 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { fail } from "./errors";
+import { safeHref } from "./garden/richText";
 import { currentUserId, getProfileByUserId, requireOwnProfileRow, requireProfile, requireUserId } from "./helpers";
+
+/** The link as it is stored, or a refusal a person can read. */
+function storedLinkUrl(raw: string): string {
+  const url = safeHref(raw);
+  if (!url) fail("invalid_input", "That isn't a link. Paste the address of the page.");
+  return url;
+}
 
 export const getMyLinks = query({
   args: {},
@@ -28,6 +37,7 @@ export const add = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
+    const url = storedLinkUrl(args.url);
 
     const profile = await requireProfile(ctx, userId);
 
@@ -43,7 +53,7 @@ export const add = mutation({
     return await ctx.db.insert("links", {
       profileId: profile._id,
       label: args.label,
-      url: args.url,
+      url,
       order: maxOrder + 1,
     });
   },
@@ -60,7 +70,7 @@ export const update = mutation({
 
     await ctx.db.patch(args.linkId, {
       label: args.label,
-      url: args.url,
+      url: storedLinkUrl(args.url),
     });
   },
 });

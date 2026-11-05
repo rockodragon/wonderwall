@@ -21,7 +21,9 @@ Then open http://127.0.0.1:8802/today in a 390px-wide window (or the
 nothing else; every address but "dee" is free), or `/onboarding` as a
 member changing their answers. The admin pages take `?admin`:
 `/admin/messages?admin`, and `/admin/voting?admin` with a portrait cover,
-a wide one and a project with no picture. A query with no sample
+a wide one and a project with no picture. `/projects/p-songs` is a project
+of yours with an old pasted link and two songs (Spotify, SoundCloud): its
+pieces, "+ Add a piece" and the piece editor. A query with no sample
 answer warns once in the console and stays loading, which is also how the
 screen draws before the real answer arrives.
 

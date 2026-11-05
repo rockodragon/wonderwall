@@ -4,14 +4,15 @@ import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { fail } from "./errors";
 import { scheduleProjectEmbedding } from "./searchIndexing";
-import { canonicalMediaUrl, schedulePreviewFetch, wantsPreviewFetch } from "./linkPreview";
-import { isBandcampPageLink, toMusicEmbed } from "./musicEmbed";
+import { canonicalMediaUrl, dropLinkPreview, wantsPreviewFetch } from "./linkPreview";
+import { isBandcampPageLink } from "./musicEmbed";
 import { toEmbedUrl } from "./videoEmbed";
+import { assertPieceType, insertPiece, pieceFields, readyPiece, schedulePiecePreview, swapAudioNote } from "./pieces";
 import { deriveProjectTitle } from "./garden/artifactsMigration";
 import { slugifyTitle, resolveAvailableSlug } from "./garden/stories";
 import { normalizeUrl, isSafeHttpUrl } from "./garden/richText";
 import { parseOgMeta } from "./ogParse";
-import { currentUserId, getProfileByUserId, requireOwnProfileRow, requireProfile, requireUserId } from "./helpers";
+import { currentUserId, getProfileByUserId, requireOwner, requireOwnProfileRow, requireProfile, requireUserId } from "./helpers";
 import { audioNoteUrl, pieceMediaUrl, profileImageUrl, storedFileUrl } from "./images";
 import { cleanDescription } from "./pieceNote";
 import { claimUpload, deleteStoredFile } from "./uploads";
@@ -31,11 +32,11 @@ export const getMyArtifacts = query({
       .withIndex("by_profileId", (q) => q.eq("profileId", profile._id))
       .collect();
 
-    // Resolve storage URLs
+    // Resolve storage URLs, and the voice note the piece editor plays back.
     const withUrls = await Promise.all(
       artifacts.map(async (artifact) => {
         const resolvedMediaUrl = await pieceMediaUrl(ctx, artifact);
-        return { ...artifact, resolvedMediaUrl };
+        return { ...artifact, resolvedMediaUrl, audioNoteUrl: await audioNoteUrl(ctx, artifact) };
       }),
     );
 
@@ -113,58 +114,23 @@ export const toggleLike = mutation({
   },
 });
 
-// What a link needs fetched so its card has a still (docs/features/
-// creator-media-cross-post.md). One place for the rule, called by create and
-// by refetchOgImage. Scheduled, never awaited: the post lands first.
-async function schedulePreview(
-  ctx: MutationCtx,
-  artifactId: Id<"artifacts">,
-  url: string | undefined,
-  type: string,
-) {
-  if (!url) return;
-  // A Bandcamp page, whatever the piece's type: the server reads the
-  // player's number off it (convex/musicEmbed.ts), so it plays here. Once it
-  // is a player link there is nothing left to fetch.
-  if (isBandcampPageLink(url)) return schedulePreviewFetch(ctx, "artifact", artifactId, url);
-  if (toMusicEmbed(url) || (type !== "link" && type !== "video")) return;
-  // Instagram, TikTok and Vimeo stills come through convex/linkPreview.ts
-  // (which knows how to ask each provider); YouTube's comes from the
-  // resolver (img.youtube.com). Anything else gets the plain og:image
-  // scrape below.
-  if (wantsPreviewFetch(url)) {
-    await schedulePreviewFetch(ctx, "artifact", artifactId, url);
-    return;
-  }
-  const embed = toEmbedUrl(url);
-  if (embed) return;
-  await ctx.scheduler.runAfter(0, api.artifacts.fetchOgImage, { artifactId, url });
-}
-
+// Sharing work from a profile: the piece, and the project it becomes. V1
+// (docs/the-exchange-v1-prd.md §7): every shared piece is a passion project,
+// not just a portfolio piece — "post to your portfolio" is the same action
+// as "post a project" without a separate flow. The piece is saved the one
+// way every piece is (convex/pieces.ts).
 export const create = mutation({
   args: {
-    type: v.string(),
-    title: v.optional(v.string()),
-    content: v.optional(v.string()),
-    mediaUrl: v.optional(v.string()),
-    mediaStorageId: v.optional(v.id("_storage")),
-    // An image the creative uploaded beside a pasted reel or video link — its
-    // cover, not the work (docs/features/creator-media-cross-post.md). Stored
-    // as `ogImageUrl` so every card reads it like any other preview.
-    coverStorageId: v.optional(v.id("_storage")),
-    // What the maker says about the piece, and a note they recorded
-    // (schema.ts `description`, `audioNoteStorageId`).
-    description: v.optional(v.string()),
-    audioNoteStorageId: v.optional(v.id("_storage")),
+    ...pieceFields,
     // "Still working on it" in the composer. A shared piece is finished
     // work by default, so its project lands in the profile's Portfolio
     // (docs/features/project-ia.md); true leaves the project in progress.
     inProgress: v.optional(v.boolean()),
     // Location for the companion passion project this mutation creates as a
     // side effect (docs/the-exchange-v1-prd.md §7). Optional and unused by
-    // CreateWorkComposer.tsx / onboarding.tsx today — those composers stay
-    // low-friction; a location picker there is a follow-on UI decision, not
-    // this one. Same shape as convex/schema.ts's `events`/`profiles` tables.
+    // the forms today — they stay low-friction; a location picker there is a
+    // follow-on UI decision, not this one. Same shape as convex/schema.ts's
+    // `events`/`profiles` tables.
     location: v.optional(v.string()),
     locationType: v.optional(v.string()), // "venue" | "city" | "zip" | "address" | "online" | "tbd"
     address: v.optional(
@@ -181,66 +147,18 @@ export const create = mutation({
     coordinates: v.optional(v.object({ lat: v.number(), lng: v.number() })),
     placeId: v.optional(v.string()),
     remote: v.optional(v.boolean()), // true (default when unset) = anywhere/remote-friendly; false = must be local to `location`
-    // Interests for the companion passion project this mutation creates as a
-    // side effect (docs/the-exchange-v1-prd.md §7) — same precedent as the
-    // location args above: optional and unused by CreateWorkComposer.tsx /
-    // onboarding.tsx today, an interests picker there is a follow-on UI
-    // decision, not this one. See the schema comment on `projects.interests`.
+    // Interests for the companion passion project — same precedent as the
+    // location args above. See the schema comment on `projects.interests`.
     interests: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
-
     const profile = await requireProfile(ctx, userId);
+    const { inProgress, location, locationType, address, coordinates, placeId, remote, interests, ...fields } = args;
+    // Checked before the project is made, so a refusal leaves nothing behind.
+    const piece = await readyPiece(ctx, userId, fields);
 
-    // Validate type
-    const validTypes = ["text", "image", "video", "audio", "link"];
-    if (!validTypes.includes(args.type)) {
-      fail("invalid_input", "That isn't a type of work we can show.");
-    }
-    await claimUpload(ctx, userId, args.mediaStorageId);
-    await claimUpload(ctx, userId, args.coverStorageId);
-    await claimUpload(ctx, userId, args.audioNoteStorageId);
-    const description = cleanDescription(args.description);
-
-    // Get current max order
-    const existing = await ctx.db
-      .query("artifacts")
-      .withIndex("by_profileId", (q) => q.eq("profileId", profile._id))
-      .collect();
-
-    const maxOrder =
-      existing.length > 0 ? Math.max(...existing.map((a) => a.order)) : -1;
-
-    // A pasted Instagram, TikTok, YouTube or Vimeo link is stored in its
-    // canonical form — share tokens (`?stkn=`, `?igsh=`) and mobile hosts
-    // stripped — so the same reel pasted by two people is the same string,
-    // and anything that isn't http(s) is refused (convex/linkPreview.ts).
-    const mediaUrl = canonicalMediaUrl(args.mediaUrl);
-    const coverUrl = args.coverStorageId
-      ? await storedFileUrl(ctx, args.coverStorageId)
-      : null;
-
-    const createdAt = Date.now();
-    const artifactId = await ctx.db.insert("artifacts", {
-      profileId: profile._id,
-      type: args.type,
-      title: args.title,
-      content: args.content,
-      mediaUrl,
-      mediaStorageId: args.mediaStorageId,
-      ogImageUrl: coverUrl ?? undefined,
-      coverStorageId: args.coverStorageId,
-      description,
-      audioNoteStorageId: args.audioNoteStorageId,
-      order: maxOrder + 1,
-      createdAt,
-    });
-
-    // V1 (docs/the-exchange-v1-prd.md §7): every new artifact is a passion
-    // project, not just a portfolio piece — this is what makes "post to your
-    // portfolio" the same action as "post a project" without a separate flow.
-    const projectTitle = deriveProjectTitle({ type: args.type, title: args.title, content: args.content });
+    const projectTitle = deriveProjectTitle({ type: piece.type, title: piece.title, content: piece.content });
     // Slug generation (review follow-up, same reasoning as garden/projects.ts:
     // Convex's MutationCtx has no runMutation — a mutation can't call another
     // mutation like stories.ts's ensureStorySlug mid-transaction — so this
@@ -252,47 +170,58 @@ export const create = mutation({
         .unique();
       return hit !== null;
     });
+    const createdAt = Date.now();
     const projectId = await ctx.db.insert("projects", {
       userId,
       kind: "passion",
       origin: "portfolio",
       title: projectTitle,
-      blurb: args.type === "text" ? args.content : undefined,
+      blurb: piece.type === "text" ? piece.content : undefined,
       status: "active",
-      photoUrl: args.type === "image" ? mediaUrl : undefined,
+      photoUrl: piece.type === "image" ? piece.mediaUrl : undefined,
       storySlug,
-      interests: args.interests,
-      location: args.location,
-      locationType: args.locationType,
-      address: args.address,
-      coordinates: args.coordinates,
-      placeId: args.placeId,
-      remote: args.remote ?? true,
-      stage: args.inProgress ? undefined : "completed",
-      stageChangedAt: args.inProgress ? undefined : createdAt,
+      interests,
+      location,
+      locationType,
+      address,
+      coordinates,
+      placeId,
+      remote: remote ?? true,
+      stage: inProgress ? undefined : "completed",
+      stageChangedAt: inProgress ? undefined : createdAt,
       createdAt,
       updatedAt: createdAt,
     });
-    await ctx.db.patch(artifactId, { projectId });
+    const artifactId = await insertPiece(ctx, { profileId: profile._id, projectId, piece });
     await scheduleProjectEmbedding(ctx, projectId);
+    return artifactId;
+  },
+});
 
-    // Schedule embedding generation for text-based artifacts
-    if (args.title || args.content) {
-      await ctx.scheduler.runAfter(0, internal.embeddings.embedArtifact, {
-        artifactId,
-      });
-    }
-
-    // A still for the card, unless the resolver already has one — or the
-    // creative uploaded a cover beside the link, which is the picture they
-    // chose: a fetched still would delete it and take its place. The owner's
-    // explicit Refresh Preview (refetchOgImage) may still do that. A
-    // Bandcamp page is fetched anyway, for its player; its still never
-    // replaces a cover.
-    if (!args.coverStorageId || isBandcampPageLink(mediaUrl)) {
-      await schedulePreview(ctx, artifactId, mediaUrl, args.type);
-    }
-
+// A piece added to a project its owner already has, from the project's
+// page: the same piece a profile shares, on a project that was there first.
+export const addToProject = mutation({
+  args: {
+    projectId: v.id("projects"),
+    ...pieceFields,
+    // The piece is the project's own pasted link, moving over: a project
+    // made before its link was a piece shows it as one, and editing it
+    // makes it one (the link leaves the project in the same step).
+    replacesProjectLink: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { projectId, replacesProjectLink, ...fields }) => {
+    const { userId, row: project } = await requireOwner(ctx, "projects", projectId);
+    // An organization's project belongs to whoever posted it; the piece is
+    // still that person's own work.
+    const profile = await requireProfile(ctx, userId);
+    const piece = await readyPiece(ctx, userId, fields);
+    const artifactId = await insertPiece(ctx, { profileId: profile._id, projectId, piece });
+    const movedLink = replacesProjectLink && project.mediaUrl ? await dropLinkPreview(ctx, project) : null;
+    await ctx.db.patch(project._id, {
+      ...(movedLink ? { ...movedLink, mediaUrl: undefined } : {}),
+      updatedAt: Date.now(),
+    });
+    await scheduleProjectEmbedding(ctx, projectId);
     return artifactId;
   },
 });
@@ -344,9 +273,23 @@ export const update = mutation({
     content: v.optional(v.string()),
     mediaUrl: v.optional(v.string()),
     mediaStorageId: v.optional(v.id("_storage")),
+    // The rest is what the piece editor (components/piece/PieceEditor.tsx)
+    // sends; left out, each is left as it is.
+    // What the piece is now, when its new media is another kind.
+    type: v.optional(v.string()),
+    // Blank clears it.
+    description: v.optional(v.string()),
+    // A new recording replaces the old one; clearAudioNote removes it.
+    audioNoteStorageId: v.optional(v.id("_storage")),
+    clearAudioNote: v.optional(v.boolean()),
+    // A cover the maker picked replaces the one there; clearCover removes
+    // it, and the link's own still is fetched in its place.
+    coverStorageId: v.optional(v.id("_storage")),
+    clearCover: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const { userId, row: artifact } = await requireOwnProfileRow(ctx, "artifacts", args.artifactId);
+    if (args.type !== undefined) assertPieceType(args.type);
 
     // The form sends title and content every time, but media only when the
     // owner gave new media: an edit of just a picture's title sends no file
@@ -363,8 +306,20 @@ export const update = mutation({
     await claimUpload(ctx, userId, args.mediaStorageId, [artifact.mediaStorageId]);
 
     const patch: Partial<Doc<"artifacts">> = { title: args.title, content: args.content };
+    if (args.type !== undefined) patch.type = args.type;
+    if (args.description !== undefined) patch.description = cleanDescription(args.description);
+    const note = args.clearAudioNote
+      ? await swapAudioNote(ctx, userId, artifact, undefined)
+      : args.audioNoteStorageId
+        ? await swapAudioNote(ctx, userId, artifact, args.audioNoteStorageId)
+        : null;
+    if (note) Object.assign(patch, note);
+
+    // Words in place of a file or a link: the piece is words alone now, so
+    // its media goes (the page plays a link before it reads the type).
+    const toWords = patch.type === "text" && (!!artifact.mediaUrl || !!artifact.mediaStorageId);
     let mediaUrl = artifact.mediaUrl;
-    if (newUpload || newLink) {
+    if (newUpload || newLink || toWords) {
       // New media replaces the old: an uploaded file it displaces is deleted.
       await deleteStoredFile(ctx, artifact.mediaStorageId);
       patch.mediaStorageId = newUpload;
@@ -372,20 +327,37 @@ export const update = mutation({
       mediaUrl = newLink;
     }
 
-    // A preview and a cover belong to the link they were for, so a link that
-    // changed (or went) takes the old one's title, description, picture and
-    // cover with it, and the companion project's mirrored picture. The new
-    // link gets its own preview below.
+    // A preview and a cover belong to the work they were for, so new work
+    // (a link, a file, or words) takes the old one's title, description,
+    // picture and cover with it, and the companion project's mirrored
+    // picture. A new link gets its own preview below.
     const linkChanged = mediaUrl !== artifact.mediaUrl;
-    if (linkChanged) {
+    const workChanged = linkChanged || !!newUpload || toWords;
+    if (workChanged) {
       patch.ogTitle = undefined;
       patch.ogDescription = undefined;
       patch.ogImageUrl = undefined;
       patch.coverStorageId = undefined;
       await dropOldPreview(ctx, artifact, newUpload);
     }
+
+    // A cover picked (or taken away) in this edit. The old one goes the way
+    // new work takes it, unless the new work already took it.
+    const newCover =
+      args.coverStorageId && args.coverStorageId !== artifact.coverStorageId ? args.coverStorageId : undefined;
+    if (newCover || args.clearCover) {
+      if (!workChanged) await dropOldPreview(ctx, artifact, newUpload ?? artifact.mediaStorageId);
+      if (newCover) {
+        await claimUpload(ctx, userId, newCover);
+        patch.coverStorageId = newCover;
+        patch.ogImageUrl = (await storedFileUrl(ctx, newCover)) ?? undefined;
+      } else {
+        patch.coverStorageId = undefined;
+        patch.ogImageUrl = undefined;
+      }
+    }
     await ctx.db.patch(args.artifactId, patch);
-    // The piece's title is part of its project's search text.
+    // The piece's title and words are part of its project's search text.
     if (artifact.projectId) await scheduleProjectEmbedding(ctx, artifact.projectId);
 
     // Schedule embedding regeneration if content changed
@@ -396,13 +368,15 @@ export const update = mutation({
     }
 
     // A preview for the new link, and a retry for a link whose earlier fetch
-    // failed (pressing Update again tries again). An unchanged link that has
-    // a cover keeps it and isn't fetched again, same as create: the picture
-    // the creator chose is never replaced by a fetched still; the owner's
-    // Refresh Preview (refetchOgImage) may.
+    // failed (pressing Update again tries again). A piece with a cover keeps
+    // it and isn't fetched again, same as create: the picture the creator
+    // chose is never replaced by a fetched still; the owner's Refresh
+    // Preview (refetchOgImage) may. A Bandcamp page is fetched for its
+    // player regardless, and its still never replaces a cover.
+    // A cover taken away is replaced by the link's own still.
     const hasPreview = !!artifact.ogImageUrl || !!artifact.ogTitle || !!artifact.coverStorageId;
-    if (linkChanged || !hasPreview || isBandcampPageLink(mediaUrl)) {
-      await schedulePreview(ctx, args.artifactId, mediaUrl, artifact.type);
+    if (isBandcampPageLink(mediaUrl) || (!newCover && (linkChanged || !hasPreview || args.clearCover))) {
+      await schedulePiecePreview(ctx, args.artifactId, mediaUrl, patch.type ?? artifact.type);
     }
   },
 });
@@ -425,8 +399,8 @@ export const remove = mutation({
   },
 });
 
-// The owner's description of a piece, from its page. Blank clears it.
-// `update` (the Settings form) leaves it alone, so neither erases the other.
+// The owner's description of a piece, from the old work page. Blank clears
+// it. `update` (the piece editor) changes it only when it sends one.
 export const setDescription = mutation({
   args: {
     artifactId: v.id("artifacts"),
@@ -448,10 +422,8 @@ export const setAudioNote = mutation({
   },
   handler: async (ctx, args) => {
     const { userId, row: artifact } = await requireOwnProfileRow(ctx, "artifacts", args.artifactId);
-    if (args.storageId === artifact.audioNoteStorageId) return;
-    await claimUpload(ctx, userId, args.storageId);
-    await deleteStoredFile(ctx, artifact.audioNoteStorageId);
-    await ctx.db.patch(args.artifactId, { audioNoteStorageId: args.storageId });
+    const note = await swapAudioNote(ctx, userId, artifact, args.storageId);
+    if (note) await ctx.db.patch(args.artifactId, note);
   },
 });
 
@@ -677,7 +649,7 @@ export const refetchOgImage = mutation({
       fail("invalid_input", "This piece has no link to fetch a preview from.");
     }
 
-    await schedulePreview(ctx, args.artifactId, artifact.mediaUrl, artifact.type);
+    await schedulePiecePreview(ctx, args.artifactId, artifact.mediaUrl, artifact.type);
 
     return { success: true };
   },

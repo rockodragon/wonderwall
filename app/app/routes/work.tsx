@@ -8,6 +8,7 @@ import { EmbedPlayer } from "../components/EmbedPlayer";
 import { PersonAvatar } from "../components/PersonAvatar";
 import { PieceNote } from "../components/PieceNote";
 import { ShareButton } from "../components/ShareButton";
+import { linkHost, safeHref } from "../lib/richText";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import { useBack } from "../lib/useBack";
 import { PAGE_WIDTH } from "../lib/pageWidth";
@@ -159,7 +160,7 @@ export default function WorkDetail() {
               {artifact.mediaUrl &&
                 (artifact.type === "link" || hasStoredImage) && (
                   <a
-                    href={ensureHttps(artifact.mediaUrl!)}
+                    href={safeHref(artifact.mediaUrl) ?? undefined}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="absolute bottom-4 right-4 flex items-center gap-2 px-4 py-2 bg-white/90 dark:bg-black/70 rounded-xl shadow-lg hover:bg-white dark:hover:bg-black transition-colors"
@@ -178,7 +179,7 @@ export default function WorkDetail() {
                       />
                     </svg>
                     <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                      {getDomainFromUrl(artifact.mediaUrl)}
+                      {linkHost(artifact.mediaUrl) ?? artifact.mediaUrl}
                     </span>
                   </a>
                 )}
@@ -250,7 +251,7 @@ export default function WorkDetail() {
                     />
                     {/* Link badge */}
                     <a
-                      href={ensureHttps(artifact.mediaUrl!)}
+                      href={safeHref(artifact.mediaUrl) ?? undefined}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="absolute bottom-4 right-4 flex items-center gap-2 px-4 py-2 bg-white/90 dark:bg-black/70 rounded-xl shadow-lg hover:bg-white dark:hover:bg-black transition-colors"
@@ -289,10 +290,10 @@ export default function WorkDetail() {
                       />
                     </svg>
                     <p className="text-emerald-600 dark:text-emerald-400 text-lg font-medium mb-3">
-                      {getDomainFromUrl(artifact.mediaUrl)}
+                      {linkHost(artifact.mediaUrl) ?? artifact.mediaUrl}
                     </p>
                     <a
-                      href={ensureHttps(artifact.mediaUrl!)}
+                      href={safeHref(artifact.mediaUrl) ?? undefined}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors"
@@ -503,21 +504,4 @@ export default function WorkDetail() {
       )}
     </div>
   );
-}
-
-function ensureHttps(url: string): string {
-  if (!url) return url;
-  if (url.startsWith("http://") || url.startsWith("https://")) {
-    return url;
-  }
-  return `https://${url}`;
-}
-
-function getDomainFromUrl(url: string): string {
-  try {
-    const parsed = new URL(ensureHttps(url));
-    return parsed.hostname.replace("www.", "");
-  } catch {
-    return url;
-  }
 }

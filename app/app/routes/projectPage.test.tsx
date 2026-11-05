@@ -388,18 +388,55 @@ describe("a shared piece's page (Rick, 2026-10-27)", () => {
     expect(about).not.toContain(">Updates<");
   });
 
-  it("gives its maker the pencil for the words", () => {
-    expect(page({ viewer: "owner", project: piece() })).toContain("Add a few words about it");
+  it("gives its maker Edit piece, which opens the piece editor (words, voice note and all)", () => {
+    const html = page({ viewer: "owner", project: piece() });
+    expect(html).toContain(">Edit piece</button>");
+    // The words are edited in the piece editor now, not in place.
+    expect(html).not.toContain("Add a few words about it");
   });
 
-  it("gives no pencil to someone who didn't make the piece, even its project's lead", () => {
+  it("gives no Edit to someone who didn't make the piece, even its project's lead", () => {
     const html = page({ viewer: "owner", project: piece({ profileId: "profiles:someone-else" }) });
-    expect(html).not.toContain("Add a few words about it");
+    expect(html).not.toContain(">Edit piece</button>");
   });
 
   it("a project with no pieces shows no updates under About (the Updates tab has them)", () => {
     const about = panelAbout(page({ viewer: "visitor", updates: [update(1)] }));
     expect(about.split('id="project-panel-')[1] ?? "").not.toContain("Morning 1 on the pier.");
+  });
+});
+
+// Rick, 2026-11-04: a project shared from a profile and one started from the
+// start form show their work the same way, at the top, with Add a piece for
+// the owner (components/piece/ProjectPieces.tsx).
+describe("a project's pieces", () => {
+  const REEL = "https://www.youtube.com/watch?v=jNQXAC9IVRw";
+  const withPiece = bareProject({
+    media: [{ _id: "artifacts:v", profileId: "profiles:lead", type: "video", mediaUrl: REEL, resolvedMediaUrl: REEL }],
+  });
+
+  it("plays above the title, wherever the project came from", () => {
+    for (const origin of ["portfolio", "posted"]) {
+      const html = page({ viewer: "visitor", project: { ...withPiece, origin } });
+      expect(html).toContain("<iframe");
+      expect(html.indexOf("<iframe")).toBeLessThan(html.indexOf("<h1"));
+    }
+  });
+
+  it("gives the owner + Add a piece, and a visitor nothing to add", () => {
+    expect(page({ viewer: "owner", project: bareProject() })).toContain("+ Add a piece");
+    expect(page({ viewer: "visitor", project: withPiece })).not.toContain("Add a piece");
+  });
+
+  it("shows a project's old link as its first piece, with Edit and Remove for the owner", () => {
+    const old = bareProject({ mediaUrl: REEL });
+    const owner = page({ viewer: "owner", project: old });
+    expect(owner).toContain('src="https://www.youtube.com/embed/jNQXAC9IVRw"');
+    expect(owner).toContain(">Edit</button>");
+    expect(owner).toContain(">Remove</button>");
+    const visitor = page({ viewer: "visitor", project: old });
+    expect(visitor).toContain("<iframe");
+    expect(visitor).not.toContain(">Remove</button>");
   });
 });
 

@@ -25,13 +25,11 @@ import { api } from "../../convex/_generated/api";
 import { formatCents } from "../../convex/money";
 import { EMBED_PROVIDER_LABEL, toEmbedUrl } from "../lib/videoEmbed";
 import { linkStill } from "../../convex/coverRules";
-import { isAudioFileLink, toMusicEmbed } from "../lib/musicEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { AdminMenu, HiddenNotice } from "../components/AdminMenu";
 import { InviteToThis } from "../components/InviteToThis";
 import { EmbedPlayer } from "../components/EmbedPlayer";
-import { MusicPlayer } from "../components/MusicPlayer";
 import { CoverFrame } from "../components/CoverFrame";
 import { ImageFill } from "../components/ImageFill";
 import { describeMediaLink, MediaLinkField } from "../components/MediaLinkField";
@@ -44,7 +42,7 @@ import { TabPanel, Tabs } from "../components/project/Tabs";
 import { ProjectUpdates, UpdatesList } from "../components/ProjectUpdates";
 import { EditButton, InlineEditableText } from "../components/InlineEditableText";
 import { PencilIcon } from "../components/icons";
-import { PieceNote } from "../components/PieceNote";
+import { ProjectPieces } from "../components/piece/ProjectPieces";
 import { ProjectModal, type ProjectStep } from "../components/ProjectModal";
 import { RichContent } from "../components/RichContent";
 import { RichTextEditor } from "../components/RichTextEditor";
@@ -214,6 +212,8 @@ export default function ProjectDetail() {
   // The same four-screen modal "Start a project" uses, opened on this project:
   // the screen it opens on, or false. "Add a link" opens it on Show it.
   const [editingProject, setEditingProject] = useState<false | ProjectStep>(false);
+  // The owner's "Add a piece" form, open (the just-published card opens it).
+  const [addingPiece, setAddingPiece] = useState(false);
   // "Next steps" switches tab, then scrolls to the tabs once they've changed.
   const scrollAfterTab = useRef(false);
   // Sections the owner opened from "Next steps" this visit, so an empty one
@@ -271,8 +271,8 @@ export default function ProjectDetail() {
   // cross-post.md, Round 2): beneath the photo when there is one, in the
   // hero's place when there isn't. Its still is for cards, not for here.
   const mediaEmbed = toEmbedUrl(project.mediaUrl);
-  // Attached pieces play in their own section below, so a still of the
-  // first one isn't repeated as the hero (heroThumb).
+  // Pieces play where a pasted link plays (ProjectPieces), so a still of
+  // the first one isn't repeated as the hero (heroThumb).
   const hasPieces = (project.media?.length ?? 0) > 0;
   const thumb = heroThumb(project);
   const poster = !!thumb && !isWideCover(heroRatio);
@@ -338,7 +338,7 @@ export default function ProjectDetail() {
         project={project}
         isOwner={isOwner}
         needsMedia={needsMedia}
-        onAddLink={() => setEditingProject("show")}
+        onAddLink={() => setAddingPiece(true)}
       />
 
       {hiddenByAdmin && (
@@ -365,18 +365,31 @@ export default function ProjectDetail() {
         />
 
         <div className="order-2 md:order-4 md:w-full">
-          {mediaEmbed && (
-            <EmbedPlayer
-              embed={mediaEmbed}
-              title={project.title}
-              className="mb-6 rounded-2xl overflow-hidden"
-              style={{ backgroundColor: "var(--garden-ink-raised)" }}
+          {/* A project's work plays here, piece by piece, with Add a piece
+              and Edit for its owner (components/piece/ProjectPieces.tsx).
+              A job or gig has one link and no pieces; its lead keeps the
+              link row. */}
+          {isPassion ? (
+            <ProjectPieces
+              project={project}
+              isOwner={isOwner}
+              myProfileId={myProfile?._id}
+              adding={addingPiece}
+              onAdding={setAddingPiece}
             />
+          ) : (
+            <>
+              {mediaEmbed && (
+                <EmbedPlayer
+                  embed={mediaEmbed}
+                  title={project.title}
+                  className="mb-6 rounded-2xl overflow-hidden"
+                  style={{ backgroundColor: "var(--garden-ink-raised)" }}
+                />
+              )}
+              {isOwner && <InlineEditableMediaLink project={project} />}
+            </>
           )}
-
-          {/* A project sets its link in Edit project (step 2). A job or gig has
-              no edit form, so its lead keeps this row. */}
-          {isOwner && !isPassion && <InlineEditableMediaLink project={project} />}
 
           {isOwner && isPassion && (
             <div className="mb-2">
@@ -396,7 +409,6 @@ export default function ProjectDetail() {
                 projectId: project._id,
                 title: project.title,
                 blurb: project.blurb,
-                mediaUrl: project.mediaUrl,
                 interests: project.interests,
                 remote: project.remote,
                 location: project.location,
@@ -496,9 +508,6 @@ export default function ProjectDetail() {
       <TabPanel base={TABS_BASE} id="about" selected={tab === "about"} alone={!tabbed}>
         <InlineEditableStory project={project} isOwner={isOwner} />
 
-        {/* Pieces play and sound; they stop when you leave the tab. */}
-        {tab === "about" && hasPieces && <AttachedPieces project={project} myProfileId={myProfile?._id} />}
-
         {/* A piece's page shows how it's going under the work, ten at a
             time (Rick, 2026-10-27). The Updates tab keeps the composer. */}
         {tab === "about" && hasPieces && (
@@ -597,106 +606,6 @@ export default function ProjectDetail() {
       {supportModal}
     </PageShell>
   );
-}
-
-function ensureHttps(url: string): string {
-  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
-}
-
-function hostOf(url: string): string {
-  try {
-    return new URL(ensureHttps(url)).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-}
-
-// The pieces attached to a project (artifacts.projectId) — the work itself,
-// shown here now that a shared piece IS a project and /works/:id redirects
-// to it (docs/features/project-ia.md). What the hero or the blurb already
-// shows isn't drawn twice: a shared image is also the project's photo, and a
-// shared text post is also its blurb. The maker's words and voice note
-// (PieceNote) show for every piece, those included.
-function AttachedPieces({ project, myProfileId }: { project: any; myProfileId?: string }) {
-  const pieces: any[] = project.media ?? [];
-  if (pieces.length === 0) return null;
-  return (
-    <div className="flex flex-col gap-6 mb-6">
-      {pieces.map((m) => (
-        <div key={m._id} className="flex flex-col gap-3">
-          {!shownAbove(m, project) && <PieceMedia piece={m} project={project} />}
-          <PieceNote piece={m} canEdit={!!myProfileId && m.profileId === myProfileId} />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/** A piece the page already shows above: the hero photo, or the blurb. */
-function shownAbove(m: any, project: any): boolean {
-  if (m.type === "image" && m.resolvedMediaUrl && m.resolvedMediaUrl === project.resolvedPhotoUrl) return true;
-  return m.type === "text" && (m.content ?? "").trim() === (project.blurb ?? "").trim();
-}
-
-function PieceMedia({ piece: m, project }: { piece: any; project: any }) {
-  const frame = { backgroundColor: "var(--garden-ink-raised)" };
-  const embed = toEmbedUrl(m.mediaUrl ?? undefined);
-  if (embed) {
-    return <EmbedPlayer embed={embed} title={m.title ?? project.title} className="rounded-2xl overflow-hidden" style={frame} />;
-  }
-  const music = toMusicEmbed(m.mediaUrl ?? undefined);
-  if (music) {
-    return <MusicPlayer music={music} title={m.title ?? project.title} className="rounded-2xl overflow-hidden" style={frame} />;
-  }
-  if (m.type === "video" && m.resolvedMediaUrl) {
-    return <video src={m.resolvedMediaUrl} controls playsInline className="w-full rounded-2xl" style={frame} />;
-  }
-  // An upload or an audio file plays here. A music page that isn't a player
-  // link (yet) gets the link below; an <audio> pointed at it never plays.
-  if (m.type === "audio" && m.resolvedMediaUrl && (m.mediaStorageId || isAudioFileLink(m.resolvedMediaUrl))) {
-    return (
-      <div className="rounded-2xl p-4" style={frame}>
-        {m.title && (
-          <p className="text-sm mb-2" style={{ color: "var(--garden-paper)" }}>
-            {m.title}
-          </p>
-        )}
-        <audio src={m.resolvedMediaUrl} controls className="w-full" />
-      </div>
-    );
-  }
-  if (m.type === "image" && m.resolvedMediaUrl) {
-    return <img src={m.resolvedMediaUrl} alt={m.title ?? ""} className="w-full max-h-[70vh] object-contain rounded-2xl" style={frame} />;
-  }
-  if (m.type === "text" && m.content) {
-    return (
-      <div className="rounded-2xl p-5 text-[15px] whitespace-pre-wrap" style={{ ...frame, color: "var(--garden-body)" }}>
-        {m.content}
-      </div>
-    );
-  }
-  if (m.mediaUrl) {
-    return (
-      <a
-        href={ensureHttps(m.mediaUrl)}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-3 rounded-2xl p-3 hover:opacity-90"
-        style={frame}
-      >
-        {m.ogImageUrl && <img src={m.ogImageUrl} alt="" className="w-20 h-20 rounded-lg object-cover shrink-0" />}
-        <span className="min-w-0">
-          <span className="block text-sm font-medium break-words" style={{ color: "var(--garden-paper)" }}>
-            {m.title || hostOf(m.mediaUrl)}
-          </span>
-          <span className="block text-[13px]" style={{ color: "var(--garden-muted)" }}>
-            {hostOf(m.mediaUrl)} ↗
-          </span>
-        </span>
-      </a>
-    );
-  }
-  return null;
 }
 
 // Shown to the owner of a fresh project that has asked for nothing yet —

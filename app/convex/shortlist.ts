@@ -28,6 +28,7 @@ import { query, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { BudgetDeclaration } from "../app/lib/budgetLabel";
 import { projectCoverUrl } from "./projectCover";
+import { linkStill } from "./coverRules";
 import { resolveStage } from "../app/lib/stage";
 import { hasEnded } from "../app/lib/shortlist/needsYou";
 import { recruitmentNextAction } from "../app/lib/shortlist/recruitment";
@@ -250,7 +251,7 @@ async function toPerson(ctx: QueryCtx, profile: Doc<"profiles">): Promise<Shortl
 /** The desk's picture for an event: its cover, else its first gallery image
  * (eventCoverUrl, as everywhere else), else a pasted link's still. */
 async function eventDeskCoverUrl(ctx: QueryCtx, event: Doc<"events">): Promise<string | null> {
-  return (await eventCoverUrl(ctx, event)) || event.mediaPreviewUrl || null;
+  return (await eventCoverUrl(ctx, event)) || linkStill(event);
 }
 
 function readers(ctx: QueryCtx) {

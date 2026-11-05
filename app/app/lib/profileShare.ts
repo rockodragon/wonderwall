@@ -10,6 +10,7 @@
 // What is shared from a Garden domain says The Garden and points at The
 // Garden's address (ShareSite); from anywhere else, TheCreative.exchange.
 
+import { pieceStill } from "../../convex/coverRules";
 import { profilePath } from "../../convex/handleRules";
 import { convexFileKey } from "../../convex/images";
 import { GARDEN, GARDEN_ORIGIN, PLATFORM_NAME, type BrandId } from "../brand/brandConfig";
@@ -176,7 +177,7 @@ export function recentWorks(
     .slice()
     .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
     .flatMap((p) => {
-      const imageUrl = shownImageUrl(p.type === "image" ? p.mediaUrl : p.ogImageUrl);
+      const imageUrl = shownImageUrl(pieceStill(p, p.mediaUrl));
       return imageUrl ? [{ imageUrl, title: shownTitle(p.title) }] : [];
     });
   return [...fromProjects, ...loose].slice(0, Math.max(0, limit));

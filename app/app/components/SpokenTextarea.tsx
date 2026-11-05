@@ -138,7 +138,7 @@ export function SpokenNote({
   error,
   className = "mt-2 text-[15px]",
   color = "var(--garden-body)",
-  errorColor = "#fca5a5",
+  errorColor = "var(--garden-error)",
 }: {
   working: boolean;
   error: string | null;

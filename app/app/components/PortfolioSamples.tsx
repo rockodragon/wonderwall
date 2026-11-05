@@ -2,11 +2,8 @@
 // legacy job interests and scheduled gigs. Callers supply authorized samples.
 import type { ReactNode } from "react";
 import type { PortfolioSample as ResolvedPortfolioSample } from "../../convex/portfolioSamples";
-import { toEmbedUrl } from "../lib/videoEmbed";
-import { toMusicEmbed } from "../lib/musicEmbed";
-import { isSafeHttpUrl } from "../lib/richText";
-import { EmbedPlayer } from "./EmbedPlayer";
-import { MusicPlayer } from "./MusicPlayer";
+import { pieceStill } from "../../convex/coverRules";
+import { PieceMedia, pieceDisplay, type PieceLike } from "./piece/PieceMedia";
 
 export type PortfolioSample = Pick<ResolvedPortfolioSample, "type"> &
   Partial<Omit<ResolvedPortfolioSample, "artifactId" | "type">> & { resolvedMediaUrl?: string | null };
@@ -38,10 +35,10 @@ export function PortfolioSamplePicker<T extends string>({
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" aria-label="Choose work samples">
       {samples.map((sample) => {
         const active = selected.includes(sample._id);
-        const embed = toEmbedUrl(sample.linkUrl ?? sample.mediaUrl ?? undefined);
-        const thumbnail = sample.type === "image"
-          ? sample.resolvedMediaUrl ?? sample.mediaUrl ?? sample.ogImageUrl
-          : sample.ogImageUrl ?? embed?.thumbnailUrl;
+        const thumbnail = pieceStill(
+          { ...sample, mediaUrl: sample.linkUrl ?? sample.mediaUrl },
+          sample.type === "image" ? (sample.resolvedMediaUrl ?? sample.mediaUrl) : null,
+        );
         return (
           <button
             key={sample._id}
@@ -68,28 +65,19 @@ export function PortfolioSamplePicker<T extends string>({
   );
 }
 
-/** One media renderer; use the platform's existing embed resolver and player. */
+/** A work sample playing, the way its piece plays on its project's page
+ *  (components/piece/PieceMedia.tsx), inside the sample's own card. */
 export function PortfolioSamplePreview({ sample }: { sample: PortfolioSample }) {
-  const mediaUrl = sample.resolvedMediaUrl ?? sample.mediaUrl;
-  const embed = toEmbedUrl(sample.linkUrl ?? mediaUrl ?? undefined);
-  const music = toMusicEmbed(sample.linkUrl ?? mediaUrl ?? undefined);
-  if (music) return <MusicPlayer music={music} title={sample.title} className="rounded-lg overflow-hidden" />;
-  if (sample.type === "image" && mediaUrl) {
-    return <img src={mediaUrl} alt={sample.title || "Work sample"} loading="lazy" className="w-full max-h-80 object-contain rounded-lg" />;
+  const piece: PieceLike = {
+    type: sample.type,
+    title: sample.title,
+    content: sample.content,
+    mediaUrl: sample.linkUrl ?? null,
+    resolvedMediaUrl: sample.resolvedMediaUrl ?? sample.mediaUrl,
+    ogImageUrl: sample.ogImageUrl,
+  };
+  if (pieceDisplay(piece).kind === "none") {
+    return <p className="text-xs opacity-60">This sample is no longer available.</p>;
   }
-  if (sample.type === "audio" && mediaUrl) {
-    return <audio controls preload="none" src={mediaUrl} className="w-full" aria-label={sample.title || "Audio sample"} />;
-  }
-  if (embed) return <EmbedPlayer embed={embed} title={sample.title} className="rounded-lg overflow-hidden" />;
-  if (sample.type === "video" && mediaUrl) {
-    return <video controls preload="metadata" src={mediaUrl} className="w-full max-h-80 rounded-lg" aria-label={sample.title || "Video sample"} />;
-  }
-  if (sample.type === "text" && sample.content) {
-    return <p className="text-sm whitespace-pre-wrap max-h-64 overflow-y-auto">{sample.content}</p>;
-  }
-  const linkUrl = sample.linkUrl ?? mediaUrl;
-  if (isSafeHttpUrl(linkUrl)) {
-    return <a href={linkUrl!} target="_blank" rel="noreferrer" className="text-sm underline underline-offset-2 break-words">{sample.title || "Open work sample"}</a>;
-  }
-  return <p className="text-xs opacity-60">This sample is no longer available.</p>;
+  return <PieceMedia piece={piece} title={sample.type === "audio" ? "Audio sample" : "Work sample"} framed={false} />;
 }

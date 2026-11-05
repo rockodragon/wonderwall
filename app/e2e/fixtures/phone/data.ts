@@ -321,6 +321,43 @@ const pieceProjects = [
     creator: { _id: "me", name: me.name, imageUrl: me.imageUrl, interests: me.interests, location: me.location },
     media: [{ _id: "a-cafe", profileId: "me", type: "image", resolvedMediaUrl: "/campaign/cafe.jpg", mediaStorageId: "s-cafe", order: 0, createdAt: now - 40 * DAY }],
   }),
+  // Your own project, started before its link was a piece: the old link
+  // shows as its first piece (Edit makes it one), then two songs
+  // (components/piece/ProjectPieces.tsx). /projects/p-songs.
+  project({
+    _id: "p-songs",
+    userId: "u-me",
+    origin: "posted",
+    title: "Songs from the back porch",
+    blurb: "An EP, recorded at home over one summer.",
+    stage: "working",
+    mediaUrl: "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+    creator: { _id: "me", name: me.name, imageUrl: me.imageUrl, interests: me.interests, location: me.location },
+    media: [
+      {
+        _id: "a-spotify",
+        profileId: "me",
+        type: "audio",
+        title: "Porch light",
+        mediaUrl: "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT",
+        resolvedMediaUrl: "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT",
+        description: "The first one we finished. Two takes, one mic.",
+        order: 1,
+        createdAt: now - 5 * DAY,
+      },
+      {
+        _id: "a-soundcloud",
+        profileId: "me",
+        type: "audio",
+        mediaUrl: "https://soundcloud.com/forss/flickermood",
+        resolvedMediaUrl: "https://soundcloud.com/forss/flickermood",
+        ogImageUrl: "/campaign/pair.jpg",
+        coverStorageId: "s-cover",
+        order: 2,
+        createdAt: now - 4 * DAY,
+      },
+    ],
+  }),
   project({
     _id: "p-harbor",
     userId: "u-dee",

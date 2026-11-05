@@ -6,7 +6,8 @@ import { INTERESTS } from "../constants/interests";
 import { CommunityPicker, useDefaultEventCommunity } from "./CommunityPicker";
 import { PostAsPicker } from "./PostAsPicker";
 import { LocationAutocomplete, LocationVerifiedHint } from "./LocationAutocomplete";
-import { describeMediaLink, MediaLinkField } from "./MediaLinkField";
+import { PieceFields } from "./piece/PieceFields";
+import { draftIsEmpty, usePieceDraft } from "./piece/usePieceDraft";
 import { useLocationField } from "../lib/useLocationField";
 import { errorMessage } from "../lib/convexError";
 import type { Stage } from "../lib/stage";
@@ -18,9 +19,15 @@ import { SheetExit } from "./SheetExit";
 import { SpokenNote, SpokenTextarea, useSpokenInto } from "./SpokenTextarea";
 
 // One modal for starting AND editing a project, in four short screens, each
-// one thing: what it is called, a few words about it, a link to it, and the
-// details. Nothing about inviting people: that comes after the project is up.
-// Pass `edit` to open it on an existing project.
+// one thing: what it is called, a few words about it, the work itself, and
+// the details. Nothing about inviting people: that comes after the project is
+// up. Pass `edit` to open it on an existing project; an edit has three
+// screens, since the work is added and changed on the project's page
+// (components/piece/ProjectPieces.tsx).
+//
+// "Show it" takes the same fields as a piece anywhere (PieceFields): an
+// upload, or a link to a video, a song or any page, and a cover. It is saved
+// as the project's first piece, with the project (createPassionProject).
 //
 // Every field's state lives up here and all four panels stay mounted
 // (hidden when inactive), so Back never loses anything and the community
@@ -34,10 +41,14 @@ export const PROJECT_STEPS = [
 ] as const;
 export type ProjectStep = (typeof PROJECT_STEPS)[number]["id"];
 
-const stepIndex = (step: ProjectStep) => PROJECT_STEPS.findIndex((s) => s.id === step);
-export const stepAfter = (step: ProjectStep): ProjectStep =>
-  PROJECT_STEPS[Math.min(stepIndex(step) + 1, PROJECT_STEPS.length - 1)].id;
-export const stepBefore = (step: ProjectStep): ProjectStep => PROJECT_STEPS[Math.max(stepIndex(step) - 1, 0)].id;
+type Steps = readonly (typeof PROJECT_STEPS)[number][];
+/** The screens a sheet has: an edit has no "Show it". */
+export const stepsFor = (edit: boolean): Steps => (edit ? PROJECT_STEPS.filter((s) => s.id !== "show") : PROJECT_STEPS);
+const stepIndex = (step: ProjectStep, steps: Steps = PROJECT_STEPS) => steps.findIndex((s) => s.id === step);
+export const stepAfter = (step: ProjectStep, steps: Steps = PROJECT_STEPS): ProjectStep =>
+  steps[Math.min(stepIndex(step, steps) + 1, steps.length - 1)].id;
+export const stepBefore = (step: ProjectStep, steps: Steps = PROJECT_STEPS): ProjectStep =>
+  steps[Math.max(stepIndex(step, steps) - 1, 0)].id;
 
 /** The screen's heading (Rick, 2026-10-27: the form's name isn't repeated
  *  on every screen; the step's question takes that space). A new project
@@ -60,7 +71,6 @@ export type ProjectEditTarget = {
   projectId: Id<"projects">;
   title: string;
   blurb?: string;
-  mediaUrl?: string;
   interests?: string[];
   remote?: boolean;
   location?: string;
@@ -106,8 +116,7 @@ export function ProjectModal({
    *  completed project, which is the profile's Portfolio; the heading says
    *  so. Without one, the first screen asks. */
   initialStage?: Stage;
-  /** The screen to open on: the project page's "Add a link" opens an edit
-   *  on "show". */
+  /** The screen to open on. */
   initialStep?: ProjectStep;
   /** True when the sheet is open because of the address (the Canvas's
    *  ?create=project), so the browser's Back already closes it
@@ -119,14 +128,18 @@ export function ProjectModal({
   const uid = useId();
   const finished = !edit && initialStage === "completed";
 
-  const [step, setStep] = useState<ProjectStep>(initialStep ?? "name");
+  const steps = stepsFor(!!edit);
+  const [step, setStep] = useState<ProjectStep>(
+    initialStep && stepIndex(initialStep, steps) >= 0 ? initialStep : "name",
+  );
   const [title, setTitle] = useState(edit?.title ?? initialTitle ?? "");
   const [pickedStage, setPickedStage] = useState<StartStage | undefined>(undefined);
   const [blurb, setBlurb] = useState(edit?.blurb ?? "");
   // Talk instead (Rick, 2026-10-30): the words are added after the description.
   const speech = useTalk();
   const heard = useSpokenInto(speech, blurb, setBlurb);
-  const [mediaUrl, setMediaUrl] = useState(edit?.mediaUrl ?? "");
+  // The work: the project's first piece (create only).
+  const piece = usePieceDraft();
   const location = useLocationField(edit);
   const [remote, setRemote] = useState(edit?.remote ?? true);
   const [interests, setInterests] = useState<string[]>(edit?.interests ?? []);
@@ -171,14 +184,14 @@ export function ProjectModal({
   function goNext() {
     setError("");
     if (step === "name" && !title.trim()) return;
-    if (step === "show") {
-      const link = describeMediaLink(mediaUrl);
-      if (link.state === "invalid") {
-        setError(link.message);
+    if (step === "show" && !draftIsEmpty(piece.state)) {
+      const read = piece.read();
+      if (!read.ok) {
+        setError(read.error);
         return;
       }
     }
-    setStep(stepAfter(step));
+    setStep(stepAfter(step, steps));
   }
 
   async function submit() {
@@ -188,10 +201,11 @@ export function ProjectModal({
       setError("Give it a title.");
       return;
     }
-    const link = describeMediaLink(mediaUrl);
-    if (link.state === "invalid") {
+    // "Show it" is optional; anything put there has to be a piece.
+    const work = edit || draftIsEmpty(piece.state) ? null : piece.read();
+    if (work && !work.ok) {
       setStep("show");
-      setError(link.message);
+      setError(work.error);
       return;
     }
     if (!remote && !location.value.trim()) {
@@ -205,8 +219,6 @@ export function ProjectModal({
           projectId: edit.projectId,
           title: title.trim(),
           blurb: blurb.trim(),
-          // An emptied link clears it (updateProject: "" clears).
-          mediaUrl: link.state === "ok" ? link.url : "",
           interests,
           // Remote clears the location; otherwise it travels with its
           // structured half (updateProject takes them as one group).
@@ -222,7 +234,7 @@ export function ProjectModal({
         title: title.trim(),
         stage: postedStage(initialStage, pickedStage),
         blurb: blurb.trim() || undefined,
-        mediaUrl: link.state === "ok" ? link.url : undefined,
+        piece: work?.ok ? work.input : undefined,
         ...(remote ? {} : location.toArgs()),
         remote,
         interests: interests.length > 0 ? interests : undefined,
@@ -250,7 +262,8 @@ export function ProjectModal({
   }
 
   const panel = (id: ProjectStep) => `flex flex-col gap-6${step === id ? "" : " hidden"}`;
-  const primaryDisabled = first ? !title.trim() : last ? saving : false;
+  // A file or cover still going up holds the step (and the post) back.
+  const primaryDisabled = first ? !title.trim() : last ? saving || piece.busy : step === "show" && piece.busy;
   const secondaryStyle = { borderColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" };
 
   return (
@@ -270,17 +283,17 @@ export function ProjectModal({
           <div
             className="flex gap-1.5"
             role="progressbar"
-            aria-label={`Step ${stepIndex(step) + 1} of ${PROJECT_STEPS.length}`}
+            aria-label={`Step ${stepIndex(step, steps) + 1} of ${steps.length}`}
             aria-valuemin={1}
-            aria-valuemax={PROJECT_STEPS.length}
-            aria-valuenow={stepIndex(step) + 1}
+            aria-valuemax={steps.length}
+            aria-valuenow={stepIndex(step, steps) + 1}
           >
-            {PROJECT_STEPS.map((s, i) => (
+            {steps.map((s, i) => (
               <div
                 key={s.id}
                 className="h-1 flex-1 rounded-full"
                 style={{
-                  backgroundColor: i <= stepIndex(step) ? "var(--garden-citron)" : "var(--garden-hairline-raised)",
+                  backgroundColor: i <= stepIndex(step, steps) ? "var(--garden-citron)" : "var(--garden-hairline-raised)",
                 }}
               />
             ))}
@@ -370,16 +383,12 @@ export function ProjectModal({
               </div>
             </div>
 
-            {/* Show it */}
-            <div data-step="show" className={panel("show")}>
-              <MediaLinkField
-                variant="garden"
-                label="Paste a link (optional)"
-                placeholder="Instagram post or reel, TikTok, YouTube or Vimeo"
-                value={mediaUrl}
-                onChange={setMediaUrl}
-              />
-            </div>
+            {/* Show it: the work, as a piece (create only) */}
+            {!edit && (
+              <div data-step="show" className={panel("show")}>
+                <PieceFields draft={piece} compact />
+              </div>
+            )}
 
             {/* Details: all of it optional */}
             <div data-step="details" className={panel("details")}>
@@ -468,7 +477,7 @@ export function ProjectModal({
                 type="button"
                 onClick={() => {
                   setError("");
-                  setStep(stepBefore(step));
+                  setStep(stepBefore(step, steps));
                 }}
                 disabled={saving}
                 className={`${BUTTON} px-4 border font-medium`}

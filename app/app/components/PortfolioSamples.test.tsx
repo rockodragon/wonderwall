@@ -14,6 +14,18 @@ describe("portfolio evidence shared by application forms", () => {
     expect(html.match(/disabled=""/g)).toHaveLength(1);
   });
 
+  it("shows a YouTube-link sample's thumbnail when it has no stored still", () => {
+    const html = renderToStaticMarkup(
+      <PortfolioSamplePicker
+        samples={[{ _id: "y", type: "link", title: "Reel", linkUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" }]}
+        selected={[]}
+        maximum={3}
+        onChange={() => {}}
+      />,
+    );
+    expect(html).toMatch(/src="https:\/\/img\.youtube\.com\/vi\/dQw4w9WgXcQ\//);
+  });
+
   it("distinguishes work still loading from an empty portfolio", () => {
     const loading = renderToStaticMarkup(<PortfolioSamplePicker samples={undefined} selected={[]} maximum={3} onChange={() => {}} />);
     expect(loading).toContain("Loading your work");

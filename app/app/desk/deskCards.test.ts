@@ -176,6 +176,14 @@ describe("event cards", () => {
     expect(byId(cards, "event:e3").image).toBeNull();
   });
 
+  it("give a YouTube-link event its thumbnail when no still was stored", () => {
+    const cards = buildDeskCards(
+      input({ events: [event(1, { mediaUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" })] }),
+      "garden",
+    );
+    expect(byId(cards, "event:e1").image).toMatch(/^https:\/\/img\.youtube\.com\/vi\/dQw4w9WgXcQ\//);
+  });
+
   it("name the hosts the way event cards do", () => {
     const e = event(1, {
       hosts: [

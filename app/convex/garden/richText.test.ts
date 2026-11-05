@@ -7,6 +7,7 @@ import {
   normalizeBlocks,
   normalizeRichDoc,
   normalizeUrl,
+  safeHref,
   orphanedStorageIds,
   parseInline,
   resolveRichDocMedia,
@@ -46,6 +47,20 @@ describe("normalizeUrl", () => {
   it("leaves an existing scheme alone, including a bad one", () => {
     expect(normalizeUrl("http://example.com")).toBe("http://example.com");
     expect(normalizeUrl("javascript:alert(1)")).toBe("javascript:alert(1)");
+  });
+});
+
+describe("safeHref", () => {
+  it("gives the https form of a pasted address and keeps http(s) as written", () => {
+    expect(safeHref("example.com/a")).toBe("https://example.com/a");
+    expect(safeHref("  http://example.com ")).toBe("http://example.com");
+    expect(safeHref("HTTPS://Example.com")).toBe("HTTPS://Example.com");
+  });
+
+  it("gives null for anything that is not an http(s) address", () => {
+    for (const bad of ["javascript:alert(1)", "data:text/html,x", "ftp://x", "mailto:a@b.co", "", "   ", null, undefined]) {
+      expect(safeHref(bad)).toBeNull();
+    }
   });
 });
 

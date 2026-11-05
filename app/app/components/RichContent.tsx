@@ -15,6 +15,7 @@ import {
   parseInline,
   type InlineToken,
   type ResolvedRichBlock,
+  linkHost,
 } from "../lib/richText";
 import { toEmbedUrl } from "../lib/videoEmbed";
 
@@ -204,13 +205,7 @@ function VideoBlock({ block }: { block: Extract<ResolvedRichBlock, { type: "vide
   );
 }
 
-function hostOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return "the web";
-  }
-}
+const hostOf = (url: string): string => linkHost(url) ?? "the web";
 
 // ————— the document —————
 

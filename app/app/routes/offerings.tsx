@@ -20,6 +20,7 @@ import { ChevronDownIcon, FilterIcon, LocationIcon } from "../components/icons";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { errorMessage } from "../lib/convexError";
 import { useFileUpload } from "../lib/useFileUpload";
+import { linkHost } from "../lib/richText";
 
 // AnnouncementComposer moved off this list page entirely — it now renders
 // only on the detail page (routes/offerings.$id.tsx), per the founder's
@@ -104,14 +105,6 @@ function toTimeInputValue(ms?: number): string {
   return new Date(ms).toTimeString().slice(0, 5);
 }
 
-// Same hostname-display convention as work.tsx/profile.tsx/settings.tsx.
-export function domainFromUrl(url: string): string {
-  try {
-    return new URL(url).hostname.replace("www.", "");
-  } catch {
-    return url;
-  }
-}
 
 export default function Offerings() {
   const offerings = useQuery(api.offerings.listOfferings);
@@ -798,7 +791,7 @@ export function SignupModal({ offering, onClose }: { offering: any; onClose: () 
               className="px-4 py-2.5 rounded-lg text-sm font-semibold text-center"
               style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
             >
-              Register &amp; Pay — opens {domainFromUrl(offering.externalPaymentLinkUrl)}
+              Register &amp; Pay — opens {linkHost(offering.externalPaymentLinkUrl) ?? offering.externalPaymentLinkUrl}
             </a>
             {error && <p className="text-sm text-red-400">{error}</p>}
             <div className="flex justify-end">

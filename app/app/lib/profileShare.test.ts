@@ -133,6 +133,11 @@ describe("recentWorks", () => {
     ]);
   });
 
+  it("gives a loose YouTube-link piece with no stored still its thumbnail", () => {
+    const tube = [{ _id: "y1", type: "link", mediaUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", createdAt: 5 }];
+    expect(recentWorks([], tube, 6)[0]?.imageUrl).toMatch(/^https:\/\/img\.youtube\.com\/vi\/dQw4w9WgXcQ\//);
+  });
+
   it("stops at the limit, and is empty with nothing loaded", () => {
     expect(recentWorks(projects, pieces, 3)).toHaveLength(3);
     expect(recentWorks(undefined, null, 6)).toEqual([]);

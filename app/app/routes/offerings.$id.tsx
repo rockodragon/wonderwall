@@ -21,11 +21,11 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { PersonAvatar } from "../components/PersonAvatar";
+import { linkHost } from "../lib/richText";
 import {
   FORMAT_LABELS,
   PostOfferingForm,
   SignupModal,
-  domainFromUrl,
   formatDateOnly,
   formatDateTime,
   formatPrice,
@@ -271,7 +271,7 @@ export default function OfferingDetail() {
           <div>{offering.remote === false && offering.location ? offering.location : "Remote / online"}</div>
           {offering.externalPaymentLinkUrl && (
             <div style={{ color: "var(--garden-dim)" }}>
-              Registration and payment happen through {domainFromUrl(offering.externalPaymentLinkUrl)} —
+              Registration and payment happen through {linkHost(offering.externalPaymentLinkUrl) ?? offering.externalPaymentLinkUrl} —
               signing up below still records it here.
             </div>
           )}

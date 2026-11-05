@@ -26,6 +26,10 @@
 //               needs, and the player link replaces the page link
 //               (convex/musicEmbed.ts). Its still never replaces one the
 //               piece already has.
+//   Spotify,  — public oEmbed, no key, for a piece's track, album or
+//   SoundCloud  playlist link (convex/musicEmbed.ts plays it). The still and
+//               the title: a music title is the song's name, and it only
+//               fills a piece's blank title.
 // Every provider's image URL expires (Instagram `oe=`, TikTok `x-expires`),
 // so the bytes are copied into Convex storage and the storage URL is what
 // gets stored.
@@ -61,7 +65,9 @@ export const previewTargetValidator = v.union(
  * reach an href. A recognised Instagram, TikTok, YouTube or Vimeo link is
  * reduced to its canonical form — share tokens and mobile hosts stripped —
  * so two people pasting the same reel store the same string and the preview
- * fetch can find its row. Anything else is kept as pasted, a TikTok short
+ * fetch can find its row. A Spotify or SoundCloud link loses its share
+ * tokens the same way, and a Bandcamp player link its styling
+ * (convex/musicEmbed.ts). Anything else is kept as pasted, a TikTok short
  * link included (the server follows it when the still is fetched): the
  * client is the one that refuses those, the server only refuses harm.
  */
@@ -74,7 +80,7 @@ export function canonicalMediaUrl(raw: string | undefined): string | undefined {
       reason: "That isn't a link we can show. Paste an Instagram, TikTok, YouTube or Vimeo link.",
     });
   }
-  return toEmbedUrl(url)?.canonicalUrl ?? url;
+  return toEmbedUrl(url)?.canonicalUrl ?? toMusicEmbed(url)?.canonicalUrl ?? url;
 }
 
 /** True when a link is one this module can fetch a still for. YouTube is
@@ -82,7 +88,17 @@ export function canonicalMediaUrl(raw: string | undefined): string | undefined {
 export function wantsPreviewFetch(url: string | undefined): boolean {
   if (!url) return false;
   const kind = toEmbedUrl(url)?.kind;
-  return kind === "instagram" || kind === "tiktok" || kind === "vimeo" || isTikTokShortLink(url);
+  return kind === "instagram" || kind === "tiktok" || kind === "vimeo" || isTikTokShortLink(url) || !!musicOEmbed(url);
+}
+
+/** Where Spotify or SoundCloud describe a link of theirs, or null for any
+    other link (Bandcamp's player has no oEmbed; its page is read instead). */
+function musicOEmbed(url: string): string | null {
+  const music = toMusicEmbed(url);
+  const link = music ? encodeURIComponent(music.canonicalUrl) : "";
+  if (music?.kind === "spotify") return `https://open.spotify.com/oembed?url=${link}`;
+  if (music?.kind === "soundcloud") return `https://soundcloud.com/oembed?format=json&url=${link}`;
+  return null;
 }
 
 /**
@@ -100,6 +116,17 @@ export async function schedulePreviewFetch(
   const wanted = wantsPreviewFetch(url) || (target === "artifact" && isBandcampPageLink(url));
   if (!url || !wanted) return;
   await ctx.scheduler.runAfter(0, internal.linkPreview.fetchPreview, { target, id, url });
+}
+
+/** A row's link is changing or going: its still belonged to the old link,
+    so the stored copy is deleted and the columns cleared (the new link's
+    fetch fills them again). The patch to write with the new link. */
+export async function dropLinkPreview(
+  ctx: MutationCtx,
+  row: { mediaPreviewStorageId?: Id<"_storage"> },
+): Promise<{ mediaPreviewUrl: undefined; mediaPreviewStorageId: undefined }> {
+  await deleteStoredFile(ctx, row.mediaPreviewStorageId);
+  return { mediaPreviewUrl: undefined, mediaPreviewStorageId: undefined };
 }
 
 // ————— resolving —————
@@ -248,6 +275,34 @@ async function resolveVimeo(canonicalUrl: string): Promise<ResolvedPreview | nul
   return parseVimeoPreview(await res.json(), canonicalUrl);
 }
 
+/** The still and the title in a Spotify or SoundCloud oEmbed answer. A
+    title only fills a piece's blank one (apply), and the still is copied
+    into storage like any other. Pure, so it is unit-tested against a saved
+    answer (linkPreview.test.ts). */
+export function parseMusicPreview(data: unknown, canonicalUrl: string): ResolvedPreview {
+  const answer = (data ?? {}) as { thumbnail_url?: unknown; title?: unknown };
+  const title = typeof answer.title === "string" ? answer.title.trim().slice(0, 120) : "";
+  const thumb = answer.thumbnail_url;
+  return {
+    canonicalUrl,
+    title: title || undefined,
+    imageUrl: typeof thumb === "string" && /^https:\/\//.test(thumb) ? thumb : undefined,
+  };
+}
+
+async function resolveMusic(url: string): Promise<ResolvedPreview | null> {
+  const endpoint = musicOEmbed(url);
+  const canonicalUrl = toMusicEmbed(url)?.canonicalUrl;
+  if (!endpoint || !canonicalUrl) return null;
+  const res = await fetch(endpoint, {
+    headers: { Accept: "application/json" },
+    signal: AbortSignal.timeout(15000),
+  });
+  // A private or removed track answers 401, 403 or 404: no still.
+  if (!res.ok) return null;
+  return parseMusicPreview(await res.json(), canonicalUrl);
+}
+
 /** The player link, title and still on a Bandcamp album or track page, or
     null when the page names no album or track. bc-page-properties is the
     page's own record of what it is; the twitter:player link is the fallback.
@@ -295,6 +350,7 @@ export async function resolveLinkPreview(url: string): Promise<ResolvedPreview |
   if (embed?.kind === "tiktok" || isTikTokShortLink(url)) return resolveTikTok(url);
   if (embed?.kind === "vimeo") return resolveVimeo(embed.canonicalUrl);
   if (isBandcampPageLink(url)) return resolveBandcamp(url);
+  if (musicOEmbed(url)) return resolveMusic(url);
   return null;
 }
 

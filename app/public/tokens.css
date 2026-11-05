@@ -25,6 +25,7 @@
   --garden-dim: #94948c;    /* metadata, mono labels — ~6:1 */
   --garden-muted: #acaca4;  /* credits, secondary — ~8:1 */
   --garden-body: #c6c6be;   /* body text — ~11:1 */
+  --garden-error: #fca5a5;  /* what went wrong — ~10:1 */
 
   /* Accent */
   --garden-citron: #fee268;

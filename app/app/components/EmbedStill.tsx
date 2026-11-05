@@ -74,3 +74,21 @@ export function EmbedStill({
     </div>
   );
 }
+
+/** The still of an uploaded video file: the browser's own first frame (the
+    `#t=0.1` seek makes it paint one) under a play badge. A grid of these
+    never plays; the detail page does. */
+export function UploadedVideoStill({
+  src,
+  badgeSize = "md",
+}: {
+  src: string;
+  badgeSize?: "sm" | "md";
+}) {
+  return (
+    <>
+      <video src={`${src}#t=0.1`} preload="metadata" muted playsInline className="w-full h-full object-cover" />
+      <PlayBadge kind="vimeo" size={badgeSize} />
+    </>
+  );
+}

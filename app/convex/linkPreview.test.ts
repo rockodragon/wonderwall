@@ -9,6 +9,7 @@ import {
   canonicalMediaUrl,
   parseBandcampPreview,
   parseInstagramPreview,
+  parseMusicPreview,
   parseVimeoPreview,
   schedulePreviewFetch,
   wantsPreviewFetch,
@@ -330,5 +331,62 @@ describe("backfillVimeoStills", () => {
     const scheduled = scheduledOn(ctx);
     expect(await run(backfillVimeoStills, ctx, {})).toEqual({ scheduled: 4 });
     expect(scheduled.map((s) => s.args.id)).toEqual(["artifacts:bare", "artifacts:unlisted", "projects:bare", "events:bare"]);
+  });
+});
+
+describe("music links (Spotify and SoundCloud)", () => {
+  const TRACK = "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC";
+  const SC = "https://soundcloud.com/whatadall/o-little-town";
+
+  it("canonicalMediaUrl drops Spotify's ?si= and SoundCloud's tracking", () => {
+    expect(canonicalMediaUrl(`${TRACK}?si=abc123`)).toBe(TRACK);
+    expect(canonicalMediaUrl(`${SC}?si=xyz&utm_source=clipboard`)).toBe(SC);
+  });
+
+  it("wantsPreviewFetch is true for them, false for a plain page or a Bandcamp player", () => {
+    expect(wantsPreviewFetch(TRACK)).toBe(true);
+    expect(wantsPreviewFetch(`${TRACK}?si=abc123`)).toBe(true);
+    expect(wantsPreviewFetch(SC)).toBe(true);
+    expect(wantsPreviewFetch("https://example.com/song")).toBe(false);
+    expect(wantsPreviewFetch("https://bandcamp.com/EmbeddedPlayer/album=3356185885/")).toBe(false);
+  });
+
+  it("schedulePreviewFetch queues the fetch for one", async () => {
+    const ctx = makeCtx({}, null);
+    const queued: { name: string; args: any }[] = [];
+    ctx.scheduler.runAfter = async (_ms: number, fn: unknown, args: any) => {
+      queued.push({ name: getFunctionName(fn as any), args });
+    };
+    await schedulePreviewFetch(ctx as any, "artifact", "artifacts:a" as any, TRACK);
+    expect(queued).toEqual([{ name: "linkPreview:fetchPreview", args: { target: "artifact", id: "artifacts:a", url: TRACK } }]);
+  });
+});
+
+describe("parseMusicPreview", () => {
+  const URL_ = "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC";
+
+  it("reads the title and the https thumbnail", () => {
+    expect(parseMusicPreview({ title: "  O Little Town ", thumbnail_url: "https://i.scdn.co/image/a" }, URL_)).toEqual({
+      canonicalUrl: URL_,
+      title: "O Little Town",
+      imageUrl: "https://i.scdn.co/image/a",
+    });
+  });
+
+  it("cuts a long title to 120 characters", () => {
+    expect(parseMusicPreview({ title: "x".repeat(300) }, URL_).title).toHaveLength(120);
+  });
+
+  it("takes no thumbnail that isn't https", () => {
+    expect(parseMusicPreview({ title: "A", thumbnail_url: "http://i.example.com/a.jpg" }, URL_).imageUrl).toBeUndefined();
+    expect(parseMusicPreview({ title: "A", thumbnail_url: "javascript:alert(1)" }, URL_).imageUrl).toBeUndefined();
+    expect(parseMusicPreview({ title: "A", thumbnail_url: 42 }, URL_).imageUrl).toBeUndefined();
+  });
+
+  it("copes with an empty, odd or missing answer", () => {
+    expect(parseMusicPreview({}, URL_)).toEqual({ canonicalUrl: URL_, title: undefined, imageUrl: undefined });
+    expect(parseMusicPreview(null, URL_)).toEqual({ canonicalUrl: URL_, title: undefined, imageUrl: undefined });
+    expect(parseMusicPreview({ title: 7, thumbnail_url: {} }, URL_).title).toBeUndefined();
+    expect(parseMusicPreview({ title: "   " }, URL_).title).toBeUndefined();
   });
 });

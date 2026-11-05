@@ -6,6 +6,7 @@ import { budgetKindLabel } from "../lib/budgetLabel";
 import { FF_BACKING } from "../lib/featureFlags";
 import { setPendingIntent } from "../lib/pendingIntent";
 import { resolveStage, shownStageLabel } from "../lib/stage";
+import { linkStill } from "../../convex/coverRules";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import { EmbedStill } from "../components/EmbedStill";
 import { SiteHeader } from "../components/SiteHeader";
@@ -151,7 +152,10 @@ function ProjectTile({ project }: { project: ProjectCard }) {
   const percent = fundedPercent(project);
   // The photo wins; else a pasted link's still — never a player, a grid
   // stays quiet while someone browses (creator-media-cross-post.md, Round 2).
+  // A link we cannot play still gets its fetched picture (linkStill, as
+  // projects.tsx coverOf reads it); this query returns no pieces to look at.
   const mediaEmbed = project.photoUrl ? null : toEmbedUrl(project.mediaUrl);
+  const linkPicture = project.photoUrl || mediaEmbed ? null : linkStill(project);
   return (
     <article className="flex flex-col rounded-2xl border border-[var(--garden-hairline-raised)] bg-[var(--garden-ink-raised)]/80 overflow-hidden">
       {project.photoUrl ? (
@@ -170,6 +174,8 @@ function ProjectTile({ project }: { project: ProjectCard }) {
             badgeSize="sm"
           />
         </div>
+      ) : linkPicture ? (
+        <img src={linkPicture} alt="" className="w-full h-40 object-cover" loading="lazy" />
       ) : null}
       <div className="flex flex-col flex-1 p-6">
         <p className="text-sm mb-2">

@@ -14,7 +14,7 @@
 import { getFunctionName } from "convex/server";
 import { describe, expect, it } from "vitest";
 import { makeCtx, run, type Row } from "../test-support/convexContext";
-import { create, get, getMyArtifacts, remove, setAudioNote, setDescription, update, updateOgImage } from "./artifacts";
+import { addToProject, create, get, getMyArtifacts, remove, setAudioNote, setDescription, update, updateOgImage } from "./artifacts";
 import { MAX_DESCRIPTION_LENGTH } from "./pieceNote";
 
 const ME = "users:me";
@@ -712,5 +712,297 @@ describe("a Bandcamp page pasted as a piece", () => {
     const player = setup([piece({ type: "audio", mediaUrl: "https://bandcamp.com/EmbeddedPlayer/album=3356185885/" })]);
     await run(update, player.ctx, titleOnly());
     expect(fetches(player.scheduled)).toEqual([]);
+  });
+});
+
+// ——————————————————————————————————————————————————————————————
+// One piece, whichever door it came in by (convex/pieces.ts)
+// ——————————————————————————————————————————————————————————————
+
+const VIMEO = "https://vimeo.com/76979871";
+const TRACK_ID = "4uLU6hMCjMI75M1A2tKUQC";
+const SPOTIFY = `https://open.spotify.com/track/${TRACK_ID}`;
+const FETCH_PREVIEW = "linkPreview:fetchPreview";
+
+/** setup() plus a project the viewer owns (and optionally others' rows). */
+function projectWorld(pieces: Row[] = [], files: string[] = [], projectOver: Partial<Row> = {}, viewer: string | null = ME) {
+  return setup(pieces, files, viewer, [
+    { _id: PROJECT, userId: ME, kind: "passion", title: "Harbor", status: "active", createdAt: 0, updatedAt: 0, ...projectOver },
+  ]);
+}
+
+describe("adding a piece to a project (addToProject)", () => {
+  it("the owner's piece lands on the project, on their profile, after their last one", async () => {
+    const { ctx } = projectWorld([piece({ _id: "artifacts:last", order: 3 })], ["_storage:pic"]);
+    const id = await run(addToProject, ctx, { projectId: PROJECT, type: "image", mediaStorageId: "_storage:pic", title: "Dusk" });
+    expect(ctx.store.artifacts.find((r: Row) => r._id === id)).toMatchObject({
+      projectId: PROJECT,
+      profileId: "profiles:me",
+      type: "image",
+      title: "Dusk",
+      mediaStorageId: "_storage:pic",
+      order: 4,
+    });
+    expect(ctx.store.uploadClaims).toMatchObject([{ storageId: "_storage:pic", userId: ME }]);
+  });
+
+  it.each([
+    ["a Vimeo link", "video", VIMEO],
+    ["an Instagram reel", "video", REEL_AS_SHARED],
+  ])("%s schedules a still fetch", async (_n, type, mediaUrl) => {
+    const { ctx, scheduled } = projectWorld();
+    const id = await run(addToProject, ctx, { projectId: PROJECT, type, mediaUrl });
+    const canonical = (ctx.store.artifacts.find((r: Row) => r._id === id) as Row).mediaUrl;
+    expect(canonical).not.toContain("stkn");
+    expect(fetches(scheduled)).toEqual([{ name: FETCH_PREVIEW, args: { target: "artifact", id, url: canonical } }]);
+  });
+
+  it("someone who doesn't own the project is refused, and nothing is written", async () => {
+    const { ctx, scheduled } = projectWorld([], ["_storage:pic"], {}, OTHER);
+    await expect(
+      run(addToProject, ctx, { projectId: PROJECT, type: "image", mediaStorageId: "_storage:pic" }),
+    ).rejects.toMatchObject({ data: { code: "forbidden" } });
+    expect(ctx.store.artifacts).toEqual([]);
+    expect(ctx.store.uploadClaims).toEqual([]);
+    expect(scheduled).toEqual([]);
+  });
+
+  it("a piece with no file and no link is refused", async () => {
+    const { ctx } = projectWorld();
+    await expect(run(addToProject, ctx, { projectId: PROJECT, type: "video" })).rejects.toMatchObject({
+      data: { code: "invalid_input" },
+    });
+    await expect(run(addToProject, ctx, { projectId: PROJECT, type: "text", content: "  " })).rejects.toMatchObject({
+      data: { code: "invalid_input" },
+    });
+    expect(ctx.store.artifacts).toEqual([]);
+  });
+
+  it("replacesProjectLink moves the project's old link off it and deletes its preview file", async () => {
+    const { ctx, project } = projectWorld([], ["_storage:preview"], {
+      mediaUrl: VIMEO,
+      mediaPreviewUrl: "https://files.test/preview",
+      mediaPreviewStorageId: "_storage:preview",
+    });
+    await run(addToProject, ctx, { projectId: PROJECT, type: "video", mediaUrl: VIMEO, replacesProjectLink: true });
+    expect(project().mediaUrl).toBeUndefined();
+    expect(project().mediaPreviewUrl).toBeUndefined();
+    expect(project().mediaPreviewStorageId).toBeUndefined();
+    expect(ctx.deletedFiles).toEqual(["_storage:preview"]);
+    expect(ctx.store.artifacts).toMatchObject([{ projectId: PROJECT, mediaUrl: VIMEO }]);
+  });
+
+  it("without replacesProjectLink the project's link stays", async () => {
+    const { ctx, project } = projectWorld([], [], { mediaUrl: VIMEO });
+    await run(addToProject, ctx, { projectId: PROJECT, type: "video", mediaUrl: VIMEO });
+    expect(project().mediaUrl).toBe(VIMEO);
+    expect(ctx.deletedFiles).toEqual([]);
+  });
+});
+
+describe("editing a piece's words, note, cover and kind (update)", () => {
+  it("saves the description trimmed, and an empty one clears it", async () => {
+    const { ctx, row } = setup([piece({ type: "text", content: "hi" })]);
+    await run(update, ctx, titleOnly({ description: "  Made at dusk. " }));
+    expect(row().description).toBe("Made at dusk.");
+    await run(update, ctx, titleOnly({ description: "" }));
+    expect(row().description).toBeUndefined();
+  });
+
+  it("a description past the cap is refused", async () => {
+    const { ctx } = setup([piece()]);
+    await expect(run(update, ctx, titleOnly({ description: "x".repeat(MAX_DESCRIPTION_LENGTH + 1) }))).rejects.toMatchObject({
+      data: { code: "invalid_input" },
+    });
+  });
+
+  it("a description left out is left as it was", async () => {
+    const { ctx, row } = setup([piece({ description: "Keep me" })]);
+    await run(update, ctx, titleOnly());
+    expect(row().description).toBe("Keep me");
+  });
+
+  it("a new voice note replaces the old: the old file is deleted, the new one claimed", async () => {
+    const { ctx, row } = setup([piece({ audioNoteStorageId: "_storage:old" })], ["_storage:old", "_storage:new"]);
+    await run(update, ctx, titleOnly({ audioNoteStorageId: "_storage:new" }));
+    expect(row().audioNoteStorageId).toBe("_storage:new");
+    expect(ctx.deletedFiles).toEqual(["_storage:old"]);
+    expect(ctx.store.uploadClaims).toMatchObject([{ storageId: "_storage:new", userId: ME }]);
+  });
+
+  it("clearAudioNote removes the note and deletes its file", async () => {
+    const { ctx, row } = setup([piece({ audioNoteStorageId: "_storage:old" })], ["_storage:old"]);
+    await run(update, ctx, titleOnly({ clearAudioNote: true }));
+    expect(row().audioNoteStorageId).toBeUndefined();
+    expect(ctx.deletedFiles).toEqual(["_storage:old"]);
+  });
+
+  it("a note left out is kept", async () => {
+    const { ctx, row } = setup([piece({ audioNoteStorageId: "_storage:old" })], ["_storage:old"]);
+    await run(update, ctx, titleOnly());
+    expect(row().audioNoteStorageId).toBe("_storage:old");
+    expect(ctx.deletedFiles).toEqual([]);
+  });
+
+  describe("a cover", () => {
+    const withCover = () =>
+      piece({ type: "video", mediaUrl: REEL, coverStorageId: "_storage:cover", ogImageUrl: "https://files.test/cover" });
+
+    it("a new cover is stored as the still, the old file is deleted, and no still is fetched", async () => {
+      const { ctx, scheduled, row } = setup([withCover()], ["_storage:cover", "_storage:new"]);
+      await run(update, ctx, titleOnly({ coverStorageId: "_storage:new" }));
+      expect(row()).toMatchObject({ coverStorageId: "_storage:new", ogImageUrl: "https://files.test/new" });
+      expect(ctx.deletedFiles).toEqual(["_storage:cover"]);
+      expect(ctx.store.uploadClaims).toMatchObject([{ storageId: "_storage:new", userId: ME }]);
+      expect(fetches(scheduled)).toEqual([]);
+    });
+
+    it("a first cover on a piece that had none is stored and fetches nothing", async () => {
+      const { ctx, scheduled, row } = setup([piece({ type: "video", mediaUrl: REEL })], ["_storage:new"]);
+      await run(update, ctx, titleOnly({ coverStorageId: "_storage:new" }));
+      expect(row()).toMatchObject({ coverStorageId: "_storage:new", ogImageUrl: "https://files.test/new" });
+      expect(fetches(scheduled)).toEqual([]);
+    });
+
+    it("sending the cover it already has changes nothing", async () => {
+      const { ctx, row } = setup([withCover()], ["_storage:cover"]);
+      await run(update, ctx, titleOnly({ coverStorageId: "_storage:cover" }));
+      expect(row()).toMatchObject({ coverStorageId: "_storage:cover", ogImageUrl: "https://files.test/cover" });
+      expect(ctx.deletedFiles).toEqual([]);
+    });
+
+    it("clearCover removes it, deletes the file, and fetches the link's own still", async () => {
+      const { ctx, scheduled, row } = setup([withCover()], ["_storage:cover"]);
+      await run(update, ctx, titleOnly({ clearCover: true }));
+      expect(row().coverStorageId).toBeUndefined();
+      expect(row().ogImageUrl).toBeUndefined();
+      expect(ctx.deletedFiles).toEqual(["_storage:cover"]);
+      expect(fetches(scheduled)).toEqual([
+        { name: FETCH_PREVIEW, args: { target: "artifact", id: PIECE, url: REEL } },
+      ]);
+    });
+
+    it("changing the link and giving a cover in one edit keeps the cover, and fetches nothing", async () => {
+      const REEL_B = "https://www.instagram.com/reel/OtherReel1/";
+      const { ctx, scheduled, row } = setup([withCover()], ["_storage:cover", "_storage:new"]);
+      await run(update, ctx, titleOnly({ mediaUrl: REEL_B, coverStorageId: "_storage:new" }));
+      expect(row()).toMatchObject({ mediaUrl: REEL_B, coverStorageId: "_storage:new", ogImageUrl: "https://files.test/new" });
+      expect(ctx.deletedFiles).toEqual(["_storage:cover"]);
+      expect(fetches(scheduled)).toEqual([]);
+    });
+
+    it("someone else's file can't be a cover", async () => {
+      const { ctx, row } = setup([withCover()], ["_storage:cover"]);
+      await expect(run(update, ctx, titleOnly({ coverStorageId: "_storage:nope" }))).rejects.toBeTruthy();
+      expect(row().coverStorageId).toBe("_storage:cover");
+    });
+  });
+
+  describe("the kind of piece", () => {
+    it("is changed when sent", async () => {
+      const { ctx, row } = setup([piece({ type: "link", mediaUrl: SITE })]);
+      await run(update, ctx, titleOnly({ type: "audio" }));
+      expect(row().type).toBe("audio");
+    });
+
+    it("is left alone when not sent", async () => {
+      const { ctx, row } = setup([piece({ type: "link", mediaUrl: SITE })]);
+      await run(update, ctx, titleOnly());
+      expect(row().type).toBe("link");
+    });
+
+    it("an unknown one is refused and nothing changes", async () => {
+      const { ctx, row } = setup([piece({ type: "link", mediaUrl: SITE })]);
+      await expect(run(update, ctx, titleOnly({ type: "bogus" }))).rejects.toMatchObject({ data: { code: "invalid_input" } });
+      expect(row()).toMatchObject({ type: "link" });
+      expect(row().title).toBeUndefined();
+    });
+  });
+});
+
+describe("a Spotify link shared as a piece (create)", () => {
+  it("is stored without its ?si= and fetched for its title and still", async () => {
+    const { ctx, scheduled } = setup([]);
+    const id = await run(create, ctx, { type: "audio", mediaUrl: `${SPOTIFY}?si=abc123` });
+    expect(ctx.store.artifacts.find((r: Row) => r._id === id)).toMatchObject({ mediaUrl: SPOTIFY, type: "audio" });
+    expect(fetches(scheduled)).toEqual([{ name: FETCH_PREVIEW, args: { target: "artifact", id, url: SPOTIFY } }]);
+  });
+
+  it("is fetched whatever kind the piece was filed as", async () => {
+    const { ctx, scheduled } = setup([]);
+    const id = await run(create, ctx, { type: "link", mediaUrl: SPOTIFY });
+    expect(fetches(scheduled)).toEqual([{ name: FETCH_PREVIEW, args: { target: "artifact", id, url: SPOTIFY } }]);
+  });
+});
+
+describe("a piece with nothing to show (create)", () => {
+  it.each([
+    ["a video with no file or link", { type: "video" }],
+    ["a link with a blank address", { type: "link", mediaUrl: "   " }],
+    ["a text piece with no words", { type: "text", content: "  " }],
+  ])("%s is refused and leaves no piece or project", async (_n, args) => {
+    const { ctx, scheduled } = setup([]);
+    await expect(run(create, ctx, args)).rejects.toMatchObject({ data: { code: "invalid_input" } });
+    expect(ctx.store.artifacts).toEqual([]);
+    expect(ctx.store.projects).toEqual([]);
+    expect(ctx.store.uploadClaims).toEqual([]);
+    expect(scheduled).toEqual([]);
+  });
+
+  it("an unknown type is refused before anything is claimed", async () => {
+    const { ctx } = setup([], ["_storage:pic"]);
+    await expect(run(create, ctx, { type: "bogus", mediaStorageId: "_storage:pic" })).rejects.toMatchObject({
+      data: { code: "invalid_input" },
+    });
+    expect(ctx.store.projects).toEqual([]);
+    expect(ctx.store.uploadClaims).toEqual([]);
+  });
+});
+
+// The independent review of the piece editor, 2026-11-04: what an edit has to
+// take with it when the work itself changes.
+describe("an edit that changes what the work is", () => {
+  it("words in place of a link: the link, its still and its cover go", async () => {
+    const { ctx, row, scheduled } = setup(
+      [piece({ type: "video", mediaUrl: REEL, ogImageUrl: "https://files.test/cover", coverStorageId: "_storage:cover" })],
+      ["_storage:cover"],
+    );
+    await run(update, ctx, titleOnly({ type: "text", content: "My words" }));
+    expect(row()).toMatchObject({ type: "text", content: "My words" });
+    expect(row().mediaUrl).toBeUndefined();
+    expect(row()).not.toHaveProperty("coverStorageId");
+    expect(row().ogImageUrl).toBeUndefined();
+    expect(ctx.deletedFiles).toEqual(["_storage:cover"]);
+    expect(fetches(scheduled)).toEqual([]);
+  });
+
+  it("words in place of an uploaded file: the file is deleted", async () => {
+    const { ctx, row } = setup([piece({ type: "audio", mediaStorageId: "_storage:song" })], ["_storage:song"]);
+    await run(update, ctx, titleOnly({ type: "text", content: "Lyrics" }));
+    expect(row()).toMatchObject({ type: "text", content: "Lyrics" });
+    expect(row()).not.toHaveProperty("mediaStorageId");
+    expect(ctx.deletedFiles).toEqual(["_storage:song"]);
+  });
+
+  it("a new upload in place of a covered upload takes the old cover with it", async () => {
+    const { ctx, row } = setup(
+      [piece({ type: "video", mediaStorageId: "_storage:clip", coverStorageId: "_storage:cover", ogImageUrl: "https://files.test/cover" })],
+      ["_storage:clip", "_storage:cover", "_storage:pic"],
+    );
+    await run(update, ctx, titleOnly({ type: "image", mediaStorageId: "_storage:pic" }));
+    expect(row()).toMatchObject({ type: "image", mediaStorageId: "_storage:pic" });
+    expect(row()).not.toHaveProperty("coverStorageId");
+    expect(row().ogImageUrl).toBeUndefined();
+    expect(ctx.deletedFiles.sort()).toEqual(["_storage:clip", "_storage:cover"]);
+  });
+
+  it("a new cover picked in the same edit as new media is kept", async () => {
+    const { ctx, row } = setup(
+      [piece({ type: "video", mediaStorageId: "_storage:clip", coverStorageId: "_storage:old", ogImageUrl: "https://files.test/old" })],
+      ["_storage:clip", "_storage:old", "_storage:song", "_storage:new"],
+    );
+    await run(update, ctx, titleOnly({ type: "audio", mediaStorageId: "_storage:song", coverStorageId: "_storage:new" }));
+    expect(row()).toMatchObject({ coverStorageId: "_storage:new", ogImageUrl: "https://files.test/new" });
+    expect(ctx.deletedFiles.sort()).toEqual(["_storage:clip", "_storage:old"]);
   });
 });
