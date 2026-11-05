@@ -16,6 +16,9 @@ export const consentWordingFor = (from: "settings" | "card") =>
     : `${TEXT_CONSENT_LABEL}\n${TEXT_CONSENT_LINE}`;
 export const TEXT_CONSENT_WORDING = consentWordingFor("settings");
 
+/** Under "Text me a code" wherever a number is typed for a code. */
+export const CODE_TEXT_LINE = "We'll text you a one-time code. Message and data rates may apply.";
+
 /** The text that confirms an opt-in (in the app, or START after a STOP).
  * Word for word what the Telnyx toll-free verification registered. */
 export const TEXT_WELCOME =

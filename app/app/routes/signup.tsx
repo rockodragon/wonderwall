@@ -21,6 +21,7 @@ import { isCheckoutSessionId } from "../../convex/garden/ticketLink";
 import { useBrand } from "../brand/brands";
 import { PersonNameHint } from "../components/PersonNameHint";
 import { InviteWelcome } from "../components/InviteWelcome";
+import { CodeTextNote } from "../components/CodeTextNote";
 
 export function meta() {
   return [
@@ -585,6 +586,7 @@ export default function Signup() {
               >
                 {phoneLoading ? "Sending..." : "Text me a code"}
               </button>
+              <CodeTextNote className="text-gray-600 dark:text-gray-400" />
             </form>
           ) : (
             <form onSubmit={handleVerifyCode} className="space-y-4">
