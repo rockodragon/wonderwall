@@ -9,10 +9,12 @@
 // written-down text arrived just as listening ended. Now the words go to a
 // callback, never through a change of state a page has to catch.
 //
-// convex/transcribe.ts writes down for signed-in people only, so the mic
-// shows only to them (`supported`).
+// convex/transcribe.ts writes down for signed-in people only, and only when
+// the backend has its key (transcribe.ready), so the mic shows only then
+// (`supported`). Without the key every take failed with "Talking isn't
+// available right now" (prod, 11/5); now there is simply no mic.
 
-import { useAction, useConvexAuth } from "convex/react";
+import { useAction, useConvexAuth, useQuery } from "convex/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { errorMessage } from "./convexError";
@@ -100,7 +102,8 @@ export function createTalkSession(
 }
 
 export interface Talk extends TalkState {
-  /** The browser can record and the person is signed in. */
+  /** The browser can record, the person is signed in, and the server can
+   *  write a take down. */
   supported: boolean;
   start(): void;
   stop(): void;
@@ -110,6 +113,7 @@ export interface Talk extends TalkState {
 export function useTalk(onText: (text: string) => void): Talk {
   const { isAuthenticated } = useConvexAuth();
   const canRecord = useAudioRecorderSupported();
+  const ready = useServerCanWriteDown(isAuthenticated);
   const fromAudio = useAction(api.transcribe.fromAudio);
   const [state, setState] = useState<TalkState>(TALK_IDLE);
   const session = useRef<TalkSession | null>(null);
@@ -139,5 +143,17 @@ export function useTalk(onText: (text: string) => void): Talk {
   }, []);
   const stop = useCallback(() => session.current?.stop(), []);
 
-  return { supported: canRecord && isAuthenticated, ...state, start, stop };
+  return { supported: canRecord && isAuthenticated && ready, ...state, start, stop };
+}
+
+/** transcribe.ready, one subscription shared by every box on the page. A
+ *  failed read is a no, never a broken page: CI ships the page a few minutes
+ *  before the backend, so for a while `ready` may not exist yet. useQuery
+ *  throws only after its own hooks have run, so catching keeps hook order. */
+function useServerCanWriteDown(signedIn: boolean): boolean {
+  try {
+    return useQuery(api.transcribe.ready, signedIn ? {} : "skip") === true;
+  } catch {
+    return false;
+  }
 }

@@ -1,4 +1,7 @@
+import { getFunctionName } from "convex/server";
 import { ConvexError } from "convex/values";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { Recorder, RecorderCtor, RecorderEnv } from "./useAudioRecorder";
 import { MAX_NOTE_SECONDS } from "./useAudioRecorder";
@@ -8,9 +11,34 @@ import {
   TALK_IDLE,
   TRANSCRIBE_FAILED,
   createTalkSession,
+  useTalk,
   type TalkState,
   type Transcriber,
 } from "./useTalk";
+
+// For the hook: who is signed in, what transcribe.ready answers, and whether
+// the browser can record are whatever the test says.
+const scene = vi.hoisted(() => ({
+  signedIn: true,
+  canRecord: true,
+  ready: undefined as boolean | undefined | Error,
+  asked: [] as unknown[],
+}));
+vi.mock("convex/react", () => ({
+  useConvexAuth: () => ({ isAuthenticated: scene.signedIn, isLoading: false }),
+  useQuery: (ref: Parameters<typeof getFunctionName>[0], args: unknown) => {
+    scene.asked.push([getFunctionName(ref), args]);
+    if (args === "skip" || getFunctionName(ref) !== "transcribe:ready") return undefined;
+    // What convex/react does with a server error: throws it.
+    if (scene.ready instanceof Error) throw scene.ready;
+    return scene.ready;
+  },
+  useAction: () => async () => ({ text: "" }),
+}));
+vi.mock("./useAudioRecorder", async (original) => ({
+  ...(await original<typeof import("./useAudioRecorder")>()),
+  useAudioRecorderSupported: () => scene.canRecord,
+}));
 
 // The hook is a thin layer over createTalkSession (React state, the signed-in
 // check and an unmount cleanup), so the session is tested here with a
@@ -208,5 +236,41 @@ describe("a talk session", () => {
     answer("too late");
     await settle();
     expect(said).toEqual([]);
+  });
+});
+
+describe("useTalk, whether the mic shows", () => {
+  function supported(patch: Partial<typeof scene>): boolean {
+    Object.assign(scene, { signedIn: true, canRecord: true, ready: undefined, asked: [] }, patch);
+    let seen = false;
+    function Probe() {
+      seen = useTalk(() => {}).supported;
+      return null;
+    }
+    renderToStaticMarkup(createElement(Probe));
+    return seen;
+  }
+
+  it("shows for a signed-in person whose browser records, once the server says it can write it down", () => {
+    expect(supported({ ready: true })).toBe(true);
+  });
+
+  // Prod, 11/5: no key on the backend, and every take ended in "Talking
+  // isn't available right now". No key now means no mic.
+  it("hides when the server can't write it down, or hasn't said yet", () => {
+    expect(supported({ ready: false })).toBe(false);
+    expect(supported({ ready: undefined })).toBe(false);
+  });
+
+  // CI ships the page a few minutes before the backend: until `ready` is
+  // there, reading it fails. That is no mic, not a broken page.
+  it("hides, without breaking the page, when the server can't be asked", () => {
+    expect(supported({ ready: new Error("Could not find public function for 'transcribe:ready'") })).toBe(false);
+  });
+
+  it("hides for a visitor without asking the server, and where the browser can't record", () => {
+    expect(supported({ signedIn: false, ready: true })).toBe(false);
+    expect(scene.asked).toEqual([["transcribe:ready", "skip"]]);
+    expect(supported({ canRecord: false, ready: true })).toBe(false);
   });
 });

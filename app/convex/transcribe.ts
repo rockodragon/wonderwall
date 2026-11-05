@@ -4,9 +4,9 @@
 // stored, the sound lives for the length of the call.
 
 import { v } from "convex/values";
-import { action } from "./_generated/server";
+import { action, query } from "./_generated/server";
 import { fail } from "./errors";
-import { requireUserId } from "./helpers";
+import { currentUserId, requireUserId } from "./helpers";
 
 /** A take runs four minutes at most (app/lib/useTalk.ts MAX_TALK_SECONDS).
  * At the browsers' bitrates (opus well under 64 kbps, Safari's AAC up to
@@ -69,6 +69,21 @@ export function multipartBody(
 }
 
 /**
+ * Whether the mic can be offered: true for a signed-in person when the key
+ * is set. The page draws the mic only then (app/lib/useTalk.ts), so nobody
+ * records a take that can't be written down (11/5: prod had no key, and
+ * every box said "Talking isn't available right now"). Signed out is false,
+ * not a refusal, so a box open across a sign-out doesn't throw.
+ */
+export const ready = query({
+  args: {},
+  handler: async (ctx): Promise<boolean> => {
+    if (!(await currentUserId(ctx))) return false;
+    return Boolean(process.env.OPENAI_API_KEY);
+  },
+});
+
+/**
  * `{ text }` for a recording. Signed-in people only. The page puts `text`
  * in the box for the person to change, as it does with the browser's own
  * words.
@@ -83,6 +98,8 @@ export const fromAudio = action({
     if (!fileName) fail("bad_audio", "Couldn't read that recording. Type it instead.");
 
     const apiKey = process.env.OPENAI_API_KEY;
+    // `ready` keeps the mic off without the key; this is for a page that
+    // was open when the key went away.
     if (!apiKey) {
       console.error("transcribe: OPENAI_API_KEY is not set");
       fail("not_configured", "Talking isn't available right now. Type it instead.");

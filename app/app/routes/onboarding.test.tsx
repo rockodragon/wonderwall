@@ -56,6 +56,9 @@ beforeEach(() => {
     [name(api.profiles.getMyProfile)]: creative,
     [name(api.garden.defaultCommunity.getSignupCommunity)]: { id: "c1", name: "The Garden", inviteOnly: false },
     [name(api.garden.communities.listMyCommunities)]: [],
+    // The server can write a take down (convex/transcribe.ts ready), so
+    // whether the mic shows is up to canListen.
+    [name(api.transcribe.ready)]: true,
   };
 });
 afterEach(() => {

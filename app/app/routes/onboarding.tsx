@@ -728,7 +728,7 @@ function AboutStep({
       if (pick.line) set("bio", pick.line);
       if (pick.interests.length > 0) set("interests", Array.from(new Set([...draft.interests, ...pick.interests])));
     } catch (err) {
-      setMicError(errorMessage(err));
+      setMicError(errorMessage(err, "Couldn't sort that out. Pick below instead."));
     } finally {
       setSorting(false);
     }
