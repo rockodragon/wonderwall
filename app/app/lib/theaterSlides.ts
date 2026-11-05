@@ -1,7 +1,8 @@
 // What theater mode shows (components/Theater.tsx): the work as a run of
 // slides, each a picture, an uploaded video, or a pasted YouTube, Vimeo,
-// Instagram or TikTok link. Two places build one: a person's page (their
-// portfolio, newest first) and a project's page (its pieces, in page order).
+// Instagram or TikTok link. Three places build one: a person's page (their
+// portfolio, newest first), a project's page (its pieces, in page order)
+// and, for admins, /projects (every listed project, newest first).
 //
 // A piece shows the way its project page plays it (projects.$id.tsx
 // PieceMedia): a pasted video link plays, then an uploaded video, then the
@@ -10,6 +11,7 @@
 
 import { toEmbedUrl, type VideoEmbed } from "./videoEmbed";
 import { shownTitle } from "./placeholderTitle";
+import { bylineOf } from "./byline";
 
 export type TheaterSlide = {
   key: string;
@@ -18,6 +20,8 @@ export type TheaterSlide = {
   at: number;
   /** The project page it belongs to, when the viewer isn't on it already. */
   projectId: string | null;
+  /** Who made it, where that isn't already plain (the latest-projects reel). */
+  by?: string | null;
 } & ({ kind: "image"; src: string } | { kind: "video"; src: string } | { kind: "embed"; embed: VideoEmbed });
 
 /** A piece as either page holds it. `file` is what to show (an upload, else
@@ -145,6 +149,27 @@ export function projectSlides(project: {
     if (slide) slides.push(slide);
   }
   return once(slides);
+}
+
+/** Every listed project (garden/projects.ts listProjects), for an admin's
+ *  reel on /projects (Rick, 2026-11-04): each one's photo, pasted video and
+ *  pieces, kept together, newest project first, with who made it. A hire
+ *  post or a gig isn't shown work. */
+export function latestSlides(
+  projects: readonly (Parameters<typeof projectSlides>[0] &
+    Parameters<typeof bylineOf>[0] & { kind?: string; gig?: unknown })[],
+): TheaterSlide[] {
+  const slides = projects
+    .filter((p) => p.kind !== "paid" && !p.gig)
+    .flatMap((p) =>
+      projectSlides(p).map((s) => ({
+        ...s,
+        at: p.createdAt ?? 0,
+        projectId: String(p._id),
+        by: bylineOf(p)?.name ?? null,
+      })),
+    );
+  return orderSlides(once(slides), "newest");
 }
 
 export type TheaterOrder = "newest" | "oldest";

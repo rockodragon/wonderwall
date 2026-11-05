@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   embedEnded,
+  latestSlides,
   nextSpeed,
   orderSlides,
   pieceSlide,
@@ -78,6 +79,35 @@ describe("projectSlides", () => {
     });
     expect(slides.map((s) => s.key)).toEqual(["p:photo", "p:link", "detail"]);
     expect(slides.every((s) => s.projectId === null)).toBe(true);
+  });
+});
+
+describe("latestSlides", () => {
+  it("is every project's work, newest project first, kept together, with who made it", () => {
+    const slides = latestSlides([
+      {
+        _id: "old",
+        title: "Mural",
+        kind: "passion",
+        createdAt: 1,
+        resolvedPhotoUrl: "https://cdn/mural.jpg",
+        creator: { _id: "pr-1", name: "Marta Reyes" },
+      },
+      {
+        _id: "new",
+        title: "Album",
+        kind: "passion",
+        createdAt: 2,
+        resolvedPhotoUrl: "https://cdn/album.jpg",
+        media: [{ _id: "track", type: "image", resolvedMediaUrl: "https://cdn/track.jpg" }],
+        organization: { name: "The Grove", slug: "grove" },
+        creator: { _id: "pr-2", name: "June Park" },
+      },
+      { _id: "job", title: "Need a drummer", kind: "paid", createdAt: 3, resolvedPhotoUrl: "https://cdn/job.jpg" },
+    ]);
+    expect(slides.map((s) => s.key)).toEqual(["new:photo", "track", "old:photo"]);
+    expect(slides[0]).toMatchObject({ projectId: "new", by: "The Grove" });
+    expect(slides[2]).toMatchObject({ projectId: "old", by: "Marta Reyes" });
   });
 });
 
