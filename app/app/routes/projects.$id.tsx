@@ -17,7 +17,7 @@
 // links (profiles are for members), and every action but a one-time Back
 // this sends them to sign up and back here. The owner keeps every section.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Link, useLocation, useParams, useRouteError, useSearchParams } from "react-router";
@@ -43,6 +43,8 @@ import { ProjectUpdates, UpdatesList } from "../components/ProjectUpdates";
 import { EditButton, InlineEditableText } from "../components/InlineEditableText";
 import { PencilIcon } from "../components/icons";
 import { ProjectPieces } from "../components/piece/ProjectPieces";
+import { Theater, TheaterButton } from "../components/Theater";
+import { projectSlides } from "../lib/theaterSlides";
 import { ProjectModal, type ProjectStep } from "../components/ProjectModal";
 import { RichContent } from "../components/RichContent";
 import { RichTextEditor } from "../components/RichTextEditor";
@@ -229,6 +231,10 @@ export default function ProjectDetail() {
   // The hero's shape picks the header: a 4:5 poster beside the title, or a
   // wide picture as a banner above it. Measured before the early returns.
   const heroRatio = useImageAspect(project ? heroThumb(project) : null);
+  // Theater mode (components/Theater.tsx): the photo, the pasted video and
+  // the pieces, full screen. Open: the piece to start on (null: the first).
+  const theaterSlides = useMemo(() => (project ? projectSlides(project) : []), [project]);
+  const [theaterAt, setTheaterAt] = useState<string | null | false>(false);
 
   if (project === undefined) {
     return (
@@ -328,6 +334,7 @@ export default function ProjectDetail() {
       <div className="flex items-start justify-between gap-3">
         <BackLink />
         <div className="flex items-center gap-1">
+          {theaterSlides.length > 0 && <TheaterButton onClick={() => setTheaterAt(null)} />}
           {isOwner && <ProjectMenu project={project} />}
           <AdminMenu target={{ kind: "project", id: project._id }} title={project.title} hidden={hiddenByAdmin} />
         </div>
@@ -362,6 +369,11 @@ export default function ProjectDetail() {
           moneyWord={moneyWord}
           projectId={project._id}
           isOwner={isOwner}
+          onOpen={
+            theaterSlides.length > 0
+              ? () => setTheaterAt(project.resolvedPhotoUrl ? `${project._id}:photo` : null)
+              : undefined
+          }
         />
 
         <div className="order-2 md:order-4 md:w-full">
@@ -376,6 +388,7 @@ export default function ProjectDetail() {
               myProfileId={myProfile?._id}
               adding={addingPiece}
               onAdding={setAddingPiece}
+              onOpen={(key) => theaterSlides.some((s) => s.key === key) && setTheaterAt(key)}
             />
           ) : (
             <>
@@ -604,6 +617,16 @@ export default function ProjectDetail() {
       )}
 
       {supportModal}
+
+      {theaterAt !== false && (
+        <Theater
+          slides={theaterSlides}
+          startKey={theaterAt}
+          ordered={false}
+          label={project.title}
+          onClose={() => setTheaterAt(false)}
+        />
+      )}
     </PageShell>
   );
 }
@@ -928,6 +951,7 @@ function ProjectHero({
   moneyWord,
   projectId,
   isOwner,
+  onOpen,
 }: {
   thumb: string | null | undefined;
   /** A 4:5 poster beside the title; false for a wide picture, a banner above it. */
@@ -939,6 +963,8 @@ function ProjectHero({
   moneyWord: string | null;
   projectId: Id<"projects">;
   isOwner: boolean;
+  /** The picture opens theater mode. */
+  onOpen?: () => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const image = useProjectImage(projectId);
@@ -977,6 +1003,10 @@ function ProjectHero({
       );
     return wrap(
       <>
+        {/* First, so the chips and the owner's button sit above it. */}
+        {onOpen && (
+          <button type="button" onClick={onOpen} aria-label="Open in theater" className="absolute inset-0 cursor-zoom-in" />
+        )}
         {kindWord && (
           <span
             className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-[0.06em]"

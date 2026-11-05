@@ -70,11 +70,14 @@ export function PieceMedia({
   piece,
   title,
   framed = true,
+  onOpen,
 }: {
   piece: PieceLike;
   /** The player's name for a screen reader, when the piece has no title. */
   title?: string | null;
   framed?: boolean;
+  /** A picture opens theater mode on itself (components/Theater.tsx). */
+  onOpen?: () => void;
 }) {
   const d = pieceDisplay(piece);
   const name = piece.title || title || null;
@@ -110,8 +113,8 @@ export function PieceMedia({
       ) : (
         <audio controls preload="none" src={d.src} className="w-full" aria-label={name ?? "Audio sample"} />
       );
-    case "image":
-      return (
+    case "image": {
+      const img = (
         <img
           src={d.src}
           alt={name ?? ""}
@@ -120,6 +123,13 @@ export function PieceMedia({
           style={frame}
         />
       );
+      if (!onOpen) return img;
+      return (
+        <button type="button" onClick={onOpen} aria-label="Open in theater" className="block w-full cursor-zoom-in">
+          {img}
+        </button>
+      );
+    }
     case "text":
       return framed ? (
         <div className={`${round} p-5 text-[15px] whitespace-pre-wrap`} style={{ ...frame, color: "var(--garden-body)" }}>

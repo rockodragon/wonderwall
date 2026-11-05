@@ -1,5 +1,5 @@
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useLocation, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { SHARE_PROJECT_PATH, withFinishedStage } from "../lib/shareProject";
@@ -27,6 +27,8 @@ import { PAGE_WIDTH } from "../lib/pageWidth";
 import { BackLink } from "../components/BackLink";
 import { FF_TABLES } from "../lib/featureFlags";
 import { useStartConversation } from "../lib/useStartConversation";
+import { portfolioSlides } from "../lib/theaterSlides";
+import { Theater, TheaterButton } from "../components/Theater";
 
 /** What profiles.getProfile and getProfileByHandle answer with: one shape
  * (profiles.ts publicProfilePage), so this page is the same either way. */
@@ -90,6 +92,14 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
   const openProjects = (affiliations ?? []).filter((a: any) => !a.completed);
   const completedProjects = (affiliations ?? []).filter((a: any) => a.completed);
   const loosePieces = (profile?.artifacts ?? []).filter((a: any) => !a.projectId);
+  // Theater mode (components/Theater.tsx): all of it, full screen, newest
+  // first. Its button sits on the first heading of the work.
+  const theaterSlides = useMemo(
+    () => portfolioSlides(profile?.artifacts ?? [], affiliations ?? []),
+    [profile?.artifacts, affiliations],
+  );
+  const [theaterOpen, setTheaterOpen] = useState(false);
+  const theaterButton = theaterSlides.length > 0 ? <TheaterButton onClick={() => setTheaterOpen(true)} /> : null;
   // Events they went to (events.listPastForProfile). Signed in only: a
   // visitor never asks.
   const pastEvents = useQuery(
@@ -576,9 +586,12 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
           raising, which is what a visitor came to find out. */}
       {openProjects.length > 0 && (
         <div className="mb-8">
-          <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
-            In progress
-          </h2>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold" style={{ color: "var(--app-text)" }}>
+              In progress
+            </h2>
+            {theaterButton}
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {openProjects.map((a: any) => (
               <ProjectTile key={a.projectId} project={a} />
@@ -591,9 +604,12 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
           pieces that never got a project. */}
       {(completedProjects.length > 0 || loosePieces.length > 0) && (
         <>
-          <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
-            Completed
-          </h2>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold" style={{ color: "var(--app-text)" }}>
+              Completed
+            </h2>
+            {openProjects.length === 0 && theaterButton}
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {completedProjects.map((a: any) => (
               <Link
@@ -851,6 +867,15 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
       )}
 
       {pastEvents && pastEvents.length > 0 && <PastEvents events={pastEvents} />}
+
+      {theaterOpen && (
+        <Theater
+          slides={theaterSlides}
+          ordered
+          label={`${profile.name}'s work`}
+          onClose={() => setTheaterOpen(false)}
+        />
+      )}
     </div>
   );
 }

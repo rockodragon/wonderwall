@@ -48,6 +48,7 @@ export function ProjectPieces({
   myProfileId,
   adding,
   onAdding,
+  onOpen,
 }: {
   project: ProjectWithPieces;
   isOwner: boolean;
@@ -55,6 +56,9 @@ export function ProjectPieces({
   /** The add form is open (the just-published card opens it too). */
   adding: boolean;
   onAdding: (open: boolean) => void;
+  /** A picture opens theater mode on itself (components/Theater.tsx); the
+   *  page passes the piece's slide key. */
+  onOpen?: (key: string) => void;
 }) {
   const updateProject = useMutation(api.garden.projects.updateProject);
   // The piece being edited: its id, or "link" for the project's own link.
@@ -108,7 +112,9 @@ export function ProjectPieces({
           <PieceEditor key={piece._id} target={{ mode: "edit", piece }} onDone={() => setEditing(null)} />
         ) : (
           <div key={piece._id} className="flex flex-col gap-3">
-            {!shownAbove(piece, project) && <PieceMedia piece={piece} title={project.title} />}
+            {!shownAbove(piece, project) && (
+              <PieceMedia piece={piece} title={project.title} onOpen={onOpen ? () => onOpen(String(piece._id)) : undefined} />
+            )}
             <PieceNote piece={piece} canEdit={false} />
             {/* Its maker edits it, as the server checks (artifacts.update). */}
             {!!myProfileId && piece.profileId === myProfileId && (
