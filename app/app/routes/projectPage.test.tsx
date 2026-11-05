@@ -199,11 +199,13 @@ describe("the project page, for a signed-out visitor", () => {
     expect(html).toMatch(/<a [^>]*href="\/signup\?redirect=%2Fprojects%2Fp1%3Ftab%3Dteam"[^>]*>Apply<\/a>/);
   });
 
-  it("gives a raising project with no supporters yet a Support tab that asks them to back it", () => {
+  // Rick, 2026-11-05: a Support tab hid things behind a click, and "Be the
+  // first to cheer this on" said what the heart already says.
+  it("gives a raising project no Support tab and no 'be the first' line: just the heart", () => {
     const html = page({ viewer: "visitor", project: bareProject({ raising: true }), url: "/projects/p1?tab=support" });
-    expect(tabs(html)).toEqual(["About", "Support"]);
-    expect(html).toContain("Be the first to back this.");
+    expect(tabs(html)).toEqual([]);
     expect(html).toContain('aria-label="Back this"');
+    expect(html).not.toMatch(/Be the first/i);
     expect(html).not.toContain("No supporters yet");
   });
 
@@ -230,10 +232,13 @@ describe("the project page, for a signed-out visitor", () => {
     expect(html).not.toContain('href="/profile/');
   });
 
-  it("makes no Support tab of cheers alone: the count sits under About, beside the heart's", () => {
+  it("shows the supporters under About, never on a tab of their own", () => {
     const html = page({ viewer: "visitor", project: bareProject({ supportCount: 2 }) });
     expect(tabs(html)).toEqual([]);
     expect(html).toContain("2 supporters");
+    const withUpdates = page({ viewer: "visitor", project: bareProject({ raising: true, supportCount: 2 }), updates: anUpdate });
+    expect(tabs(withUpdates)).toEqual(["About", "Updates · 1"]);
+    expect(withUpdates).toMatch(/id="project-panel-about"[\s\S]*2 supporters[\s\S]*id="project-panel-updates"/);
   });
 
   it("shows a place that was set", () => {
@@ -249,7 +254,7 @@ describe("the project page, for its owner", () => {
     expect(html).toContain("No location set");
     expect(html).toContain('title="Add location"');
     expect(html).toContain("Post an update");
-    // Team and Support open from Next steps; nothing of theirs is drawn yet.
+    // Team opens from Next steps; nothing of it is drawn yet.
     expect(html).not.toContain("+ Add a role");
     expect(html).not.toContain("No supporters yet");
   });
@@ -260,11 +265,12 @@ describe("the project page, for its owner", () => {
     expect(html).toMatch(/How it(&#x27;|')s going, for anyone following\./);
     expect(html).toContain("Ask for support");
   });
-  it("shows Team while a request waits, and Support once anyone gave it", () => {
+  it("shows Team while a request waits, and the supporters under About", () => {
     const request = page({ viewer: "owner", team: { lead, accepted: [], credits: [], acceptingPeople: true, pending: [{ memberId: "m1", name: "Mo", role: "Painter" }], invited: [] } });
     expect(tabs(request)).toEqual(["About", "Team · 1 request", "Updates"]);
     const cheered = page({ viewer: "owner", project: bareProject({ supportCount: 1 }) });
-    expect(tabs(cheered)).toEqual(["About", "Updates", "Support · 1"]);
+    expect(tabs(cheered)).toEqual(["About", "Updates"]);
+    expect(cheered).toContain("1 supporter");
   });
 });
 
@@ -300,7 +306,7 @@ describe("the project page while backing is closed (FF_BACKING)", () => {
     expect(html).toContain('aria-label="Cheer"');
     expect(html).not.toContain('aria-label="Back this"');
     expect(html).not.toContain("back this");
-    expect(html).toContain("Be the first to cheer this on.");
+    expect(html).not.toMatch(/Be the first/i);
     // How far it got is information, not a way to pay: it stays.
     expect(html).toContain(">$250</span> of $1,000<");
   });
@@ -321,15 +327,13 @@ describe("the project page while backing is closed (FF_BACKING)", () => {
     expect(next).not.toContain("people can back it");
     expect(next).toContain("These are optional.");
 
-    // The Support tab is there once the project is raising (or, open, when
-    // Next steps opens it: a click, not drawn here).
+    // A raising project's owner sees no money tools under About either.
     const tab = page({
       viewer: "owner",
       project: raising(),
-      url: "/projects/p1?tab=support",
       answers: { "garden/patronTiers:listAllTiers": [] },
     });
-    expect(tab).toContain("No supporters yet");
+    expect(tab).not.toContain("No supporters yet");
     expect(tab).not.toContain("Want money toward this?");
     expect(tab).not.toContain("Start asking");
     expect(tab).not.toContain("Stop asking");
@@ -340,10 +344,10 @@ describe("the project page while backing is closed (FF_BACKING)", () => {
     const next = page({ viewer: "owner" });
     expect(next).toContain("Ask for support");
     expect(next).toContain("These are optional.");
+    // Under About, with no tab to open first.
     const tiers = page({
       viewer: "owner",
       project: raising(),
-      url: "/projects/p1?tab=support",
       answers: { "garden/patronTiers:listAllTiers": [] },
     });
     expect(tiers).toContain("Stop asking");

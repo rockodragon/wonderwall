@@ -188,7 +188,7 @@ function heroThumb(project: {
 
 
 // The page's sections are tabs (lib/projectTabs.ts): About, Team (Dates for a
-// gig), Updates, and Support for a project. The chosen one lives in ?tab=.
+// gig) and Updates; support sits under About. The chosen one lives in ?tab=.
 const TABS_BASE = "project";
 const TABS_ROW_ID = "project-tabs";
 
@@ -317,14 +317,12 @@ export function ProjectView({ projectId: id, over = false }: { projectId: string
   // projects are one person's, and an empty tab is noise (Rick, 2026-10-30).
   // The owner also gets Updates, and whatever "Next steps" opened. An admin
   // sees the page as anyone else does; their tools are in the menu.
-  const content = sectionsWithContent({ team, roles, updates, raising });
+  const content = sectionsWithContent({ team, roles, updates });
   const tabs = projectTabs({
     isGig,
-    isPassion,
     requests,
-    supporters: project.supportCount,
     updates: updates?.length ?? 0,
-    has: isOwner ? ownerSections(content, { requests, supporters: project.supportCount, opened }) : content,
+    has: isOwner ? ownerSections(content, { requests, opened }) : content,
   });
   const tab = readProjectTab(rawTab, tabs);
   // About alone is no choice: no tab row, and About is a plain section.
@@ -528,7 +526,7 @@ export function ProjectView({ projectId: id, over = false }: { projectId: string
           onPostUpdate={() => showTab("updates")}
           onAskForSupport={() => {
             setEditingSupport(true);
-            showTab("support");
+            showTab("about");
           }}
         />
       )}
@@ -554,9 +552,15 @@ export function ProjectView({ projectId: id, over = false }: { projectId: string
           <AskToJoin project={project} visitorSignUp={visitorSignUp} />
         )}
 
-        {/* Cheers and backings alone make no Support tab: the count is beside
-            the heart, and the names are here. */}
-        {isPassion && !hasTab("support") && project.supportCount > 0 && (
+        {/* Support is here, never behind a tab (Rick, 2026-11-05): the
+            heart and its count are at the top, the names are here, and
+            nothing is said while there are none. Asking for money, and the
+            tiers people would pay, wait for FF_BACKING. */}
+        {isOwner && isPassion && FF_BACKING && (
+          <AskForSupport project={project} raising={raising} editing={editingSupport} setEditing={setEditingSupport} />
+        )}
+        {isOwner && isPassion && raising && FF_BACKING && <TierManager projectId={project._id} />}
+        {isPassion && project.supportCount > 0 && (
           <DetailCard label={`${project.supportCount} ${project.supportCount === 1 ? "supporter" : "supporters"}`}>
             <SupportersList projectId={project._id} />
           </DetailCard>
@@ -603,35 +607,6 @@ export function ProjectView({ projectId: id, over = false }: { projectId: string
               <AnnouncementComposer targetType="project" targetId={project._id} heading="Message team and supporters" />
             </div>
           )}
-        </TabPanel>
-      )}
-
-      {hasTab("support") && (
-        <TabPanel base={TABS_BASE} id="support" selected={tab === "support"}>
-          {/* Asking for money, and the tiers people would pay, wait for
-              FF_BACKING: with no way to back, there is nothing to ask for. */}
-          {isOwner && FF_BACKING && (
-            <AskForSupport project={project} raising={raising} editing={editingSupport} setEditing={setEditingSupport} />
-          )}
-          {isOwner && raising && FF_BACKING && <TierManager projectId={project._id} />}
-          {project.supportCount > 0 || isOwner ? (
-            <p className="mb-3 text-sm" style={{ color: "var(--garden-dim)" }}>
-              {project.supportCount > 0
-                ? `${project.supportCount} ${project.supportCount === 1 ? "supporter" : "supporters"}`
-                : "No supporters yet"}
-            </p>
-          ) : (
-            // A visitor only gets this tab once the owner has asked for
-            // support, so the way to give it is the one thing to show. While
-            // backing is closed (FF_BACKING) that is a cheer.
-            <div className="mb-6 flex items-center justify-between gap-3">
-              <p className="text-sm" style={{ color: "var(--garden-body)" }}>
-                {FF_BACKING ? "Be the first to back this." : "Be the first to cheer this on."}
-              </p>
-              <SupportButtons raising={raising} onSupport={support} />
-            </div>
-          )}
-          <SupportersList projectId={project._id} />
         </TabPanel>
       )}
 

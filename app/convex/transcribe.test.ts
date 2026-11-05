@@ -7,7 +7,7 @@ import { ConvexError } from "convex/values";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeCtx, run } from "../test-support/convexContext";
 import { expectSignedOutRefusal } from "../test-support/signedOut";
-import { MAX_AUDIO_BYTES, MAX_TEXT, MODEL, fileNameFor, fromAudio, multipartBody } from "./transcribe";
+import { MAX_AUDIO_BYTES, MAX_TEXT, MODEL, fileNameFor, fromAudio, multipartBody, ready } from "./transcribe";
 
 /** Exactly these bytes, in their own buffer. */
 function bytes(text: string): ArrayBuffer {
@@ -144,5 +144,33 @@ describe("fromAudio", () => {
       },
     });
     expect(await reasonOf(call(bytes("sound")))).toMatchObject({ code: "transcribe_unavailable" });
+  });
+});
+
+// The page draws the mic only when this says yes (app/lib/useTalk.ts), so a
+// backend with no key shows no mic instead of failing every take.
+describe("ready", () => {
+  const savedKey = process.env.OPENAI_API_KEY;
+  afterEach(() => {
+    if (savedKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = savedKey;
+  });
+  const ask = (viewer: string | null) => run(ready, makeCtx({}, viewer), {});
+
+  it("is yes for a signed-in person when the key is set", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    expect(await ask("users:me")).toBe(true);
+  });
+
+  it("is no without the key, set or empty", async () => {
+    delete process.env.OPENAI_API_KEY;
+    expect(await ask("users:me")).toBe(false);
+    process.env.OPENAI_API_KEY = "";
+    expect(await ask("users:me")).toBe(false);
+  });
+
+  it("is no, not a refusal, for a visitor", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    expect(await ask(null)).toBe(false);
   });
 });
