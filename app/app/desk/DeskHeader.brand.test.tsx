@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToString } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 import type { BrandId } from "../brand/brands";
+import { GARDEN_MARK } from "../brand/GardenMark";
 
 // The desk's top-left (docs/features/garden-brand-domains.md): The Garden's
 // lockup in place of the mono community line, whatever the address.
@@ -42,7 +43,9 @@ describe("DeskHeader brand", () => {
     for (const b of ["exchange", "garden"] as const) {
       brand = b;
       const home = header("all");
-      expect(home).toContain("<svg");
+      // The lockup is the Jost wordmark; the disc beside it only while a mark is on.
+      if (GARDEN_MARK === "none") expect(home).not.toContain("<svg");
+      else expect(home).toContain("<svg");
       expect(home).toContain("Jost");
       expect(home).toContain(">The Garden</span>");
       expect(home).not.toContain("Your canvas");

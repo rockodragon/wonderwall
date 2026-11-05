@@ -14,7 +14,8 @@
 // Crimson is for the mark only, never for text: on the dark site it holds
 // about 4.2:1, under the floor for words. When the member artist draws the
 // final G, GARDEN_G_PATH (gardenPath.ts) is the one line to change (and the
-// files in public/brand/garden/).
+// files in public/brand/garden/). While there is no mark at all, GARDEN_MARK
+// below is the one line.
 
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { GARDEN } from "./brands";
@@ -28,6 +29,14 @@ export { GARDEN_G_PATH };
  *  disc SVGs in public/brand/garden/ carry the same scale. */
 const IN_DISC_SCALE = 1;
 export const IN_DISC = `translate(16 16) scale(${IN_DISC_SCALE}) translate(-16 -16.5)`;
+
+/** Which mark the lockup shows beside the name. "none" is the holding state
+ *  while the red disc is retired and the next mark is drawn: the lockup is
+ *  the wordmark alone, and Grow is skipped. To bring a mark back, set this to
+ *  "disc" (or add the new mark's case to GardenLockup); nothing else changes.
+ *  The tab icons and the share picture are files (public/brand/garden/,
+ *  served by gardenHtml.ts), not this switch. */
+export const GARDEN_MARK: "disc" | "none" = "none";
 
 type Ground = "dark" | "paper";
 const crimsonOn = (ground: Ground) => (ground === "dark" ? GARDEN.crimson : GARDEN.crimsonPaper);
@@ -85,16 +94,18 @@ export function GardenLockup({
   className?: string;
 }) {
   const disc = Math.round(fontSize * 1.25);
+  const mark =
+    GARDEN_MARK === "none" ? null : grow ? (
+      <GardenGrow size={disc} ground={ground} surface={surface ?? (ground === "dark" ? "#121212" : "#F7F7F4")} />
+    ) : (
+      <GardenDisc size={disc} ground={ground} />
+    );
   return (
     <span
       className={className}
-      style={{ display: "inline-flex", alignItems: "center", gap: Math.round(disc / 4), lineHeight: 1 }}
+      style={{ display: "inline-flex", alignItems: "center", gap: mark ? Math.round(disc / 4) : 0, lineHeight: 1 }}
     >
-      {grow ? (
-        <GardenGrow size={disc} ground={ground} surface={surface ?? (ground === "dark" ? "#121212" : "#F7F7F4")} />
-      ) : (
-        <GardenDisc size={disc} ground={ground} />
-      )}
+      {mark}
       <span
         style={{
           fontFamily: "'Jost', var(--garden-font-sans, sans-serif)",
