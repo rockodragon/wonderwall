@@ -86,6 +86,15 @@ describe("fromAudio", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("takes a four-minute take at Safari's top bitrate, and the words of four minutes of fast talk", () => {
+    const fourMinutes = 4 * 60;
+    expect(MAX_AUDIO_BYTES).toBeGreaterThanOrEqual((fourMinutes * 192_000) / 8);
+    // Convex's own runtime takes up to 16 MiB of arguments.
+    expect(MAX_AUDIO_BYTES).toBeLessThan(16 * 1024 * 1024);
+    // About 180 words a minute, six characters a word with the space.
+    expect(MAX_TEXT).toBeGreaterThanOrEqual(fourMinutes / 60 * 180 * 6);
+  });
+
   it("refuses an empty, too-long or unreadable recording before anything is sent", async () => {
     expect(await reasonOf(call(new ArrayBuffer(0)))).toMatchObject({ code: "empty_audio" });
     expect(await reasonOf(call(new ArrayBuffer(MAX_AUDIO_BYTES + 1)))).toMatchObject({ code: "audio_too_long" });

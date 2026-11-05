@@ -4,7 +4,9 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { Recorder, RecorderCtor, RecorderEnv } from "./useAudioRecorder";
+import { MAX_NOTE_SECONDS } from "./useAudioRecorder";
 import {
+  MAX_TALK_SECONDS,
   NOTHING_HEARD,
   TALK_IDLE,
   TRANSCRIBE_FAILED,
@@ -196,6 +198,30 @@ describe("a talk session", () => {
     answer("done");
     await settle();
     session.abort();
+  });
+
+  it("runs a take up to four minutes, then stops it and writes it down (voice notes keep two)", async () => {
+    expect(MAX_TALK_SECONDS).toBe(240);
+    expect(MAX_NOTE_SECONDS).toBe(120);
+    vi.useFakeTimers();
+    try {
+      const transcribe = vi.fn<Transcriber>(async () => "A long story.");
+      const { session, said, last } = setup(transcribe);
+      session.start();
+      await vi.advanceTimersByTimeAsync(0);
+      // Past a voice note's two minutes, still recording.
+      await vi.advanceTimersByTimeAsync((MAX_NOTE_SECONDS + 30) * 1000);
+      expect(last().recording).toBe(true);
+      await vi.advanceTimersByTimeAsync((MAX_TALK_SECONDS - MAX_NOTE_SECONDS - 31) * 1000);
+      expect(transcribe).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(transcribe).toHaveBeenCalledTimes(1);
+      expect(said).toEqual(["A long story."]);
+      expect(last()).toEqual(TALK_IDLE);
+      session.abort();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("leaving the page while the words are on their way drops them", async () => {
