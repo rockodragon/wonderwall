@@ -133,9 +133,8 @@ export const supportProject = mutation({
     if (args.type === "resource" && !args.resourceDescription?.trim()) {
       throw new ConvexError({ code: "missing_description", reason: "Say what you're offering." });
     }
-    if (args.type === "encouragement" && !args.message?.trim()) {
-      throw new ConvexError({ code: "missing_message", reason: "Write a word of encouragement." });
-    }
+    // A cheer needs no words: a blank one is a like (Rick, 2026-11-04,
+    // "keep it easy"). Its notice and cards then say only who cheered.
 
     const profile = await getProfileByUserId(ctx, userId);
 

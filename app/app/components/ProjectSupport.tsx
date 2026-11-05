@@ -97,11 +97,11 @@ export function SupportButtons({
   );
 }
 
-// Split by the two buttons (SupportButtons): cheering is free — a message or
-// an offer of help; backing is money.
+// Split by the two buttons (SupportButtons): cheering is free — a cheer, with
+// a message if they like, or an offer of help; backing is money.
 const SUPPORT_TYPES: Record<SupportMode, { value: string; label: string }[]> = {
   cheer: [
-    { value: "encouragement", label: "Send a message" },
+    { value: "encouragement", label: "Cheer" },
     { value: "resource", label: "Offer help or gear" },
   ],
   back: [
@@ -524,7 +524,7 @@ export function SupportModal({
             {type === "encouragement" && (
               <div>
                 <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
-                  Your message
+                  Message (optional)
                 </label>
                 <textarea
                   value={message}

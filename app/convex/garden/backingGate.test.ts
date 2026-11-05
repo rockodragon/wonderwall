@@ -182,6 +182,24 @@ describe("backing while FF_BACKING is off", () => {
       ["resource", "confirmed"],
     ]);
   });
+
+  it("supportProject takes a cheer with no words, a like, and tells the owner who cheered", async () => {
+    for (const message of [undefined, "", "   "]) {
+      const ctx = makeCtx(world(), ADA);
+      await run(supportProject, ctx, { projectId: "projects:p1", type: "encouragement", message, visible: true });
+      const [row] = ctx.store.projectSupport;
+      expect(row).toMatchObject({ type: "encouragement", status: "confirmed" });
+      expect(row.message).toBeUndefined();
+      expect(ctx.store.notifications).toHaveLength(1);
+      expect(ctx.store.notifications[0]).toMatchObject({ type: "encouragement", message: "" });
+    }
+  });
+
+  it("supportProject still needs an offer of help to say what it is", async () => {
+    const ctx = makeCtx(world(), ADA);
+    const data = await refusal(run(supportProject, ctx, { projectId: "projects:p1", type: "resource", visible: true }));
+    expect(data).toMatchObject({ code: "missing_description" });
+  });
 });
 
 describe("backing once FF_BACKING is on", () => {
