@@ -17,6 +17,12 @@ function world(viewer: string = ADMIN) {
         { _id: "profiles:admin", userId: ADMIN, name: "Ada", isAdmin: true },
         { _id: "profiles:maker", userId: MAKER, name: "Maker" },
       ],
+      projectSupport: [
+        { _id: "projectSupport:1", projectId: "projects:done", supporterName: "Fan", type: "encouragement", status: "confirmed", visible: true, createdAt: 1 },
+        { _id: "projectSupport:2", projectId: "projects:done", supporterName: "Fan", type: "financial_one_time", status: "confirmed", visible: true, createdAt: 1 },
+        // A checkout that never finished is not a backing.
+        { _id: "projectSupport:3", projectId: "projects:live", supporterName: "Fan", type: "encouragement", status: "pending", visible: true, createdAt: 1 },
+      ],
       projects: [
         { _id: "projects:live", userId: MAKER, kind: "passion", title: "Mural", status: "active", createdAt: 2 },
         { _id: "projects:done", userId: MAKER, kind: "paid", title: "Short film", status: "completed", createdAt: 1 },
@@ -38,6 +44,13 @@ describe("the ballot", () => {
     expect(rows[0].tally).toEqual({ yes: 0, maybe: 0, no: 0 });
   });
 
+  it("shows the public's vote: the cheers and backers people gave", async () => {
+    const rows = await run(adminList, world());
+    const byTitle = Object.fromEntries(rows.map((r: any) => [r.title, [r.cheers, r.backers]]));
+    expect(byTitle["Short film"]).toEqual([1, 1]);
+    expect(byTitle["Mural"]).toEqual([0, 0]);
+  });
+
   it("is admins only", async () => {
     await expect(run(adminList, world(MAKER))).rejects.toThrow();
     await expect(run(castVote, world(MAKER), { projectId: "projects:live", vote: "yes" })).rejects.toThrow();
@@ -53,6 +66,7 @@ describe("a vote", () => {
     let [row] = await run(adminList, ctx);
     expect(row.tally).toEqual({ yes: 1, maybe: 0, no: 0 });
     expect(row.myVote).toBe("yes");
+    expect(row.myNote).toBe("sure now");
     expect(row.votes).toEqual([{ userId: ADMIN, voter: "Ada", vote: "yes", note: "sure now" }]);
 
     await run(clearVote, ctx, { projectId: "projects:live" });

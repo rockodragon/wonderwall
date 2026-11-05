@@ -2640,7 +2640,24 @@ export default defineSchema({
     wording: v.optional(v.string()),
     revokedAt: v.optional(v.number()),
     dismissedAt: v.optional(v.number()), // "Not now" on the Canvas card
-  }).index("by_userId", ["userId"]),
+    welcomedFor: v.optional(v.number()), // the agreedAt its welcome text went out for (convex/serviceTexts.ts)
+  }).index("by_userId", ["userId"]).index("by_phone", ["phone"]),
+
+  // Texts about the texts themselves (convex/serviceTexts.ts): the welcome
+  // after someone opts in, and the reply to HELP. Kept per phone, for the
+  // rate limits and the delivery webhook.
+  serviceTexts: defineTable({
+    phone: v.string(), // E.164
+    kind: v.union(v.literal("welcome"), v.literal("help")),
+    status: v.union(v.literal("queued"), v.literal("sent"), v.literal("skipped"), v.literal("failed")),
+    detail: v.optional(v.string()), // skip reason, or the Telnyx status code of a failure
+    createdAt: v.number(),
+    claimedAt: v.optional(v.number()),
+    sentAt: v.optional(v.number()),
+    telnyxId: v.optional(v.string()),
+    deliveryStatus: v.optional(v.string()),
+    deliveryDetail: v.optional(v.string()),
+  }).index("by_phone_kind_createdAt", ["phone", "kind", "createdAt"]).index("by_telnyxId", ["telnyxId"]),
 
   // A STOP reply, per phone number (convex/telnyxWebhook.ts). START clears it.
   smsOptOuts: defineTable({

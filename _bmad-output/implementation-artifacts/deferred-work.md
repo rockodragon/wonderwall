@@ -20,14 +20,5 @@
   summary: Before switching message texts on (setMessageTexts), send them from their own Telnyx number enforced in code, record STOP/START from an inbound webhook, add consent and Settings/privacy copy, store Telnyx ids with a delivery-status webhook, add quiet hours, keep texts within one GSM-7 segment, harden the sender-name filter (fullwidth dots, IPs, phone numbers), add a lease for stuck rows, count the cap without take(100), delete text rows with accounts, and show texts to operators.
   evidence: Two review passes found these on the text path; texts ship off by human decision until a separate number exists, so none of them can happen yet.
 - source_spec: `_bmad-output/implementation-artifacts/spec-fix-message-notify-email-text.md`
-  summary: Any standard email (likes digest, nudge) cancels host announcements and event reminders to the same person for 24h under the contact cooldown.
-  evidence: Pre-existing since 88bf36f: announcements are "standard" (announcements.ts:670) and claimForDispatch cancels them on contact_cooldown with no retry.
-- source_spec: `_bmad-output/implementation-artifacts/spec-fix-message-notify-email-text.md`
   summary: Track email opens and text delivery receipts, so "was it received" has an answer for every channel.
   evidence: Asked by the human on 2026-10-30; Resend open events aren't handled (resendWebhook.ts:94) and there is no Telnyx status webhook.
-- source_spec: `_bmad-output/implementation-artifacts/spec-message-texts-setup.md`
-  summary: Make HELP to the updates number get an answer (program name, contact, frequency, STOP), via the Telnyx messaging profile's auto-response or our webhook, before texts are switched on.
-  evidence: The consent line and privacy policy promise "HELP for help"; the spec excluded a HELP auto-reply, and whether Telnyx's toll-free network answers HELP on its own is unconfirmed (medium, unverified; settle by texting HELP to the number).
-- source_spec: `_bmad-output/implementation-artifacts/spec-message-texts-setup.md`
-  summary: Send a one-time opt-in confirmation text (program, frequency, rates, HELP/STOP) to each person who turned texts on, when the program starts and on later opt-ins.
-  evidence: CTIA messaging principles expect a confirmation after opt-in; texts are off now, so consents collected before launch never get one (medium, unverified against the toll-free verification reviewer's ask).
