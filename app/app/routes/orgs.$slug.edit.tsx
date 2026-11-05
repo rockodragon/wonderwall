@@ -16,6 +16,7 @@ import { PAGE_WIDTH } from "../lib/pageWidth";
 import { errorMessage } from "../lib/convexError";
 import { useFileUpload } from "../lib/useFileUpload";
 import { PersonAvatar } from "../components/PersonAvatar";
+import { TalkBox } from "../components/TalkBox";
 
 const inputClass =
   "w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent placeholder:text-[var(--app-text-dim)]";
@@ -310,13 +311,13 @@ export default function OrgEdit() {
           <label htmlFor="org-about" className={labelClass} style={labelStyle}>
             About
           </label>
-          <textarea
+          <TalkBox
             id="org-about"
             value={mission}
             rows={6}
             maxLength={ORG_LIMITS.mission}
             placeholder="Your mission, in your words"
-            onChange={(e) => setMission(e.target.value)}
+            onChange={setMission}
             className={`${inputClass} resize-y`}
             style={inputStyle}
           />

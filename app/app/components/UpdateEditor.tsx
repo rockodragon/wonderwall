@@ -34,6 +34,7 @@ import {
   type UpdateForm,
 } from "../lib/updates";
 import { useFileUpload } from "../lib/useFileUpload";
+import { TalkBox } from "./TalkBox";
 
 export type AdminUpdate = FunctionReturnType<typeof api.updates.adminList>[number];
 
@@ -159,12 +160,12 @@ export function UpdateEditor({
             </label>
             <Count n={form.body.length} max={BODY_MAX} />
           </div>
-          <textarea
+          <TalkBox
             id="update-body"
             value={form.body}
             maxLength={BODY_MAX}
             rows={7}
-            onChange={(e) => set("body", e.target.value)}
+            onChange={(v) => set("body", v)}
             className={inputClass}
           />
         </div>

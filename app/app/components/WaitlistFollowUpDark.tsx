@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ROLES } from "../constants/roles";
 import { HEAR_ABOUT_OPTIONS } from "../constants/waitlistOptions";
 import { useWaitlistFollowUp } from "../lib/useWaitlistFollowUp";
+import { TalkBox } from "./TalkBox";
 
 const inputClass =
   "w-full px-4 py-3 border border-[var(--garden-hairline)] rounded-xl bg-[var(--garden-ink-raised)]/50 backdrop-blur-sm text-[var(--garden-paper)] placeholder-[var(--garden-muted)] focus:ring-2 focus:ring-[var(--garden-citron)] focus:border-transparent transition-all";
@@ -92,12 +93,12 @@ export function WaitlistFollowUpDark({
           <label htmlFor="wld-project" className={labelClass}>
             What are you working on?
           </label>
-          <textarea
+          <TalkBox
             id="wld-project"
             rows={2}
             className={inputClass}
             value={projectDescription}
-            onChange={(e) => setProjectDescription(e.target.value)}
+            onChange={setProjectDescription}
             placeholder="A short film, a mural series, a worship EP…"
           />
         </div>

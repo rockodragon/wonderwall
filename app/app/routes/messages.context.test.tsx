@@ -13,6 +13,8 @@ vi.mock("convex/react", async () => {
   const { getFunctionName } = await import("convex/server");
   return {
     useMutation: () => async () => {},
+    useAction: () => async () => {},
+    useConvexAuth: () => ({ isAuthenticated: false, isLoading: false }),
     useQuery: (fn: Parameters<typeof getFunctionName>[0]) => {
       switch (getFunctionName(fn)) {
         case "messaging:getConversation":

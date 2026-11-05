@@ -7,7 +7,7 @@ import { MemoryRouter } from "react-router";
 vi.mock("convex/react", () => ({
   useQuery: () => undefined,
   useMutation: () => async () => ({ projectId: "p1" }),
-  // useTalk's transcriber (the recorder fallback); never called in a server render.
+  // useTalk's transcriber; never called in a server render.
   useAction: () => async () => ({ text: "" }),
   useConvexAuth: () => ({ isAuthenticated: true, isLoading: false }),
 }));
@@ -186,12 +186,12 @@ describe("ProjectModal description box", () => {
   const box = (props: Partial<React.ComponentProps<typeof ProjectModal>> = {}) =>
     sheet({ initialStep: "about", ...props }).match(/<textarea[^>]*>[^<]*<\/textarea>/)?.[0] ?? "";
 
-  it("is the shared four-row talk-or-type box, plain where the browser can't listen (a server render)", () => {
+  it("is the shared four-row talk-or-type box, plain where the browser can't record (a server render)", () => {
     const html = box();
     expect(html).toMatch(/id="[^"]*-blurb"/);
     expect(html).toContain('rows="4"');
     expect(html).toMatch(/placeholder="What you(?:'|&#x27;)re making, and why"/);
-    expect(html).toMatch(/class="[^"]*\bresize-none\b[^"]*\btext-\[17px\]/);
+    expect(html).toMatch(/class="[^"]*\btext-\[17px\][^"]*\bresize-none\b/);
     expect(sheet({ initialStep: "about" })).not.toContain('aria-label="Talk instead"');
   });
 

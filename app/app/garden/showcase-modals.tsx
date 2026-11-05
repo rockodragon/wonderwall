@@ -78,6 +78,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { CSSProperties, ReactElement, ReactNode } from "react";
 import { INTERESTS } from "../constants/interests";
 import { SectionLabel } from "./ui";
+import { TalkBox } from "../components/TalkBox";
 
 // ————— Public shapes —————
 //
@@ -792,12 +793,12 @@ export function ApplyModal({
           value={portfolioUrl}
           onChange={(e) => setPortfolioUrl(e.target.value)}
         />
-        <textarea
+        <TalkBox
           className="g-input"
           rows={5}
           placeholder="What would you bring, and why this piece?"
           value={workDescription}
-          onChange={(e) => setWorkDescription(e.target.value)}
+          onChange={setWorkDescription}
         />
       </div>
     );

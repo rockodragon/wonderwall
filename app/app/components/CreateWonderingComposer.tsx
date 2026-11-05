@@ -4,6 +4,7 @@ import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
 import { PersonAvatar } from "./PersonAvatar";
 import { captureAnalytics } from "../lib/posthog";
+import { TalkBox } from "./TalkBox";
 
 export function CreateWonderingComposer() {
   const profile = useQuery(api.profiles.getMyProfile);
@@ -146,9 +147,9 @@ export function CreateWonderingComposer() {
           ) : (
             /* Normal expanded form */
             <div className="space-y-3">
-              <textarea
+              <TalkBox
                 value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
+                onChange={setPrompt}
                 placeholder="What if we reimagined worship spaces as interactive art galleries?"
                 rows={3}
                 maxLength={280}

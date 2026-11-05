@@ -14,7 +14,7 @@ import { interestIcon } from "../constants/interestIcons";
 import { DOORS, PARTNER_OFFERINGS, type Role } from "../constants/roles";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { PersonAvatar } from "../components/PersonAvatar";
-import { SpokenNote, SpokenTextarea, useSpoken } from "../components/SpokenTextarea";
+import { TalkBox } from "../components/TalkBox";
 import { DESK_PATH } from "../desk/deskState";
 import { GARDEN_SLUG } from "../lib/communitySlugs";
 import { errorMessage } from "../lib/convexError";
@@ -47,7 +47,6 @@ import { useBack } from "../lib/useBack";
 import { useFileUpload } from "../lib/useFileUpload";
 import { claimPendingAddress, useHandleCheck } from "../lib/useHandleCheck";
 import { useLocationField } from "../lib/useLocationField";
-import { useTalk } from "../lib/useTalk";
 
 // What a new account sees, one question to a screen (Rick, 2026-10-27: new
 // members only answered "what are you into" and were sent to post a project,
@@ -81,6 +80,9 @@ const PAPER = "var(--garden-paper)";
 const BODY = "var(--garden-body)";
 const MUTED = "var(--garden-muted)";
 const DIM = "var(--garden-dim)";
+/** The most of "A line about you" that is sorted: onboardingAssist's
+ *  MAX_TRANSCRIPT (a server module, so not imported here). */
+const PICK_MAX = 1500;
 const CITRON = "var(--garden-citron)";
 const LINE = "var(--garden-hairline-raised)";
 const ERROR = "var(--garden-error)";
@@ -712,19 +714,17 @@ function AboutStep({
   const next = nextStep(role, 3);
   const askEmail = lacksEmail(profile);
 
-  // Talk instead (Rick, 2026-10-27): the words land in the line as they're
-  // said; when listening ends, pickFromSpeech tidies the line and lights the
-  // pills that fit, so nobody hunts through them. Nothing is saved until
-  // Continue, same as typing.
-  const speech = useTalk();
+  // Talk instead (Rick, 2026-10-27): what's said lands in the line; then
+  // pickFromSpeech tidies the line and lights the pills that fit, so nobody
+  // hunts through them. Nothing is saved until Continue, same as typing.
   const pickFromSpeech = useAction(api.onboardingAssist.pickFromSpeech);
   const [sorting, setSorting] = useState(false);
   const [micError, setMicError] = useState("");
-  const heard = useSpoken(speech, (said) => set("bio", said), async (said) => {
+  async function sortSaid(line: string) {
     setSorting(true);
     setMicError("");
     try {
-      const pick = await pickFromSpeech({ transcript: said });
+      const pick = await pickFromSpeech({ transcript: line.slice(0, PICK_MAX) });
       if (pick.line) set("bio", pick.line);
       if (pick.interests.length > 0) set("interests", Array.from(new Set([...draft.interests, ...pick.interests])));
     } catch (err) {
@@ -732,7 +732,7 @@ function AboutStep({
     } finally {
       setSorting(false);
     }
-  });
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -777,20 +777,22 @@ function AboutStep({
         <label htmlFor="onboarding-bio" className={LABEL} style={{ color: PAPER }}>
           A line about you (optional)
         </label>
-        <SpokenTextarea
+        <TalkBox
           id="onboarding-bio"
+          rows={2}
           value={draft.bio}
           onChange={(bio) => set("bio", bio)}
+          onSaid={(bio) => void sortSaid(bio)}
           placeholder="Who you are, in a sentence"
-          listening={speech.listening}
-          transcribing={speech.transcribing}
-          onStart={heard.start}
-          onStop={speech.stop}
-          className={FIELD}
+          className={`${FIELD} resize-none`}
           style={{ backgroundColor: RAISED, borderColor: LINE, color: PAPER }}
           wrapperClassName="mt-1"
         />
-        <SpokenNote working={sorting} error={speech.error ?? micError} />
+        {(sorting || micError) && (
+          <p role={micError ? "alert" : "status"} className="mt-2 text-[15px]" style={{ color: micError ? "var(--garden-error)" : BODY }}>
+            {micError || "Sorting that out…"}
+          </p>
+        )}
       </div>
 
       {role === "partner" ? (
@@ -908,10 +910,6 @@ function ProjectStep({
   const createPassionProject = useMutation(api.garden.projects.createPassionProject);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  // Talk instead: what they say is the description, as said; no sorting
-  // to do here.
-  const speech = useTalk();
-  const heard = useSpoken(speech, (said) => set("blurb", said));
 
   async function share(e: FormEvent) {
     e.preventDefault();
@@ -987,20 +985,16 @@ function ProjectStep({
         <label htmlFor="onboarding-blurb" className={LABEL} style={{ color: PAPER }}>
           What is it (optional)
         </label>
-        <SpokenTextarea
+        <TalkBox
           id="onboarding-blurb"
+          rows={2}
           value={draft.blurb}
           onChange={(blurb) => set("blurb", blurb)}
           placeholder={draft.stage === "completed" ? "What you made, and why" : "What you're making, and why"}
-          listening={speech.listening}
-          transcribing={speech.transcribing}
-          onStart={heard.start}
-          onStop={speech.stop}
-          className={FIELD}
+          className={`${FIELD} resize-none`}
           style={{ backgroundColor: RAISED, borderColor: LINE, color: PAPER }}
           wrapperClassName="mt-1"
         />
-        <SpokenNote working={false} error={speech.error} />
       </div>
 
       <div className="mt-8">

@@ -6,6 +6,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { errorMessage } from "../lib/convexError";
 import { PortfolioSamplePicker } from "./PortfolioSamples";
 import { MAX_WORK_SAMPLES } from "../../convex/portfolioSampleRules";
+import { TalkBox } from "./TalkBox";
 
 interface InterestModalProps {
   jobId: Id<"jobs">;
@@ -172,9 +173,9 @@ export function InterestModal({
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Note (optional)
               </label>
-              <textarea
+              <TalkBox
                 value={note}
-                onChange={(e) => setNote(e.target.value)}
+                onChange={setNote}
                 placeholder="Tell the poster why you're interested..."
                 rows={4}
                 maxLength={maxCharacters}

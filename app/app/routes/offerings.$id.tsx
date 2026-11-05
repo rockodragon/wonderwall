@@ -32,6 +32,7 @@ import {
 } from "./offerings";
 import { errorMessage } from "../lib/convexError";
 import { PAGE_WIDTH } from "../lib/pageWidth";
+import { TalkBox } from "../components/TalkBox";
 
 // Loader-less (this whole app is a client-only SPA over useQuery — same as
 // communities.$slug.tsx/projects.$id.tsx), so `data` is never actually
@@ -543,10 +544,10 @@ function ModerationPanel({ offering }: { offering: PausableOffering }) {
           <label htmlFor="pause-reason" className="text-sm font-medium" style={{ color: "var(--garden-paper)" }}>
             Why are you pausing it? The teacher will see this.
           </label>
-          <textarea
+          <TalkBox
             id="pause-reason"
             value={reason}
-            onChange={(e) => setReason(e.target.value)}
+            onChange={setReason}
             maxLength={300}
             rows={3}
             className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
@@ -725,10 +726,10 @@ function ReportControl({
           <label htmlFor="report-details" className="block text-sm mb-1.5" style={{ color: "var(--garden-body)" }}>
             Anything else we should know? (optional, up to 500 characters)
           </label>
-          <textarea
+          <TalkBox
             id="report-details"
             value={details}
-            onChange={(e) => setDetails(e.target.value)}
+            onChange={setDetails}
             maxLength={500}
             rows={3}
             className="w-full px-3 py-2 rounded-lg border text-sm outline-none"

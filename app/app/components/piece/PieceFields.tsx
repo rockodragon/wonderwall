@@ -1,16 +1,15 @@
 // The fields of a piece: the work (an upload, or a link to anywhere it
 // lives), a cover when the work isn't a picture, and — in the full form —
-// its title, a few words with the mic, and a voice note. The start form's
+// its title, a few words (talk or type), and a voice note. The start form's
 // "Show it" draws the first two (`compact`); the piece editor draws all of
 // it. State lives in usePieceDraft, so the caller decides when to save.
 
 import { useId, useRef } from "react";
 import { maxSize } from "../../lib/useFileUpload";
-import { useTalk } from "../../lib/useTalk";
 import { AudioNoteRecorder } from "../AudioNoteRecorder";
 import { gardenField } from "../gardenField";
 import { MediaLinkField } from "../MediaLinkField";
-import { SpokenNote, SpokenTextarea, useSpokenInto } from "../SpokenTextarea";
+import { TalkBox } from "../TalkBox";
 import { takesCover, type PieceDraft } from "./usePieceDraft";
 
 const LINK_PLACEHOLDER = "YouTube, Vimeo, Bandcamp, Spotify, SoundCloud or any page";
@@ -56,11 +55,11 @@ export function PieceFields({ draft, compact = false }: { draft: PieceDraft; com
           <label htmlFor={`${uid}-text`} className={gardenField.label} style={gardenField.labelStyle}>
             Your words
           </label>
-          <textarea
+          <TalkBox
             id={`${uid}-text`}
             rows={6}
             value={state.text}
-            onChange={(e) => set({ text: e.target.value })}
+            onChange={(text) => set({ text })}
             className={`${gardenField.input} resize-y`}
             style={gardenField.inputStyle}
           />
@@ -182,8 +181,6 @@ export function PieceFields({ draft, compact = false }: { draft: PieceDraft; com
 function AboutFields({ draft }: { draft: PieceDraft }) {
   const uid = useId();
   const { state, set } = draft;
-  const speech = useTalk();
-  const heard = useSpokenInto(speech, state.description, (description) => set({ description }));
   return (
     <>
       <div>
@@ -203,20 +200,15 @@ function AboutFields({ draft }: { draft: PieceDraft }) {
         <label htmlFor={`${uid}-about`} className={gardenField.label} style={gardenField.labelStyle}>
           About it (optional)
         </label>
-        <SpokenTextarea
+        <TalkBox
           id={`${uid}-about`}
           value={state.description}
           onChange={(description) => set({ description })}
           rows={3}
           placeholder="What it is, and how you made it"
-          listening={speech.listening}
-          transcribing={speech.transcribing}
-          onStart={heard.start}
-          onStop={speech.stop}
-          className={gardenField.input}
+          className={`${gardenField.input} resize-none`}
           style={gardenField.inputStyle}
         />
-        <SpokenNote working={false} error={speech.error} className={gardenField.hint} />
       </div>
       <div>
         <div className={gardenField.label} style={gardenField.labelStyle}>

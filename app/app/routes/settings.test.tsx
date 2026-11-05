@@ -120,10 +120,10 @@ describe("the address, in the editor", () => {
   });
 });
 
-// The Bio box is the shared talk-or-type box (components/SpokenTextarea.tsx).
-// A server render can't listen, so it is plain here: no mic, plain words.
+// The Bio box is the shared talk-or-type box (components/TalkBox.tsx). A
+// server render can't record, so it is plain here: no mic, plain words.
 describe("the bio, in the editor", () => {
-  it("is a labelled three-row box with no mic where the browser can't listen", async () => {
+  it("is a labelled three-row box with no mic where the browser can't record", async () => {
     // No interests, bio or place yet: the editor is open.
     answers["profiles:getMyProfile"] = { _id: "p1", name: "Ada", handle: "ada", interests: [] };
     const html = await settings();
@@ -131,7 +131,7 @@ describe("the bio, in the editor", () => {
     const box = html.match(/<textarea[^>]*id="settings-bio"[^>]*>[^<]*<\/textarea>/)?.[0] ?? "";
     expect(box).toContain('rows="3"');
     expect(box).toContain('placeholder="Tell us about yourself..."');
-    expect(box).toMatch(/class="resize-none w-full px-4 py-2 border rounded-lg/);
+    expect(box).toMatch(/class="block w-full px-4 py-2 border rounded-lg resize-none/);
     expect(box).toContain("var(--app-surface-raised)");
     expect(html).not.toContain('aria-label="Talk instead"');
   });

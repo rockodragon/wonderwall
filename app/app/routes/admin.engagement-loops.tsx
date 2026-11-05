@@ -27,6 +27,7 @@ import {
 } from "../components/admin/AdminUi";
 import { errorMessage } from "../lib/convexError";
 import { useIsAdmin } from "../lib/useIsAdmin";
+import { TalkBox } from "../components/TalkBox";
 
 export const meta: MetaFunction = () => [
   { title: "Engagement loops | Admin" },
@@ -336,10 +337,10 @@ function LoopDrawer({ loop, day, onClose }: { loop: Loop; day: number; onClose: 
               <label htmlFor={`${loop.key}-body`} className={admin.label}>
                 Text
               </label>
-              <textarea
+              <TalkBox
                 id={`${loop.key}-body`}
                 value={body}
-                onChange={(e) => setBody(e.target.value)}
+                onChange={setBody}
                 rows={5}
                 className={`${admin.input} leading-relaxed`}
               />

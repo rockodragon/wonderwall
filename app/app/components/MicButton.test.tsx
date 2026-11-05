@@ -1,11 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MicButton } from "./MicButton";
-
-// Whether the browser can listen is useSpeech's to say (a test here has no
-// browser); the button is only what is drawn from it.
-const support = vi.hoisted(() => ({ supported: true }));
-vi.mock("../lib/useSpeech", () => ({ useSpeechSupported: () => support.supported }));
 
 const noop = () => {};
 const draw = (props: Partial<Parameters<typeof MicButton>[0]> = {}) =>
@@ -13,16 +8,6 @@ const draw = (props: Partial<Parameters<typeof MicButton>[0]> = {}) =>
 const styleOf = (html: string) => html.match(/<button[^>]*style="([^"]*)"/)?.[1] ?? "";
 
 describe("MicButton", () => {
-  beforeEach(() => {
-    support.supported = true;
-  });
-
-  it("draws nothing where the browser can't listen", () => {
-    support.supported = false;
-    expect(draw()).toBe("");
-    expect(draw({ listening: true })).toBe("");
-  });
-
   it("is a round 44px button that says 'Talk instead'", () => {
     const html = draw();
     expect(html).toContain('type="button"');
@@ -48,8 +33,8 @@ describe("MicButton", () => {
   });
 
   it("a tap starts it at rest and stops it while listening", () => {
-    // The hook is mocked, so the component can be called as a function and
-    // its click handler read off the element it returns.
+    // It holds no hooks, so it can be called as a function and its click
+    // handler read off the element it returns.
     const onStart = vi.fn();
     const onStop = vi.fn();
     const clickOf = (listening: boolean) =>

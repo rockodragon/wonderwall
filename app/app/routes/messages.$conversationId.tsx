@@ -9,6 +9,7 @@ import { exactTime, startsStretch, stretchLabel } from "../lib/messageTime";
 import { errorMessage } from "../lib/convexError";
 import { PersonAvatar } from "../components/PersonAvatar";
 import { observeVisibleMessageReads } from "../lib/visibleMessages";
+import { TalkBox } from "../components/TalkBox";
 
 // The thread reads as one column, not edge to edge (Rick, 2026-10-01): full
 // width on a phone, then 768px, then 896px on a big screen. Bubbles stop at
@@ -30,6 +31,13 @@ export default function ConversationView() {
   const [showMenu, setShowMenu] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // Grow with the text, whether typed, spoken or cleared after sending.
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
+  }, [message]);
   const messageListRef = useRef<HTMLDivElement>(null);
 
   const conversation = useQuery(
@@ -450,24 +458,20 @@ export default function ConversationView() {
             </p>
           )}
           <div className="flex items-end gap-3">
-            <textarea
+            <TalkBox
               ref={inputRef}
+              wrapperClassName="flex-1 min-w-0"
               value={message}
-              onChange={(e) => setMessage(e.target.value)}
+              onChange={setMessage}
               onKeyDown={handleKeyDown}
-              placeholder="Type a message..."
+              placeholder="Your message"
               rows={1}
-              className="flex-1 px-4 py-3 rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] max-h-32"
+              className="w-full px-4 py-3 rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] max-h-32"
               style={{
                 backgroundColor: "var(--app-hairline-raised)",
                 color: "var(--app-text)",
                 height: "auto",
                 minHeight: "48px",
-              }}
-              onInput={(e) => {
-                const target = e.target as HTMLTextAreaElement;
-                target.style.height = "auto";
-                target.style.height = `${Math.min(target.scrollHeight, 128)}px`;
               }}
             />
             <button

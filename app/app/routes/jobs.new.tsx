@@ -8,6 +8,7 @@ import { errorMessage } from "../lib/convexError";
 import { FF_JOBS } from "../lib/featureFlags";
 import { useFeatureGate } from "../lib/useFeatureGate";
 import { PAGE_WIDTH } from "../lib/pageWidth";
+import { TalkBox } from "../components/TalkBox";
 
 type LocationType = "Remote" | "Hybrid" | "On-site";
 type JobType = "Full-time" | "Part-time" | "Contract" | "Freelance";
@@ -206,9 +207,9 @@ export default function JobsNew() {
               <label className="block text-sm font-medium mb-1" style={{ color: "var(--app-text-muted)" }}>
                 Project Description <span className="text-red-500">*</span>
               </label>
-              <textarea
+              <TalkBox
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={setDescription}
                 placeholder="Describe the role, responsibilities, requirements, and what makes this opportunity unique..."
                 rows={8}
                 maxLength={5000}

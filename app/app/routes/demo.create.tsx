@@ -10,6 +10,7 @@ import { useDemo } from "../garden/demo-context";
 import { PROJECTS } from "../garden/demo-data";
 import { IconSpark, IconTag, IconSeat, IconMake, IconCheck } from "../garden/icons";
 import { CLAIMS } from "../constants/claims";
+import { TalkBox } from "../components/TalkBox";
 
 type Path = "chooser" | "passion" | "paid";
 
@@ -614,10 +615,10 @@ export default function DemoCreate() {
         />
       </Field>
       <Field label="Scope">
-        <textarea
+        <TalkBox
           className="g-input"
           value={bScope}
-          onChange={(e) => setBScope(e.target.value)}
+          onChange={setBScope}
           placeholder="What's being made, where, by when…"
           style={{ minHeight: 84, resize: "vertical" }}
         />

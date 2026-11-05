@@ -31,6 +31,7 @@ import "../garden/garden.css";
 import { errorMessage } from "../lib/convexError";
 import { useIsAdmin } from "../lib/useIsAdmin";
 import { AdminAccessDenied } from "../components/admin/AdminUi";
+import { TalkBox } from "../components/TalkBox";
 
 export function meta() {
   return [
@@ -381,7 +382,7 @@ function TablesSection({
           <input className="g-input" value={cadence} onChange={(e) => setCadence(e.target.value)} placeholder="Weekly, Tuesdays" />
         </Field>
         <Field label="Blurb (optional)">
-          <textarea className="g-input" value={blurb} onChange={(e) => setBlurb(e.target.value)} rows={2} style={{ resize: "vertical" }} />
+          <TalkBox className="g-input" value={blurb} onChange={setBlurb} rows={2} style={{ resize: "vertical" }} />
         </Field>
         <Field label="Price, cohorts only (optional)" hint="Dollars — leave blank for a free table.">
           <input className="g-input" value={priceDollars} onChange={(e) => setPriceDollars(e.target.value)} inputMode="decimal" placeholder="49" style={{ maxWidth: 160 }} />
@@ -862,7 +863,7 @@ function AllocationsSection({
           <input className="g-input" value={period} onChange={(e) => setPeriod(e.target.value)} placeholder="2026-08" style={{ maxWidth: 220 }} />
         </Field>
         <Field label="Note (optional)">
-          <textarea className="g-input" value={note} onChange={(e) => setNote(e.target.value)} rows={2} style={{ resize: "vertical" }} />
+          <TalkBox className="g-input" value={note} onChange={setNote} rows={2} style={{ resize: "vertical" }} />
         </Field>
         <button className="g-btn g-btn-citron" type="submit" disabled={busy || !hostOrgSlug || !amountDollars.trim() || !period.trim()} style={{ marginTop: 18 }}>
           {busy ? "Recording…" : "Record allocation"}

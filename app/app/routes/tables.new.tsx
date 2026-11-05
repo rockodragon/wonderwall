@@ -12,6 +12,7 @@ import "../tables/tables.css";
 import { FF_TABLES } from "../lib/featureFlags";
 import { useFeatureGate } from "../lib/useFeatureGate";
 import { tableErrorMessage } from "../tables/errors";
+import { TalkBox } from "../components/TalkBox";
 
 export function meta() {
   return [{ title: "Set a Table — Creative Exchange" }];
@@ -257,12 +258,12 @@ function NewTablePage() {
                 </label>
                 <label className="tables-field">
                   Description
-                  <textarea
+                  <TalkBox
                     className="tables-input"
                     required
                     maxLength={5000}
                     value={description}
-                    onChange={(event) => setDescription(event.target.value)}
+                    onChange={setDescription}
                     placeholder="What will you do together, and who is it for?"
                   />
                 </label>

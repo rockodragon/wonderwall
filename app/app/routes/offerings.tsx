@@ -21,6 +21,7 @@ import { PAGE_WIDTH } from "../lib/pageWidth";
 import { errorMessage } from "../lib/convexError";
 import { useFileUpload } from "../lib/useFileUpload";
 import { linkHost } from "../lib/richText";
+import { TalkBox } from "../components/TalkBox";
 
 // AnnouncementComposer moved off this list page entirely — it now renders
 // only on the detail page (routes/offerings.$id.tsx), per the founder's
@@ -1153,9 +1154,9 @@ export function PostOfferingForm({
               <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
                 Description
               </label>
-              <textarea
+              <TalkBox
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={setDescription}
                 rows={3}
                 placeholder="What happens in a session"
                 className="w-full px-3 py-2 rounded-lg border text-sm outline-none resize-none"

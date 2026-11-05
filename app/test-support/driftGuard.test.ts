@@ -307,6 +307,16 @@ const RULES: Rule[] = [
     use: "var(--garden-error) (public/tokens.css)",
   },
   {
+    name: "a text box without the mic",
+    // Rick, 2026-11-04: the mic failed on a new project's description, and
+    // five boxes had it while ~40 didn't. Every box people type in is the
+    // one component. The one left is Share kit's read-only copy box.
+    pattern: /<textarea\b/g,
+    limit: 1,
+    home: "app/components/TalkBox.tsx",
+    use: "TalkBox (app/components/TalkBox.tsx)",
+  },
+  {
     name: "a piece's player picked by hand (one place)",
     // The project page and the work samples each chose how a piece plays,
     // and had drifted (2026-11-04). Music plays only where a piece does.

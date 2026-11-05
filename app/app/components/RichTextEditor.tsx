@@ -9,8 +9,9 @@
 // WHY NOT A CONTENTEDITABLE WYSIWYG
 //
 // Inline marks are written as `**bold**` / `*italic*` / `[text](url)` into
-// plain <textarea>s, with a format bar that wraps the author's selection so
-// nobody has to type a marker. That trades a little polish for a lot:
+// plain text boxes (TalkBox, so the mic works here too), with a format bar
+// that wraps the author's selection so nobody has to type a marker. That
+// trades a little polish for a lot:
 // textareas give native undo, native spellcheck, native mobile keyboards
 // and native accessibility, none of which a contenteditable surface gets
 // for free — and the document can never hold markup, which is what keeps
@@ -32,6 +33,7 @@ import {
   type RichBlockType,
 } from "../lib/richText";
 import { useFileUpload } from "../lib/useFileUpload";
+import { TalkBox } from "./TalkBox";
 
 // ————— shared field chrome —————
 
@@ -125,12 +127,12 @@ function AutoTextarea({
   }, [value, ref]);
 
   return (
-    <textarea
+    <TalkBox
       ref={ref}
       value={value}
       rows={minRows}
       placeholder={placeholder}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={onChange}
       onKeyDown={onKeyDown}
       style={{ ...FIELD, resize: "none", overflow: "hidden", ...style }}
     />

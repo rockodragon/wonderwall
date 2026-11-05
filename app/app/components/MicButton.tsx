@@ -1,12 +1,10 @@
 import { Microphone } from "@phosphor-icons/react";
-import { useSpeechSupported } from "../lib/useSpeech";
 
 // "Talk instead": a round 44px microphone. At rest it is a paper icon on ink
-// (about 17:1); listening is a filled citron circle with an ink icon (about
-// 14:1), and aria-pressed says it to a screen reader. While a take is being
-// written down (`working`, the recorder fallback) it waits, dimmed. It draws
-// nothing where the browser can neither listen nor record, so the page never
-// offers what won't work. The words come from useSpeech.
+// (about 17:1); recording is a filled citron circle with an ink icon (about
+// 14:1), and aria-pressed says it to a screen reader. While the take is being
+// written down (`working`) it waits, dimmed. TalkBox draws it only where the
+// browser can record and the person is signed in (lib/useTalk.ts).
 export function MicButton({
   listening,
   working = false,
@@ -20,8 +18,6 @@ export function MicButton({
   onStop: () => void;
   className?: string;
 }) {
-  const supported = useSpeechSupported();
-  if (!supported) return null;
   return (
     <button
       type="button"

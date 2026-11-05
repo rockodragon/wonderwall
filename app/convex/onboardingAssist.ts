@@ -1,7 +1,7 @@
 // Onboarding's "talk instead" (2026-10-27): someone says a sentence about
-// themselves, the browser turns it into text (Web Speech API, app/lib/
-// useSpeech.ts — the audio never reaches us), and this action turns the text
-// into the interests to light up and a line for "A line about you".
+// themselves, it is written down (convex/transcribe.ts), and this action
+// turns the text into the interests to light up and a line for "A line
+// about you".
 //
 // One OpenAI call, with the key the backend already has. The answer is
 // locked to the interest list by a strict JSON schema, and checked again

@@ -28,6 +28,7 @@ import { SOPHIA_FUND_SLUG } from "../lib/namedFunds";
 import { errorMessage } from "../lib/convexError";
 import { FF_BACKING } from "../lib/featureFlags";
 import { InfoTip } from "../components/InfoTip";
+import { TalkBox } from "../components/TalkBox";
 
 export function meta() {
   return [{ title: "Give — The Garden" }, { name: "robots", content: "noindex" }];
@@ -607,7 +608,7 @@ function Chooser({
 
       {showNote && (
         <div style={{ marginTop: 24 }}>
-          <textarea
+          <TalkBox
             id={`note-${gift.giftId}`}
             aria-label="Add a note"
             className="g-input"
@@ -615,7 +616,7 @@ function Chooser({
             rows={3}
             maxLength={NOTE_MAX}
             value={note}
-            onChange={(e) => setNote(e.target.value)}
+            onChange={setNote}
             placeholder="Add a note"
           />
           <div

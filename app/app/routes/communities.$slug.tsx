@@ -24,6 +24,7 @@ import { SITE_ORIGIN } from "../lib/eventCalendar";
 import { GARDEN } from "../brand/brands";
 import { GardenLockup } from "../brand/GardenMark";
 import { errorMessage } from "../lib/convexError";
+import { TalkBox } from "../components/TalkBox";
 
 // Indexed (Rick, 2026-10-02: communities should be findable). The title,
 // description and canonical URL are the community's own — CommunityHead.
@@ -393,22 +394,22 @@ function EditCommunityForm({ community }: { community: Community }) {
       </div>
       <div className="mt-3.5">
         <label className={labelClass} style={labelStyle}>Description</label>
-        <textarea
+        <TalkBox
           className={`${inputClass} resize-y`}
           style={inputStyle}
           value={description}
-          onChange={(e) => setDescription(e.target.value)}
+          onChange={setDescription}
           rows={10}
         />
         <Hint>Why you're here and what you're about. Blank line between paragraphs; **bold**, *italic*, "- " for a list, "## " for a heading, [link](https://…).</Hint>
       </div>
       <div className="mt-3.5">
         <label className={labelClass} style={labelStyle}>Agreements</label>
-        <textarea
+        <TalkBox
           className={`${inputClass} resize-y`}
           style={inputStyle}
           value={agreements}
-          onChange={(e) => setAgreements(e.target.value)}
+          onChange={setAgreements}
           rows={6}
         />
         <Hint>One per line. These are what people agree to when they join.</Hint>
@@ -883,10 +884,10 @@ function CreateProductForm({ hostOrgId }: { hostOrgId: Id<"hostOrgs"> }) {
       </div>
 
       <label className={labelClass} style={{ ...labelStyle, marginTop: 14 }}>Benefits</label>
-      <textarea className={`${inputClass} resize-y`} style={inputStyle} value={benefits} onChange={(e) => setBenefits(e.target.value)} rows={2} />
+      <TalkBox className={`${inputClass} resize-y`} style={inputStyle} value={benefits} onChange={setBenefits} rows={2} />
 
       <label className={labelClass} style={{ ...labelStyle, marginTop: 14 }}>Description</label>
-      <textarea className={`${inputClass} resize-y`} style={inputStyle} value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
+      <TalkBox className={`${inputClass} resize-y`} style={inputStyle} value={description} onChange={setDescription} rows={3} />
 
       <div className="mt-3.5">
         <label className={labelClass} style={labelStyle}>Resources</label>

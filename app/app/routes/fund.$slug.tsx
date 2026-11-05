@@ -37,6 +37,7 @@ import { CLAIMS } from "../constants/claims";
 import { NAMED_FUNDS, SOPHIA_FUND_SLUG, availableCents as fundAvailableCents } from "../lib/namedFunds";
 import "../garden/garden.css";
 import { errorMessage } from "../lib/convexError";
+import { TalkBox } from "../components/TalkBox";
 
 const CONTRIBUTION_TYPE_LABELS: Record<string, string> = {
   dues_share: "Member dues share",
@@ -345,10 +346,10 @@ function ProposeGrantSection({ slug }: { slug: string }) {
               <label className="g-label" style={{ display: "block", marginTop: 14, marginBottom: 6 }}>
                 Summary
               </label>
-              <textarea
+              <TalkBox
                 className="g-input"
                 value={summary}
-                onChange={(e) => setSummary(e.target.value)}
+                onChange={setSummary}
                 rows={3}
                 maxLength={2000}
                 placeholder="What the grant funds, and why."

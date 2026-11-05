@@ -22,3 +22,12 @@ describe("Privacy Policy: text messages", () => {
     expect(html).toContain("November 4, 2026");
   });
 });
+
+describe("Privacy Policy: talking into a box", () => {
+  it("says the recording goes to OpenAI to be written down and isn't stored", async () => {
+    const html = await page();
+    expect(html).toContain("sends the recording to OpenAI&#x27;s transcription API to be written down");
+    expect(html).toContain("We don&#x27;t store the recording.");
+    expect(html).toContain("OpenAI — generating the search embeddings and writing down what you say to the microphone, described above.");
+  });
+});
