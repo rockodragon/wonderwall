@@ -5,9 +5,11 @@ import { makeCtx, run, type Row } from "../test-support/convexContext";
 import {
   apply,
   backfillArtifactPreviews,
+  backfillVimeoStills,
   canonicalMediaUrl,
   parseBandcampPreview,
   parseInstagramPreview,
+  parseVimeoPreview,
   schedulePreviewFetch,
   wantsPreviewFetch,
 } from "./linkPreview";
@@ -130,10 +132,11 @@ describe("wantsPreviewFetch", () => {
     expect(wantsPreviewFetch(REEL)).toBe(true);
     expect(wantsPreviewFetch("https://www.tiktok.com/@scout2015/video/6718335390845095173")).toBe(true);
     expect(wantsPreviewFetch("https://vm.tiktok.com/ZMabcdef/")).toBe(true);
-    // YouTube's still is derived client-side; Vimeo has none; other links
-    // go through the plain og:image scrape, not this module.
+    expect(wantsPreviewFetch("https://vimeo.com/123456789")).toBe(true);
+    expect(wantsPreviewFetch("https://vimeo.com/123456789/a1b2c3d4e5")).toBe(true);
+    // YouTube's still comes from the URL itself; other links go through
+    // the plain og:image scrape, not this module.
     expect(wantsPreviewFetch("https://www.youtube.com/watch?v=dQw4w9WgXcQ")).toBe(false);
-    expect(wantsPreviewFetch("https://vimeo.com/123456789")).toBe(false);
     expect(wantsPreviewFetch("https://example.com/page")).toBe(false);
     expect(wantsPreviewFetch(undefined)).toBe(false);
   });
@@ -269,5 +272,63 @@ describe("backfillArtifactPreviews", () => {
     const scheduled = scheduledOn(ctx);
     expect(await run(backfillArtifactPreviews, ctx, {})).toEqual({ scheduled: 1 });
     expect(scheduled.map((s) => s.args.id)).toEqual(["artifacts:page"]);
+  });
+});
+
+// ————— Vimeo —————
+
+const VIMEO = "https://vimeo.com/1243563113";
+
+describe("parseVimeoPreview", () => {
+  // Vimeo's oEmbed answer, trimmed (checked 2026-11-04).
+  const OEMBED = {
+    type: "video",
+    title: "CSALTtestimonyYoutube",
+    thumbnail_url: "https://i.vimeocdn.com/video/2222124725-29c92e-d_1280?region=us",
+    thumbnail_width: 1280,
+  };
+
+  it("takes the still, never the title", () => {
+    expect(parseVimeoPreview(OEMBED, VIMEO)).toEqual({
+      canonicalUrl: VIMEO,
+      imageUrl: OEMBED.thumbnail_url,
+    });
+  });
+
+  it("has no still for an answer without an https one", () => {
+    expect(parseVimeoPreview({ thumbnail_url: "http://i.vimeocdn.com/a.jpg" }, VIMEO).imageUrl).toBeUndefined();
+    expect(parseVimeoPreview(null, VIMEO).imageUrl).toBeUndefined();
+  });
+});
+
+describe("schedulePreviewFetch for a Vimeo link", () => {
+  it("fetches the still for a piece, an event and a project", async () => {
+    const ctx = makeCtx({}, null);
+    const scheduled = scheduledOn(ctx);
+    await schedulePreviewFetch(ctx as any, "artifact", "artifacts:a" as any, VIMEO);
+    await schedulePreviewFetch(ctx as any, "event", "events:e" as any, VIMEO);
+    await schedulePreviewFetch(ctx as any, "project", "projects:p" as any, VIMEO);
+    expect(scheduled.map((s) => s.args.target)).toEqual(["artifact", "event", "project"]);
+  });
+});
+
+describe("backfillVimeoStills", () => {
+  it("fetches every Vimeo link with no still yet, and nothing else", async () => {
+    const ctx = makeCtx({
+      artifacts: [
+        { _id: "artifacts:bare", type: "video", mediaUrl: VIMEO },
+        { _id: "artifacts:unlisted", type: "link", mediaUrl: "https://vimeo.com/123456789/a1b2c3d4e5" },
+        { _id: "artifacts:done", type: "video", mediaUrl: VIMEO, ogImageUrl: "https://files.test/still" },
+        { _id: "artifacts:yt", type: "video", mediaUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+      ],
+      projects: [
+        { _id: "projects:bare", mediaUrl: VIMEO },
+        { _id: "projects:done", mediaUrl: VIMEO, mediaPreviewUrl: "https://files.test/still" },
+      ],
+      events: [{ _id: "events:bare", mediaUrl: VIMEO }, { _id: "events:none" }],
+    }, null);
+    const scheduled = scheduledOn(ctx);
+    expect(await run(backfillVimeoStills, ctx, {})).toEqual({ scheduled: 4 });
+    expect(scheduled.map((s) => s.args.id)).toEqual(["artifacts:bare", "artifacts:unlisted", "projects:bare", "events:bare"]);
   });
 });

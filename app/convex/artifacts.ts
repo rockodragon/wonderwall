@@ -128,10 +128,10 @@ async function schedulePreview(
   // is a player link there is nothing left to fetch.
   if (isBandcampPageLink(url)) return schedulePreviewFetch(ctx, "artifact", artifactId, url);
   if (toMusicEmbed(url) || (type !== "link" && type !== "video")) return;
-  // Instagram and TikTok stills come through convex/linkPreview.ts (which
-  // knows how to ask each provider); YouTube's comes from the resolver
-  // (img.youtube.com); Vimeo has none we can reach without a key and embeds
-  // fine without one. Anything else gets the plain og:image scrape below.
+  // Instagram, TikTok and Vimeo stills come through convex/linkPreview.ts
+  // (which knows how to ask each provider); YouTube's comes from the
+  // resolver (img.youtube.com). Anything else gets the plain og:image
+  // scrape below.
   if (wantsPreviewFetch(url)) {
     await schedulePreviewFetch(ctx, "artifact", artifactId, url);
     return;

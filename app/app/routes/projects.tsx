@@ -589,8 +589,8 @@ export function ProjectCard({
 }) {
   // The photo first, then the pasted link's still (the embed's, shown with its
   // play badge), then the project's cover as Today picks it (lib/projectPick.ts
-  // coverOf: a link's preview, else the first attached image — never an audio
-  // or link artifact, which has no picture) so both pages show the same one
+  // coverOf: a link's still, else the first piece's picture — its still, the
+  // image, or its YouTube video's thumbnail) so both pages show the same one
   // (docs/features/creator-media-cross-post.md, Round 2). The still is static
   // — a grid never loads a player.
   const photo = project.resolvedPhotoUrl ?? null;

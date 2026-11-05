@@ -126,6 +126,17 @@ const projects = [
     stage: "working",
     creator: { _id: "u-june", name: "June Park", imageUrl: "/campaign/june.jpg", interests: ["Music"], location: "San Diego" },
   }),
+  // Its only piece is a YouTube video: the card shows the video's still
+  // (convex/coverRules.ts), not the abstract cover.
+  project({
+    _id: "p-zoo",
+    title: "Field notes from the zoo",
+    blurb: "A short documentary, one take, nineteen seconds.",
+    interests: ["Film"],
+    stage: "working",
+    creator: { _id: "u-shua", name: "Shua Lim", imageUrl: "/campaign/shua.jpg", interests: ["Film"], location: "San Diego" },
+    media: [{ _id: "a-zoo", profileId: "u-shua", type: "video", mediaUrl: "https://www.youtube.com/watch?v=jNQXAC9IVRw", resolvedMediaUrl: "https://www.youtube.com/watch?v=jNQXAC9IVRw", order: 0, createdAt: now - 2 * DAY }],
+  }),
   // No picture, and posted as an organization: Today's post sets the title on
   // the abstract cover, and the maker's square is the logo's initial.
   project({

@@ -34,9 +34,10 @@ export interface VideoEmbed {
       tracking params and mobile hosts stripped — what gets stored, so two
       people pasting the same reel store the same string. */
   canonicalUrl: string;
-  /** A still for a card when the provider serves one without a key
-      (YouTube). Undefined otherwise; callers fall back to the artifact's
-      `ogImageUrl`, which the server fills for TikTok. */
+  /** A still for a card when the URL alone gives one (YouTube). Undefined
+      otherwise; callers fall back to the artifact's `ogImageUrl` or the
+      row's `mediaPreviewUrl`, which the server fills for Instagram, TikTok
+      and Vimeo (convex/linkPreview.ts). */
   thumbnailUrl?: string;
 }
 
@@ -56,6 +57,8 @@ export const EMBED_PROVIDER_LABEL: Record<EmbedKind, string> = {
 // ever gets through. The same discipline applies to the other three.
 const YOUTUBE_ID = /^[A-Za-z0-9_-]{6,24}$/;
 const VIMEO_ID = /^[0-9]{6,15}$/;
+/** An unlisted video's hash: the second part of vimeo.com/ID/HASH. */
+const VIMEO_HASH = /^[0-9a-f]{6,20}$/;
 const INSTAGRAM_CODE = /^[A-Za-z0-9_-]{5,20}$/;
 const TIKTOK_ID = /^[0-9]{15,22}$/;
 const TIKTOK_USER = /^@[A-Za-z0-9_.]{1,30}$/;
@@ -173,21 +176,45 @@ function youtube(url: URL): VideoEmbed | null {
 
 // ————— Vimeo —————
 
-function vimeo(url: URL): VideoEmbed | null {
+/** The video id and, for an unlisted video, its hash, from every shape of
+ * link Vimeo hands out (Rick, 2026-11-04: "make sure we can embed Vimeo
+ * videos via the link"). An unlisted video plays only with its hash, so it
+ * is kept. Anything else on the host (/user123, a vanity slug, an album
+ * page) is not one video and is left alone. */
+function vimeoParts(url: URL): { id?: string; hash?: string } {
   const parts = segments(url.pathname);
-  let id: string | null = null;
-  // player.vimeo.com/video/ID — already an embed URL.
-  if (parts[0] === "video" && parts.length >= 2) id = parts[1];
-  // vimeo.com/ID. Anything else on the host (/channels/…, /user123/…, a
-  // vanity slug) is not a plain video URL and is left alone.
-  else if (parts.length === 1) id = parts[0];
+  // player.vimeo.com/video/ID — already an embed URL (its ?h= is read below).
+  if (parts[0] === "video" && parts.length >= 2) return { id: parts[1] };
+  // vimeo.com/channels/NAME/ID
+  if (parts[0] === "channels" && parts.length === 3) return { id: parts[2] };
+  // vimeo.com/groups/NAME/videos/ID
+  if (parts[0] === "groups" && parts[2] === "videos" && parts.length === 4) return { id: parts[3] };
+  // vimeo.com/showcase/ALBUM/video/ID
+  if (parts[0] === "showcase" && parts[2] === "video" && parts.length === 4) return { id: parts[3] };
+  // vimeo.com/manage/videos/ID[/HASH] — the maker's own page for it.
+  if (parts[0] === "manage" && parts[1] === "videos" && (parts.length === 3 || parts.length === 4)) {
+    return { id: parts[2], hash: parts[3] };
+  }
+  // vimeo.com/ID, or vimeo.com/ID/HASH for an unlisted video.
+  if (parts.length === 1 || parts.length === 2) return { id: parts[0], hash: parts[1] };
+  return {};
+}
 
+function vimeo(url: URL): VideoEmbed | null {
+  const { id, hash: pathHash } = vimeoParts(url);
   if (!id || !VIMEO_ID.test(id)) return null;
+  // A second part of the path must be the hash: vimeo.com/ID/likes is not a
+  // video.
+  if (pathHash !== undefined && !VIMEO_HASH.test(pathHash)) return null;
+  // ?h=HASH, the player's form (sometimes on a page link too). One that isn't
+  // a hash is dropped and the video embeds without it, as before.
+  const queryHash = url.searchParams.get("h") ?? "";
+  const hash = pathHash ?? (VIMEO_HASH.test(queryHash) ? queryHash : undefined);
   return {
     kind: "vimeo",
-    embedUrl: `https://player.vimeo.com/video/${id}`,
+    embedUrl: `https://player.vimeo.com/video/${id}${hash ? `?h=${hash}` : ""}`,
     aspect: "16/9",
-    canonicalUrl: `https://vimeo.com/${id}`,
+    canonicalUrl: `https://vimeo.com/${id}${hash ? `/${hash}` : ""}`,
   };
 }
 

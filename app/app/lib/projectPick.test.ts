@@ -1,7 +1,39 @@
 import { describe, expect, it } from "vitest";
-import { canSaveProject, fundingOf, isProjectOwner, moneyOf } from "./projectPick";
+import { canSaveProject, coverOf, fundingOf, isProjectOwner, moneyOf } from "./projectPick";
 
 const money = (cents: number) => `$${(cents / 100).toLocaleString("en-US")}`;
+
+describe("coverOf", () => {
+  const YT = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+  const YT_STILL = "https://img.youtube.com/vi/dQw4w9WgXcQ/mqdefault.jpg";
+
+  it("shows a project whose only piece is a YouTube video by its thumbnail (Rick, 2026-11-04)", () => {
+    expect(coverOf({ media: [{ type: "video", mediaUrl: YT, resolvedMediaUrl: YT }] })).toBe(YT_STILL);
+  });
+
+  it("shows a project's own YouTube link by its thumbnail", () => {
+    expect(coverOf({ mediaUrl: YT, media: [] })).toBe(YT_STILL);
+  });
+
+  it("shows a piece's fetched still (a Vimeo video, an album)", () => {
+    expect(coverOf({ media: [{ type: "video", mediaUrl: "https://vimeo.com/123456789", ogImageUrl: "https://files.test/still" }] })).toBe(
+      "https://files.test/still",
+    );
+  });
+
+  it("keeps the photo first, then the link's still, then the first piece with a picture", () => {
+    const media = [
+      { type: "audio", resolvedMediaUrl: "https://files.test/song.mp3" },
+      { type: "image", resolvedMediaUrl: "https://files.test/photo.jpg" },
+    ];
+    expect(coverOf({ resolvedPhotoUrl: "https://files.test/own.jpg", mediaPreviewUrl: "https://files.test/reel", media })).toBe(
+      "https://files.test/own.jpg",
+    );
+    expect(coverOf({ mediaPreviewUrl: "https://files.test/reel", media })).toBe("https://files.test/reel");
+    expect(coverOf({ media })).toBe("https://files.test/photo.jpg");
+    expect(coverOf({ media: [{ type: "audio", resolvedMediaUrl: "https://files.test/song.mp3" }] })).toBeNull();
+  });
+});
 
 describe("fundingOf", () => {
   it("says what a passion project has raised against its goal", () => {

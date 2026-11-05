@@ -117,9 +117,45 @@ describe("toEmbedUrl — Vimeo", () => {
 
   it("rejects a non-numeric vimeo path", () => {
     expect(toEmbedUrl("https://vimeo.com/somechannel")).toBeNull();
-    expect(
-      toEmbedUrl("https://vimeo.com/channels/staffpicks/123456789"),
-    ).toBeNull();
+    expect(toEmbedUrl("https://vimeo.com/user221018181")).toBeNull();
+    expect(toEmbedUrl("https://vimeo.com/showcase/11223344")).toBeNull();
+  });
+
+  // Every shape of link Vimeo hands out plays (Rick, 2026-11-04).
+  it("plays an unlisted video, its hash kept, from the page link or the player link", () => {
+    const unlisted = {
+      kind: "vimeo",
+      embedUrl: "https://player.vimeo.com/video/123456789?h=a1b2c3d4e5",
+      canonicalUrl: "https://vimeo.com/123456789/a1b2c3d4e5",
+    };
+    expect(toEmbedUrl("https://vimeo.com/123456789/a1b2c3d4e5?share=copy")).toMatchObject(unlisted);
+    expect(toEmbedUrl("https://player.vimeo.com/video/123456789?h=a1b2c3d4e5&badge=0")).toMatchObject(unlisted);
+    expect(toEmbedUrl("https://vimeo.com/manage/videos/123456789/a1b2c3d4e5")).toMatchObject(unlisted);
+    expect(toEmbedUrl("https://vimeo.com/123456789?h=a1b2c3d4e5")).toMatchObject(unlisted);
+  });
+
+  it("plays a video linked from a channel, a group, a showcase or the maker's own page", () => {
+    for (const link of [
+      "https://vimeo.com/channels/staffpicks/123456789",
+      "https://vimeo.com/groups/shortfilms/videos/123456789",
+      "https://vimeo.com/showcase/11223344/video/123456789",
+      "https://vimeo.com/manage/videos/123456789",
+      "https://www.vimeo.com/123456789/",
+    ]) {
+      expect(toEmbedUrl(link), link).toMatchObject({
+        embedUrl: "https://player.vimeo.com/video/123456789",
+        canonicalUrl: "https://vimeo.com/123456789",
+      });
+    }
+  });
+
+  it("refuses a second part that isn't an unlisted hash, and drops an ?h= that isn't one", () => {
+    expect(toEmbedUrl("https://vimeo.com/123456789/likes")).toBeNull();
+    expect(toEmbedUrl("https://vimeo.com/123456789/a1b2\"onload")).toBeNull();
+    expect(toEmbedUrl("https://player.vimeo.com/video/123456789?h=x%22y")).toMatchObject({
+      embedUrl: "https://player.vimeo.com/video/123456789",
+      canonicalUrl: "https://vimeo.com/123456789",
+    });
   });
 });
 

@@ -24,6 +24,7 @@ import { Link, useLocation, useParams, useRouteError, useSearchParams } from "re
 import { api } from "../../convex/_generated/api";
 import { formatCents } from "../../convex/money";
 import { EMBED_PROVIDER_LABEL, toEmbedUrl } from "../lib/videoEmbed";
+import { linkStill } from "../../convex/coverRules";
 import { isAudioFileLink, toMusicEmbed } from "../lib/musicEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
@@ -166,11 +167,10 @@ function TrashIcon({ size = 14 }: { size?: number }) {
 }
 
 // A still for the hero when the page has nothing to play: the pasted link's
-// fetched still (`mediaPreviewUrl`, convex/linkPreview.ts), else the first
-// attached media's cover or fetched preview (`ogImageUrl`), the provider's
-// own thumbnail for a YouTube link, or the file itself. A pasted reel's page
-// URL is never an <img src> (convex/videoEmbed.ts) — before this, a video
-// link rendered a broken image.
+// still (convex/coverRules.ts linkStill: the fetched one, or a YouTube
+// link's own). A pasted reel's page URL is never an <img src>
+// (convex/videoEmbed.ts) — before this, a video link rendered a broken
+// image.
 /** The hero picture: the uploaded photo, else a still of the pasted link —
  *  unless that link plays on the page, or attached pieces play below. */
 function heroThumb(project: {
@@ -180,22 +180,9 @@ function heroThumb(project: {
   media?: any[];
 }): string | null {
   const hasPieces = (project.media?.length ?? 0) > 0;
-  return project.resolvedPhotoUrl || (toEmbedUrl(project.mediaUrl ?? undefined) || hasPieces ? null : mediaThumb(project));
+  return project.resolvedPhotoUrl || (toEmbedUrl(project.mediaUrl ?? undefined) || hasPieces ? null : linkStill(project));
 }
 
-function mediaThumb(project: { mediaPreviewUrl?: string | null; media?: any[] }): string | null {
-  if (project.mediaPreviewUrl) return project.mediaPreviewUrl;
-  for (const m of project.media ?? []) {
-    if (m.ogImageUrl) return m.ogImageUrl;
-    const embed = toEmbedUrl(m.mediaUrl ?? undefined);
-    if (embed) {
-      if (embed.thumbnailUrl) return embed.thumbnailUrl;
-      continue;
-    }
-    if (m.resolvedMediaUrl) return m.resolvedMediaUrl;
-  }
-  return null;
-}
 
 // The page's sections are tabs (lib/projectTabs.ts): About, Team (Dates for a
 // gig), Updates, and Support for a project. The chosen one lives in ?tab=.
