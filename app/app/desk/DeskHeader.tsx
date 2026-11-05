@@ -30,6 +30,7 @@ import { canCopyInvite, inviteRowLabel } from "../components/InviteCTA";
 import { useInviteLink } from "../lib/useInviteLink";
 import { GardenLockup } from "../brand/GardenMark";
 import { DeskFilterBar, browseCreate, isBrowseView, type BrowseView } from "./deskBrowse";
+import { LatestProjectsTheater } from "../components/LatestProjectsTheater";
 import { countLabel } from "./deskGreeting";
 import { GRID_SIDE } from "./deskLayout";
 import { COMMUNITY_LABEL, DESK_VIEW_LABEL, type DeskCommunity, type DeskView } from "./deskState";
@@ -191,6 +192,8 @@ export function DeskHeader({
               <div style={{ flex: 1, minWidth: 0 }}>
                 <DeskFilterBar view={view} />
               </div>
+              {/* Admins: play every listed project full screen. */}
+              {view === "projects" && <LatestProjectsTheater buttonClassName={`${VERB_CLASS} gap-2`} />}
               <CreateVerb view={view} />
             </>
           ) : (
