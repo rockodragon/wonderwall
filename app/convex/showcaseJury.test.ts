@@ -17,6 +17,8 @@ function world(viewer: string = ADMIN) {
         { _id: "profiles:admin", userId: ADMIN, name: "Ada", isAdmin: true },
         { _id: "profiles:maker", userId: MAKER, name: "Maker" },
       ],
+      // Mural has no photo of its own; its picture is a piece, as on its page.
+      artifacts: [{ _id: "artifacts:1", projectId: "projects:live", userId: MAKER, type: "image", mediaUrl: "https://pics.example/mural.jpg", createdAt: 1 }],
       projectSupport: [
         { _id: "projectSupport:1", projectId: "projects:done", supporterName: "Fan", type: "encouragement", status: "confirmed", visible: true, createdAt: 1 },
         { _id: "projectSupport:2", projectId: "projects:done", supporterName: "Fan", type: "financial_one_time", status: "confirmed", visible: true, createdAt: 1 },
@@ -42,6 +44,12 @@ describe("the ballot", () => {
     expect(rows[0].byName).toBe("Maker");
     expect(rows[0].status).toBe("new");
     expect(rows[0].tally).toEqual({ yes: 0, maybe: 0, no: 0 });
+  });
+
+  it("finds the picture the way the project's own page does: a piece when there is no photo", async () => {
+    const rows = await run(adminList, world());
+    expect(rows.find((r: any) => r.title === "Mural").photoUrl).toBe("https://pics.example/mural.jpg");
+    expect(rows.find((r: any) => r.title === "Short film").photoUrl).toBeNull();
   });
 
   it("shows the public's vote: the cheers and backers people gave", async () => {

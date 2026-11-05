@@ -27,7 +27,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { query, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { BudgetDeclaration } from "../app/lib/budgetLabel";
-import { coverOf } from "../app/lib/projectPick";
+import { projectCoverUrl } from "./projectCover";
 import { resolveStage } from "../app/lib/stage";
 import { hasEnded } from "../app/lib/shortlist/needsYou";
 import { recruitmentNextAction } from "../app/lib/shortlist/recruitment";
@@ -57,7 +57,7 @@ import { isHidden, isPostedProject, isShownProject } from "./moderationRules";
 import { feedLocation } from "./eventAddress";
 import { getProfileByUserId } from "./helpers";
 import { hasRealName } from "./names";
-import { eventCoverUrl, pieceMediaUrl, profileImageUrl, projectPhotoUrl } from "./images";
+import { eventCoverUrl, profileImageUrl } from "./images";
 import { toEmbedUrl } from "./videoEmbed";
 
 // ——————————————————————————————————————————————————————————————
@@ -245,29 +245,6 @@ async function toPerson(ctx: QueryCtx, profile: Doc<"profiles">): Promise<Shortl
     imageUrl: await profileImageUrl(ctx, profile),
     interests: profile.interests,
   };
-}
-
-/** The desk's picture for a project (coverOf): its photo, a pasted link's
- * still, then its first image artifact, each resolved the way listProjects
- * resolves it. Artifacts are read only when the first two are missing. */
-async function projectCoverUrl(ctx: QueryCtx, project: Doc<"projects">): Promise<string | null> {
-  const resolvedPhotoUrl = await projectPhotoUrl(ctx, project);
-  const cover = { resolvedPhotoUrl, mediaPreviewUrl: project.mediaPreviewUrl };
-  const quick = coverOf({ ...cover, media: [] });
-  if (quick !== null) return quick;
-  const artifacts = await ctx.db
-    .query("artifacts")
-    .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
-    .collect();
-  const media = await Promise.all(
-    artifacts
-      .filter((a) => a.type === "image")
-      .map(async (a) => ({
-        type: a.type,
-        resolvedMediaUrl: await pieceMediaUrl(ctx, a),
-      })),
-  );
-  return coverOf({ ...cover, media });
 }
 
 /** The desk's picture for an event: its cover, else its first gallery image
