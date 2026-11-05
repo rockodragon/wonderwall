@@ -46,10 +46,10 @@ describe("portfolioSlides", () => {
       { _id: "a1", type: "image", mediaUrl: "https://cdn/track.jpg", projectId: "p2", createdAt: 250 },
       { _id: "loose", type: "image", mediaUrl: "https://cdn/old.jpg", createdAt: 10 },
     ];
-    const slides = portfolioSlides(pieces, projects);
+    const slides = portfolioSlides(pieces, projects, "Marta Reyes");
     expect(slides.map((s) => s.key)).toEqual(["p1", "a1", "loose"]);
     // A piece takes its project's name when it has none, and links to it.
-    expect(slides[1]).toMatchObject({ title: "Album", projectId: "p2" });
+    expect(slides[1]).toMatchObject({ title: "Album", projectId: "p2", by: "Marta Reyes" });
   });
 
   it("keeps out hire posts and pieces of projects the page doesn't list", () => {
@@ -72,6 +72,7 @@ describe("projectSlides", () => {
       title: "Mural",
       resolvedPhotoUrl: "https://cdn/mural.jpg",
       mediaUrl: YT,
+      creator: { _id: "pr-ana", name: "Ana Reyes" },
       media: [
         { _id: "same", type: "image", resolvedMediaUrl: "https://cdn/mural.jpg" },
         { _id: "detail", type: "image", resolvedMediaUrl: "https://cdn/detail.jpg" },
@@ -79,6 +80,7 @@ describe("projectSlides", () => {
     });
     expect(slides.map((s) => s.key)).toEqual(["p:photo", "p:link", "detail"]);
     expect(slides.every((s) => s.projectId === null)).toBe(true);
+    expect(slides.every((s) => s.by === "Ana Reyes")).toBe(true);
   });
 });
 

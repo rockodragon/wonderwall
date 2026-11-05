@@ -18,6 +18,7 @@ import {
 } from "../components/admin/DestinationCards";
 import { MembersTable } from "../components/admin/MembersTable";
 import { CountsPanel } from "../components/admin/CountsPanel";
+import { LatestProjectsTheater } from "../components/LatestProjectsTheater";
 import { Binoculars, ChatsCircle, CopySimple, HourglassMedium, Megaphone, PaperPlaneTilt, Plant, Pulse, Receipt, Trophy } from "@phosphor-icons/react";
 
 // Where each admin tool lives. A grid of cards, not a column of rows.
@@ -220,7 +221,12 @@ export default function AdminPage() {
 
   return (
     <AdminFrame>
-      <AdminHeader title="Admin Dashboard" sub={`Total Users: ${users.length}`} />
+      <AdminHeader
+        title="Admin Dashboard"
+        sub={`Total Users: ${users.length}`}
+        // Every listed project, full screen, newest first.
+        actions={<LatestProjectsTheater buttonClassName={`${admin.btnSecondary} inline-flex items-center gap-2`} />}
+      />
 
       {deleteStatus && (
         <AdminNotice tone="ok" className="mb-6">
