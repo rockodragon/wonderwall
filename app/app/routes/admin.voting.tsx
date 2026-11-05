@@ -9,8 +9,9 @@
 // and your own vote held selected.
 //
 // A card is two columns: the work on the left — the picture a quarter of
-// the width and flush to the card's edge (convex/projectCover.ts, the same
-// picture its page shows), title, who it's by, and what people did about
+// the width and flush to the card's edge, shown whole (convex/projectCover.ts,
+// the same picture its page shows; on a phone, the full-width 4:5 cover on
+// top), title, who it's by, and what people did about
 // it, since cheers and backers are the public's vote — and everything the
 // jury does on the right: your vote, your note, the decision. Voting and deciding stay separate
 // (projects.showcaseStatus in schema.ts): the tally is the jury's opinion,
@@ -38,6 +39,7 @@ import {
   AdminLoading,
   AdminNotice,
 } from "../components/admin/AdminUi";
+import { ProjectCover } from "../components/ProjectPost";
 import { errorMessage } from "../lib/convexError";
 import {
   SORTS,
@@ -128,16 +130,17 @@ function ProjectCard({
           : "border-[color:var(--app-hairline)]"
       }`}
     >
-      {/* The work. The picture fills its column top to bottom, cropped to
-          fill as the project lists show it; a banner on a phone. */}
-      <div className="relative h-44 w-full shrink-0 bg-[var(--app-surface)] md:h-auto md:w-1/4 md:self-stretch">
-        {p.photoUrl && (
-          <img
-            src={p.photoUrl}
-            alt=""
-            className="h-full w-full object-cover md:absolute md:inset-0"
-          />
-        )}
+      {/* The work. The picture shown whole (ProjectCover): the full-width
+          4:5 cover on a phone, filling its column from md up. A project
+          with no picture gets the abstract cover the Projects tab gives it,
+          never an empty box (Rick, 2026-11-04: a strip on a phone cropped
+          the picture and a project without one was a black box). */}
+      <div className="relative w-full shrink-0 md:w-1/4 md:self-stretch">
+        <ProjectCover
+          cover={p.photoUrl}
+          seed={p._id}
+          className="md:absolute md:inset-0 md:aspect-auto"
+        />
       </div>
       <div className="min-w-0 flex-1 p-5">
           <div className="flex flex-wrap items-center gap-2">
