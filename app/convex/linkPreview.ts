@@ -40,6 +40,7 @@ import { isSafeHttpUrl, normalizeUrl } from "./garden/richText";
 import { isTikTokShortLink, toEmbedUrl } from "./videoEmbed";
 import { bandcampPlayerLink, isBandcampPageLink, toMusicEmbed } from "./musicEmbed";
 import { storedFileUrl } from "./images";
+import { scheduleProjectEmbedding } from "./searchIndexing";
 import { claimFor, deleteStoredFile } from "./uploads";
 
 export type PreviewTarget = "artifact" | "event" | "project";
@@ -377,9 +378,11 @@ export const apply = internalMutation({
           if (project && /^Untitled( video| link| audio)?$/.test(project.title)) {
             await ctx.db.patch(project._id, { title: args.title, updatedAt: Date.now() });
           }
+          // The project's title or its piece's title changed: both are search text.
+          await scheduleProjectEmbedding(ctx, artifact.projectId);
         }
         // It has words now — index it, as artifacts.create would have.
-        await ctx.scheduler.runAfter(0, api.embeddings.embedArtifact, { artifactId: id });
+        await ctx.scheduler.runAfter(0, internal.embeddings.embedArtifact, { artifactId: id });
       }
       return;
     }

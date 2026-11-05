@@ -5,7 +5,9 @@ import { currentUserId, getProfileByUserId, isOwnerOrAdmin, requireProfile, requ
 import { hasRealName } from "./names";
 import { INVALID_EMAIL, isValidEmail } from "./emailAddress";
 import { fail } from "./errors";
-import type { Doc } from "./_generated/dataModel";
+import { scheduleProfileEmbedding } from "./searchIndexing";
+import { rankByQuery, type SearchHit } from "./searchRules";
+import type { Doc, Id } from "./_generated/dataModel";
 import { profileForHandle } from "./handles";
 import { normalizeHandle, PAYOUT_KINDS, type PayoutHandles } from "./garden/gigRules";
 import { fillOrgWebsite, linkOrgByName, profileOrganizations, unlinkPrimaryOrg } from "./organizations";
@@ -255,6 +257,7 @@ export const fillMissingBasics = mutation({
       const profile = await getProfileByUserId(ctx, userId);
       if (profile && !hasRealName(profile.name)) {
         await ctx.db.patch(profile._id, { name, updatedAt: Date.now() });
+        await scheduleProfileEmbedding(ctx, profile._id);
       }
     }
   },
@@ -377,7 +380,7 @@ export const upsertProfile = mutation({
     }
 
     // Schedule embedding generation
-    await ctx.scheduler.runAfter(0, api.embeddings.embedProfile, { profileId });
+    await scheduleProfileEmbedding(ctx, profileId);
 
     return profileId;
   },
@@ -431,7 +434,12 @@ type DirectoryFilter = {
   communitySlug?: string;
   /** Near me: within `radius` miles of lat/lng, nearest first. */
   near?: { lat: number; lng: number; radius: number };
+  /** People smartSearch.rank found by meaning, with their scores. */
+  ranked?: readonly (SearchHit & { id: Id<"profiles"> })[];
 };
+
+/** The most ranked hits a directory call takes (Convex's vector-search maximum). */
+const MAX_RANKED = 256;
 
 /** How many name matches search returns (the org page's "Add a person"). */
 const SEARCH_LIMIT = 30;
@@ -474,28 +482,6 @@ async function directoryPeople(ctx: QueryCtx, filter: DirectoryFilter, signedIn:
     profiles = profiles.filter((p) => p.location?.toLowerCase().includes(place));
   }
 
-  // A visitor's one-letter search is no search (searchedText), so a sweep
-  // through the alphabet can't page the directory 24 at a time.
-  const text = searchedText(filter.query, signedIn);
-  if (text) {
-    // What each person is wondering is searched too.
-    const wonderings = await ctx.db
-      .query("wonderings")
-      .filter((q) => q.eq(q.field("isActive"), true))
-      .collect();
-    const wonderingOf = new Map(wonderings.map((w) => [String(w.profileId), w.prompt]));
-    const q = text.toLowerCase();
-    profiles = profiles.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.bio?.toLowerCase().includes(q) ||
-        p.interests.some((interest) => interest.toLowerCase().includes(q)) ||
-        p.location?.toLowerCase().includes(q) ||
-        p.orgName?.toLowerCase().includes(q) ||
-        wonderingOf.get(String(p._id))?.toLowerCase().includes(q),
-    );
-  }
-
   // Latest activity, from what their profile shows: a project or event
   // posted into a hidden (test) community counts only for those who may see it.
   const [projects, events] = await Promise.all([
@@ -506,12 +492,34 @@ async function directoryPeople(ctx: QueryCtx, filter: DirectoryFilter, signedIn:
       .collect(),
   ]);
   const latest = latestPostAt(await gate.filter(projects), await gate.filter(events));
-  const ordered = byLatestActivity(profiles.map(toPublicProfile), latest);
+  let ordered = byLatestActivity(profiles, latest).map(toPublicProfile);
 
-  // The pages' own Discipline and Near me cut, run over everyone who matches.
+  // The Discipline cut comes BEFORE the search, so the search's score window
+  // is measured among the people the list can show.
+  ordered = filterProfiles(ordered, { interests: filter.interests ?? [] });
+
+  // Search (searchRules.ts): the people whose name or organization starts
+  // with the words typed, in activity order, then the ones the app's
+  // smartSearch.rank found by meaning, closest first. `ranked` only orders
+  // and admits people already listed above; an id outside the list adds
+  // no one. A visitor's one-letter search is no search (searchedText), so a
+  // sweep through the alphabet can't page the directory 24 at a time. A
+  // visitor's `ranked` is ignored too: rank is a signed-in call.
+  const text = searchedText(filter.query, signedIn);
+  if (text) {
+    ordered = rankByQuery(ordered, {
+      query: text,
+      id: (p) => String(p._id),
+      names: (p) => [p.name, p.orgName],
+      ranked: signedIn ? filter.ranked?.slice(0, MAX_RANKED) : undefined,
+    });
+  }
+
+  // Near me last. With a search it therefore reads nearest-first: withinRadius
+  // sorts by distance, replacing the name-then-meaning order.
   const near = filter.near;
   const people: (PublicProfile & { _distance?: number })[] = filterProfiles(ordered, {
-    interests: filter.interests ?? [],
+    interests: [],
     near: near ? { pos: { lat: near.lat, lng: near.lng }, radius: near.radius } : null,
   });
   return people;
@@ -548,6 +556,8 @@ export const directory = query({
     interests: v.optional(v.array(v.string())),
     communitySlug: v.optional(v.string()),
     near: v.optional(v.object({ lat: v.number(), lng: v.number(), radius: v.number() })),
+    // smartSearch.rank's people for `query` with their scores (at most 256 are used).
+    ranked: v.optional(v.array(v.object({ id: v.id("profiles"), score: v.number() }))),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {

@@ -18,13 +18,15 @@ describe("the lists name every field that points at an account", () => {
     // summaries are redone from the moved conversations
     // (resummarizeConversations); emailDeliveries.blockedUserId is a send's
     // sender, kept as it was in a log that grows with every email and has no
-    // index on it.
+    // index on it; searchCalls is the smart-search throttle (a minute of
+    // rows per person, pruned by their next search), not worth moving.
     const handledElsewhere = [
       "profiles.userId",
       "eventCoHosts.userId",
       "conversationParticipants.userId",
       "conversationParticipants.otherUserId",
       "emailDeliveries.blockedUserId",
+      "searchCalls.userId",
     ];
     const listed = USER_ID_FIELDS.map((f) => `${f.table}.${f.field}`);
     expect([...new Set([...listed, ...handledElsewhere])].sort()).toEqual(schemaFieldsPointingAt("users"));

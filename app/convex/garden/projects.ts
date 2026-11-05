@@ -37,6 +37,8 @@ import { canonicalMediaUrl, schedulePreviewFetch } from "../linkPreview";
 import { currentUserId, displayNameOf, getProfileByUserId, isAdmin, requireOwner } from "../helpers";
 import { placeForViewer, projectVisibleTo, seesProjectAddress } from "./projectVisibility";
 import { insertNotification } from "../notify";
+import { scheduleProjectEmbedding } from "../searchIndexing";
+import { DIRECTORY_PAGE } from "../directoryRules";
 import { isHidden, isListedProject } from "../moderationRules";
 import { communityVisibility, isHiddenCommunityId } from "./communityVisibility";
 import { audioNoteUrl, pieceMediaUrl, profileImageUrl, projectPhotoUrl } from "../images";
@@ -201,6 +203,7 @@ export const createPassionProject = mutation({
     });
     // The still for the card (Instagram, TikTok); a no-op for the rest.
     await schedulePreviewFetch(ctx, "project", id, mediaUrl);
+    await scheduleProjectEmbedding(ctx, id);
     await notifyFollowersOfProject(ctx, userId, id, args.title, args.hostOrgId);
     await trackEvent(ctx, "project_created", userId, { kind: "passion", project_id: id, community_id: args.hostOrgId ?? null });
     return { projectId: id, storySlug };
@@ -326,6 +329,7 @@ export const updateProject = mutation({
 
     await ctx.db.patch(args.projectId, patch);
     await schedulePreviewFetch(ctx, "project", args.projectId, fetchPreviewFor);
+    await scheduleProjectEmbedding(ctx, args.projectId);
     return { ok: true };
   },
 });
@@ -464,14 +468,30 @@ async function summarizeAsks(
   };
 }
 
+/** Every project the browse lists show this caller: a listed status
+ * (isListedProject), and one posted into a hidden (test) community only for
+ * admins and that community's members. */
+async function listedProjects(ctx: QueryCtx) {
+  const all = await ctx.db.query("projects").collect();
+  return await communityVisibility(ctx).filter(all.filter(isListedProject));
+}
+
+/** How many projects the browse lists hold for this caller, so a visitor's
+ * page can say how many more there are past their first page. */
+export const listedProjectCount = query({
+  args: {},
+  handler: async (ctx) => (await listedProjects(ctx)).length,
+});
+
 export const listProjects = query({
   args: {},
   handler: async (ctx) => {
-    const allProjects = await ctx.db.query("projects").collect();
-    const posted = allProjects.filter(isListedProject);
-    // A project posted into a hidden (test) community is listed only for
-    // admins and that community's members.
-    const projects = await communityVisibility(ctx).filter(posted);
+    const viewerId = await getAuthUserId(ctx);
+    // A visitor gets the newest page (DIRECTORY_PAGE, as on People) and
+    // /projects tells them how many more there are and to join
+    // (listedProjectCount). A member gets them all.
+    const listed = await listedProjects(ctx);
+    const projects = viewerId ? listed : [...listed].sort((a, b) => b.createdAt - a.createdAt).slice(0, DIRECTORY_PAGE);
 
     // One ctx.db.get per DISTINCT community, not one per project (several
     // posted projects can share a community).
@@ -481,7 +501,6 @@ export const listProjects = query({
     // The respond/apply gate for a signed-in viewer, so a card can say
     // "Members respond" before anyone opens it. Membership is per community,
     // so one lookup per distinct community, not per project.
-    const viewerId = await getAuthUserId(ctx);
     // The list is public: a row's exact place is for its lead and admins
     // (placeForViewer). The viewer's admin flag is read once, not per row.
     const viewerIsAdmin = viewerId ? await isAdmin(ctx, viewerId) : false;
@@ -818,6 +837,7 @@ export const createPaidProject = mutation({
     });
     // The still for the card (Instagram, TikTok); a no-op for the rest.
     await schedulePreviewFetch(ctx, "project", id, mediaUrl);
+    await scheduleProjectEmbedding(ctx, id);
     await notifyFollowersOfProject(ctx, userId, id, args.title, args.hostOrgId);
     await trackEvent(ctx, "project_created", userId, { kind: "paid", project_id: id, community_id: args.hostOrgId ?? null });
     return { projectId: id, storySlug };

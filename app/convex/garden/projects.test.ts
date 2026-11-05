@@ -13,7 +13,8 @@
 
 import { describe, expect, it } from "vitest";
 import { makeCtx, run, type Row } from "../../test-support/convexContext";
-import { getProject, listProjects, validateBudgetDeclaration } from "./projects";
+import { getProject, listProjects, listedProjectCount, validateBudgetDeclaration } from "./projects";
+import { DIRECTORY_PAGE } from "../directoryRules";
 import { getSchedule } from "./gigs";
 import { listTiers } from "./patronTiers";
 import { listProjectUpdates } from "./stories";
@@ -312,5 +313,43 @@ describe("getProject and listProjects on the public project pages", () => {
 
   it("lets a visitor read an ordinary project's updates, supporters, tiers and dates", async () => {
     expect(await pageReads({}, null)).toEqual(EVERYTHING);
+  });
+});
+
+describe("a visitor's page of projects", () => {
+  const MAKER = "users:maker";
+  const MEMBER = "users:member";
+  function many(n: number): Record<string, Row[]> {
+    return {
+      profiles: [
+        { _id: "profiles:maker", userId: MAKER, name: "Maker", interests: [] },
+        { _id: "profiles:member", userId: MEMBER, name: "Member", interests: [] },
+      ],
+      projects: [
+        ...Array.from({ length: n }, (_, i) => ({
+          _id: `projects:p${i}`, userId: MAKER, kind: "passion", origin: "posted", title: `Project ${i}`,
+          status: "active", createdAt: i, updatedAt: i,
+        })),
+        // Not listed: never counted, never shown.
+        { _id: "projects:draft", userId: MAKER, kind: "passion", title: "Draft", status: "draft", createdAt: 999, updatedAt: 999 },
+      ],
+    };
+  }
+
+  it("is the newest page for someone signed out, and all of them for a member", async () => {
+    const visitor = await run(listProjects, makeCtx(many(30), null));
+    expect(visitor).toHaveLength(DIRECTORY_PAGE);
+    expect(visitor[0].title).toBe("Project 29");
+    expect(visitor.at(-1).title).toBe(`Project ${30 - DIRECTORY_PAGE}`);
+    expect(await run(listProjects, makeCtx(many(30), MEMBER))).toHaveLength(30);
+  });
+
+  it("counts every listed project for either, so a visitor can be told how many more", async () => {
+    expect(await run(listedProjectCount, makeCtx(many(30), null))).toBe(30);
+    expect(await run(listedProjectCount, makeCtx(many(30), MEMBER))).toBe(30);
+  });
+
+  it("is everything when there is less than a page", async () => {
+    expect(await run(listProjects, makeCtx(many(5), null))).toHaveLength(5);
   });
 });

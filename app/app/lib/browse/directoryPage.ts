@@ -31,6 +31,15 @@ export function moreCreativesLine(remaining: number): string {
 /** The link after it, to sign up and come back (lib/pendingIntent signupHref). */
 export const JOIN_TO_SEE_EVERYONE = "Join free to see everyone.";
 
+/** /projects for a visitor, who gets one page (DIRECTORY_PAGE) as on People:
+ * "191 more projects here." */
+export function moreProjectsLine(remaining: number): string {
+  return `${remaining} more ${remaining === 1 ? "project" : "projects"} here.`;
+}
+
+/** The button after it, to sign up and come back. */
+export const JOIN_TO_SEE_ALL_PROJECTS = "Join free to see them all";
+
 /** A member at DIRECTORY_MAX: "200 more creatives here. Search or pick a discipline to find them." */
 export function cappedLine(remaining: number): string {
   return `${moreCreativesLine(remaining)} Search or pick a discipline to find them.`;

@@ -28,6 +28,8 @@ const person = (n: number, extra: Partial<ProfileRow> = {}): ProfileRow => ({
   ...extra,
 });
 
+const hits = (...ids: string[]) => ids.map((id, i) => ({ id, score: 0.5 - i * 0.001 }));
+
 describe("directoryCard", () => {
   it("labels only the people the member follows; the rest open on their discipline", () => {
     expect(directoryCard(person(1), false).face.kicker).toBe("");
@@ -72,10 +74,19 @@ describe("peopleCards", () => {
   it("takes the Discipline filter on the people you follow", () => {
     expect(ids(peopleCards({ ...base, following: true, interests: ["Film", "Visual Art"] }))).toEqual(["person:u2", "person:u3"]);
   });
-  it("searches the people you follow by name and interest, with no Near me", () => {
+  it("searches the people you follow by the words of their name, with no Near me", () => {
     const followed = { ...base, following: true };
     expect(ids(peopleCards({ ...followed, query: "maya" }))).toEqual(["person:u3"]);
-    expect(ids(peopleCards({ ...followed, query: "film" }))).toEqual(["person:u2"]);
+    expect(ids(peopleCards({ ...followed, query: "ma li" }))).toEqual(["person:u3"]);
+    expect(ids(peopleCards({ ...followed, query: "film" }))).toEqual([]);
+    // Then by meaning: name hits first, ranked ids after, closest first; strangers never added.
+    expect(ids(peopleCards({ ...followed, query: "film", ranked: hits("u2", "nobody") }))).toEqual(["person:u2"]);
+    expect(ids(peopleCards({ ...followed, query: "maya", ranked: hits("u2", "u3", "u1") }))).toEqual(["person:u3", "person:u2", "person:u1"]);
+    // The window is measured after the Discipline cut: a better match outside it doesn't push one out.
+    const cutRanked = [{ id: "u2", score: 0.9 }, { id: "u3", score: 0.5 }];
+    expect(ids(peopleCards({ ...followed, query: "film", ranked: cutRanked, interests: ["Visual Art"] }))).toEqual(["person:u3"]);
+    // Everyone is searched by the server, not here.
+    expect(ids(peopleCards({ ...base, query: "film", ranked: hits("u2") }))).toEqual(["person:u1", "person:u2", "person:u3"]);
     expect(ids(peopleCards(followed))).toEqual(["person:u1", "person:u2", "person:u3"]);
     expect(peopleCards(followed).every((c) => c.face.kicker === "FOLLOWING")).toBe(true);
   });
@@ -348,8 +359,10 @@ describe("projectsCards", () => {
     expect(plain.face.kicker).toBe("");
     expect(plain.detail.facts?.some((f) => f.label === "Paid role")).toBe(false);
   });
-  it("searches the title and description", () => {
-    expect(ids(projectsCards({ ...base, query: "making" }))).toEqual(["project:a", "project:b"]);
+  it("searches by title words, then by meaning", () => {
+    expect(ids(projectsCards({ ...base, query: "making" }))).toEqual([]);
+    expect(ids(projectsCards({ ...base, query: "making", ranked: hits("b", "a", "zzz") }))).toEqual(["project:b", "project:a"]);
+    expect(ids(projectsCards({ ...base, query: "harb", ranked: hits("b") }))).toEqual(["project:a", "project:b"]);
     expect(ids(projectsCards({ ...base, query: "nothing like it" }))).toEqual([]);
   });
   it("gives every card the Projects section", () => {

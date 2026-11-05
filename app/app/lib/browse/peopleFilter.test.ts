@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { INTERESTS } from "../../constants/interests";
-import { INTEREST_OPTIONS, filterProfiles, matchesPersonQuery, onlyIds } from "./peopleFilter";
+import { INTEREST_OPTIONS, filterProfiles, onlyIds } from "./peopleFilter";
 import { distanceLabel, withinRadius } from "./nearMe";
 
 // Around Nashville: about 0 mi, ~3 mi, ~ 20 mi, and far away.
@@ -59,19 +59,5 @@ describe("distanceLabel", () => {
     expect(distanceLabel(12.4)).toBe("12 mi");
     expect(distanceLabel(Infinity)).toBeNull();
     expect(distanceLabel(undefined)).toBeNull();
-  });
-});
-
-describe("matchesPersonQuery", () => {
-  const p = { name: "Maya Lin", interests: ["Visual Art", "other:Ceramics"] };
-  it("matches a name or an interest, ignoring case and padding", () => {
-    expect(matchesPersonQuery(p, "  maya ")).toBe(true);
-    expect(matchesPersonQuery(p, "visual")).toBe(true);
-    expect(matchesPersonQuery(p, "ceramics")).toBe(true);
-    expect(matchesPersonQuery(p, "drummer")).toBe(false);
-  });
-  it("matches everyone for an empty search", () => {
-    expect(matchesPersonQuery(p, "")).toBe(true);
-    expect(matchesPersonQuery(p, "   ")).toBe(true);
   });
 });

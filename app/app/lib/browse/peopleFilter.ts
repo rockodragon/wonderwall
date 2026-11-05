@@ -33,15 +33,3 @@ export function filterProfiles<T extends Locatable>(
 export function onlyIds<T extends { _id: string }>(items: readonly T[], ids: ReadonlySet<string>): T[] {
   return items.filter((item) => ids.has(String(item._id)));
 }
-
-/**
- * A person's name or one of their interests contains `query`. That is all a
- * row from the list of people you follow carries (no bio or place), so it is
- * what Following searches by; Everyone's search runs on the server, which also
- * reads bio, place, organization and what they are wondering.
- */
-export function matchesPersonQuery(p: { name: string; interests: readonly string[] }, query: string): boolean {
-  const q = query.trim().toLowerCase();
-  if (!q) return true;
-  return p.name.toLowerCase().includes(q) || p.interests.some((interest) => interest.toLowerCase().includes(q));
-}

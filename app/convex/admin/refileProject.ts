@@ -53,7 +53,7 @@
 // project is not hidden twice.
 
 import { v } from "convex/values";
-import { api } from "../_generated/api";
+import { scheduleProfileEmbedding } from "../searchIndexing";
 import { internalMutation, type MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { fail } from "../errors";
@@ -224,7 +224,7 @@ export const toProfileBio = internalMutation({
 
     await ctx.db.patch(lead._id, { bio: text, updatedAt: Date.now() });
     // Search reads the bio through the profile's embedding, as profiles.ts does after a save.
-    await ctx.scheduler.runAfter(0, api.embeddings.embedProfile, { profileId: lead._id });
+    await scheduleProfileEmbedding(ctx, lead._id);
     return {
       dryRun: false,
       profileId: lead._id,

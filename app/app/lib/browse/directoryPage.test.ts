@@ -6,6 +6,7 @@ import {
   directoryEnd,
   directoryNear,
   moreCreativesLine,
+  moreProjectsLine,
   searchHint,
 } from "./directoryPage";
 
@@ -43,6 +44,8 @@ describe("the join line", () => {
   it("says how many more, in the plural only when there are", () => {
     expect(moreCreativesLine(76)).toBe("76 more creatives here.");
     expect(moreCreativesLine(1)).toBe("1 more creative here.");
+    expect(moreProjectsLine(191)).toBe("191 more projects here.");
+    expect(moreProjectsLine(1)).toBe("1 more project here.");
     expect(`${moreCreativesLine(76)} ${JOIN_TO_SEE_EVERYONE}`).toBe("76 more creatives here. Join free to see everyone.");
   });
 });

@@ -508,18 +508,29 @@ export default defineSchema({
     .index("by_inviterId_usedBy", ["inviterId", "usedBy"])
     .index("by_usedAt", ["usedAt"]),
 
-  // Embeddings for semantic search
+  // One row per smart search a person ran, to cap them per minute
+  // (smartSearch.takeSearchSlot). Rows older than a minute are pruned.
+  searchCalls: defineTable({
+    userId: v.id("users"),
+    at: v.number(),
+  }).index("by_userId_at", ["userId", "at"]),
+
+  // Embeddings for smart search (convex/embeddings.ts, searchRules.ts)
   embeddings: defineTable({
-    entityType: v.string(), // "profile" | "artifact" | "wondering"
+    entityType: v.string(), // "profile" | "project" | "artifact" | "wondering"
     entityId: v.string(), // ID of the entity
     vector: v.array(v.float64()),
     content: v.string(), // the text that was embedded
+    // The model that made `vector` (searchRules.SEARCH_MODEL). Absent on
+    // rows from before 2026-11-04 (ada-002); a search ignores any vector
+    // whose model isn't the current one, since two models don't compare.
+    model: v.optional(v.string()),
     updatedAt: v.number(),
   })
     .index("by_entity", ["entityType", "entityId"])
     .vectorIndex("by_vector", {
       vectorField: "vector",
-      dimensions: 1536, // OpenAI ada-002
+      dimensions: 1536, // OpenAI text-embedding-3-small (ada-002 before 2026-11-04)
       filterFields: ["entityType"],
     }),
 

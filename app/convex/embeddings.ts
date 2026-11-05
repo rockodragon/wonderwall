@@ -1,16 +1,30 @@
 import { v } from "convex/values";
-import {
-  action,
-  internalMutation,
-  internalQuery,
-  query,
-} from "./_generated/server";
+import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { pieceMediaUrl, profileImageUrl } from "./images";
+import { getProfileByUserId } from "./helpers";
+import { richDocPlainText } from "./garden/richText";
+import { placeForViewer } from "./garden/projectVisibility";
+import {
+  SEARCH_MODEL,
+  embeddingIsCurrent,
+  profileSearchText,
+  projectSearchText,
+} from "./searchRules";
 
-// Generate embeddings using OpenAI
-async function generateEmbedding(text: string): Promise<number[]> {
+// Embeddings: what smart search (convex/smartSearch.ts, rules in
+// convex/searchRules.ts) compares a search against. A profile's and a
+// project's are rewritten when they change (embedProfile, embedProject,
+// scheduled by the writes) and skipped when the text and model are the
+// same as what is stored. Pieces and wonderings keep their own (embedArtifact,
+// embedWondering); nothing searches those yet.
+//
+// Everything here is internal: only the server schedules an embedding, and
+// a search goes through smartSearch.rank.
+
+/** One OpenAI embedding of `text` with SEARCH_MODEL. Throws when the key is
+ * missing or the call fails; callers decide what that means. */
+export async function generateEmbedding(text: string): Promise<number[]> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY not configured");
@@ -23,7 +37,7 @@ async function generateEmbedding(text: string): Promise<number[]> {
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "text-embedding-ada-002",
+      model: SEARCH_MODEL,
       input: text.slice(0, 8000), // Limit input to avoid token limits
     }),
   });
@@ -35,22 +49,6 @@ async function generateEmbedding(text: string): Promise<number[]> {
 
   const data = await response.json();
   return data.data[0].embedding;
-}
-
-// Build searchable content from profile
-function buildProfileContent(profile: {
-  name: string;
-  bio?: string;
-  interests: string[];
-  location?: string;
-}): string {
-  const parts = [
-    profile.name,
-    profile.bio,
-    profile.interests.join(", "),
-    profile.location,
-  ].filter(Boolean);
-  return parts.join(" | ");
 }
 
 // Build searchable content from wondering
@@ -68,7 +66,7 @@ function buildArtifactContent(artifact: {
   return parts.join(" | ") || artifact.type;
 }
 
-// Internal mutation to save embedding
+/** Writes (or rewrites) the one embedding an entity has. */
 export const saveEmbedding = internalMutation({
   args: {
     entityType: v.string(),
@@ -77,37 +75,79 @@ export const saveEmbedding = internalMutation({
     content: v.string(),
   },
   handler: async (ctx, args) => {
-    // Check if embedding already exists
     const existing = await ctx.db
       .query("embeddings")
       .withIndex("by_entity", (q) =>
         q.eq("entityType", args.entityType).eq("entityId", args.entityId),
       )
       .first();
-
+    const row = { vector: args.vector, content: args.content, model: SEARCH_MODEL, updatedAt: Date.now() };
     if (existing) {
-      await ctx.db.patch(existing._id, {
-        vector: args.vector,
-        content: args.content,
-        updatedAt: Date.now(),
-      });
+      await ctx.db.patch(existing._id, row);
     } else {
-      await ctx.db.insert("embeddings", {
-        entityType: args.entityType,
-        entityId: args.entityId,
-        vector: args.vector,
-        content: args.content,
-        updatedAt: Date.now(),
-      });
+      await ctx.db.insert("embeddings", { entityType: args.entityType, entityId: args.entityId, ...row });
     }
   },
 });
 
-// Internal query to get profile for embedding
-export const getProfileForEmbedding = internalQuery({
+async function storedEmbedding(
+  ctx: { db: any },
+  entityType: string,
+  entityId: string,
+): Promise<{ content: string; model?: string } | null> {
+  return await ctx.db
+    .query("embeddings")
+    .withIndex("by_entity", (q: any) => q.eq("entityType", entityType).eq("entityId", entityId))
+    .first();
+}
+
+/** A profile's search text (searchRules.profileSearchText), and whether its
+ * stored embedding already says that. Null when the profile is gone. */
+export const profileEmbeddingSource = internalQuery({
   args: { profileId: v.id("profiles") },
-  handler: async (ctx, args) => {
-    return await ctx.db.get(args.profileId);
+  handler: async (ctx, { profileId }) => {
+    const profile = await ctx.db.get(profileId);
+    if (!profile) return null;
+    const wondering = await ctx.db
+      .query("wonderings")
+      .withIndex("by_profileId_active", (q) => q.eq("profileId", profileId).eq("isActive", true))
+      .first();
+    const content = profileSearchText({ ...profile, wondering: wondering?.prompt });
+    return { content, current: embeddingIsCurrent(await storedEmbedding(ctx, "profile", profileId), content) };
+  },
+});
+
+/** A project's search text (searchRules.projectSearchText): what it says,
+ * who made it, its open roles, its place as a visitor sees it, and its
+ * pieces. Null when the project is gone. */
+export const projectEmbeddingSource = internalQuery({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, { projectId }) => {
+    const project = await ctx.db.get(projectId);
+    if (!project) return null;
+    const [maker, org, roles, pieces] = await Promise.all([
+      getProfileByUserId(ctx, project.userId),
+      project.organizationId ? ctx.db.get(project.organizationId) : null,
+      ctx.db
+        .query("projectRoles")
+        .withIndex("by_projectId_status", (q) => q.eq("projectId", projectId).eq("status", "open"))
+        .collect(),
+      ctx.db
+        .query("artifacts")
+        .withIndex("by_projectId", (q) => q.eq("projectId", projectId))
+        .collect(),
+    ]);
+    const content = projectSearchText({
+      title: project.title,
+      blurb: project.blurb,
+      body: richDocPlainText(project.body),
+      topics: project.interests,
+      roles: roles.map((r) => r.title),
+      place: placeForViewer(project, false).location,
+      maker: org?.name ?? maker?.name,
+      pieces: pieces.map((a) => ({ title: a.title, description: a.description })),
+    });
+    return { content, current: embeddingIsCurrent(await storedEmbedding(ctx, "project", projectId), content) };
   },
 });
 
@@ -127,32 +167,42 @@ export const getArtifactForEmbedding = internalQuery({
   },
 });
 
-// Action to generate and save embedding for a profile
-export const embedProfile = action({
+/** Re-embeds a profile when what it would be made of has changed. */
+export const embedProfile = internalAction({
   args: { profileId: v.id("profiles") },
-  handler: async (ctx, args) => {
-    const profile = await ctx.runQuery(
-      internal.embeddings.getProfileForEmbedding,
-      {
-        profileId: args.profileId,
-      },
-    );
-    if (!profile) return;
-
-    const content = buildProfileContent(profile);
-    const vector = await generateEmbedding(content);
-
+  handler: async (ctx, { profileId }) => {
+    const source = await ctx.runQuery(internal.embeddings.profileEmbeddingSource, { profileId });
+    if (!source || source.current) return;
+    const vector = await generateEmbedding(source.content);
     await ctx.runMutation(internal.embeddings.saveEmbedding, {
       entityType: "profile",
-      entityId: args.profileId,
+      entityId: profileId,
       vector,
-      content,
+      content: source.content,
+    });
+  },
+});
+
+/** Re-embeds a project when what it would be made of has changed. Every
+ * project is embedded, listed or not (a draft, say); smartSearch only ever
+ * returns listed ones. */
+export const embedProject = internalAction({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, { projectId }) => {
+    const source = await ctx.runQuery(internal.embeddings.projectEmbeddingSource, { projectId });
+    if (!source || source.current) return;
+    const vector = await generateEmbedding(source.content);
+    await ctx.runMutation(internal.embeddings.saveEmbedding, {
+      entityType: "project",
+      entityId: projectId,
+      vector,
+      content: source.content,
     });
   },
 });
 
 // Action to generate and save embedding for a wondering
-export const embedWondering = action({
+export const embedWondering = internalAction({
   args: { wonderingId: v.id("wonderings") },
   handler: async (ctx, args) => {
     const wondering = await ctx.runQuery(
@@ -174,7 +224,7 @@ export const embedWondering = action({
 });
 
 // Action to generate and save embedding for an artifact
-export const embedArtifact = action({
+export const embedArtifact = internalAction({
   args: { artifactId: v.id("artifacts") },
   handler: async (ctx, args) => {
     const artifact = await ctx.runQuery(
@@ -198,109 +248,35 @@ export const embedArtifact = action({
   },
 });
 
-// Search action - generates embedding for query and performs vector search
-export const search = action({
-  args: {
-    query: v.string(),
-    entityTypes: v.optional(v.array(v.string())),
-    limit: v.optional(v.number()),
-  },
-  handler: async (ctx, args) => {
-    const queryVector = await generateEmbedding(args.query);
-    const limit = args.limit || 20;
+/** The gap between two scheduled embeddings in a backfill, so a few hundred
+ * don't hit OpenAI at once. */
+export const BACKFILL_SPACING_MS = 150;
 
-    // Perform vector search
-    const results = await ctx.vectorSearch("embeddings", "by_vector", {
-      vector: queryVector,
-      limit,
-      filter: args.entityTypes?.length
-        ? (q) =>
-            q.or(...args.entityTypes!.map((type) => q.eq("entityType", type)))
-        : undefined,
-    });
-
-    return results;
-  },
-});
-
-// Query to get profile/wondering/artifact details from search results
-export const getSearchResultDetails = query({
-  args: {
-    results: v.array(
-      v.object({
-        _id: v.id("embeddings"),
-        _score: v.number(),
-      }),
-    ),
-  },
-  handler: async (ctx, args) => {
-    const detailedResults = await Promise.all(
-      args.results.map(async (result) => {
-        const embedding = await ctx.db.get(result._id);
-        if (!embedding) return null;
-
-        let entity = null;
-        let entityData = null;
-
-        if (embedding.entityType === "profile") {
-          const profile = await ctx.db.get(
-            embedding.entityId as Id<"profiles">,
-          );
-          if (profile) {
-            const imageUrl = await profileImageUrl(ctx, profile);
-            entityData = {
-              _id: profile._id,
-              name: profile.name,
-              bio: profile.bio,
-              interests: profile.interests,
-              location: profile.location,
-              imageUrl,
-            };
-          }
-        } else if (embedding.entityType === "wondering") {
-          const wondering = await ctx.db.get(
-            embedding.entityId as Id<"wonderings">,
-          );
-          if (wondering) {
-            // Get profile for wondering
-            const profile = await ctx.db.get(wondering.profileId);
-            entityData = {
-              _id: wondering._id,
-              prompt: wondering.prompt,
-              profileId: wondering.profileId,
-              profileName: profile?.name,
-            };
-          }
-        } else if (embedding.entityType === "artifact") {
-          const artifact = await ctx.db.get(
-            embedding.entityId as Id<"artifacts">,
-          );
-          if (artifact) {
-            // Get profile for artifact
-            const profile = await ctx.db.get(artifact.profileId);
-            const mediaUrl = await pieceMediaUrl(ctx, artifact);
-            entityData = {
-              _id: artifact._id,
-              type: artifact.type,
-              title: artifact.title,
-              content: artifact.content,
-              mediaUrl,
-              profileId: artifact.profileId,
-              profileName: profile?.name,
-            };
-          }
-        }
-
-        return entityData
-          ? {
-              type: embedding.entityType,
-              score: result._score,
-              data: entityData,
-            }
-          : null;
-      }),
-    );
-
-    return detailedResults.filter(Boolean);
+/**
+ * Operator CLI, once after deploy and again whenever SEARCH_MODEL changes:
+ * `npx convex run --prod embeddings:backfillSearch`. Schedules an embedding
+ * for every profile and every project that isn't archived (a hidden one is
+ * embedded too, so it is indexed the moment it is unhidden; the search's
+ * resolveHits drops what the caller may not see). Each one skips the call when what is stored is already
+ * current, so running it twice costs nothing. Returns how many it queued.
+ */
+export const backfillSearch = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const [profiles, projects] = await Promise.all([
+      ctx.db.query("profiles").collect(),
+      ctx.db.query("projects").collect(),
+    ]);
+    const shown = projects.filter((p) => p.status !== "archived");
+    let at = 0;
+    for (const p of profiles) {
+      await ctx.scheduler.runAfter(at, internal.embeddings.embedProfile, { profileId: p._id });
+      at += BACKFILL_SPACING_MS;
+    }
+    for (const p of shown) {
+      await ctx.scheduler.runAfter(at, internal.embeddings.embedProject, { projectId: p._id as Id<"projects"> });
+      at += BACKFILL_SPACING_MS;
+    }
+    return { profiles: profiles.length, projects: shown.length };
   },
 });

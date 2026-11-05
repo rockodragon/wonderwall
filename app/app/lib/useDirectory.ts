@@ -12,7 +12,10 @@ import { useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import { DIRECTORY_PAGE } from "../../convex/directoryRules";
+import { useSmartRank } from "./useSmartRank";
+import type { SearchHit } from "./searchRules";
 import { directoryEnd, directoryNear, searchHint, type DirectoryEnd } from "./browse/directoryPage";
 import type { NearMe } from "./browse/nearMe";
 
@@ -42,11 +45,16 @@ export type Directory = {
 };
 
 export function useDirectory(filters: DirectoryFilters | "skip"): Directory {
+  // The search by meaning: name hits come from the directory itself, the
+  // ranked ids order everything else. The query handed to the directory is the
+  // one `ranked` was made for, so the two always agree.
+  const smart = useSmartRank("people", filters === "skip" ? "" : (filters.query ?? ""), filters !== "skip");
   const args =
     filters === "skip"
       ? null
       : {
-          query: filters.query || undefined,
+          query: smart.query || undefined,
+          ranked: smart.ranked,
           interests: filters.interests && filters.interests.length > 0 ? [...filters.interests] : undefined,
           communitySlug: filters.communitySlug,
           near: directoryNear(filters.near),
@@ -54,7 +62,10 @@ export function useDirectory(filters: DirectoryFilters | "skip"): Directory {
   const key = JSON.stringify(args);
   const [paging, setPaging] = useState({ key, limit: DIRECTORY_PAGE });
   const limit = paging.key === key ? paging.limit : DIRECTORY_PAGE;
-  const answer = useQuery(api.profiles.directory, args ? { ...args, limit } : "skip");
+  const answer = useQuery(
+    api.profiles.directory,
+    args ? { ...args, ranked: args.ranked as (SearchHit & { id: Id<"profiles"> })[] | undefined, limit } : "skip",
+  );
 
   // The last answer, while the next one loads. Another community starts clean.
   const community = args?.communitySlug ?? "";
@@ -65,12 +76,12 @@ export function useDirectory(filters: DirectoryFilters | "skip"): Directory {
   // Load more does nothing until the answer for these filters is in: a tap
   // while a new search loads (the old list still up) would otherwise ask
   // for its second page before its first was ever shown.
-  const loading = !!args && answer === undefined;
+  const loading = !!args && (answer === undefined || smart.pending);
   const loadMore = useCallback(() => {
     if (!loading) setPaging({ key, limit: limit + DIRECTORY_PAGE });
   }, [key, limit, loading]);
   const end = useMemo(() => directoryEnd(page), [page]);
-  const hint = searchHint(args?.query, page?.visitor);
+  const hint = searchHint(filters === "skip" ? undefined : filters.query || undefined, page?.visitor);
 
   return {
     people: page?.people,

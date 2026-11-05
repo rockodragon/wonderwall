@@ -15,7 +15,7 @@
 // Stage is a menu beside the chips and narrows any of them but Jobs and gigs.
 
 import { canonicalStage, resolveStage, stageLabel, type Stage } from "../stage";
-import { richDocPlainText } from "../richText";
+import { rankByQuery, type SearchHit } from "../searchRules";
 import { budgetKindLabel } from "../budgetLabel";
 import { paidRoles } from "../projectKind";
 
@@ -224,20 +224,13 @@ export function isMatch(p: any, soft: { interests: readonly string[]; location: 
   return interestHit || locationHit;
 }
 
-/** The title, summary or full text of the project contains `query` (already
- * lower-cased). */
-export function matchesProjectQuery(p: any, query: string): boolean {
-  return (
-    String(p.title ?? "").toLowerCase().includes(query) ||
-    String(p.blurb ?? "").toLowerCase().includes(query) ||
-    richDocPlainText(p.body).toLowerCase().includes(query)
-  );
-}
-
 /**
  * The projects to show: those under the chip and the Stage choice, then (each
- * optional) a community, a text search, the hard interest tags, and finally
- * the soft interest/location signal floating its matches to the top.
+ * optional) a community, the hard interest tags, a search (title and maker names by
+ * their words, then the `ranked` hits by meaning; last among the filters so
+ * its score window is measured among what is shown), and finally the soft
+ * interest/location signal floating its matches to the top. A search keeps
+ * its own order: the soft signal does not reorder it.
  */
 export function filterProjects<T>(
   projects: readonly T[],
@@ -247,8 +240,11 @@ export function filterProjects<T>(
     stage?: string;
     /** Keep only projects in the chosen community. Omit for all of them. */
     inCommunity?: ((p: T) => boolean) | null;
-    /** Text search (any case). The /projects page has none; the desk does. */
+    /** Search (any case). The /projects page has none; the desk does. */
     query?: string;
+    /** Project ids ranked by meaning for `query` (api.smartSearch.rank). Only
+     * ids already in the list count. Omit for names only. */
+    ranked?: readonly SearchHit[] | null;
     /** Hard filter: the project's topics include one of these. */
     tags?: readonly string[];
     /** Soft signal: matches sort first. */
@@ -258,14 +254,23 @@ export function filterProjects<T>(
   const stage = opts.lens === "work" ? "" : (opts.stage ?? "");
   let list = projects.filter((p) => matchesLens(p, opts.lens) && matchesStage(p, stage));
   if (opts.inCommunity) list = list.filter(opts.inCommunity);
-  const q = (opts.query ?? "").trim().toLowerCase();
-  if (q) list = list.filter((p) => matchesProjectQuery(p, q));
   const tags = opts.tags ?? [];
   if (tags.length > 0) {
     list = list.filter((p) => projectTopics(p).some((fn: string) => tags.includes(fn)));
   }
+  // The search runs last, so its score window is measured among the projects
+  // the list can show (a better match in another community can't push them out).
+  const q = (opts.query ?? "").trim();
+  if (q) {
+    list = rankByQuery(list, {
+      query: q,
+      ranked: opts.ranked,
+      id: (p) => String((p as any)._id),
+      names: (p: any) => [p.title, p.creator?.name, p.organization?.name],
+    });
+  }
   const soft = opts.soft;
-  if (soft && (soft.interests.length > 0 || soft.location)) {
+  if (!q && soft && (soft.interests.length > 0 || soft.location)) {
     list = [...list].sort((a, b) => Number(isMatch(b, soft)) - Number(isMatch(a, soft)));
   }
   return list;
