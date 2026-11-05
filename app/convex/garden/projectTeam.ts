@@ -1604,6 +1604,10 @@ async function projectTileRow(ctx: QueryCtx, project: Doc<"projects">, role: str
     stage,
     kind: project.kind,
     imageUrl,
+    // For theater mode on a person's page (lib/theaterSlides.ts): newest
+    // first, and the pasted video plays when the project has no piece.
+    createdAt: project.createdAt,
+    mediaUrl: project.mediaUrl ?? null,
     completed: stage === "completed" || project.status === "completed",
     openRoles: openRoles.map((r) => ({
       roleId: r._id,
