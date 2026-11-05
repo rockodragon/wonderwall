@@ -8,12 +8,15 @@ import { action } from "./_generated/server";
 import { fail } from "./errors";
 import { requireUserId } from "./helpers";
 
-/** A take runs two minutes at most (app/lib/useAudioRecorder.ts
- * MAX_NOTE_SECONDS); at the browsers' bitrates (opus well under 64 kbps,
- * Safari's AAC up to about 192) that is under 3 MB, so this is the ceiling. */
-export const MAX_AUDIO_BYTES = 3_000_000;
-/** The longest text that comes back (onboardingAssist's MAX_TRANSCRIPT). */
-export const MAX_TEXT = 1500;
+/** A take runs four minutes at most (app/lib/useTalk.ts MAX_TALK_SECONDS).
+ * At the browsers' bitrates (opus well under 64 kbps, Safari's AAC up to
+ * about 192) that is under 6 MB; this leaves room. This file runs in
+ * Convex's own runtime, which takes up to 16 MiB of arguments (a "use node"
+ * file would take 5). */
+export const MAX_AUDIO_BYTES = 8_000_000;
+/** The longest text that comes back. Four minutes of fast talk is about
+ * 4,000 characters; the model writes at most 2,000 tokens. */
+export const MAX_TEXT = 6000;
 export const MODEL = "gpt-4o-mini-transcribe";
 
 /** Said when the call can't be made or came back unusable. Never the
@@ -75,7 +78,7 @@ export const fromAudio = action({
   handler: async (ctx, args): Promise<{ text: string }> => {
     await requireUserId(ctx);
     if (args.audio.byteLength === 0) fail("empty_audio", "Nothing was recorded. Try again.");
-    if (args.audio.byteLength > MAX_AUDIO_BYTES) fail("audio_too_long", "That's too long. Keep it under two minutes.");
+    if (args.audio.byteLength > MAX_AUDIO_BYTES) fail("audio_too_long", "That's too long. Keep it under four minutes.");
     const fileName = fileNameFor(args.mime);
     if (!fileName) fail("bad_audio", "Couldn't read that recording. Type it instead.");
 
