@@ -30,6 +30,7 @@ import { projectVisibleTo } from "./projectVisibility";
 import { pieceMediaUrl, profileImageUrl, projectPhotoUrl } from "../images";
 import { portfolioSamples, validatePortfolioSampleIds } from "../portfolioSamples";
 import { fail } from "../errors";
+import { scheduleProjectEmbedding } from "../searchIndexing";
 import {
   rateProposalValidator,
   reviewStageValidator,
@@ -572,6 +573,8 @@ async function fillRoleIfLinked(ctx: MutationCtx, row: Doc<"projectMembers">): P
   const role = await ctx.db.get(row.roleId);
   if (!role || role.status !== "open") return;
   await ctx.db.patch(role._id, { status: "filled", filledByMemberId: row._id });
+  // Search lists a project's open roles, and this one no longer is.
+  await scheduleProjectEmbedding(ctx, role.projectId);
 }
 
 /** Reopens the role a departing member was filling, if they were the one
@@ -583,6 +586,7 @@ async function reopenRoleIfVacated(ctx: MutationCtx, row: Doc<"projectMembers">)
   const role = await ctx.db.get(row.roleId);
   if (!role || role.status !== "filled" || String(role.filledByMemberId) !== String(row._id)) return;
   await ctx.db.patch(role._id, { status: "open", filledByMemberId: undefined });
+  await scheduleProjectEmbedding(ctx, role.projectId);
 }
 
 async function findMemberByUser(
@@ -1286,6 +1290,7 @@ export const addRole = mutation({
       status: "open",
       createdAt: Date.now(),
     });
+    await scheduleProjectEmbedding(ctx, args.projectId);
     return { ok: true as const, roleId };
   },
 });
@@ -1337,6 +1342,7 @@ export const updateRole = mutation({
     }
     if (Object.keys(patch).length === 0) return { ok: true as const, changed: false as const };
     await ctx.db.patch(args.roleId, patch);
+    await scheduleProjectEmbedding(ctx, role.projectId);
     return { ok: true as const, changed: true as const };
   },
 });
@@ -1355,6 +1361,7 @@ export const closeRole = mutation({
       return { ok: true as const, changed: false as const };
     }
     await ctx.db.patch(args.roleId, { status: "closed" });
+    await scheduleProjectEmbedding(ctx, role.projectId);
     return { ok: true as const, changed: true as const };
   },
 });

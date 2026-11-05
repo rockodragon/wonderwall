@@ -14,6 +14,14 @@ vi.mock("convex/react", () => ({
     return args === "skip" ? undefined : mock.answer(args as { limit: number });
   },
 }));
+// The search by meaning is its own hook (useSmartRank.test.ts): here it
+// settles at once on the typed query unless a test says otherwise.
+const smart = vi.hoisted(() => ({
+  override: null as null | { query: string; ranked: { id: string; score: number }[] | undefined; pending: boolean },
+}));
+vi.mock("./useSmartRank", () => ({
+  useSmartRank: (_kind: string, query: string) => smart.override ?? { query, ranked: undefined, pending: false },
+}));
 vi.mock("react", async () => (await import("../../test-support/fakeHooks")).fakeReact);
 
 import { renderHook } from "../../test-support/fakeHooks";
@@ -26,17 +34,19 @@ const everyone = (total: number) => (args: { limit: number }) => ({
   total,
   visitor: false,
 });
+const hit = (id: string, score = 0.5) => ({ id, score });
 const lastAsked = () => mock.asked[mock.asked.length - 1];
 
 beforeEach(() => {
   mock.asked = [];
   mock.answer = everyone(100);
+  smart.override = null;
 });
 
 describe("useDirectory", () => {
   it("asks for one page with the filters, then a page more on Load more", () => {
     const hook = renderHook(useDirectory, { query: "ana", interests: ["Film"] });
-    expect(lastAsked()).toEqual({ query: "ana", interests: ["Film"], communitySlug: undefined, near: undefined, limit: 24 });
+    expect(lastAsked()).toEqual({ query: "ana", interests: ["Film"], communitySlug: undefined, near: undefined, ranked: undefined, limit: 24 });
     expect(hook.result.people).toHaveLength(24);
     expect(hook.result.end).toEqual({ kind: "more", remaining: 76 });
 
@@ -99,8 +109,20 @@ describe("useDirectory", () => {
       query: undefined,
       interests: undefined,
       communitySlug: undefined,
+      ranked: undefined,
       near: { lat: 36.16, lng: -86.78, radius: 25 },
       limit: 24,
     });
+  });
+
+  it("asks with the settled search and its ranked ids, and is loading while the next ranking is in flight", () => {
+    smart.override = { query: "clay", ranked: [hit("p2"), hit("p1", 0.4)], pending: true };
+    const hook = renderHook(useDirectory, { query: "clay pots" });
+    expect(lastAsked()).toMatchObject({ query: "clay", ranked: [hit("p2"), hit("p1", 0.4)], limit: 24 });
+    expect(hook.result.loading).toBe(true);
+    smart.override = { query: "clay pots", ranked: [hit("p3")], pending: false };
+    hook.rerender({ query: "clay pots" });
+    expect(lastAsked()).toMatchObject({ query: "clay pots", ranked: [hit("p3")] });
+    expect(hook.result.loading).toBe(false);
   });
 });

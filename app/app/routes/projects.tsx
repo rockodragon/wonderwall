@@ -41,6 +41,8 @@ import { PageTop, TopButton } from "../components/phone/PageTop";
 import { Plus } from "@phosphor-icons/react";
 import { shareProjectHref, spendStartLink } from "../lib/shareProject";
 import { signupHref } from "../lib/pendingIntent";
+import { loginHref } from "../lib/loginHref";
+import { JOIN_TO_SEE_ALL_PROJECTS, moreProjectsLine } from "../lib/browse/directoryPage";
 import { bylineOf } from "../lib/byline";
 import { coverOf, type PostViewer } from "../lib/projectPick";
 import { useViewer } from "../lib/useViewer";
@@ -93,10 +95,15 @@ const STATUS_OPTIONS_BY_KIND: Record<string, { value: string; label: string }[]>
 
 export default function Projects() {
   const projects = useQuery(api.garden.projects.listProjects);
+  // A visitor gets the newest page (listProjects); this says how many more.
+  const listedCount = useQuery(api.garden.projects.listedProjectCount);
   // "Hire someone" is one entry (HireFlow): one job, or a recurring gig.
   const [hiring, setHiring] = useState(false);
   const navigate = useNavigate();
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
+  // Signed out, past their one page: how many more projects a member sees.
+  const visitorMore =
+    !isAuthenticated && !authLoading && projects && listedCount !== undefined ? Math.max(0, listedCount - projects.length) : 0;
   // Who is looking, for each post's Save (lib/useViewer.ts): held until the
   // profile has loaded, so the lead never sees Save flash.
   const viewer = useViewer();
@@ -402,6 +409,7 @@ export default function Projects() {
                 />
               ))}
             </div>
+            {visitorMore > 0 && <JoinForMore remaining={visitorMore} back={`/projects${searchParams.size ? `?${searchParams}` : ""}`} />}
           </>
         )}
       </div>
@@ -444,6 +452,31 @@ const LENS_BLURB: Record<ProjectsLens, string> = {
 // A split button: the main half is the one the chip goes with (Start a
 // project on Projects, Seeking funding and Seeking people; Hire someone on
 // Jobs and gigs), and the arrow opens both.
+/** The end of a visitor's page: how many more projects there are, and the
+ * two ways in. Joining or signing in brings them back to this list. */
+function JoinForMore({ remaining, back }: { remaining: number; back: string }) {
+  return (
+    <div
+      className="mt-8 rounded-2xl border p-5 text-center"
+      style={{ backgroundColor: "var(--garden-ink-raised)", borderColor: "var(--garden-hairline)" }}
+    >
+      <p className="text-[15px] text-[var(--garden-paper)]">{moreProjectsLine(remaining)}</p>
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+        <Link
+          to={signupHref(back)}
+          className={`inline-flex items-center rounded-full px-4 py-2 text-[13.5px] font-semibold`}
+          style={{ fontFamily: "var(--garden-font-body)", backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+        >
+          {JOIN_TO_SEE_ALL_PROJECTS}
+        </Link>
+        <Link to={loginHref(back)} className={`text-[13.5px] text-[var(--garden-paper)] underline underline-offset-4`}>
+          Sign in
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 function PostMenu({
   primary,
   onProject,

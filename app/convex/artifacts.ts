@@ -3,6 +3,7 @@ import { action, internalMutation, mutation, query, type MutationCtx } from "./_
 import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { fail } from "./errors";
+import { scheduleProjectEmbedding } from "./searchIndexing";
 import { canonicalMediaUrl, schedulePreviewFetch, wantsPreviewFetch } from "./linkPreview";
 import { isBandcampPageLink, toMusicEmbed } from "./musicEmbed";
 import { toEmbedUrl } from "./videoEmbed";
@@ -273,10 +274,11 @@ export const create = mutation({
       updatedAt: createdAt,
     });
     await ctx.db.patch(artifactId, { projectId });
+    await scheduleProjectEmbedding(ctx, projectId);
 
     // Schedule embedding generation for text-based artifacts
     if (args.title || args.content) {
-      await ctx.scheduler.runAfter(0, api.embeddings.embedArtifact, {
+      await ctx.scheduler.runAfter(0, internal.embeddings.embedArtifact, {
         artifactId,
       });
     }
@@ -383,10 +385,12 @@ export const update = mutation({
       await dropOldPreview(ctx, artifact, newUpload);
     }
     await ctx.db.patch(args.artifactId, patch);
+    // The piece's title is part of its project's search text.
+    if (artifact.projectId) await scheduleProjectEmbedding(ctx, artifact.projectId);
 
     // Schedule embedding regeneration if content changed
     if (args.title || args.content) {
-      await ctx.scheduler.runAfter(0, api.embeddings.embedArtifact, {
+      await ctx.scheduler.runAfter(0, internal.embeddings.embedArtifact, {
         artifactId: args.artifactId,
       });
     }
@@ -417,6 +421,7 @@ export const remove = mutation({
     await deleteStoredFile(ctx, artifact.audioNoteStorageId);
 
     await ctx.db.delete(args.artifactId);
+    if (artifact.projectId) await scheduleProjectEmbedding(ctx, artifact.projectId);
   },
 });
 
@@ -428,8 +433,9 @@ export const setDescription = mutation({
     description: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireOwnProfileRow(ctx, "artifacts", args.artifactId);
+    const { row: artifact } = await requireOwnProfileRow(ctx, "artifacts", args.artifactId);
     await ctx.db.patch(args.artifactId, { description: cleanDescription(args.description) });
+    if (artifact.projectId) await scheduleProjectEmbedding(ctx, artifact.projectId);
   },
 });
 

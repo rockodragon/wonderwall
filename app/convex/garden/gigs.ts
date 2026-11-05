@@ -30,6 +30,7 @@ import { escapeHtml } from "../email/template";
 import { profileImageUrl } from "../images";
 import { portfolioSamples, validatePortfolioSampleIds as validateClips } from "../portfolioSamples";
 import { formatCents } from "../money";
+import { scheduleProjectEmbedding } from "../searchIndexing";
 import {
   HORIZON_WEEKS,
   MAX_NOTE_LENGTH,
@@ -508,6 +509,8 @@ export const createGigSeries = mutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    await scheduleProjectEmbedding(ctx, projectId);
 
     const seriesId = await ctx.db.insert("gigSeries", {
       projectId,

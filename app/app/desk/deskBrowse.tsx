@@ -64,6 +64,7 @@ import { useFilterState } from "../lib/useFilterState";
 import { NEAR_ME_RADIUS_OPTIONS, useNearMe } from "../lib/useNearMe";
 import type { DeskCard, DeskEventInput, DeskOrgInput, DeskProjectInput } from "./deskCards";
 import { peopleCountLabel } from "./deskGreeting";
+import { useSmartRank } from "../lib/useSmartRank";
 import { eventsCards, everyoneCards, orgsCards, peopleCards, peopleNoun, projectsCards, type ProfileRow } from "./deskBrowseCards";
 import { fundFrom } from "./deskInput";
 import { deskCreateHref, deskHref, parseDeskView, type DeskCommunity, type DeskView } from "./deskState";
@@ -368,6 +369,8 @@ export function useDeskBrowse(view: BrowseView, community: DeskCommunity, fallba
   const everyoneOn = peopleOn && !following && !orgsOnly;
   const directory = useDirectory(everyoneOn ? { query: searched, interests, communitySlug, near } : "skip");
   const directoryRows: ProfileRow[] | undefined = directory.people;
+  // Following is searched here, by name and then by meaning.
+  const followRank = useSmartRank("people", searched, following);
   // Every organization, as the /people Organizations tab asks for them. They
   // belong to no community, so the desk's community switch doesn't scope them.
   const orgRows = useQuery(api.organizations.list, peopleOn && !following ? {} : "skip") as DeskOrgInput[] | undefined;
@@ -381,6 +384,7 @@ export function useDeskBrowse(view: BrowseView, community: DeskCommunity, fallba
   );
 
   // Projects.
+  const projectRank = useSmartRank("projects", searched, projectsOn);
   const projectRows = useQuery(api.garden.projects.listProjects, projectsOn ? {} : "skip") as
     | DeskProjectInput[]
     | undefined;
@@ -404,7 +408,7 @@ export function useDeskBrowse(view: BrowseView, community: DeskCommunity, fallba
       const rows = following ? followed : directoryRows;
       if (!rows || !favorites || (following && !activity)) return undefined;
       const followedIds = new Set(favorites.profiles.flatMap((f) => (f ? [String(f.profile._id)] : [])));
-      const people = peopleCards({ rows, followedIds, following, query: searched, interests, activity });
+      const people = peopleCards({ rows, followedIds, following, query: followRank.query, ranked: followRank.ranked, interests, activity });
       if (following) return people;
       if (!orgRows) return undefined;
       // Discipline and Near me are about people: an organization has neither.
@@ -416,7 +420,8 @@ export function useDeskBrowse(view: BrowseView, community: DeskCommunity, fallba
         rows: projectRows,
         lens,
         stage,
-        query: searched,
+        query: projectRank.query,
+        ranked: projectRank.ranked,
         community,
         fund: fundFrom(fundPage),
         money: formatMoney,
@@ -429,7 +434,7 @@ export function useDeskBrowse(view: BrowseView, community: DeskCommunity, fallba
       return eventsCards({ rows, tab, query: searched, community, near, favoriteIds, now: Date.now() });
     }
     return undefined;
-  }, [peopleOn, projectsOn, eventsOn, favorites, following, activity, orgsOnly, directoryRows, orgRows, searched, interests, near, projectRows, fundPage, community, lens, stage, past, pastRows, upcomingRows, tab]);
+  }, [peopleOn, projectsOn, eventsOn, favorites, following, activity, orgsOnly, directoryRows, orgRows, searched, followRank, projectRank, interests, near, projectRows, fundPage, community, lens, stage, past, pastRows, upcomingRows, tab]);
 
   const filtered =
     !!searched ||

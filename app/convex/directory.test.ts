@@ -423,8 +423,11 @@ describe("profiles.directory — unnamed accounts", () => {
   });
 });
 
+// Ranked hits in the order given, scores descending and close together.
+const hits = (...ids: string[]) => ids.map((id, i) => ({ id, score: 0.5 - i * 0.001 }));
+
 describe("profiles.directory — filters", () => {
-  it("searches name, bio, place, organization and what they're wondering", async () => {
+  it("a search finds people by the start of each word of their name or organization, not by their bio", async () => {
     const tables = world(4, {
       profiles: [
         profile(11, { name: "Ana", bio: "Paints harbors" }),
@@ -434,9 +437,106 @@ describe("profiles.directory — filters", () => {
       ],
       wonderings: [{ _id: "wonderings:w", profileId: "profiles:p14", prompt: "Who films harbors?", isActive: true, isPermanent: false, createdAt: 1 }],
     });
+    // Only Bo's organization has a word starting "harbor"; the others say it
+    // in a bio, a place and a wondering, which is for the meaning half.
     const { out } = await call(directory, tables, MEMBER, { query: "harbor" });
-    expect(names(out.people).sort()).toEqual(["Ana", "Bo", "Cy", "Di"]);
-    expect(out.total).toBe(4);
+    expect(names(out.people)).toEqual(["Bo"]);
+    expect(out.total).toBe(1);
+    expect(names((await call(directory, tables, MEMBER, { query: "ers 3" })).out.people)).toEqual([]);
+    expect(names((await call(directory, tables, MEMBER, { query: "pers 3" })).out.people)).toEqual(["Person 3"]);
+  });
+
+  describe("ranked — the people smartSearch found by meaning", () => {
+    const tables = () =>
+      world(0, {
+        profiles: [
+          profile(21, { name: "Hal Montgomery" }),
+          profile(22, { name: "Ines", bio: "Sings lullabies" }),
+          profile(23, { name: "Joss", bio: "Writes songs" }),
+          profile(24, { name: "Kit" }),
+          profile(25, { name: "Hallie Monroe", hideFromSearch: true }),
+        ],
+        projects: [project("tour", "users:u21", 50)],
+      });
+
+    it("name hits come first in activity order, then the ranked ones in ranked order", async () => {
+      const { out } = await call(directory, tables(), MEMBER, {
+        query: "hal mont",
+        ranked: hits("profiles:p23", "profiles:p22", "profiles:p21"),
+      });
+      expect(names(out.people)).toEqual(["Hal Montgomery", "Joss", "Ines"]);
+      expect(out.total).toBe(3);
+    });
+
+    it("without ranked, a bio-only match comes back empty", async () => {
+      const { out } = await call(directory, tables(), MEMBER, { query: "songs" });
+      expect(out.people).toEqual([]);
+      const ranked = (await call(directory, tables(), MEMBER, { query: "songs", ranked: hits("profiles:p23") })).out;
+      expect(names(ranked.people)).toEqual(["Joss"]);
+    });
+
+    it("never adds anyone the caller couldn't already see: unknown or repeated ids", async () => {
+      const { out } = await call(directory, tables(), MEMBER, {
+        query: "songs",
+        ranked: hits("profiles:nobody", "profiles:p23", "profiles:p23"),
+      });
+      expect(names(out.people)).toEqual(["Joss"]);
+    });
+
+    it("ignores ranked ids past the 256th", async () => {
+      const ids = Array.from({ length: 256 }, (_, i) => `profiles:gone${i}`);
+      const { out } = await call(directory, tables(), MEMBER, { query: "songs", ranked: hits(...ids, "profiles:p23") });
+      expect(out.people).toEqual([]);
+    });
+
+    it("a visitor's ranked is ignored: names only", async () => {
+      const { out } = await call(directory, tables(), null, { query: "songs", ranked: hits("profiles:p23") });
+      expect(out.people).toEqual([]);
+      const named = await call(directory, tables(), null, { query: "hal mont", ranked: hits("profiles:p23") });
+      expect(names(named.out.people)).toEqual(["Hal Montgomery"]);
+    });
+
+    it("the window is measured among the people the list can show: a better match outside the community doesn't push the member's out", async () => {
+      const t = tables();
+      t.hostOrgs = [{ _id: PUB, name: "Public Circle", slug: "public-circle", kind: "community", status: "active" }];
+      t.communityMembers = [
+        { _id: "communityMembers:a", hostOrgId: PUB, userId: "users:u22", role: "member", status: "active" },
+      ];
+      const ranked = [
+        { id: "profiles:p23", score: 0.9 }, // not in the community
+        { id: "profiles:p22", score: 0.5 }, // in it, 0.4 below the best overall
+      ];
+      const { out } = await call(directory, t, MEMBER, { query: "lullaby", communitySlug: "public-circle", ranked });
+      expect(names(out.people)).toEqual(["Ines"]);
+    });
+
+    it("the window is measured after the Discipline cut too", async () => {
+      const t = tables();
+      t.profiles.find((p) => p._id === "profiles:p22")!.interests = ["Film"];
+      const ranked = [
+        { id: "profiles:p23", score: 0.9 },
+        { id: "profiles:p22", score: 0.5 },
+      ];
+      const { out } = await call(directory, t, MEMBER, { query: "lullaby", interests: ["Film"], ranked });
+      expect(names(out.people)).toEqual(["Ines"]);
+    });
+
+    it("does nothing with no search text, and a visitor's one letter is no search", async () => {
+      const all = (await call(directory, tables(), MEMBER)).out.total;
+      expect((await call(directory, tables(), MEMBER, { ranked: hits("profiles:p23") })).out.total).toBe(all);
+      expect((await call(directory, tables(), null, { query: "j", ranked: hits("profiles:p23") })).out.total).toBe(all - 1);
+    });
+
+    it("the Discipline cut still applies after", async () => {
+      const t = tables();
+      t.profiles.find((p) => p._id === "profiles:p22")!.interests = ["Film"];
+      const { out } = await call(directory, t, MEMBER, {
+        query: "lullaby",
+        ranked: hits("profiles:p23", "profiles:p22"),
+        interests: ["Film"],
+      });
+      expect(names(out.people)).toEqual(["Ines"]);
+    });
   });
 
   it("keeps people with any of the chosen interests, and counts only them", async () => {
@@ -505,8 +605,9 @@ describe("profiles.directory — what it returns and reads", () => {
   it("reads published events through their index, and only profiles and projects whole", async () => {
     const tables = world(3, { events: [event("e", "users:u1", 5)] });
     expect((await call(directory, tables, MEMBER)).scans.sort()).toEqual(["profiles", "projects"]);
-    // A search reads what people are wondering too.
-    expect((await call(directory, tables, MEMBER, { query: "x" })).scans.sort()).toEqual(["profiles", "projects", "wonderings"]);
+    // A search no longer reads what people are wondering: that is in their
+    // embedding, found by meaning (smartSearch.rank), not by a text scan.
+    expect((await call(directory, tables, MEMBER, { query: "x" })).scans.sort()).toEqual(["profiles", "projects"]);
   });
 });
 

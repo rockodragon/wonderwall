@@ -7,7 +7,8 @@ import { DIRECTORY_PAGE } from "../../convex/directoryRules";
 import { filterEvents, onlyFavorites, parseEventsTab } from "../lib/browse/eventsFilter";
 import { distanceLabel, type LatLng, type NearMe } from "../lib/browse/nearMe";
 import { filterOrgs } from "../lib/browse/orgFilter";
-import { filterProfiles, matchesPersonQuery } from "../lib/browse/peopleFilter";
+import { filterProfiles } from "../lib/browse/peopleFilter";
+import { rankByQuery, type SearchHit } from "../lib/searchRules";
 import { filterProjects, type ProjectsLens } from "../lib/browse/projectsFilter";
 import {
   dateKicker,
@@ -108,11 +109,18 @@ export function peopleCards(opts: {
   following: boolean;
   query: string;
   interests: readonly string[];
+  /** Profiles ranked by meaning for `query` (Following only). */
+  ranked?: readonly SearchHit[] | null;
   activity?: ReadonlyMap<string, ShortlistFollow>;
 }): DeskCard[] {
   if (!opts.following) return opts.rows.map((p) => directoryCard(p, opts.followedIds.has(String(p._id))));
-  const searched = opts.rows.filter((p) => matchesPersonQuery(p, opts.query));
-  const shown = filterProfiles(searched, { interests: opts.interests });
+  const q = opts.query.trim();
+  // The Discipline cut first, so the search's score window is measured among
+  // the people the list can show.
+  const cut = filterProfiles(opts.rows, { interests: opts.interests });
+  const shown = q
+    ? rankByQuery(cut, { query: q, ranked: opts.ranked, id: (p) => String(p._id), names: (p) => [p.name] })
+    : cut;
   const { activity } = opts;
   if (!activity) return shown.map((p) => directoryCard(p, true));
   const of = (p: ProfileRow) => activity.get(String(p._id));
@@ -187,6 +195,8 @@ export function projectsCards(opts: {
   /** The Stage menu's choice; "" is any. */
   stage: string;
   query: string;
+  /** Projects ranked by meaning for `query`. */
+  ranked?: readonly SearchHit[] | null;
   community: DeskCommunity;
   /** The Sophia Fund, for The Garden. */
   fund: DeskFundInput | null;
@@ -197,6 +207,7 @@ export function projectsCards(opts: {
     stage: opts.stage,
     inCommunity: (p) => inCommunity(p, opts.community),
     query: opts.query,
+    ranked: opts.ranked,
   });
   const onJobsAndGigs = opts.lens === "work";
   const cards = list.map((p) => projectCard(p, ["projects"], opts.money, { onJobsAndGigs }));

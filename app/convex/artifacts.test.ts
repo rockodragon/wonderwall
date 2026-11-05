@@ -73,10 +73,11 @@ function setup(pieces: Row[], files: string[] = [], viewer: string | null = ME, 
   };
 }
 
-/** Everything scheduled except the text embedding, which title/content edits
- * always queue. */
+/** Everything scheduled except the embeddings, which edits to a piece's
+ * words always queue (its own, and its project's for search). */
+const EMBEDDINGS = ["embeddings:embedArtifact", "embeddings:embedProject"];
 const fetches = (scheduled: { name: string; args: any }[]) =>
-  scheduled.filter((s) => s.name !== "embeddings:embedArtifact");
+  scheduled.filter((s) => !EMBEDDINGS.includes(s.name));
 
 const OG_FETCH = (url: string) => ({ name: "artifacts:fetchOgImage", args: { artifactId: PIECE, url } });
 

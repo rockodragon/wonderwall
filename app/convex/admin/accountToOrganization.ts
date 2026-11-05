@@ -24,6 +24,7 @@ import type { Doc } from "../_generated/dataModel";
 import { resummarizeConversations } from "../engagement/conversations";
 import { isCurrent } from "../organizationRules";
 import { getProfileByUserId } from "../helpers";
+import { scheduleProjectEmbedding } from "../searchIndexing";
 import { MergeReads, PROFILE_ID_FIELDS, USER_ID_FIELDS } from "./mergeUsers";
 
 /** References this tool moves or removes itself. invites.usedBy stays: the
@@ -135,6 +136,7 @@ export const accountToOrganization = internalMutation({
     // ——— Projects: posted as the organization, run by runBy ———
     for (const project of projects) {
       await ctx.db.patch(project._id, { userId: runBy, organizationId, updatedAt: Date.now() });
+      await scheduleProjectEmbedding(ctx, project._id);
       // runBy leads it now, so a member row of theirs on it would list them twice.
       for (const row of await rowsWhere(
         ctx,

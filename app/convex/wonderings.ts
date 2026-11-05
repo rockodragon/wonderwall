@@ -1,7 +1,8 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { api } from "./_generated/api";
+import { internal } from "./_generated/api";
 import { fail } from "./errors";
+import { scheduleProfileEmbedding } from "./searchIndexing";
 import { currentUserId, getProfileByUserId, requireOwnProfileRow, requireProfile, requireUserId } from "./helpers";
 import { profileImageUrl, storedFileUrl } from "./images";
 import { claimUpload } from "./uploads";
@@ -82,9 +83,11 @@ export const create = mutation({
     });
 
     // Schedule embedding generation
-    await ctx.scheduler.runAfter(0, api.embeddings.embedWondering, {
+    await ctx.scheduler.runAfter(0, internal.embeddings.embedWondering, {
       wonderingId,
     });
+    // The active wondering is part of the person's search text.
+    await scheduleProfileEmbedding(ctx, profile._id);
 
     return wonderingId;
   },
@@ -106,9 +109,10 @@ export const update = mutation({
     });
 
     // Schedule embedding regeneration
-    await ctx.scheduler.runAfter(0, api.embeddings.embedWondering, {
+    await ctx.scheduler.runAfter(0, internal.embeddings.embedWondering, {
       wonderingId: args.wonderingId,
     });
+    await scheduleProfileEmbedding(ctx, profile._id);
   },
 });
 
@@ -122,6 +126,7 @@ export const archive = mutation({
     await ctx.db.patch(args.wonderingId, {
       isActive: false,
     });
+    await scheduleProfileEmbedding(ctx, profile._id);
   },
 });
 

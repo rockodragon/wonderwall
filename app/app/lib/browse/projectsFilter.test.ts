@@ -9,7 +9,6 @@ import {
   isRaising,
   lensCreate,
   matchesLens,
-  matchesProjectQuery,
   matchesStage,
   projectTopics,
   readProjectsView,
@@ -29,6 +28,8 @@ const unpricedRole = { roleId: "r3", title: "Writer", budgetType: null };
 
 /** Which chips a row answers to. */
 const chipsOf = (p: unknown) => PROJECT_LENSES.map((l) => l.value).filter((l) => matchesLens(p, l));
+
+const hits = (...ids: string[]) => ids.map((id, i) => ({ id, score: 0.5 - i * 0.001 }));
 
 describe("the chips", () => {
   it("are Projects, Seeking funding, Seeking people, Jobs and gigs, in that order", () => {
@@ -398,20 +399,6 @@ describe("projectTopics and isMatch", () => {
   });
 });
 
-describe("matchesProjectQuery", () => {
-  it("looks in the title, the summary and the page text", () => {
-    const p = passion({
-      title: "Harbor Mural",
-      blurb: "Painting the seawall",
-      body: [{ type: "text", text: "We need volunteers on Saturdays" }],
-    });
-    expect(matchesProjectQuery(p, "harbor")).toBe(true);
-    expect(matchesProjectQuery(p, "seawall")).toBe(true);
-    expect(matchesProjectQuery(p, "saturdays")).toBe(true);
-    expect(matchesProjectQuery(p, "orchestra")).toBe(false);
-  });
-});
-
 describe("filterProjects", () => {
   const list = [
     passion({ _id: "a", title: "Mural", stage: "working", interests: ["Visual Art"], community: { slug: "the-garden" } }),
@@ -480,5 +467,64 @@ describe("filterProjects", () => {
   it("does not reorder for an empty soft signal", () => {
     const out = filterProjects(list as any, { lens: "projects", soft: { interests: [], location: "" } });
     expect(ids(out as any)).toEqual(["a", "b", "d"]);
+  });
+});
+
+describe("filterProjects search by name and meaning", () => {
+  const list = [
+    passion({ _id: "a", title: "Harbor Mural", creator: { name: "Ana Ruiz" } }),
+    passion({ _id: "b", title: "Album", creator: { name: "Haley Montgomery" } }),
+    passion({ _id: "c", title: "Zine", blurb: "Painting the seawall" }),
+    passion({ _id: "d", title: "Choir", organization: { name: "Harbor Church" } }),
+  ];
+  const ids = (xs: { _id: string }[]) => xs.map((x) => x._id);
+  const run = (opts: object) => ids(filterProjects(list as any, { lens: "projects", ...opts }) as any);
+
+  it("matches a title word prefix, a maker's name and an organization's name", () => {
+    expect(run({ query: "harb" })).toEqual(["a", "d"]);
+    expect(run({ query: "hal mont" })).toEqual(["b"]);
+  });
+  it("is names only without ranked: no substring or description matching", () => {
+    expect(run({ query: "seawall" })).toEqual([]);
+    expect(run({ query: "arbor" })).toEqual([]);
+    expect(run({ query: "harb", ranked: null })).toEqual(["a", "d"]);
+  });
+  it("puts name hits first in list order, then ranked ids closest first", () => {
+    expect(run({ query: "harb", ranked: hits("c", "b", "a") })).toEqual(["a", "d", "c", "b"]);
+  });
+  it("never adds a ranked id that is not in the list", () => {
+    expect(run({ query: "harb", ranked: hits("zzz", "c") })).toEqual(["a", "d", "c"]);
+    // Out by chip, stage or community stays out.
+    expect(run({ query: "harb", ranked: hits("c"), inCommunity: (p: any) => p._id !== "c" })).toEqual(["a", "d"]);
+  });
+  it("measures the score window among the projects the list shows: a better match outside the community doesn't push one out", () => {
+    const ranked = [
+      { id: "b", score: 0.9 },
+      { id: "c", score: 0.5 },
+    ];
+    expect(run({ query: "zzzz", ranked, inCommunity: (p: any) => p._id !== "b" })).toEqual(["c"]);
+    // Nothing filtered: the far hit is out of the window.
+    expect(run({ query: "zzzz", ranked })).toEqual(["b"]);
+  });
+  it("measures the window after the interest tags too", () => {
+    const tagged = [
+      passion({ _id: "x", title: "X", interests: ["Film"] }),
+      passion({ _id: "y", title: "Y", interests: ["Music"] }),
+    ];
+    const ranked = [
+      { id: "x", score: 0.9 },
+      { id: "y", score: 0.5 },
+    ];
+    const out = filterProjects(tagged as any, { lens: "projects", query: "zzzz", ranked, tags: ["Music"] }) as any[];
+    expect(out.map((p) => p._id)).toEqual(["y"]);
+  });
+  it("keeps a searched list's order against the soft signal", () => {
+    const soft = { interests: ["Music"], location: "" };
+    const rows = [
+      passion({ _id: "x", title: "Zed", interests: [] }),
+      passion({ _id: "y", title: "Zeta", interests: ["Music"] }),
+    ];
+    expect(ids(filterProjects(rows as any, { lens: "projects", query: "ze", soft }) as any)).toEqual(["x", "y"]);
+    expect(ids(filterProjects(rows as any, { lens: "projects", soft }) as any)).toEqual(["y", "x"]);
   });
 });

@@ -20,6 +20,9 @@ export function makeCtx(
     store[name] = rows.map((r) => ({ ...r }));
   const rowsOf = (table: string) => (store[table] ??= []);
   const deletedFiles: string[] = [];
+  /** Everything scheduler.runAfter was asked to run: delay, the function
+   * reference (compare with getFunctionName) and its args. */
+  const scheduled: { delay: number; fn: unknown; args: any }[] = [];
   let counter = 100;
   const find = (id: string) =>
     rowsOf(id.split(":")[0]).find((r) => r._id === id) ?? null;
@@ -166,9 +169,14 @@ export function makeCtx(
         store._storage = rowsOf("_storage").filter((f) => f._id !== id);
       },
     },
-    scheduler: { runAfter: async () => {} },
+    scheduler: {
+      runAfter: async (delay: number, fn: unknown, args: unknown) => {
+        scheduled.push({ delay, fn, args });
+      },
+    },
     store,
     deletedFiles,
+    scheduled,
   } as any;
 }
 
