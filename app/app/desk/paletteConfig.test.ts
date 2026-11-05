@@ -54,7 +54,7 @@ const shortlistTool = (over: Partial<SignedInDeps> = {}) => tool(buildSignedInTo
 describe("buildSignedInTools", () => {
   it("fans seven tools including platform-wide Tables", () => {
     const tools = buildSignedInTools(deps());
-    expect(tools.map((t) => t.id)).toEqual(["today", "people", "projects", "events", "tables", "shortlist", "profile"]);
+    expect(tools.map((t) => t.id)).toEqual(["today", "projects", "events", "people", "tables", "shortlist", "profile"]);
     expect(tools).toHaveLength(fanAngles(7).length);
   });
 
@@ -160,6 +160,6 @@ describe("the Shortlist stack", () => {
 describe("buildSignedOutTools", () => {
   it("has no Shortlist: it needs an account", () => {
     const tools = buildSignedOutTools({ active: null, loginTo: "/login" });
-    expect(tools.map((t) => t.id)).toEqual(["people", "projects", "events", "tables", "signin"]);
+    expect(tools.map((t) => t.id)).toEqual(["projects", "events", "people", "tables", "signin"]);
   });
 });

@@ -153,19 +153,6 @@ export function buildSignedInTools(d: SignedInDeps): PaletteTool[] {
       items: [{ id: "today", label: "Today", to: deskHref("today") }],
     },
     {
-      id: "people",
-      label: "People",
-      header: "People",
-      icon: <PersonSimple size={TOOL_ICON_SIZE} weight="regular" />,
-      active: isActive("people"),
-      to: deskHref("people"),
-      items: [
-        { id: "find", label: "Find people", to: deskHref("people") },
-        { id: "near", label: "Meet people near me", to: `${deskHref("people")}&near=1` },
-        { id: "invite", label: d.invite.label, onSelect: d.invite.onSelect },
-      ],
-    },
-    {
       id: "projects",
       label: "Projects",
       header: "Projects",
@@ -189,6 +176,19 @@ export function buildSignedInTools(d: SignedInDeps): PaletteTool[] {
       items: [
         { id: "browse", label: "Browse events", to: deskHref("events") },
         { id: "host", label: "Host an event", to: deskHref("events", null, "event") },
+      ],
+    },
+    {
+      id: "people",
+      label: "People",
+      header: "People",
+      icon: <PersonSimple size={TOOL_ICON_SIZE} weight="regular" />,
+      active: isActive("people"),
+      to: deskHref("people"),
+      items: [
+        { id: "find", label: "Find people", to: deskHref("people") },
+        { id: "near", label: "Meet people near me", to: `${deskHref("people")}&near=1` },
+        { id: "invite", label: d.invite.label, onSelect: d.invite.onSelect },
       ],
     },
     {
@@ -247,15 +247,6 @@ export function buildSignedOutTools(d: SignedOutDeps): PaletteTool[] {
   const events = "/events";
   const tools: PaletteTool[] = [
     {
-      id: "people",
-      label: "People",
-      header: "People",
-      icon: <PersonSimple size={TOOL_ICON_SIZE} weight="regular" />,
-      active: d.active === "people",
-      to: people,
-      items: [{ id: "find", label: "Find people", to: people }],
-    },
-    {
       id: "projects",
       label: "Projects",
       header: "Projects",
@@ -272,6 +263,15 @@ export function buildSignedOutTools(d: SignedOutDeps): PaletteTool[] {
       active: d.active === "events",
       to: events,
       items: [{ id: "browse", label: "Browse events", to: events }],
+    },
+    {
+      id: "people",
+      label: "People",
+      header: "People",
+      icon: <PersonSimple size={TOOL_ICON_SIZE} weight="regular" />,
+      active: d.active === "people",
+      to: people,
+      items: [{ id: "find", label: "Find people", to: people }],
     },
     {
       id: "tables",

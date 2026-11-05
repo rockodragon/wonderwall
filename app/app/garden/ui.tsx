@@ -71,10 +71,12 @@ export function GardenWordmark() {
     detail) — the nav was walking strangers into a wall. Signed in → the
     real page; signed out → the public guest equivalent of the same
     content (/opportunities; /events is public itself since 2026-10-13). */
+// Projects first, then Events, then People: the phone's order, now
+// everywhere (Rick, 2026-11-05: "the projects need to be foremost").
 const ALL_NAV_ITEMS = [
-  { to: "/people", label: "People" },
   { to: "/projects", publicTo: "/opportunities", label: "Projects" },
   { to: "/events", label: "Events" },
+  { to: "/people", label: "People" },
   { to: "/tables", label: "Tables" },
   // "Spaces" is /communities (2026-09-14, product decision) — the directory
   // of named groups/hosts. Was briefly pointed at /tables on the reasoning
