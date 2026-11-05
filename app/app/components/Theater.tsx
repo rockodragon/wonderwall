@@ -43,7 +43,6 @@ const CHROME_MS = 2600;
 /** The arrows at the edges: up on opening and while the mouse moves, gone
  *  this long after it stops (Rick, 2026-11-04). */
 const EDGE_MS = 5000;
-const LABEL_MS = 4800;
 const HINT_MS = 5200;
 /** The strip under a video that holds the controls. */
 const BAND_PX = 72;
@@ -123,7 +122,6 @@ export function Theater({
   const [hidden, setHidden] = useState(false);
   const [chrome, setChrome] = useState(true);
   const [edges, setEdges] = useState(true);
-  const [labelOn, setLabelOn] = useState(true);
   const [note, setNote] = useState<{ text: string; at: number } | null>(null);
   const [hint, setHint] = useState(false);
 
@@ -307,13 +305,7 @@ export function Theater({
     return () => window.clearTimeout(t);
   }, [leaving, reduced]);
 
-  // Each piece's label shows as it arrives, then rests with the controls.
   const currentSlideKey = current?.key;
-  useEffect(() => {
-    setLabelOn(true);
-    const t = window.setTimeout(() => setLabelOn(false), LABEL_MS);
-    return () => window.clearTimeout(t);
-  }, [currentSlideKey]);
 
   useEffect(() => {
     if (!note) return;
@@ -348,7 +340,6 @@ export function Theater({
   const band = many ? BAND_PX : 0;
   const onPlayer = current.kind !== "image";
   const chromeShown = chrome || !playing || !many || onPlayer;
-  const labelShown = labelOn || chromeShown;
   const fade = (on: boolean): CSSProperties => ({
     opacity: on ? 1 : 0,
     transition: "opacity 600ms ease",
@@ -418,16 +409,27 @@ export function Theater({
         ))}
       </div>
 
-      {/* The label, like the card beside a piece on a gallery wall, and the
-          way out. */}
+      {/* The label, like the card beside a piece on a gallery wall: under
+          every picture for as long as it's up, its title and who made it
+          (Rick, 2026-11-04). A video has its own title, so none there. Then
+          the way out. */}
       <div
         className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-4 px-4 pt-[max(12px,env(safe-area-inset-top))] pb-10"
-        style={{ ...fade(labelShown), background: "linear-gradient(rgba(0,0,0,0.5), transparent)" }}
+        style={{
+          background: onPlayer ? "transparent" : "linear-gradient(rgba(0,0,0,0.42), transparent)",
+          transition: "background 600ms ease",
+        }}
       >
+        {onPlayer ? (
+          <span />
+        ) : (
         <div
           key={current.key}
           className="min-w-0 max-w-[min(640px,100%)] pt-2"
-          style={{ animation: reduced ? undefined : "theater-label 900ms ease 1000ms both" }}
+          style={{
+            animation: reduced ? undefined : "theater-label 900ms ease 1000ms both",
+            textShadow: "0 1px 3px rgba(0,0,0,0.6)",
+          }}
         >
           {current.title && (
             <p className="text-[16px] font-medium leading-snug line-clamp-2" style={{ color: PAPER }}>
@@ -450,6 +452,7 @@ export function Theater({
             </p>
           )}
         </div>
+        )}
         <button
           type="button"
           onClick={close}

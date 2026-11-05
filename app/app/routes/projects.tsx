@@ -46,6 +46,7 @@ import { JOIN_TO_SEE_ALL_PROJECTS, moreProjectsLine } from "../lib/browse/direct
 import { bylineOf } from "../lib/byline";
 import { coverOf, type PostViewer } from "../lib/projectPick";
 import { useViewer } from "../lib/useViewer";
+import { LatestProjectsTheater } from "../components/LatestProjectsTheater";
 import { useProjectSupport, type SupportMode } from "../components/ProjectSupport";
 import { PostActions, PostMaker, PostTitle, ProjectCover } from "../components/ProjectPost";
 
@@ -237,7 +238,13 @@ export default function Projects() {
         <PageTop
           className="md:hidden"
           title="Projects"
-          action={<PostMenu look="bar" primary={{ label: create.label, onClick: create.kind === "hire" ? hireSomeone : startProject }} onProject={startProject} onHire={hireSomeone} />}
+          action={
+            <div className="flex items-center gap-2">
+              {/* Admins: every listed project in theater mode. */}
+              <LatestProjectsTheater />
+              <PostMenu look="bar" primary={{ label: create.label, onClick: create.kind === "hire" ? hireSomeone : startProject }} onProject={startProject} onHire={hireSomeone} />
+            </div>
+          }
         />
         <div className="hidden md:block">
           <h1

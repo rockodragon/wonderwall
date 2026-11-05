@@ -93,8 +93,8 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
   // Theater mode (components/Theater.tsx): all of it, full screen, newest
   // first. Its button sits on the first heading of the work.
   const theaterSlides = useMemo(
-    () => portfolioSlides(profile?.artifacts ?? [], affiliations ?? []),
-    [profile?.artifacts, affiliations],
+    () => portfolioSlides(profile?.artifacts ?? [], affiliations ?? [], profile?.name),
+    [profile?.artifacts, affiliations, profile?.name],
   );
   const [theaterOpen, setTheaterOpen] = useState(false);
   const theaterButton = theaterSlides.length > 0 ? <TheaterButton onClick={() => setTheaterOpen(true)} /> : null;
