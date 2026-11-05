@@ -22,12 +22,12 @@ import { isValidEmail, normalizeEmail } from "./eventRsvps";
 import { can } from "./capabilities";
 import { assertCanPure, getGardenUser } from "./entitlements";
 import { insertNotification } from "../notify";
-import { toEmbedUrl } from "../videoEmbed";
+import { projectCoverUrl } from "../projectCover";
 import { isHidden, isShownProject } from "../moderationRules";
 import { hasRealName } from "../names";
 import { communityVisibility } from "./communityVisibility";
 import { projectVisibleTo } from "./projectVisibility";
-import { pieceMediaUrl, profileImageUrl, projectPhotoUrl } from "../images";
+import { profileImageUrl } from "../images";
 import { portfolioSamples, validatePortfolioSampleIds } from "../portfolioSamples";
 import { fail } from "../errors";
 import { scheduleProjectEmbedding } from "../searchIndexing";
@@ -1576,35 +1576,12 @@ export const listRoles = query({
  * are included like any other; their attached media supplies the cover.
  * Each row carries what a visitor needs to see at a glance: done or not,
  * hiring (open roles, or a paid posting), raising, gig dates. */
-// The one picture that stands for a project on a profile: its own photo,
-// else its pasted link's still, else the first attached piece's — an
-// uploaded image, a fetched/uploaded cover, or a video provider's thumbnail.
-async function projectCover(ctx: QueryCtx, project: Doc<"projects">): Promise<string | null> {
-  const photo = await projectPhotoUrl(ctx, project);
-  if (photo) return photo;
-  if (project.mediaPreviewUrl) return project.mediaPreviewUrl;
-  const pieces = await ctx.db
-    .query("artifacts")
-    .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
-    .collect();
-  for (const piece of pieces) {
-    if (piece.ogImageUrl) return piece.ogImageUrl;
-    if (piece.type === "image") {
-      const media = await pieceMediaUrl(ctx, piece);
-      if (media) return media;
-    }
-    const embed = toEmbedUrl(piece.mediaUrl);
-    if (embed?.thumbnailUrl) return embed.thumbnailUrl;
-  }
-  return null;
-}
-
 /** One project as a card on a profile or an organization's page: its
  * cover, stage, open roles, pay and raise. `role` is the person's part in
  * it, or null on an organization's page. */
 async function projectTileRow(ctx: QueryCtx, project: Doc<"projects">, role: string | null) {
   const [imageUrl, openRoles, gig, tiers] = await Promise.all([
-    projectCover(ctx, project),
+    projectCoverUrl(ctx, project),
     ctx.db
       .query("projectRoles")
       .withIndex("by_projectId_status", (q) => q.eq("projectId", project._id).eq("status", "open"))

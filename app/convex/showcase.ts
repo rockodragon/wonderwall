@@ -35,7 +35,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { fail } from "./errors";
 import { requireAdminCtx, getProfileByUserId } from "./helpers";
-import { projectPhotoUrl } from "./images";
+import { projectCoverUrl } from "./projectCover";
 import { isListedProject } from "./moderationRules";
 import { orgByline } from "./organizations";
 import { resolveStage } from "./stages";
@@ -338,7 +338,8 @@ export const adminList = query({
           stage: resolveStage(project),
           // Who it's by: the organization it was posted as, else the person.
           byName: organization?.name ?? nameOf(project.userId, "A Garden creative"),
-          photoUrl: (await projectPhotoUrl(ctx, project)) ?? project.mediaPreviewUrl ?? null,
+          // The same picture its own page and a profile card show.
+          photoUrl: await projectCoverUrl(ctx, project),
           createdAt: project.createdAt,
           cheers: support.get(project._id)?.cheers ?? 0,
           backers: support.get(project._id)?.backers ?? 0,

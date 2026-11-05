@@ -8,10 +8,11 @@
 // touches anyone else's. Each card shows the tally, who voted which way,
 // and your own vote held selected.
 //
-// A card is two columns: the work on the left — picture, title, who it's
-// by, and what people did about it, since cheers and backers are the
-// public's vote — and everything the jury does on the right: your vote,
-// your note, the decision. Voting and deciding stay separate
+// A card is two columns: the work on the left — the picture a quarter of
+// the width and flush to the card's edge (convex/projectCover.ts, the same
+// picture its page shows), title, who it's by, and what people did about
+// it, since cheers and backers are the public's vote — and everything the
+// jury does on the right: your vote, your note, the decision. Voting and deciding stay separate
 // (projects.showcaseStatus in schema.ts): the tally is the jury's opinion,
 // the decision is the commitment, and nothing flips it however lopsided a
 // tally gets.
@@ -23,12 +24,12 @@
 // non-admin gets a message instead of a server refusal.
 
 import { useState } from "react";
+import { CurrencyDollar, Heart } from "@phosphor-icons/react";
 import { useMutation, useQuery } from "convex/react";
 import type { MetaFunction } from "react-router";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { plural } from "../../convex/moderationRules";
 import { admin } from "../components/admin/adminStyles";
 import {
   AdminAccessDenied,
@@ -121,28 +122,24 @@ function ProjectCard({
 
   return (
     <div
-      className={`rounded-xl border bg-[var(--app-surface-raised)] p-5 md:flex md:gap-5 ${
+      className={`overflow-hidden rounded-xl border bg-[var(--app-surface-raised)] md:flex ${
         p.status === "selected"
           ? "border-green-300/60"
           : "border-[color:var(--app-hairline)]"
       }`}
     >
-      {/* The work */}
-      <div className="flex min-w-0 flex-1 items-start gap-4">
-        {/* Square and cropped to fill, as the project lists show it. */}
-        {p.photoUrl ? (
+      {/* The work. The picture fills its column top to bottom, cropped to
+          fill as the project lists show it; a banner on a phone. */}
+      <div className="relative h-44 w-full shrink-0 bg-[var(--app-surface)] md:h-auto md:w-1/4 md:self-stretch">
+        {p.photoUrl && (
           <img
             src={p.photoUrl}
             alt=""
-            className="h-24 w-24 shrink-0 rounded-lg bg-[var(--app-surface)] object-cover"
-          />
-        ) : (
-          <div
-            aria-hidden
-            className="h-24 w-24 shrink-0 rounded-lg bg-[var(--app-surface)]"
+            className="h-full w-full object-cover md:absolute md:inset-0"
           />
         )}
-        <div className="min-w-0">
+      </div>
+      <div className="min-w-0 flex-1 p-5">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className={admin.h2}>
               <Link to={`/projects/${p._id}`} className={admin.link}>
@@ -155,18 +152,30 @@ function ProjectCard({
               </span>
             )}
           </div>
-          <p className={`mt-1 ${admin.meta}`}>
-            {p.byName} · {stageLabel(p.stage)} · {plural(p.cheers, "cheer")}
-            {p.backers > 0 ? ` · ${plural(p.backers, "backer")}` : ""}
+          <p className={`mt-1 flex flex-wrap items-center gap-x-1.5 ${admin.meta}`}>
+            <span>
+              {p.byName} · {stageLabel(p.stage)} ·
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Heart size={14} weight="fill" aria-hidden="true" />
+              {p.cheers}
+              <span className="sr-only">{p.cheers === 1 ? "cheer" : "cheers"}</span>
+            </span>
+            {p.backers > 0 && (
+              <span className="inline-flex items-center gap-1">
+                <CurrencyDollar size={14} aria-hidden="true" />
+                {p.backers}
+                <span className="sr-only">{p.backers === 1 ? "backer" : "backers"}</span>
+              </span>
+            )}
           </p>
           {p.blurb && (
             <p className={`mt-3 whitespace-pre-wrap ${admin.body}`}>{p.blurb}</p>
           )}
-        </div>
       </div>
 
       {/* The jury */}
-      <div className="mt-4 space-y-3 border-t border-[color:var(--app-hairline)] pt-4 md:mt-0 md:w-64 md:shrink-0 md:border-l md:border-t-0 md:pl-5 md:pt-0">
+      <div className="space-y-3 border-t border-[color:var(--app-hairline)] p-5 md:w-64 md:shrink-0 md:border-l md:border-t-0">
         <div className="flex flex-wrap items-center gap-2">
           {(["yes", "maybe", "no"] as Vote[]).map((vote) => {
             const on = p.myVote === vote;
