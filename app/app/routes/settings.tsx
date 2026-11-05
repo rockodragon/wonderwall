@@ -18,6 +18,7 @@ import { LocationAutocomplete, LocationVerifiedHint } from "../components/Locati
 import { useLocationField } from "../lib/useLocationField";
 import { useSignOut } from "../lib/useSignOut";
 import { useAddMyEmail } from "../lib/useAddMyEmail";
+import { CodeTextNote } from "../components/CodeTextNote";
 import { INTERESTS, shownInterests } from "../constants/interests";
 import { LEVEL_LABEL } from "../garden/capabilities";
 import { normalizeHandle, type PayoutKind } from "../../convex/garden/gigRules";
@@ -1280,6 +1281,7 @@ function PhoneSection() {
               Cancel
             </button>
           </div>
+          <CodeTextNote style={{ color: "var(--app-text-dim)" }} />
         </form>
       ) : step === "enterCode" ? (
         <form onSubmit={handleConfirmCode} className="flex flex-col gap-3 max-w-sm mt-3">

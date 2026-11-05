@@ -11,6 +11,7 @@ import { GardenLockupThemed } from "../brand/GardenMark";
 import { errorMessage } from "../lib/convexError";
 import { signupHref } from "../lib/pendingIntent";
 import { analyticsErrorProperties } from "../lib/posthog";
+import { CodeTextNote } from "../components/CodeTextNote";
 
 export function meta() {
   return [
@@ -243,6 +244,7 @@ export default function Login() {
             >
               {phoneLoading ? "Sending..." : "Text me a code"}
             </button>
+            <CodeTextNote className="text-gray-600 dark:text-gray-400" />
           </form>
         ) : (
           <form onSubmit={handleVerifyCode} className="mt-8 space-y-6">

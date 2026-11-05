@@ -85,6 +85,8 @@ export const setMessageTexts = internalMutation({
     const data = { enabled, updatedAt: Date.now() };
     if (row) await ctx.db.patch(row._id, data);
     else await ctx.db.insert("engagementLoops", { key: MESSAGE_TEXTS_KEY, subject: "", body: "", ...data });
+    // The welcome texts owed to everyone who opted in while texts were off.
+    if (enabled) await ctx.scheduler.runAfter(0, internal.serviceTexts.sendOwedWelcomes, {});
     return { enabled };
   },
 });

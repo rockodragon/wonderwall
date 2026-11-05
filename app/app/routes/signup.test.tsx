@@ -90,6 +90,13 @@ describe("an invite link on The Garden", () => {
     expect(html).toContain('id="email"');
   });
 
+  it("says what the code text is, that rates may apply, and links the privacy policy, under Text me a code", async () => {
+    const html = await page("/signup/sol");
+    const after = html.slice(html.indexOf("Text me a code"));
+    expect(after).toContain("We&#x27;ll text you a one-time code. Message and data rates may apply.");
+    expect(after).toMatch(/<a[^>]*href="\/legal\/privacy"[^>]*>Privacy Policy<\/a>/);
+  });
+
   it("names no one else who joined with the link", async () => {
     expect(text(await page("/signup/sol"))).not.toMatch(/Also connected here|Be one of the first/);
   });
