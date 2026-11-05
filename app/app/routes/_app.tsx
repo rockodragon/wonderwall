@@ -115,15 +115,11 @@ const NAV_ICONS: Record<(typeof NAV_ITEMS)[number]["to"], Icon> = {
 // The Shortlist (docs/handoff/favorites-redesign/README.md) replaced
 // "Following" here: same /favorites, now the phone's Shortlist page.
 const SHORTLIST_PATH = "/favorites";
-// The phone's bar, in its own order (Rick, 2026-10-12): Today, Projects,
-// Events, People, then anything a flag turns on, then you. Five, like a
-// native tab bar; the Shortlist and Messages left it for the top corner of
-// Today (components/phone/TodayActions.tsx).
-const BAR_ORDER: readonly string[] = ["/projects", "/events", "/people"];
-const barRank = (to: string) => {
-  const at = BAR_ORDER.indexOf(to);
-  return at === -1 ? BAR_ORDER.length : at;
-};
+// The phone's bar (Rick, 2026-10-12): Today, Projects, Events, People (in
+// NAV_ITEMS' order, which the desktop rail shares since 2026-11-05), then
+// anything a flag turns on, then you. Five, like a native tab bar; the
+// Shortlist and Messages left it for the top corner of Today
+// (components/phone/TodayActions.tsx).
 
 // The layout route: the shell around whichever route sits below it.
 export default function AppLayout() {
@@ -309,7 +305,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
   // public path gets the places at their public addresses plus Sign in.
   const barItems = [
     ...(isAuthenticated ? [{ path: "/today", label: "Today", icon: Sun }] : []),
-    ...[...places].sort((a, b) => barRank(a.to) - barRank(b.to)),
+    ...places,
     // Signed in: your profile. Signed out: the same icon opens sign in /
     // sign up, so a visitor isn't left with three places and no way in.
     isAuthenticated
