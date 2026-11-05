@@ -4,6 +4,7 @@ import { api } from "../../convex/_generated/api";
 import { errorMessage } from "../lib/convexError";
 import { weekdayAndTime, timeAgo } from "../lib/dates";
 import { upcomingReminderTimes } from "../../convex/reminderTimes";
+import { TalkBox } from "./TalkBox";
 
 // Shared across the three owner-facing surfaces (docs/announcements-prd.md,
 // UI/UX Specifications: "one <AnnouncementComposer targetType targetId />
@@ -182,11 +183,11 @@ export function AnnouncementComposer({
         {heading}
       </h3>
 
-      <textarea
+      <TalkBox
         autoFocus
         value={body}
-        onChange={(e) => {
-          setBody(e.target.value);
+        onChange={(v) => {
+          setBody(v);
           setError(null);
           setConfirmation(null);
         }}

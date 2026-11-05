@@ -16,6 +16,7 @@ import { Link, useRouteError } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { errorMessage } from "../lib/convexError";
+import { TalkBox } from "../components/TalkBox";
 
 export function meta() {
   return [
@@ -152,11 +153,11 @@ function ApplyForm() {
         <input className={inputClass} style={inputStyle} value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="https://..." />
       </Field>
       <Field label="Description">
-        <textarea
+        <TalkBox
           className={`${inputClass} resize-y`}
           style={inputStyle}
           value={description}
-          onChange={(e) => setDescription(e.target.value)}
+          onChange={setDescription}
           rows={4}
           placeholder="What this community is, and who it's for."
         />
@@ -165,11 +166,11 @@ function ApplyForm() {
         label="What do you already gather? Who's in it now?"
         hint="Helps us review faster — an existing group, a mailing list, a room full of people already."
       >
-        <textarea
+        <TalkBox
           className={`${inputClass} resize-y`}
           style={inputStyle}
           value={applicantNote}
-          onChange={(e) => setApplicantNote(e.target.value)}
+          onChange={setApplicantNote}
           rows={4}
         />
       </Field>

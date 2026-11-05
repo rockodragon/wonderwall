@@ -78,6 +78,7 @@ import { canSaveProject, isProjectOwner } from "../lib/projectPick";
 import { useViewer } from "../lib/useViewer";
 import { Byline } from "../components/Byline";
 import { PersonAvatar } from "../components/PersonAvatar";
+import { TalkBox } from "../components/TalkBox";
 import { PortfolioSamplePicker } from "../components/PortfolioSamples";
 import { ApplicationReview } from "../components/project/ApplicationReview";
 import { SubmittedApplication, type ApplicationEvidenceData } from "../components/project/ApplicationEvidence";
@@ -2121,9 +2122,9 @@ function RolesSection({
               className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
               style={inputStyle}
             />
-            <textarea
+            <TalkBox
               value={description}
-              onChange={(e) => setDescription(e.target.value.slice(0, 500))}
+              onChange={(v) => setDescription(v.slice(0, 500))}
               rows={2}
               maxLength={500}
               placeholder="What this role involves (optional)"
@@ -2562,9 +2563,9 @@ function JoinRequestModal({
               <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
                 Note (optional)
               </label>
-              <textarea
+              <TalkBox
                 value={message}
-                onChange={(e) => setMessage(e.target.value.slice(0, 500))}
+                onChange={(v) => setMessage(v.slice(0, 500))}
                 rows={3}
                 maxLength={500}
                 placeholder="Why you'd be good for this"
@@ -2583,9 +2584,9 @@ function JoinRequestModal({
             </fieldset>
             <label className="flex flex-col gap-1.5 text-xs" style={{ color: "var(--garden-dim)" }}>
               Availability (optional)
-              <textarea
+              <TalkBox
                 value={availability}
-                onChange={(event) => setAvailability(event.target.value)}
+                onChange={setAvailability}
                 maxLength={MAX_AVAILABILITY_LENGTH}
                 rows={2}
                 placeholder="Dates you can work, time zone, and how much time you can commit"
@@ -3129,9 +3130,9 @@ function TierForm({
         >
           Description (optional)
         </label>
-        <textarea
+        <TalkBox
           value={description}
-          onChange={(e) => setDescription(e.target.value.slice(0, 500))}
+          onChange={(v) => setDescription(v.slice(0, 500))}
           rows={2}
           maxLength={500}
           placeholder="What this level of support means"

@@ -17,6 +17,7 @@ import { shiftEndTime } from "../lib/shiftEndTime";
 import { PersonAvatar } from "./PersonAvatar";
 import { useProfileLinks } from "../lib/useProfileLinks";
 import { signupHref } from "../lib/pendingIntent";
+import { TalkBox } from "./TalkBox";
 
 const PAID_METHOD_LABELS: Record<PaidMethod, string> = {
   venmo: "Venmo",
@@ -477,9 +478,9 @@ function GigRespondModal({
               <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
                 Note to the venue (optional)
               </label>
-              <textarea
+              <TalkBox
                 value={note}
-                onChange={(e) => setNote(e.target.value.slice(0, MAX_NOTE_LENGTH))}
+                onChange={(v) => setNote(v.slice(0, MAX_NOTE_LENGTH))}
                 rows={3}
                 maxLength={MAX_NOTE_LENGTH}
                 className="w-full px-3 py-2 rounded-lg border text-sm outline-none resize-none"

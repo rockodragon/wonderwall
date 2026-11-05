@@ -12,11 +12,10 @@ import { useLocationField } from "../lib/useLocationField";
 import { errorMessage } from "../lib/convexError";
 import type { Stage } from "../lib/stage";
 import { START_STAGES, type StartStage } from "../lib/shareProject";
-import { useTalk } from "../lib/useTalk";
 import { FocusBackdrop } from "./FocusBackdrop";
 import { gardenField } from "./gardenField";
 import { SheetExit } from "./SheetExit";
-import { SpokenNote, SpokenTextarea, useSpokenInto } from "./SpokenTextarea";
+import { TalkBox } from "./TalkBox";
 
 // One modal for starting AND editing a project, in four short screens, each
 // one thing: what it is called, a few words about it, the work itself, and
@@ -135,9 +134,6 @@ export function ProjectModal({
   const [title, setTitle] = useState(edit?.title ?? initialTitle ?? "");
   const [pickedStage, setPickedStage] = useState<StartStage | undefined>(undefined);
   const [blurb, setBlurb] = useState(edit?.blurb ?? "");
-  // Talk instead (Rick, 2026-10-30): the words are added after the description.
-  const speech = useTalk();
-  const heard = useSpokenInto(speech, blurb, setBlurb);
   // The work: the project's first piece (create only).
   const piece = usePieceDraft();
   const location = useLocationField(edit);
@@ -169,13 +165,6 @@ export function ProjectModal({
   useEffect(() => {
     bodyRef.current?.scrollTo({ top: 0 });
   }, [step]);
-
-  // The panels stay mounted when hidden, so the mic would go on listening
-  // into the description from another screen; moving off "about" stops it.
-  const stopTalking = speech.stop;
-  useEffect(() => {
-    if (step !== "about") stopTalking();
-  }, [step, stopTalking]);
 
   function toggleInterest(tag: string) {
     setInterests((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
@@ -366,20 +355,18 @@ export function ProjectModal({
                 <label htmlFor={`${uid}-blurb`} className={gardenField.label} style={gardenField.labelStyle}>
                   What is it (optional)
                 </label>
-                <SpokenTextarea
+                {/* The panels stay mounted when hidden; moving off this
+                    screen stops a take (its words still come in). */}
+                <TalkBox
                   id={`${uid}-blurb`}
                   value={blurb}
                   onChange={setBlurb}
                   rows={4}
                   placeholder={finished ? "What you made, and why" : "What you're making, and why"}
-                  listening={speech.listening}
-                  transcribing={speech.transcribing}
-                  onStart={heard.start}
-                  onStop={speech.stop}
-                  className={gardenField.input}
+                  active={step === "about"}
+                  className={`${gardenField.input} resize-none`}
                   style={gardenField.inputStyle}
                 />
-                <SpokenNote working={false} error={speech.error} className={gardenField.hint} />
               </div>
             </div>
 

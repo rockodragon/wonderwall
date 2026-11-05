@@ -22,6 +22,7 @@ import { FocusBackdrop } from "./FocusBackdrop";
 import { HireWhenToggle, type HireDraft } from "./HireWhenToggle";
 import { HORIZON_WEEKS, MAX_COUNT, WEEKDAY_SHORT, compareDates } from "../../convex/garden/gigRules";
 import { shiftEndTime } from "../lib/shiftEndTime";
+import { TalkBox } from "./TalkBox";
 
 // Same four money states PaidProjectForm offers, mirrored here rather than
 // imported since PaidProjectForm doesn't export its copy.
@@ -319,9 +320,9 @@ export function GigSeriesForm({
 
           <div>
             <FieldLabel>What you need</FieldLabel>
-            <textarea
+            <TalkBox
               value={blurb}
-              onChange={(e) => setBlurb(e.target.value)}
+              onChange={setBlurb}
               rows={3}
               placeholder="Acoustic duo or solo, 2 sets, PA provided"
               className="w-full px-3 py-2 rounded-lg border text-sm outline-none resize-none"

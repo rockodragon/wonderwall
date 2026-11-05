@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ROLES } from "../constants/roles";
 import { HEAR_ABOUT_OPTIONS } from "../constants/waitlistOptions";
 import { useWaitlistFollowUp } from "../lib/useWaitlistFollowUp";
+import { TalkBox } from "./TalkBox";
 
 // Garden-styled (.g-* classes) — used on /join, which already renders
 // inside GardenPage's .garden-root wrapper.
@@ -93,12 +94,12 @@ export function WaitlistFollowUp({
           >
             What are you working on?
           </label>
-          <textarea
+          <TalkBox
             id="wl-project"
             className="g-input"
             rows={2}
             value={projectDescription}
-            onChange={(e) => setProjectDescription(e.target.value)}
+            onChange={setProjectDescription}
             placeholder="A short film, a mural series, a worship EP…"
           />
         </div>

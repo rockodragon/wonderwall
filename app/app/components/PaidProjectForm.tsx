@@ -10,6 +10,7 @@ import { FocusBackdrop } from "./FocusBackdrop";
 import { HireWhenToggle, type HireDraft } from "./HireWhenToggle";
 import { LocationAutocomplete, LocationVerifiedHint } from "./LocationAutocomplete";
 import { describeMediaLink, MediaLinkField } from "./MediaLinkField";
+import { TalkBox } from "./TalkBox";
 
 // "Hire someone → One job": a paid posting with a declared pay state. Mounted
 // by /projects and by the desk's create flow (desk/DeskCreate.tsx) through
@@ -180,9 +181,9 @@ export function PaidProjectForm({
             <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
               What's the work
             </label>
-            <textarea
+            <TalkBox
               value={blurb}
-              onChange={(e) => setBlurb(e.target.value)}
+              onChange={setBlurb}
               rows={3}
               placeholder="What you need done"
               className="w-full px-3 py-2 rounded-lg border text-sm outline-none resize-none"

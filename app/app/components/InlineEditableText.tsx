@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { PencilIcon } from "./icons";
 import { errorMessage } from "../lib/convexError";
+import { TalkBox } from "./TalkBox";
 
 /** The small pencil beside something its owner can change. */
 export function EditButton({ onClick, label }: { onClick: () => void; label: string }) {
@@ -75,10 +76,10 @@ export function InlineEditableText({
   if (editing) {
     return (
       <div className={className}>
-        <textarea
+        <TalkBox
           autoFocus
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={setDraft}
           rows={3}
           maxLength={maxLength}
           disabled={saving}

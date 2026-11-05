@@ -26,6 +26,7 @@ import { SwitchRow } from "./SwitchRow";
 import { shiftEndTime } from "../lib/shiftEndTime";
 import { errorMessage } from "../lib/convexError";
 import { ticketLinkHost } from "../lib/eventCta";
+import { TalkBox } from "./TalkBox";
 
 // One modal for hosting AND editing an event (Rick, 2026-10-01: edit uses the
 // same steps as create). Pass `edit` to open it on an existing event.
@@ -799,10 +800,10 @@ export function CreateEventModal({
                 <FieldLabel htmlFor={descriptionId} optional>
                   Description
                 </FieldLabel>
-                <textarea
+                <TalkBox
                   id={descriptionId}
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  onChange={setDescription}
                   placeholder="What's this event about?"
                   rows={6}
                   className={`${inputClass} resize-y`}
@@ -1101,10 +1102,10 @@ export function CreateEventModal({
                         className={inputClass}
                         style={inputStyle}
                       />
-                      <textarea
+                      <TalkBox
                         aria-label={`Answer ${i + 1}`}
                         value={row.a}
-                        onChange={(e) => setFaq((rows) => rows.map((r, j) => (j === i ? { ...r, a: e.target.value } : r)))}
+                        onChange={(v) => setFaq((rows) => rows.map((r, j) => (j === i ? { ...r, a: v } : r)))}
                         placeholder="Answer. Link with [text](https://…) or [text](/page)."
                         rows={3}
                         className={`${inputClass} resize-y`}

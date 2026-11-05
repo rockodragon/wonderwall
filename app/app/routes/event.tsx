@@ -87,6 +87,7 @@ import { PAGE_WIDTH } from "../lib/pageWidth";
 import { eventCta, type EventCta } from "../lib/eventCta";
 import { useStartConversation } from "../lib/useStartConversation";
 import { PersonAvatar } from "../components/PersonAvatar";
+import { TalkBox } from "../components/TalkBox";
 
 const COVER_COLORS = [
   { name: "Blue", value: "blue", gradient: "from-blue-500 to-blue-600" },
@@ -2049,12 +2050,13 @@ function JoinOrApplyCard({ eventId, mode }: { eventId: Id<"events">; mode: "appl
       <h3 className="font-medium text-gray-900 dark:text-white mb-3 text-sm">
         {words.heading}
       </h3>
-      <textarea
+      <TalkBox
         value={message}
-        onChange={(e) => setMessage(e.target.value)}
+        onChange={setMessage}
         placeholder={words.placeholder}
         rows={words.rows}
-        className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:border-transparent dark:bg-gray-900 dark:text-white resize-none mb-3 text-sm ${words.ring}`}
+        className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:border-transparent dark:bg-gray-900 dark:text-white resize-none text-sm ${words.ring}`}
+        wrapperClassName="mb-3"
       />
       <div className="flex flex-col gap-2">
         <button

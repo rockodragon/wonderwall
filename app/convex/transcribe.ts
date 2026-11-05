@@ -1,9 +1,7 @@
-// "Talk instead" where the browser can't listen for itself (Brave, Firefox,
-// Chrome on an iPhone, in-app browsers): the page records the take (app/lib/
-// useAudioRecorder.ts), sends the sound here, and OpenAI writes it down.
-// One call, with the key the backend already has; nothing is stored, the
-// sound lives for the length of the call. Where the browser can listen, the
-// words never reach us (app/lib/useSpeech.ts).
+// "Talk instead", in every text box (app/components/TalkBox.tsx): the page
+// records the take (app/lib/useTalk.ts), sends the sound here, and OpenAI
+// writes it down. One call, with the key the backend already has; nothing is
+// stored, the sound lives for the length of the call.
 
 import { v } from "convex/values";
 import { action } from "./_generated/server";

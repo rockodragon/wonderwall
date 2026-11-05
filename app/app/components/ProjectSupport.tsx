@@ -17,6 +17,7 @@ import { CLAIMS } from "../constants/claims";
 import { errorMessage } from "../lib/convexError";
 import { FF_BACKING } from "../lib/featureFlags";
 import { supportDetour } from "../lib/pendingIntent";
+import { TalkBox } from "./TalkBox";
 
 export type SupportMode = "cheer" | "back";
 
@@ -506,9 +507,9 @@ export function SupportModal({
                 <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
                   Note to the creator (optional)
                 </label>
-                <textarea
+                <TalkBox
                   value={message}
-                  onChange={(e) => setMessage(e.target.value)}
+                  onChange={setMessage}
                   rows={2}
                   placeholder="Why this one matters to you…"
                   className="w-full px-3 py-2 rounded-lg border text-sm outline-none resize-none"
@@ -526,9 +527,9 @@ export function SupportModal({
                 <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
                   Message (optional)
                 </label>
-                <textarea
+                <TalkBox
                   value={message}
-                  onChange={(e) => setMessage(e.target.value)}
+                  onChange={setMessage}
                   rows={3}
                   placeholder="This is great — keep going."
                   className="w-full px-3 py-2 rounded-lg border text-sm outline-none resize-none"
@@ -546,9 +547,9 @@ export function SupportModal({
                 <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
                   What are you offering
                 </label>
-                <textarea
+                <TalkBox
                   value={resourceDescription}
-                  onChange={(e) => setResourceDescription(e.target.value)}
+                  onChange={setResourceDescription}
                   rows={2}
                   placeholder="A spare camera lens, an afternoon of color grading…"
                   className="w-full px-3 py-2 rounded-lg border text-sm outline-none resize-none"

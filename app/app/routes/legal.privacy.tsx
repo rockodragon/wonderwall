@@ -97,6 +97,7 @@ const SECTIONS: LegalSection[] = [
     heading: "Search and AI features",
     paragraphs: [
       "To make search understand meaning rather than only keywords, we convert profile and content text into numeric embeddings using OpenAI's embedding API. That text is sent to OpenAI solely to generate the embedding. This is a paid API service whose terms prohibit training on customer API data. We do not send your direct messages, your password, or your payment details.",
+      "When you tap the microphone in a text box, your browser records what you say and sends the recording to OpenAI's transcription API to be written down. The words come back into the box for you to change or delete before anything is saved. We don't store the recording. During onboarding, the line about yourself is also sent to OpenAI to suggest interests that fit.",
       "We also run an automated crawler that reads publicly available pages — such as organizations' own careers pages — to gather opportunity listings. That process collects information organizations publish openly, not private information about members.",
     ],
   },
@@ -128,7 +129,7 @@ const SECTIONS: LegalSection[] = [
       "Resend — sending transactional and notification email.",
       "Telnyx — sending text messages: sign-in codes and the message alerts you turn on.",
       "Stripe — processing payments. Stripe handles card details directly.",
-      "OpenAI — generating the search embeddings described above.",
+      "OpenAI — generating the search embeddings and writing down what you say to the microphone, described above.",
     ],
   },
   {
