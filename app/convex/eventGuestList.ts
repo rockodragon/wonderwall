@@ -99,6 +99,38 @@ export async function loadGuests(ctx: Ctx, eventId: Id<"events">): Promise<Guest
   return mergeGuests(inputs);
 }
 
+/** The events a person is on, from the same three places loadGuests reads:
+ * requests to join, RSVPs and paid tickets. By account only: an RSVP or a
+ * ticket with an email and no account isn't linked to anyone. "going"
+ * keeps what the Guests tab counts as going (an accepted request, an RSVP,
+ * a paid ticket); "any" adds requests still waiting or declined. */
+export async function guestEventIds(
+  ctx: Ctx,
+  userId: Id<"users">,
+  which: "going" | "any",
+): Promise<Set<Id<"events">>> {
+  const eventIds = new Set<Id<"events">>();
+  for (const a of await ctx.db
+    .query("eventApplications")
+    .withIndex("by_applicantId", (q) => q.eq("applicantId", userId))
+    .collect()) {
+    if (which === "any" || a.status === "accepted") eventIds.add(a.eventId);
+  }
+  for (const r of await ctx.db
+    .query("eventRsvps")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .collect()) {
+    eventIds.add(r.eventId);
+  }
+  for (const p of await ctx.db
+    .query("ticketPurchases")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .collect()) {
+    if (p.status === "paid") eventIds.add(p.eventId);
+  }
+  return eventIds;
+}
+
 /** Each row with its role: a host's pick, else the guest's own answer,
  * else the event's hosts are hosts, else what their profile says. */
 export async function withGuestRoles(ctx: Ctx, event: Doc<"events">, rows: GuestRow[]): Promise<GuestRow[]> {

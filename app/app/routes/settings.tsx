@@ -1917,19 +1917,21 @@ type AddressHandle = {
  * (handles.checkHandle, read through useHandleCheck). Save shows once the
  * name changes; a change keeps the old address forwarding for
  * HANDLE_FORWARD_DAYS. The "i" holds the explanation and "How names work"
- * (/legal/names). Under it, a switch for "Hide my profile from search
- * engines" (handles.setHideFromSearch).
+ * (/legal/names). Under it, switches for "Hide my profile from search
+ * engines" (handles.setHideFromSearch) and "Hide past events from my
+ * profile" (profiles.setHidePastEvents).
  * The field is the #address target (Settings' #address effect).
  */
 function AddressSection({
   profile,
   ref,
 }: {
-  profile: { handle?: string; hideFromSearch?: boolean };
+  profile: { handle?: string; hideFromSearch?: boolean; hidePastEvents?: boolean };
   ref?: Ref<AddressHandle>;
 }) {
   const claimHandle = useMutation(api.handles.claimHandle);
   const setHideFromSearch = useMutation(api.handles.setHideFromSearch);
+  const setHidePastEvents = useMutation(api.profiles.setHidePastEvents);
   const current = profile.handle ?? "";
   const [typed, setTyped] = useState(current);
   const [saving, setSaving] = useState(false);
@@ -1979,6 +1981,15 @@ function AddressSection({
     setError(null);
     try {
       await setHideFromSearch({ hide });
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  }
+
+  async function toggleHidePastEvents(hide: boolean) {
+    setError(null);
+    try {
+      await setHidePastEvents({ hide });
     } catch (err) {
       setError(errorMessage(err));
     }
@@ -2071,6 +2082,12 @@ function AddressSection({
         on={!!profile.hideFromSearch}
         onChange={(hide) => void toggleHide(hide)}
         className="mt-3 min-h-14"
+      />
+      <SwitchRow
+        label="Hide past events from my profile"
+        on={!!profile.hidePastEvents}
+        onChange={(hide) => void toggleHidePastEvents(hide)}
+        className="min-h-14"
       />
     </div>
   );

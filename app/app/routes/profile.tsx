@@ -19,6 +19,7 @@ import { shownTitle } from "../lib/placeholderTitle";
 import { OrgLogo } from "../components/OrgLogo";
 import { PersonAvatar } from "../components/PersonAvatar";
 import { ProjectTile } from "../components/ProjectTile";
+import { EventCard, type EventCardEvent } from "../components/EventCard";
 import { yearsLabel } from "../../convex/organizationRules";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { BackLink } from "../components/BackLink";
@@ -87,6 +88,12 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
   const openProjects = (affiliations ?? []).filter((a: any) => !a.completed);
   const completedProjects = (affiliations ?? []).filter((a: any) => a.completed);
   const loosePieces = (profile?.artifacts ?? []).filter((a: any) => !a.projectId);
+  // Events they went to (events.listPastForProfile). Signed in only: a
+  // visitor never asks.
+  const pastEvents = useQuery(
+    api.events.listPastForProfile,
+    isAuthenticated && profile?._id ? { profileId: profile._id } : "skip",
+  );
   const organizations = profile?.organizations ?? [];
   const currentOrgs = organizations.filter((o) => o.current);
   const {
@@ -792,9 +799,11 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
             </Link>
           </div>
         ) : (
-          <div className="text-center py-12" style={{ color: "var(--app-text-dim)" }}>
-            <p>This profile doesn't have any content yet</p>
-          </div>
+          !pastEvents?.length && (
+            <div className="text-center py-12" style={{ color: "var(--app-text-dim)" }}>
+              <p>This profile doesn't have any content yet</p>
+            </div>
+          )
         ))}
 
       {/* Organizations: every position, current first, with logo, title
@@ -836,6 +845,41 @@ export function ProfilePage({ profile }: { profile: ProfileData | null | undefin
             })}
           </div>
         </div>
+      )}
+
+      {pastEvents && pastEvents.length > 0 && <PastEvents events={pastEvents} />}
+    </div>
+  );
+}
+
+const PAST_EVENTS_SHOWN = 3;
+
+/** Events this person went to, newest first (events.listPastForProfile:
+ * signed-in members only, gone when they hide it in Settings). A few, then
+ * Show all. */
+function PastEvents({ events }: { events: EventCardEvent[] }) {
+  const [all, setAll] = useState(false);
+  const shown = all ? events : events.slice(0, PAST_EVENTS_SHOWN);
+
+  return (
+    <div className="mt-8">
+      <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
+        Past events
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {shown.map((event) => (
+          <EventCard key={event._id} event={event} />
+        ))}
+      </div>
+      {events.length > shown.length && (
+        <button
+          type="button"
+          onClick={() => setAll(true)}
+          className="mt-4 px-4 py-2 rounded-lg border text-[13.5px] font-medium transition-colors hover:border-[var(--app-accent)]"
+          style={{ borderColor: "var(--app-hairline)", color: "var(--app-text)" }}
+        >
+          Show all {events.length}
+        </button>
       )}
     </div>
   );

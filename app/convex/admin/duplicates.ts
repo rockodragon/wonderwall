@@ -300,6 +300,7 @@ const PROFILE_FIELD_WORDS: Record<string, string> = {
   stripeConnectAccountId: "Stripe payout account",
   plan: "plan",
   hideFromSearch: "search-engine setting",
+  hidePastEvents: "past-events setting",
   adminCode: "admin approval code",
   unlimitedInvites: "unlimited invites",
 };

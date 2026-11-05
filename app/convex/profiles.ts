@@ -701,6 +701,18 @@ export const setOrgName = mutation({
   },
 });
 
+/** "Hide past events from my profile" (Settings). Off by default: signed-in
+ * members see the events a person went to (events.listPastForProfile). */
+export const setHidePastEvents = mutation({
+  args: { hide: v.boolean() },
+  handler: async (ctx, args) => {
+    const userId = await requireUserId(ctx);
+    const profile = await requireProfile(ctx, userId);
+    await ctx.db.patch(profile._id, { hidePastEvents: args.hide, updatedAt: Date.now() });
+    return { hide: args.hide };
+  },
+});
+
 // Operator CLI only, like setAdminByName: put someone at an organization
 // (made their primary), creating it if needed (Rick, 2026-10-01: David
 // Russo → Abiding Practice).

@@ -101,6 +101,10 @@ export default defineSchema({
     // "Hide my profile from search engines" (Settings): the public page says
     // noindex. Unset is findable — a profile with an address is public.
     hideFromSearch: v.optional(v.boolean()),
+    // "Hide past events from my profile" (Settings): the Past events
+    // section (events.listPastForProfile) is gone for everyone. Unset shows
+    // it, to signed-in members only.
+    hidePastEvents: v.optional(v.boolean()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
