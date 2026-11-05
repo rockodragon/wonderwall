@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   embedEnded,
+  latestSlides,
   nextSpeed,
   orderSlides,
   pieceSlide,
@@ -45,10 +46,10 @@ describe("portfolioSlides", () => {
       { _id: "a1", type: "image", mediaUrl: "https://cdn/track.jpg", projectId: "p2", createdAt: 250 },
       { _id: "loose", type: "image", mediaUrl: "https://cdn/old.jpg", createdAt: 10 },
     ];
-    const slides = portfolioSlides(pieces, projects);
+    const slides = portfolioSlides(pieces, projects, "Marta Reyes");
     expect(slides.map((s) => s.key)).toEqual(["p1", "a1", "loose"]);
     // A piece takes its project's name when it has none, and links to it.
-    expect(slides[1]).toMatchObject({ title: "Album", projectId: "p2" });
+    expect(slides[1]).toMatchObject({ title: "Album", projectId: "p2", by: "Marta Reyes" });
   });
 
   it("keeps out hire posts and pieces of projects the page doesn't list", () => {
@@ -71,6 +72,7 @@ describe("projectSlides", () => {
       title: "Mural",
       resolvedPhotoUrl: "https://cdn/mural.jpg",
       mediaUrl: YT,
+      creator: { _id: "pr-ana", name: "Ana Reyes" },
       media: [
         { _id: "same", type: "image", resolvedMediaUrl: "https://cdn/mural.jpg" },
         { _id: "detail", type: "image", resolvedMediaUrl: "https://cdn/detail.jpg" },
@@ -78,6 +80,36 @@ describe("projectSlides", () => {
     });
     expect(slides.map((s) => s.key)).toEqual(["p:photo", "p:link", "detail"]);
     expect(slides.every((s) => s.projectId === null)).toBe(true);
+    expect(slides.every((s) => s.by === "Ana Reyes")).toBe(true);
+  });
+});
+
+describe("latestSlides", () => {
+  it("is every project's work, newest project first, kept together, with who made it", () => {
+    const slides = latestSlides([
+      {
+        _id: "old",
+        title: "Mural",
+        kind: "passion",
+        createdAt: 1,
+        resolvedPhotoUrl: "https://cdn/mural.jpg",
+        creator: { _id: "pr-1", name: "Marta Reyes" },
+      },
+      {
+        _id: "new",
+        title: "Album",
+        kind: "passion",
+        createdAt: 2,
+        resolvedPhotoUrl: "https://cdn/album.jpg",
+        media: [{ _id: "track", type: "image", resolvedMediaUrl: "https://cdn/track.jpg" }],
+        organization: { name: "The Grove", slug: "grove" },
+        creator: { _id: "pr-2", name: "June Park" },
+      },
+      { _id: "job", title: "Need a drummer", kind: "paid", createdAt: 3, resolvedPhotoUrl: "https://cdn/job.jpg" },
+    ]);
+    expect(slides.map((s) => s.key)).toEqual(["new:photo", "track", "old:photo"]);
+    expect(slides[0]).toMatchObject({ projectId: "new", by: "The Grove" });
+    expect(slides[2]).toMatchObject({ projectId: "old", by: "Marta Reyes" });
   });
 });
 

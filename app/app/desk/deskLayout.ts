@@ -45,6 +45,9 @@ export const SHEET_H = 680;
 /** Under the dim layer and the opened card, above every resting card. */
 export const Z_DIM = 20;
 export const Z_OPEN = 30;
+/** A project's page over the grid (ProjectOverlay.tsx): above every card,
+ *  under the page's own sheets (z-50) and the toast. */
+export const Z_PAGE = 35;
 /** How much a hovered card is raised. Stays under Z_DIM. */
 export const Z_HOVER = 10;
 

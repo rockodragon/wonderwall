@@ -303,3 +303,38 @@ describe("the card under the greeting", () => {
     expect(html).not.toContain('aria-label="How we reach you"');
   });
 });
+
+// A project opened from the grid is its own page over the grid, as a post
+// opens over the grid on Instagram (Rick, 2026-11-05), not a card that sends
+// you on with "See project". The page itself loads lazily; here the frame
+// around it is what's drawn.
+describe("a project opened from the desk's grid", () => {
+  it("opens as its page over the grid, with no card flown open", () => {
+    const html = desk("/today?view=projects&card=project:p2", { projects: PROJECTS });
+    expect(html).toContain("data-project-overlay");
+    expect(html).toContain('aria-label="Close"');
+    expect(html).not.toContain("See project");
+  });
+
+  it("steps to the project before or after it in the grid, with no arrow past either end", () => {
+    const middle = desk("/today?view=projects&card=project:p2", { projects: PROJECTS });
+    expect(middle).toContain('aria-label="Previous project"');
+    expect(middle).toContain('aria-label="Next project"');
+    const first = desk("/today?view=projects&card=project:p1", { projects: PROJECTS });
+    expect(first).not.toContain('aria-label="Previous project"');
+    expect(first).toContain('aria-label="Next project"');
+    const last = desk("/today?view=projects&card=project:p3", { projects: PROJECTS });
+    expect(last).toContain('aria-label="Previous project"');
+    expect(last).not.toContain('aria-label="Next project"');
+  });
+
+  it("leaves the grid behind it out of reach", () => {
+    const html = desk("/today?view=projects&card=project:p2", { projects: PROJECTS });
+    expect(html).toMatch(/<div inert=""[^>]*overflow-y:auto/);
+  });
+
+  it("leaves a Shortlist row's project as its card, whose buttons are the Shortlist's", () => {
+    const html = desk("/today?view=shortlist&card=project:p1", { projects: PROJECTS });
+    expect(html).not.toContain("data-project-overlay");
+  });
+});

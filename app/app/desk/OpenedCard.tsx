@@ -57,7 +57,7 @@ export type Stepper = {
 };
 
 // 40px with a mouse, 44px under a finger (the tap target the platforms ask for).
-const ROUND_CLASS = `flex h-10 w-10 pointer-coarse:h-11 pointer-coarse:w-11 shrink-0 items-center justify-center rounded-full border border-[#333] bg-transparent text-[#F4F4F2] transition-colors enabled:hover:border-[#FFE066] enabled:hover:text-[#FFE066] disabled:opacity-35 ${FOCUS_RING_CLASS}`;
+export const ROUND_CLASS = `flex h-10 w-10 pointer-coarse:h-11 pointer-coarse:w-11 shrink-0 items-center justify-center rounded-full border border-[#333] bg-transparent text-[#F4F4F2] transition-colors enabled:hover:border-[#FFE066] enabled:hover:text-[#FFE066] disabled:opacity-35 ${FOCUS_RING_CLASS}`;
 
 /** A name in the panel's words that goes to its page (a celebration's person,
  *  project or fund): underlined in the words' own color, the accent on hover. */

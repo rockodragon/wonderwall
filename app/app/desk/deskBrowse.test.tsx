@@ -1,6 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { renderToString } from "react-dom/server";
 import { MemoryRouter } from "react-router";
+import { getFunctionName } from "convex/server";
+
+// convex/react stubbed as in deskCreateCard.test.tsx: queries answer from
+// `answers` by function name; a skipped one stays undefined. The header reads
+// whether the viewer is an admin (LatestProjectsTheater).
+const mock = vi.hoisted(() => ({ answers: {} as Record<string, unknown> }));
+vi.mock("convex/react", () => ({
+  useQuery: (fn: Parameters<typeof getFunctionName>[0], args?: unknown) =>
+    args === "skip" ? undefined : mock.answers[getFunctionName(fn)],
+  useMutation: () => async () => ({ ok: true }),
+  useAction: () => async () => ({ ok: true }),
+  useConvexAuth: () => ({ isAuthenticated: true, isLoading: false }),
+}));
 import { DeskHeader } from "./DeskHeader";
 import { DeskFilterBar, browseCreate, browseCreateCard, browseParamsOf, readDeskProjects } from "./deskBrowse";
 
@@ -238,5 +251,23 @@ describe("browseCreate and browseCreateCard", () => {
     const at = html.indexOf(`href="${escaped}"`);
     expect(at).toBeGreaterThan(-1);
     expect(html.slice(at, html.indexOf("</a>", at)).endsWith(`>${card.label}`)).toBe(true);
+  });
+});
+
+describe("Theater on Projects", () => {
+  const project = { _id: "p1", title: "Mural", kind: "passion", createdAt: 1, resolvedPhotoUrl: "/m.jpg", creator: { _id: "c1", name: "Marta" } };
+  const header = () =>
+    renderToString(
+      <MemoryRouter initialEntries={["/today?view=projects"]}>
+        <DeskHeader view="projects" community="garden" greeting="" greetingReady count={3} stuck={false} inert={false} onMeasure={() => {}} />
+      </MemoryRouter>,
+    );
+
+  it("plays every listed project for an admin, and is nobody else's", () => {
+    mock.answers = { "profiles:getMyProfile": { isAdmin: false }, "garden/projects:listProjects": [project] };
+    expect(header()).not.toContain("Theater</button>");
+    mock.answers = { "profiles:getMyProfile": { isAdmin: true }, "garden/projects:listProjects": [project] };
+    expect(header()).toContain("Theater</button>");
+    mock.answers = {};
   });
 });
