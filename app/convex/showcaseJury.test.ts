@@ -22,7 +22,7 @@ function world(viewer: string = ADMIN) {
         { _id: "projects:done", userId: MAKER, kind: "paid", title: "Short film", status: "completed", createdAt: 1 },
         { _id: "projects:hidden", userId: MAKER, kind: "passion", title: "Hidden", status: "hidden", createdAt: 3 },
         { _id: "projects:gone", userId: MAKER, kind: "passion", title: "Archived", status: "archived", createdAt: 4 },
-        { _id: "projects:share", userId: MAKER, kind: "passion", title: "Quick share", status: "active", origin: "portfolio", createdAt: 5 },
+        { _id: "projects:share", userId: MAKER, kind: "passion", title: "Christmas album", status: "active", origin: "portfolio", createdAt: 0 },
       ],
     },
     viewer,
@@ -30,9 +30,9 @@ function world(viewer: string = ADMIN) {
 }
 
 describe("the ballot", () => {
-  it("is every project the browse grid shows: no hidden, archived or quick shares", async () => {
+  it("is every project the browse grid shows: no hidden or archived, and pieces shared with Add work", async () => {
     const rows = await run(adminList, world());
-    expect(rows.map((r: any) => r.title)).toEqual(["Mural", "Short film"]);
+    expect(rows.map((r: any) => r.title)).toEqual(["Mural", "Short film", "Christmas album"]);
     expect(rows[0].byName).toBe("Maker");
     expect(rows[0].status).toBe("new");
     expect(rows[0].tally).toEqual({ yes: 0, maybe: 0, no: 0 });
@@ -65,7 +65,7 @@ describe("a vote", () => {
     const ctx = world();
     await run(castVote, ctx, { projectId: "projects:done", vote: "yes" });
     const rows = await run(adminList, ctx);
-    expect(rows.map((r: any) => r.title)).toEqual(["Short film", "Mural"]);
+    expect(rows.map((r: any) => r.title)).toEqual(["Short film", "Mural", "Christmas album"]);
   });
 
   it("needs a project that still exists", async () => {

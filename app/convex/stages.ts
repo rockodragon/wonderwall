@@ -56,6 +56,16 @@ export function stageLabel(stage: Stage): string {
   }
 }
 
+/** The stage word a visitor sees on a project (its chip, its card's pill, a
+ * tile's line, an opened card's facts): every stage but Completed. Finished
+ * work needs no label saying so; only a stage still under way earns one
+ * (Rick, 2026-11-04). The owner's stage menu (StageChip) still reads
+ * Completed, since it is the control that sets it, and the Stage filter
+ * still offers it. */
+export function shownStageLabel(stage: Stage): string | null {
+  return (canonicalStage(stage) ?? stage) === "completed" ? null : stageLabel(stage);
+}
+
 /** Whether `value` is a stage a project can be set to (STAGES). A retired
  * word such as "releasing" is not: read it with canonicalStage. */
 export function isStage(value: unknown): value is Stage {

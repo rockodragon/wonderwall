@@ -35,20 +35,23 @@ export function isShownProject(row: { status?: string }): boolean {
 export const VISIBLE_PROJECT_STATUSES: ReadonlySet<string> = new Set(["active", "in_progress", "completed"]);
 
 /** Whether a project was posted, rather than made by artifacts.create as the
- * side effect of a quick single-artifact share (origin "portfolio"). Those
- * have a home at /works, so they stay off the browse lists and aren't
- * projects anyone leads. Only an explicit "portfolio" counts: a row with no
- * origin predates the field (projectOriginMigration.ts), so real projects
- * never vanish defensively. */
+ * side effect of an "Add work" share (origin "portfolio"). The operator's
+ * counts tell the two apart, and the Shortlist leaves shares out of what
+ * someone leads. Only an explicit "portfolio" counts: a row with no origin
+ * predates the field (projectOriginMigration.ts), so real projects never
+ * vanish defensively. */
 export function isPostedProject(project: { origin?: string }): boolean {
   return project.origin !== "portfolio";
 }
 
-/** Whether a project is on the browse lists at all: a visible status, and
- * posted rather than shared from a portfolio. The one rule behind /projects,
- * a community's page, the stats strip and the showcase jury's ballot. */
-export function isListedProject(project: { status?: string; origin?: string }): boolean {
-  return VISIBLE_PROJECT_STATUSES.has(project.status ?? "") && isPostedProject(project);
+/** Whether a project is on the browse lists at all: a visible status. The
+ * one rule behind /projects and the Today Projects view, a community's page,
+ * the stats strip and the showcase jury's ballot. A piece shared with "Add
+ * work" is listed like any project: a shared piece IS a project
+ * (docs/features/project-ia.md), and leaving them off hid most of a
+ * musician's finished work (Rick, 2026-11-04). */
+export function isListedProject(project: { status?: string }): boolean {
+  return VISIBLE_PROJECT_STATUSES.has(project.status ?? "");
 }
 
 /** What Hide writes to a project or event: status "hidden", when, and the

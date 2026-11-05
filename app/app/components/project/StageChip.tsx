@@ -12,7 +12,7 @@ import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { errorMessage } from "../../lib/convexError";
-import { STAGES, resolveStage, stageLabel, type Stage } from "../../lib/stage";
+import { STAGES, resolveStage, shownStageLabel, stageLabel, type Stage } from "../../lib/stage";
 
 const CHIP_CLASS = "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium uppercase tracking-[0.06em]";
 const CHIP_STYLE = { fontFamily: "var(--garden-font-mono)", backgroundColor: "rgba(198,198,190,0.1)", color: "var(--garden-muted)" } as const;
@@ -29,10 +29,14 @@ export function StageChip({
   const [error, setError] = useState("");
   const stage = resolveStage(project);
 
+  // A visitor sees no chip on finished work (shownStageLabel). The owner's
+  // chip is the stage menu, so it always shows.
   if (!isOwner) {
+    const label = shownStageLabel(stage);
+    if (!label) return null;
     return (
       <span className={CHIP_CLASS} style={CHIP_STYLE}>
-        {stageLabel(stage)}
+        {label}
       </span>
     );
   }

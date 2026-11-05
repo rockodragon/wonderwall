@@ -6,5 +6,5 @@
 // it so the app's imports stay as they are. A stored `releasing` reads as
 // Completed (Released is gone); see canonicalStage there.
 
-export { STAGES, canonicalStage, isStage, resolveStage, stageLabel } from "../../convex/stages";
+export { STAGES, canonicalStage, isStage, resolveStage, shownStageLabel, stageLabel } from "../../convex/stages";
 export type { Stage } from "../../convex/stages";

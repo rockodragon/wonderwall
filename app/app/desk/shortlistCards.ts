@@ -31,7 +31,7 @@ import { calendarDay, shortDay } from "../lib/dates";
 import { withProjectTab } from "../lib/projectTabs";
 import { isPast, payText } from "../lib/shortlist/model";
 import type { ShortlistEvent, ShortlistFollow, ShortlistProject, ShortlistRequest } from "../lib/shortlist/types";
-import { stageLabel } from "../lib/stage";
+import { shownStageLabel } from "../lib/stage";
 import { applicationReviewHref, recruitmentActionCopy } from "../lib/shortlist/recruitment";
 import {
   dateKicker,
@@ -194,7 +194,7 @@ function projectRowCard(row: ShortlistProject, ctx: ShortlistCardContext): DeskC
   const item: ShortlistItem = { type: "project", row };
   const kind = KIND_LABEL[workKind(row)];
   const pay = payText(row);
-  const stage = row.stage ? stageLabel(row.stage) : null;
+  const stage = row.stage ? shownStageLabel(row.stage) : null;
   const leading = row.relation === "leading";
   const known = ctx.projects.find((p) => p._id === row.projectId);
   const lead = leading ? "you" : row.lead.name;

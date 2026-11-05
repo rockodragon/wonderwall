@@ -18,7 +18,7 @@ import { payText } from "../../lib/shortlist/model";
 import { closesAt, hasEnded } from "../../lib/shortlist/needsYou";
 import { shownTitle } from "../../lib/placeholderTitle";
 import type { ClosedReason, PostMedia, ProjectKind, ShortlistEvent, ShortlistPost, ShortlistProject } from "../../lib/shortlist/types";
-import { stageLabel } from "../../lib/stage";
+import { shownStageLabel } from "../../lib/stage";
 import { recruitmentActionCopy } from "../../lib/shortlist/recruitment";
 import { AREA_LABEL, cardIdOf, type ShortlistItem } from "./items";
 
@@ -144,7 +144,7 @@ function projectRow(row: ShortlistProject, ctx: RowContext): Omit<RowModel, "id"
   return {
     title: row.role?.title ?? row.title,
     sub,
-    meta: payText(row) ?? (row.stage ? stageLabel(row.stage) : null),
+    meta: payText(row) ?? (row.stage ? shownStageLabel(row.stage) : null),
     status: projectStatus(row, ctx.money),
     thumb: { kind: "cover", url: row.coverUrl, seed: row.projectId },
     // A reply owed, or a saved role about to close.

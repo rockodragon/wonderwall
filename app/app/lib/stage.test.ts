@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { STAGES, canonicalStage, isStage, resolveStage, stageLabel } from "./stage";
+import { STAGES, canonicalStage, isStage, resolveStage, shownStageLabel, stageLabel } from "./stage";
 import * as shared from "../../convex/stages";
 
 describe("resolveStage", () => {
@@ -69,6 +69,15 @@ describe("canonicalStage", () => {
   });
 });
 
+describe("shownStageLabel", () => {
+  it("is every stage's label but Completed's: finished work wears no badge", () => {
+    for (const s of STAGES) expect(shownStageLabel(s)).toBe(s === "completed" ? null : stageLabel(s));
+    // A stored releasing is Completed, so it has none either.
+    expect(shownStageLabel("releasing" as any)).toBeNull();
+    expect(shownStageLabel(resolveStage({ status: "completed", kind: "passion" }))).toBeNull();
+  });
+});
+
 describe("the app and the server share one stage list", () => {
   it("are the same functions, not two copies", () => {
     expect(STAGES).toBe(shared.STAGES);
@@ -76,5 +85,6 @@ describe("the app and the server share one stage list", () => {
     expect(stageLabel).toBe(shared.stageLabel);
     expect(resolveStage).toBe(shared.resolveStage);
     expect(canonicalStage).toBe(shared.canonicalStage);
+    expect(shownStageLabel).toBe(shared.shownStageLabel);
   });
 });

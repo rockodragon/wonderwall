@@ -264,6 +264,13 @@ describe("getProject and listProjects on the public project pages", () => {
     expect(JSON.stringify([project, row])).not.toContain("12 Dock St");
   });
 
+  it("lists a piece shared with Add work, finished or not, like any project", async () => {
+    for (const stage of ["completed", undefined]) {
+      const rows = await run(listProjects, makeCtx(world({ origin: "portfolio", stage }), null));
+      expect(rows.map((r: any) => r.title)).toEqual(["Harbor Mural"]);
+    }
+  });
+
   it("gives the lead a street-address place whole, on the page and in the list", async () => {
     const project = await run(getProject, makeCtx(world(streetPlace), LEAD), args);
     expect(project).toMatchObject(streetPlace);

@@ -463,12 +463,16 @@ describe("project cards", () => {
     expect(card.detail.facts?.some((f) => f.label === "Pay")).toBe(false);
   });
 
-  it("leave the stage off the face, whatever it is, and keep it in the opened card's facts", () => {
-    for (const [stage, label] of [["planning", "Planning"], ["working", "Working"], ["raising", "Raising"], ["completed", "Completed"]] as const) {
+  it("leave the stage off the face, whatever it is, and keep it in the opened card's facts while under way", () => {
+    for (const [stage, label] of [["planning", "Planning"], ["working", "Working"], ["raising", "Raising"]] as const) {
       const card = projectCard(project("s", { stage }), ["projects"], money);
       expect(card.face.kicker).toBe("");
       expect(card.detail.facts).toContainEqual({ label: "Stage", value: label });
     }
+    // Finished work says nothing about its stage.
+    const done = projectCard(project("s", { stage: "completed" }), ["projects"], money);
+    expect(done.face.kicker).toBe("");
+    expect(done.detail.facts?.some((f) => f.label === "Stage")).toBe(false);
     // Not set: the stage the project reads as, still in the facts.
     const bare = projectCard(project("s"), ["projects"], money);
     expect(bare.face.kicker).toBe("");
@@ -591,9 +595,9 @@ describe("projectFacts", () => {
   });
   it("reads the stage with the page's own words", () => {
     expect(projectFacts(project("c", { stage: "forming" }), money)[0]).toEqual({ label: "Stage", value: "Forming team" });
-    // A stored releasing is Completed now: Released is gone.
-    expect(projectFacts(project("d", { stage: "releasing" }), money)[0]).toEqual({ label: "Stage", value: "Completed" });
-    expect(projectFacts(project("e", { stage: "completed" }), money)[0]).toEqual({ label: "Stage", value: "Completed" });
+    // Finished work has no Stage row, a stored releasing (Completed now) included.
+    expect(projectFacts(project("d", { stage: "releasing" }), money)).toEqual([]);
+    expect(projectFacts(project("e", { stage: "completed" }), money)).toEqual([]);
   });
   it("gives paid work its pay, and no stage it didn't set", () => {
     const job = project("j", { kind: "paid", budgetType: "range", budget: 300, budgetMax: 600 });
@@ -602,11 +606,8 @@ describe("projectFacts", () => {
       { label: "Stage", value: "Working" },
       { label: "Pay", value: "$300–600" },
     ]);
-    // A paid post stored as releasing did set its stage: it reads Completed.
-    expect(projectFacts({ ...job, stage: "releasing" }, money)).toEqual([
-      { label: "Stage", value: "Completed" },
-      { label: "Pay", value: "$300–600" },
-    ]);
+    // A paid post stored as releasing is finished: no Stage row.
+    expect(projectFacts({ ...job, stage: "releasing" }, money)).toEqual([{ label: "Pay", value: "$300–600" }]);
   });
   it("gives a gig its pay per date", () => {
     const gig = project("g", { kind: "paid", budgetType: "amount", budget: 150, gig: { status: "open" } });

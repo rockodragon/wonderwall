@@ -264,7 +264,7 @@ export const publicStats = query({
 // ————— Admin: the jury —————
 //
 // The ballot is every project the browse grid shows (isListedProject: a
-// visible status, posted rather than shared from a portfolio). Any admin
+// visible status, "Add work" pieces included). Any admin
 // votes; a committee beyond admins is a later step. A vote is an opinion;
 // projects.showcaseStatus is the decision, and nothing sets it but an admin.
 
