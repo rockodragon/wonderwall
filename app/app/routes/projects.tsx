@@ -12,7 +12,7 @@ import {
   communityNameFor,
   useCommunityContext,
 } from "../components/CommunityFilter";
-import { resolveStage, stageLabel, type Stage } from "../lib/stage";
+import { resolveStage, shownStageLabel, type Stage } from "../lib/stage";
 import {
   PROJECT_LENSES,
   STAGE_OPTIONS,
@@ -591,6 +591,9 @@ export function ProjectCard({
   const hasBadge = !!kindWord || !!moneyWord;
   const title = role ? role.title : project.title;
   const stage = resolveStage(project);
+  const stagePill = [shownStageLabel(stage), daysLeft !== null ? `${daysLeft} ${daysLeft === 1 ? "day" : "days"} left` : null]
+    .filter(Boolean)
+    .join(" · ");
   const openRoles: any[] = project.openRoles ?? [];
   // The roles spelled out with their pay, where they are the reason the card
   // is here (Seeking people, Jobs and gigs); elsewhere a count says it. The
@@ -607,25 +610,28 @@ export function ProjectCard({
   const details = (
     <>
       <div className="flex flex-wrap items-center gap-1.5 mb-2">
-        {/* Stage always shows — see docs/features/project-teams.md §7 —
-            right beside the money/budget badge above it. Days-left folds
-            into the same pill instead of getting its own, so a passion
-            campaign near its deadline doesn't need two near-identical
-            pills to say one thing ("active" + "5 days left"). The
-            nonprofit-funding note lives on the project's own detail page
-            (projects.$id.tsx) — it's provenance, not a browse-time
-            decision factor, so it doesn't need a pill here too. */}
-        <span
-          className="self-start px-2 py-0.5 rounded-full text-[12px] font-medium uppercase tracking-[0.06em]"
-          style={{
-            fontFamily: "var(--garden-font-mono)",
-            backgroundColor: "rgba(198,198,190,0.1)",
-            color: "var(--garden-muted)",
-          }}
-        >
-          {stageLabel(stage)}
-          {daysLeft !== null && ` · ${daysLeft} ${daysLeft === 1 ? "day" : "days"} left`}
-        </span>
+        {/* The stage shows while the work is under way — see
+            docs/features/project-teams.md §7 — right beside the
+            money/budget badge above it; finished work has no pill
+            (shownStageLabel). Days-left folds into the same pill instead
+            of getting its own, so a passion campaign near its deadline
+            doesn't need two near-identical pills to say one thing
+            ("active" + "5 days left"). The nonprofit-funding note lives on
+            the project's own detail page (projects.$id.tsx) — it's
+            provenance, not a browse-time decision factor, so it doesn't
+            need a pill here too. */}
+        {stagePill && (
+          <span
+            className="self-start px-2 py-0.5 rounded-full text-[12px] font-medium uppercase tracking-[0.06em]"
+            style={{
+              fontFamily: "var(--garden-font-mono)",
+              backgroundColor: "rgba(198,198,190,0.1)",
+              color: "var(--garden-muted)",
+            }}
+          >
+            {stagePill}
+          </span>
+        )}
         {matched && (
           <span
             className="self-start px-2 py-0.5 rounded-full text-[12px] font-medium uppercase tracking-[0.06em]"

@@ -5,7 +5,7 @@ import { api } from "../../convex/_generated/api";
 import { budgetKindLabel } from "../lib/budgetLabel";
 import { FF_BACKING } from "../lib/featureFlags";
 import { setPendingIntent } from "../lib/pendingIntent";
-import { resolveStage, stageLabel } from "../lib/stage";
+import { resolveStage, shownStageLabel } from "../lib/stage";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import { EmbedStill } from "../components/EmbedStill";
 import { SiteHeader } from "../components/SiteHeader";
@@ -146,6 +146,8 @@ function fundedPercent(project: ProjectCard): number | null {
 }
 
 function ProjectTile({ project }: { project: ProjectCard }) {
+  // Finished work has no stage word (shownStageLabel).
+  const stage = shownStageLabel(resolveStage(project));
   const percent = fundedPercent(project);
   // The photo wins; else a pasted link's still — never a player, a grid
   // stays quiet while someone browses (creator-media-cross-post.md, Round 2).
@@ -174,10 +176,12 @@ function ProjectTile({ project }: { project: ProjectCard }) {
           <span className="text-[var(--garden-citron)] font-semibold">
             {project.moneyLine}
           </span>
-          <span className="text-[var(--garden-dim)]">
-            {" "}
-            · {stageLabel(resolveStage(project))}
-          </span>
+          {stage && (
+            <span className="text-[var(--garden-dim)]">
+              {" "}
+              · {stage}
+            </span>
+          )}
         </p>
         <h2 className="text-[var(--garden-paper)] font-semibold text-lg leading-snug mb-2">
           {project.title}

@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import {
   deleteBlocker,
   isHidden,
+  isListedProject,
   isPostedProject,
   restoredStatus,
   VISIBLE_PROJECT_STATUSES,
@@ -70,6 +71,16 @@ describe("moderationRules", () => {
     expect(isPostedProject({ origin: "posted" })).toBe(true);
     // Predates the field: still a real project.
     expect(isPostedProject({})).toBe(true);
+  });
+
+  it("isListedProject: a visible status is the whole rule, an Add work piece included", () => {
+    // Whole rows, as the queries pass them: origin is there and doesn't count.
+    const row = (status: string | undefined, origin: string) => ({ _id: "projects:p", status, origin });
+    expect(isListedProject(row("active", "portfolio"))).toBe(true);
+    expect(isListedProject(row("completed", "posted"))).toBe(true);
+    for (const status of ["pending", "archived", "hidden", undefined]) {
+      expect(isListedProject(row(status, "portfolio"))).toBe(false);
+    }
   });
 
   it("a hidden project isn't taking people", () => {

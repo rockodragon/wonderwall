@@ -19,7 +19,7 @@ import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from
 import { api } from "../../convex/_generated/api";
 import { formatMoney } from "../garden/ui";
 import { CLAIMS } from "../constants/claims";
-import { resolveStage, stageLabel } from "../lib/stage";
+import { resolveStage, shownStageLabel } from "../lib/stage";
 import { Dissolve } from "../hooks/useReveal";
 import { coverOf, fundingOf, moneyOf, pickProjects, type PostViewer } from "../lib/projectPick";
 import { useViewer } from "../lib/useViewer";
@@ -509,7 +509,9 @@ function FeaturedProject({ project }: { project: Project }) {
   const deadline = project.raiseByDate && project.raiseByDate > Date.now() ? project.raiseByDate : null;
   const openRoles = roles ? roles.filter((r) => r.status === "open").length : null;
 
-  const facts: { label: string; value: string }[] = [{ label: "Stage", value: stageLabel(resolveStage(project)) }];
+  const facts: { label: string; value: string }[] = [];
+  const stage = shownStageLabel(resolveStage(project));
+  if (stage) facts.push({ label: "Stage", value: stage });
   if (project.kind === "paid") {
     const money = moneyOf(project);
     if (money) facts.push({ label: "Pay", value: money });
@@ -625,7 +627,7 @@ export function ProjectRow({
   const funded = fundingOf(project, formatMoney);
   const daysLeft = project.raiseByDate && project.raiseByDate > Date.now() ? Math.max(1, Math.ceil((project.raiseByDate - Date.now()) / 86400000)) : null;
   const meta = [
-    stageLabel(resolveStage(project)),
+    shownStageLabel(resolveStage(project)),
     funded ? `${funded.raised} of ${funded.goal}` : null,
     daysLeft ? `${daysLeft} ${daysLeft === 1 ? "day" : "days"} left` : null,
   ].filter(Boolean);

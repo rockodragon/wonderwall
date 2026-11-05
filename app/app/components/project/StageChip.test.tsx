@@ -31,9 +31,23 @@ describe("StageChip", () => {
     // The select sits on Completed, so the owner is not offered a stage that is not there.
     expect(owner).toMatch(/<option value="completed" selected/);
 
+    // A visitor sees no chip on finished work at all.
     const visitor = renderToString(<StageChip project={project({ stage: "releasing" })} isOwner={false} />);
-    expect(visitor).toContain("Completed");
-    expect(visitor).not.toContain("Released");
-    expect(visitor).not.toContain("<select");
+    expect(visitor).toBe("");
+  });
+
+  it("shows a visitor the stage of work still under way, and no chip once it is Completed", () => {
+    const working = renderToString(<StageChip project={project({ stage: "working" })} isOwner={false} />);
+    expect(working).toContain("Working");
+    expect(working).not.toContain("<select");
+    expect(renderToString(<StageChip project={project({ stage: "completed" })} isOwner={false} />)).toBe("");
+    // An old row with no stage, finished by its legacy status, too.
+    expect(renderToString(<StageChip project={project({ status: "completed" })} isOwner={false} />)).toBe("");
+  });
+
+  it("still shows the owner Completed: the chip is their stage menu", () => {
+    const owner = renderToString(<StageChip project={project({ stage: "completed" })} isOwner />);
+    expect(owner).toMatch(/<option value="completed" selected/);
+    expect(owner).toContain("<select");
   });
 });

@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import { formatCents, formatDollars } from "../../convex/money";
 import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
-import { stageLabel, type Stage } from "../lib/stage";
+import { shownStageLabel, type Stage } from "../lib/stage";
 import { CoverFrame } from "./CoverFrame";
 import { EMPTY_COVER } from "./emptyCover";
 
@@ -77,7 +77,7 @@ export function ProjectTile({ project: a }: { project: any }) {
           {a.title}
         </h3>
         <p className="text-[13.5px]" style={{ color: "var(--app-text-muted)" }}>
-          {[a.role === null ? null : a.role || "Team", stageLabel(a.stage as Stage)].filter(Boolean).join(" · ")}
+          {[a.role === null ? null : a.role || "Team", shownStageLabel(a.stage as Stage)].filter(Boolean).join(" · ")}
         </p>
         {roles && (
           <p className="text-[13.5px] line-clamp-2" style={{ color: "var(--app-text-muted)" }}>

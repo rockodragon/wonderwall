@@ -172,7 +172,7 @@ Stage-change rule: only when the stage actually changes, and at most once per pr
 
 **Profile page** (`profile.tsx`), new **Projects** section above Work: rows from `listAffiliations`, title → project, role or "Lead", stage label. Hidden when empty. This page is inside the app layout, so it is not public today; the query is public so a future public profile can use it.
 
-**Cards** (`projects.tsx`, `opportunities.tsx`): stage label beside the money line. `STATUS_LABELS` stays for the legacy status pill; add `STAGE_LABELS` in `app/lib/stage.ts` alongside `resolveStage`, shared by both pages and unit-tested.
+**Cards** (`projects.tsx`, `opportunities.tsx`): stage label beside the money line. Since 2026-11-04 a visitor sees no stage on finished work: Completed is left off every chip, pill, tile and fact (`shownStageLabel`); the owner's stage menu still reads Completed. `STATUS_LABELS` stays for the legacy status pill; add `STAGE_LABELS` in `app/lib/stage.ts` alongside `resolveStage`, shared by both pages and unit-tested.
 
 **Claim route** (`routes/claim.$token.tsx`) per §3, plus the one-time `localStorage` check in `_app.tsx`.
 
