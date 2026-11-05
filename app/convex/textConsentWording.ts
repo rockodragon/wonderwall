@@ -16,8 +16,17 @@ export const consentWordingFor = (from: "settings" | "card") =>
     : `${TEXT_CONSENT_LABEL}\n${TEXT_CONSENT_LINE}`;
 export const TEXT_CONSENT_WORDING = consentWordingFor("settings");
 
+/** The text that confirms an opt-in (in the app, or START after a STOP).
+ * Word for word what the Telnyx toll-free verification registered. */
+export const TEXT_WELCOME =
+  "TheCreative.exchange: You'll get a text when someone messages you, up to 3 a day. Msg & data rates may apply. Reply HELP for help, STOP to stop.";
+/** The reply to HELP. Word for word what the verification registered. */
+export const TEXT_HELP_REPLY =
+  "TheCreative.exchange message alerts. For help, email hello@thecreative.exchange. Up to 3 texts a day. Msg & data rates may apply. Reply STOP to stop.";
+
 const STOP_WORDS = new Set(["stop", "stopall", "unsubscribe", "cancel", "end", "quit", "revoke", "optout", "opt out"]);
 const START_WORDS = new Set(["start", "unstop"]);
+const HELP_WORDS = new Set(["help", "info"]);
 
 /** Lowercase, anything but letters and digits to a space, spaces collapsed. */
 function normalize(text: unknown): string {
@@ -36,4 +45,9 @@ export function isStopWord(text: unknown): boolean {
 /** A reply that opts the sender back in: exactly start or unstop. */
 export function isStartWord(text: unknown): boolean {
   return START_WORDS.has(normalize(text));
+}
+
+/** A reply asking for help: exactly help or info, after the same tidying. */
+export function isHelpWord(text: unknown): boolean {
+  return HELP_WORDS.has(normalize(text));
 }

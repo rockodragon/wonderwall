@@ -1,11 +1,14 @@
 // What Telnyx tells us after a text (POST /telnyx/webhook in http.ts, after
-// the signature check): a reply (STOP / START, kept per phone number) and the
-// final delivery status of a text we sent.
+// the signature check): a reply (STOP / START, kept per phone number; START
+// and HELP get a text back, convex/serviceTexts.ts) and the final delivery
+// status of a text we sent.
 
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
-import { isStartWord, isStopWord } from "./textConsentWording";
+import type { Doc } from "./_generated/dataModel";
+import { replyToHelp, welcomeAfterStart } from "./serviceTexts";
+import { isHelpWord, isStartWord, isStopWord } from "./textConsentWording";
 
 type Obj = Record<string, unknown>;
 const obj = (value: unknown): Obj => (value && typeof value === "object" ? (value as Obj) : {});
@@ -49,7 +52,12 @@ export const applyTelnyxEvent = internalMutation({
       if (isStopWord(body.text)) await recordOptOut(ctx, phone, now);
       else if (isStartWord(body.text)) {
         const row = await ctx.db.query("smsOptOuts").withIndex("by_phone", q => q.eq("phone", phone)).first();
-        if (row && stopped(row)) await ctx.db.patch(row._id, { optedInAt: now });
+        if (row && stopped(row)) {
+          await ctx.db.patch(row._id, { optedInAt: now });
+          await welcomeAfterStart(ctx, phone, now);
+        }
+      } else if (isHelpWord(body.text)) {
+        await replyToHelp(ctx, phone, now, str(obj(Array.isArray(body.to) ? body.to[0] : undefined).phone_number));
       }
       return null;
     }
@@ -57,7 +65,10 @@ export const applyTelnyxEvent = internalMutation({
     if (eventType === "message.finalized") {
       const id = str(body.id);
       if (!id) return null;
-      const text = await ctx.db.query("messageTexts").withIndex("by_telnyxId", q => q.eq("telnyxId", id)).first();
+      // A message alert, or a welcome or HELP reply.
+      const text: Doc<"messageTexts"> | Doc<"serviceTexts"> | null =
+        (await ctx.db.query("messageTexts").withIndex("by_telnyxId", q => q.eq("telnyxId", id)).first())
+        ?? (await ctx.db.query("serviceTexts").withIndex("by_telnyxId", q => q.eq("telnyxId", id)).first());
       if (!text) return null;
       const status = str(obj(Array.isArray(body.to) ? body.to[0] : undefined).status);
       const code = str(obj(Array.isArray(body.errors) ? body.errors[0] : undefined).code);

@@ -6,6 +6,7 @@
 // per phone, not per account.
 
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -105,6 +106,8 @@ export const setMyTexts = mutation({
     const wording = consentWordingFor(from ?? "settings");
     if (row) await ctx.db.patch(row._id, { phone, agreedAt: now, wording, revokedAt: undefined });
     else await ctx.db.insert("textConsents", { userId, phone, agreedAt: now, wording });
+    // The welcome text that confirms it (convex/serviceTexts.ts); owed while texts are off.
+    await ctx.scheduler.runAfter(0, internal.serviceTexts.welcomeAfterOptIn, { userId });
     return null;
   },
 });

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeCtx, run } from "../test-support/convexContext";
 import { dismissTextsAsk, getMyTextSettings, isStartWord, isStopWord, setMyTexts, TEXT_CONSENT_CARD_BUTTON, TEXT_CONSENT_LABEL, TEXT_CONSENT_LINE, TEXT_CONSENT_QUESTION, TEXT_CONSENT_WORDING } from "./textConsent";
 import { MESSAGE_TEXT_DAILY_CAP } from "./messageAlerts";
+import { isHelpWord, TEXT_HELP_REPLY, TEXT_WELCOME } from "./textConsentWording";
 import { fillMissingBasics } from "./profiles";
 import { get as getEmailPreferences } from "./emailPreferences";
 
@@ -130,5 +131,16 @@ describe("an email added from the card or Settings", () => {
     const err = await run(fillMissingBasics, ctx, { email: "ana@example" }).catch(e => e);
     expect(err.data).toEqual({ code: "invalid_email", reason: "That doesn't look like a valid email." });
     expect(ctx.store.users[0].email).toBeUndefined();
+  });
+});
+
+describe("the welcome and HELP wording", () => {
+  it("is word for word what the toll-free verification registered", () => {
+    expect(TEXT_WELCOME).toBe("TheCreative.exchange: You'll get a text when someone messages you, up to 3 a day. Msg & data rates may apply. Reply HELP for help, STOP to stop.");
+    expect(TEXT_HELP_REPLY).toBe("TheCreative.exchange message alerts. For help, email hello@thecreative.exchange. Up to 3 texts a day. Msg & data rates may apply. Reply STOP to stop.");
+  });
+  it("reads help and info exactly, after tidying", () => {
+    for (const w of ["help", " HELP ", "Info.", "help!"]) expect(isHelpWord(w), w).toBe(true);
+    for (const w of ["", undefined, "help me", "helping", "stop"]) expect(isHelpWord(w), String(w)).toBe(false);
   });
 });
