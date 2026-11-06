@@ -54,6 +54,9 @@ import {
 } from "../garden/ui";
 import "../garden/garden.css";
 import { SOPHIA_FUND_SLUG } from "../lib/namedFunds";
+import { FUND_ACCOUNT_FIRST, useFundGiveLinks } from "../lib/fundGiveLinks";
+import { setPendingIntent } from "../lib/pendingIntent";
+import type { FundGiveLinks } from "../lib/fundGiveLinks";
 
 const PRESET_AMOUNTS_CENTS = [1000, 2500, 5000, 10000];
 
@@ -265,8 +268,8 @@ function GiveModal({
   orgName,
   onClose,
 }: {
-  oneTimeUrl: string | undefined;
-  monthlyUrl: string | undefined;
+  oneTimeUrl: string | null;
+  monthlyUrl: string | null;
   orgName: string;
   onClose: () => void;
 }) {
@@ -512,10 +515,12 @@ function FundNotLive() {
 function GiveBlock({
   data,
   gaveThanks,
+  links,
   onGive,
 }: {
   data: FundData | null | undefined;
   gaveThanks: boolean;
+  links: FundGiveLinks;
   onGive: () => void;
 }) {
   if (data === undefined) {
@@ -528,8 +533,6 @@ function GiveBlock({
   if (data === null) return null;
 
   const { org } = data;
-  const oneTimeUrl = org.paymentLinkUrl ?? org.givingUrl;
-  const monthlyUrl = org.monthlyPaymentLinkUrl;
 
   return (
     <>
@@ -554,11 +557,27 @@ function GiveBlock({
       )}
 
       {/* Give CTA */}
-      {!gaveThanks && (oneTimeUrl || monthlyUrl) && (
+      {!gaveThanks && links.state === "needsAccount" && (
+        <>
+          <Link
+            to={links.href}
+            onClick={() => setPendingIntent(links.returnTo)}
+            className="g-btn g-btn-citron"
+            style={{ marginTop: 20 }}
+          >
+            Give to the Grant Fund
+          </Link>
+          <p className="g-hint" style={{ marginTop: 8 }}>
+            {FUND_ACCOUNT_FIRST}
+          </p>
+        </>
+      )}
+      {!gaveThanks && (links.state === "ready" || links.state === "loading") && (
         <button
           type="button"
           className="g-btn g-btn-citron"
           onClick={onGive}
+          disabled={links.state === "loading"}
           style={{ marginTop: 20 }}
         >
           Give to the Grant Fund
@@ -741,9 +760,7 @@ export default function GrantProgramPage() {
 
   const gaveThanks = searchParams.get("gave") === "1";
   const org = data?.org;
-  const oneTimeUrl = org ? (org.paymentLinkUrl ?? org.givingUrl) : undefined;
-  const monthlyUrl = org?.monthlyPaymentLinkUrl;
-  const canGive = Boolean(oneTimeUrl || monthlyUrl);
+  const links = useFundGiveLinks(data === undefined ? undefined : (org ?? null), "/grant-program");
 
   return (
     <GardenPage wide>
@@ -773,6 +790,7 @@ export default function GrantProgramPage() {
         <GiveBlock
           data={data}
           gaveThanks={gaveThanks}
+          links={links}
           onGive={() => setShowModal(true)}
         />
 
@@ -835,7 +853,27 @@ export default function GrantProgramPage() {
                 501(c)(3). They decide their own awards, and those awards are
                 listed below.
               </p>
-              {canGive && (
+              {links.state === "needsAccount" && (
+                <>
+                  <Link
+                    to={links.href}
+            onClick={() => setPendingIntent(links.returnTo)}
+                    className="g-nav"
+                    style={{
+                      display: "inline-block",
+                      marginTop: 12,
+                      fontSize: 13,
+                      color: "var(--g-citron)",
+                    }}
+                  >
+                    Give now →
+                  </Link>
+                  <p className="g-hint" style={{ marginTop: 4 }}>
+                    {FUND_ACCOUNT_FIRST}
+                  </p>
+                </>
+              )}
+              {links.state === "ready" && (
                 <button
                   type="button"
                   className="g-nav"
@@ -939,10 +977,10 @@ export default function GrantProgramPage() {
         </div>
       </div>
 
-      {showModal && org && (
+      {showModal && org && links.state === "ready" && (
         <GiveModal
-          oneTimeUrl={oneTimeUrl}
-          monthlyUrl={monthlyUrl}
+          oneTimeUrl={links.oneTime}
+          monthlyUrl={links.monthly}
           orgName={org.name}
           onClose={() => setShowModal(false)}
         />

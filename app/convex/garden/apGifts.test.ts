@@ -359,3 +359,30 @@ describe("a member's plus-up to the fund from /give (client_reference_id)", () =
     expect(result.row.memberGiftId).toBeUndefined();
   });
 });
+
+describe("buildApGrantContributionRow with a donor (userId-only) attribution", () => {
+  const args = { hostOrgId: "hostOrgs:ap", now: 1_800_000_000_000 };
+
+  it("carries the userId, no memberGiftId, and plain gift copy", () => {
+    const result = buildApGrantContributionRow({ ...args, session: makeSession(), attribution: { userId: "u1" } });
+    if (!("row" in result)) throw new Error("expected a row");
+    expect(result.row).toMatchObject({ userId: "u1", grossCents: 5000, platformCents: 0, note: "Gift through Abiding Practice" });
+    expect("memberGiftId" in result.row).toBe(false);
+  });
+
+  it("says Monthly for a subscription", () => {
+    const result = buildApGrantContributionRow({
+      ...args,
+      session: makeSession({ subscription: "sub_1" }),
+      attribution: { userId: "u1" },
+    });
+    if (!("row" in result)) throw new Error("expected a row");
+    expect(result.row.note).toBe("Monthly gift through Abiding Practice");
+  });
+
+  it("keeps the /give plus-up notes", () => {
+    const result = buildApGrantContributionRow({ ...args, session: makeSession(), attribution: { userId: "u1", memberGiftId: "g1" } });
+    if (!("row" in result)) throw new Error("expected a row");
+    expect(result.row).toMatchObject({ memberGiftId: "g1", note: "Gift through Abiding Practice, added from a member's monthly amount" });
+  });
+});

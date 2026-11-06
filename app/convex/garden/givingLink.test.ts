@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildFundPlusUpLink, parseGiftRef } from "./givingLink";
+import { buildFundDonorLink, buildFundPlusUpLink, parseDonorRef, parseGiftRef } from "./givingLink";
 
 describe("buildFundPlusUpLink / parseGiftRef", () => {
   const url = "https://buy.stripe.com/test_abc123";
@@ -22,6 +22,32 @@ describe("buildFundPlusUpLink / parseGiftRef", () => {
     "returns null for %j",
     (ref) => {
       expect(parseGiftRef(ref)).toBeNull();
+    },
+  );
+});
+
+describe("buildFundDonorLink / parseDonorRef", () => {
+  const url = "https://buy.stripe.com/test_abc123";
+
+  it("round-trips the giver and prefills their email", () => {
+    const link = buildFundDonorLink(url, "user456", { email: "d@example.com" });
+    const parsed = new URL(link);
+    expect(parsed.origin + parsed.pathname).toBe(url);
+    expect(parsed.searchParams.get("client_reference_id")).toBe("fund-u-user456");
+    expect(parsed.searchParams.get("prefilled_email")).toBe("d@example.com");
+    expect(parseDonorRef(parsed.searchParams.get("client_reference_id"))).toEqual({ userId: "user456" });
+  });
+
+  it("omits prefilled_email when there is none, and keeps existing params", () => {
+    const parsed = new URL(buildFundDonorLink(`${url}?locale=en`, "u1"));
+    expect(parsed.searchParams.has("prefilled_email")).toBe(false);
+    expect(parsed.searchParams.get("locale")).toBe("en");
+  });
+
+  it.each([null, undefined, "", "gift-g1-u-u1", "evt-event1", "evt-e1-u-u1", "fund-u-", "fund-u-bad$id", "fund-u-a b"])(
+    "returns null for %j",
+    (ref) => {
+      expect(parseDonorRef(ref)).toBeNull();
     },
   );
 });
