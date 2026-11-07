@@ -5,14 +5,15 @@
 // next to the picker, never in alert(), which is poor on phones. Avatars,
 // logos, portfolio pieces, event gallery shots, offering photos and the
 // pictures in a project's story and in Updates all go through here; avatars
-// are shrunk to a small square on the way (`square`, shrinkImage.ts). Covers
+// are shrunk to a small square on the way (`square`, shrinkImage.ts) and any
+// other big photo is scaled down to 2560px first (shrinkPhoto). Covers
 // don't: useCoverPick frames and shrinks them first.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import type { Id } from "../../convex/_generated/dataModel";
 import { errorMessage } from "./convexError";
-import { UNREADABLE_PICTURE, squareJpeg } from "./shrinkImage";
+import { UNREADABLE_PICTURE, shrinkPhoto, squareJpeg } from "./shrinkImage";
 import { uploadToStorage } from "./uploadFile";
 
 export type UploadKind = "image" | "video" | "audio";
@@ -21,8 +22,8 @@ const MB = 1024 * 1024;
 
 /** The most a file can weigh, by kind. This is the one place the caps are
  *  set. Stored files go to every visitor exactly as uploaded (nothing
- *  shrinks them), so the caps stay modest: a full-size phone photo fits,
- *  and a video past 64 MB belongs on YouTube or Vimeo, pasted as a link. */
+ *  shrinks videos or audio), so the caps stay modest. A photo is shrunk
+ *  first (shrinkPhoto) and the cap applies to the shrunk copy; a video past 64 MB belongs on YouTube or Vimeo, pasted as a link. */
 export const MAX_UPLOAD_BYTES: Record<UploadKind, number> = {
   image: 12 * MB,
   video: 64 * MB,
@@ -132,14 +133,19 @@ export function useFileUpload(options: {
   const upload = useCallback(async (file: Blob, pick?: { kinds?: readonly UploadKind[] }) => {
     const { kinds, generateUploadUrl, onUploaded, takesLinks, square } = optionsRef.current;
     const kind = kindOf(file);
-    const problem = fileProblem(file, pick?.kinds ?? kinds, takesLinks);
+    const allowed = pick?.kinds ?? kinds;
+    // A photo is shrunk before its size is checked, so a 15 MB camera JPEG
+    // passes. Anything that can't shrink is checked as it is.
+    const shrunk =
+      kind === "image" && allowed.includes("image") && !square ? await shrinkPhoto(file) : file;
+    const problem = fileProblem(shrunk, allowed, takesLinks);
     setError(problem);
     if (problem || !kind) return null;
 
     const started = generation.current;
     setInFlight((n) => n + 1);
     try {
-      const body = square && kind === "image" ? await squareJpeg(file, square).catch(() => null) : file;
+      const body = square && kind === "image" ? await squareJpeg(file, square).catch(() => null) : shrunk;
       if (!body) {
         setError(UNREADABLE_PICTURE);
         return null;

@@ -34,7 +34,8 @@ import { getTableParticipation } from "./garden/tablePolicy";
 import { notifyDateCanceled, notifyDateChanged } from "./garden/tableNotify";
 import { isEventListed } from "./eventWindow";
 import { isSafeHttpsUrl } from "./garden/richText";
-import { eventCoverUrl, orgLogoUrl, profileImageUrl, storedFileUrl, storedOrExternalUrl } from "./images";
+import { eventCoverUrl, orgLogoUrl, profileImageUrl, storedFileUrl, storedOrExternalUrl, storedPhotoUrl } from "./images";
+import { sizedPhotoUrl } from "./photoSize";
 import { deleteStoredFile } from "./uploads";
 
 // ——— Pure validation helpers (unit-tested in events.test.ts) ———
@@ -455,12 +456,12 @@ export const get = query({
     // would show as a cover that Remove can't remove. The page falls back to
     // the first gallery image itself (routes/event.tsx). Cards use
     // eventCoverUrl, which does the fallback on the server.
-    const coverImageUrl = await storedOrExternalUrl(ctx, event.coverImageStorageId, null);
+    const coverImageUrl = sizedPhotoUrl(await storedOrExternalUrl(ctx, event.coverImageStorageId, null));
 
     // Resolve gallery image URLs
     const galleryImageUrls = event.imageStorageIds
       ? await Promise.all(
-          event.imageStorageIds.map((id) => storedFileUrl(ctx, id)),
+          event.imageStorageIds.map((id) => storedPhotoUrl(ctx, id)),
         )
       : [];
 

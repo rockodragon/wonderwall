@@ -5,6 +5,10 @@
 // that no longer resolved came back blank instead of using its pasted link,
 // and the event page ignored the gallery image the event cards fall back to.
 //
+// Pictures (a person's, a project's, an event's, an org's, storedPhotoUrl)
+// come back resized to the size they're shown (photoSize.ts); any other file
+// (storedFileUrl, pieceMediaUrl, audioNoteUrl) at full size.
+//
 // Each URL helper returns a URL string or null — never undefined. A caller
 // whose own shape says `undefined` for "none" adds `?? undefined` at the
 // call. (isStoredFileAddress answers yes or no; convexFileKey and
@@ -12,6 +16,7 @@
 // Pure reads: they take a query or mutation ctx and only call storage.getUrl.
 
 import type { Id } from "./_generated/dataModel";
+import { sizedPhotoUrl } from "./photoSize";
 
 /** The slice of a Convex ctx these helpers read. QueryCtx and MutationCtx
  * both fit it, and so does a test's stub. */
@@ -66,6 +71,12 @@ export async function isStoredFileAddress(
   return url === served || (key.length > 0 && url.endsWith(`/${key}`));
 }
 
+/** A stored PHOTO's address, resized to the size it's shown (photoSize.ts);
+ *  null when it doesn't resolve. Never for video or audio: storedFileUrl. */
+export async function storedPhotoUrl(ctx: StorageCtx, storageId: Id<"_storage">): Promise<string | null> {
+  return sizedPhotoUrl(await storedFileUrl(ctx, storageId));
+}
+
 /**
  * The stored file's URL when it resolves, else the pasted link, else null.
  * A file that was deleted, or a lookup that throws, falls back to the link
@@ -92,7 +103,7 @@ export async function profileImageUrl(
   profile: { imageStorageId?: Id<"_storage">; imageUrl?: string } | null | undefined,
 ): Promise<string | null> {
   if (!profile) return null;
-  return await storedOrExternalUrl(ctx, profile.imageStorageId, profile.imageUrl);
+  return sizedPhotoUrl(await storedOrExternalUrl(ctx, profile.imageStorageId, profile.imageUrl));
 }
 
 /**
@@ -104,7 +115,7 @@ export async function projectPhotoUrl(
   ctx: StorageCtx,
   row: { photoStorageId?: Id<"_storage">; photoUrl?: string },
 ): Promise<string | null> {
-  return await storedOrExternalUrl(ctx, row.photoStorageId, row.photoUrl);
+  return sizedPhotoUrl(await storedOrExternalUrl(ctx, row.photoStorageId, row.photoUrl));
 }
 
 /**
@@ -118,8 +129,8 @@ export async function eventCoverUrl(
   event: { coverImageStorageId?: Id<"_storage">; imageStorageIds?: Id<"_storage">[] },
 ): Promise<string | null> {
   const cover = await storedOrExternalUrl(ctx, event.coverImageStorageId, null);
-  if (cover) return cover;
-  return await storedOrExternalUrl(ctx, event.imageStorageIds?.[0], null);
+  if (cover) return sizedPhotoUrl(cover);
+  return sizedPhotoUrl(await storedOrExternalUrl(ctx, event.imageStorageIds?.[0], null));
 }
 
 /**
@@ -151,7 +162,7 @@ export async function orgLogoUrl(
   ctx: StorageCtx,
   org: { logoStorageId?: Id<"_storage"> },
 ): Promise<string | null> {
-  return await storedOrExternalUrl(ctx, org.logoStorageId, null);
+  return sizedPhotoUrl(await storedOrExternalUrl(ctx, org.logoStorageId, null));
 }
 
 /** The file's key when `url` is Convex's own address for a stored file

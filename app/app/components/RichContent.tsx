@@ -18,6 +18,7 @@ import {
   linkHost,
 } from "../lib/richText";
 import { toEmbedUrl } from "../lib/videoEmbed";
+import { sizedPhotoUrl } from "../../convex/photoSize";
 
 // ————— inline marks —————
 
@@ -109,7 +110,7 @@ function ImageBlock({ block }: { block: Extract<ResolvedRichBlock, { type: "imag
   return (
     <figure style={{ margin: 0 }}>
       <img
-        src={src}
+        src={sizedPhotoUrl(src)}
         alt={block.alt ?? block.caption ?? ""}
         loading="lazy"
         style={{

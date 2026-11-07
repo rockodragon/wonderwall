@@ -11,6 +11,7 @@ import { toEmbedUrl, type VideoEmbed } from "../../lib/videoEmbed";
 import { isAudioFileLink, toMusicEmbed, type MusicEmbed } from "../../lib/musicEmbed";
 import { isSafeHttpUrl, linkHost, safeHref } from "../../lib/richText";
 import { EmbedPlayer } from "../EmbedPlayer";
+import { sizedPhotoUrl } from "../../../convex/photoSize";
 import { MusicPlayer } from "../MusicPlayer";
 
 /** What a renderer needs of a piece (an artifacts row with its file's
@@ -116,7 +117,7 @@ export function PieceMedia({
     case "image": {
       const img = (
         <img
-          src={d.src}
+          src={sizedPhotoUrl(d.src)}
           alt={name ?? ""}
           loading="lazy"
           className={`w-full ${framed ? "max-h-[70vh]" : "max-h-80"} object-contain ${round}`}
@@ -147,7 +148,7 @@ export function PieceMedia({
           className={`flex items-center gap-3 ${round} p-3 hover:opacity-90`}
           style={frame ?? { border: "1px solid var(--garden-hairline-raised)" }}
         >
-          {d.image && <img src={d.image} alt="" className="w-20 h-20 rounded-lg object-cover shrink-0" />}
+          {d.image && <img src={sizedPhotoUrl(d.image)} alt="" className="w-20 h-20 rounded-lg object-cover shrink-0" />}
           <span className="min-w-0">
             <span className="block text-sm font-medium break-words" style={{ color: "var(--garden-paper)" }}>
               {piece.title || d.host}
