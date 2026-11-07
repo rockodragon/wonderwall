@@ -49,6 +49,8 @@ import { useViewer } from "../lib/useViewer";
 import { LatestProjectsTheater } from "../components/LatestProjectsTheater";
 import { useProjectSupport, type SupportMode } from "../components/ProjectSupport";
 import { PostActions, PostMaker, PostTitle, ProjectCover } from "../components/ProjectPost";
+import { useDeskCommunity } from "../desk/deskState";
+import { NAMED_FUNDS, SOPHIA_FUND_SLUG, fundPath } from "../lib/namedFunds";
 
 // The four chips (Projects, Seeking funding, Seeking people, Jobs and gigs),
 // the Stage menu and the pure filtering live in lib/browse/projectsFilter.ts,
@@ -108,6 +110,7 @@ export default function Projects() {
   // Who is looking, for each post's Save (lib/useViewer.ts): held until the
   // profile has loaded, so the lead never sees Save flash.
   const viewer = useViewer();
+  const garden = useDeskCommunity() === "garden";
   // Anyone can browse; posting and cheering need an account. A visitor has
   // none yet, so they go to sign up (Rick, 2026-10-09), which brings them
   // back here.
@@ -311,7 +314,7 @@ export default function Projects() {
                 />
               ))}
             </div>
-            {(lens !== "work" || allTags.length > 0) && (
+            {(lens !== "work" || allTags.length > 0 || garden) && (
               <div className="mt-3 flex items-center gap-2 md:contents">
                 {lens !== "work" && (
                   <>
@@ -333,6 +336,9 @@ export default function Projects() {
                     className="py-1.5! rounded-lg!"
                   />
                 )}
+                {/* The Sophia Grant, to the right of the filters on a phone in
+                    The Garden (Rick, 2026-11-06); desktop has its Canvas card. */}
+                {garden && <FundChip />}
               </div>
             )}
           </div>
@@ -869,6 +875,23 @@ export function ProjectCard({
         className="sm:px-4 sm:pb-2"
       />
     </article>
+  );
+}
+
+/** "Sophia Grant": a small button to the fund's page, its icon in a circle. */
+function FundChip() {
+  const fund = NAMED_FUNDS[SOPHIA_FUND_SLUG];
+  return (
+    <Link
+      to={fundPath(SOPHIA_FUND_SLUG)}
+      className="ml-auto inline-flex items-center gap-2 py-1 pl-1 pr-3 rounded-lg text-[13.5px] font-medium whitespace-nowrap no-underline md:hidden"
+      style={{ ...chipStyle(false), color: "var(--garden-paper)" }}
+    >
+      {fund.cover && (
+        <img src={fund.cover.src} alt="" width={26} height={26} className="h-[26px] w-[26px] rounded-md object-cover" style={{ objectPosition: "50% 35%" }} />
+      )}
+      Sophia Grant
+    </Link>
   );
 }
 
