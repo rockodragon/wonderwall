@@ -40,7 +40,7 @@ function render(open: boolean) {
 }
 
 describe("The fund card", () => {
-  it("opens to the fund's icon on its paper, with Give and learn more to /fund/sophia", () => {
+  it("opens to the fund's icon, with Give and learn more to /fund/sophia", () => {
     const html = render(true);
     expect(html).toContain('src="/fund/sophia-icon.webp"');
     expect(html).toContain("Give and learn more");
@@ -48,7 +48,12 @@ describe("The fund card", () => {
     expect(html).not.toContain("/fund/abiding-practice");
   });
 
-  it("rests as a paper note of words, with no picture", () => {
-    expect(render(false)).not.toContain("sophia-icon");
+  // Rick, 2026-11-06: "the Sophia Grant Fund doesn't show the image".
+  it("rests as its icon, with its name and amount over it", () => {
+    const html = render(false);
+    expect(html).toContain('src="/fund/sophia-icon.webp"');
+    expect(html).toContain("THE SOPHIA GRANT FUND");
+    expect(html).toContain("$10000");
+    expect(html).toContain("available to grant");
   });
 });
