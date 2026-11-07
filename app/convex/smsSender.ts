@@ -4,7 +4,26 @@
 // No "use node" — this only uses `fetch`, which (like `crypto.subtle` in
 // resendWebhook.ts) is available in Convex's V8 runtime.
 
+import { fail } from "./errors";
+
 const TELNYX_SEND_URL = "https://api.telnyx.com/v2/messages";
+
+/** What the sign-up, sign-in and RSVP forms show when Telnyx won't send. */
+export const CODE_TEXT_FAILED =
+  "We couldn't text that number just now. Try again in a few minutes, or use your email.";
+
+/** sendSms for a sign-in code someone is waiting on. A refused send becomes
+ * a line the page can show: as a plain Error, production hid it and the
+ * forms said only "Couldn't send a code. Try again." (2026-11-06: no code
+ * sent after 8 PM PT got anyone in). Telnyx's status goes to the log. */
+export async function sendCodeText(to: string, message: string): Promise<void> {
+  try {
+    await sendSms(to, message);
+  } catch (err) {
+    console.error("[sms] sign-in code not sent:", err instanceof Error ? err.message : String(err));
+    fail("text_failed", CODE_TEXT_FAILED);
+  }
+}
 
 /** Sends `message` to `to` (E.164) via Telnyx, or logs it instead when no
  * Telnyx credentials are configured (local/dev backend) so sign-in and

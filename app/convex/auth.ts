@@ -12,8 +12,8 @@ import type { MutationCtx } from "./_generated/server";
 import { isAdminEmail } from "./adminEmails";
 import { PLACEHOLDER_NAME } from "./names";
 import { normalizePhone } from "./phone";
-import { sendSms } from "./smsSender";
-import { decideCreateOrUpdateUser, passwordsToRevoke } from "./authLinking";
+import { sendCodeText } from "./smsSender";
+import { decideCreateOrUpdateUser, isGoogleSignIn, passwordsToRevoke } from "./authLinking";
 import { joinDefaultCommunity } from "./garden/defaultCommunity";
 import { trackEvent } from "./posthog";
 import { scheduleSignupNudges } from "./engagement/schedule";
@@ -274,7 +274,7 @@ async function createOrUpdateUser(
   args: CreateOrUpdateUserArgs,
 ): Promise<Id<"users">> {
   const provider = args.provider;
-  const isGoogleOAuth = provider?.type === "oauth" && provider?.id === "google";
+  const isGoogleOAuth = isGoogleSignIn(provider);
   const isEmailOtp = provider?.type === "email" && provider?.id === EMAIL_OTP_PROVIDER_ID;
   const email =
     typeof args.profile.email === "string" ? args.profile.email : undefined;
@@ -449,7 +449,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         }
 
         const message = `${siteNameForUrl(url)} sign-in code: ${token}. It expires in 10 minutes.`;
-        await sendSms(identifier, message);
+        await sendCodeText(identifier, message);
       },
     }),
     // Emailed one-time code — the event RSVP form's sign-up (event.tsx). Same
