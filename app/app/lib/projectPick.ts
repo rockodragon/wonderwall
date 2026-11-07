@@ -3,6 +3,7 @@
 // way. Pure, so both can test against it.
 
 import { linkStill, pieceStill } from "../../convex/coverRules";
+import { sizedPhotoUrl } from "../../convex/photoSize";
 import { VISIBLE_PROJECT_STATUSES } from "../../convex/moderationRules";
 import { budgetAmountLabel, budgetKindLabel, type BudgetDeclaration } from "./budgetLabel";
 
@@ -23,12 +24,14 @@ export type CoverSource = {
  * (convex/coverRules.ts): its photo, its pasted link's picture, then the
  * first piece that has one (a still, an image, a YouTube video's). */
 export function coverOf(p: CoverSource): string | null {
-  if (p.resolvedPhotoUrl) return p.resolvedPhotoUrl;
+  // Every cover at the size it's shown (photoSize.ts): a piece's picture or
+  // its saved preview is otherwise our full-size file.
+  if (p.resolvedPhotoUrl) return sizedPhotoUrl(p.resolvedPhotoUrl);
   const link = linkStill(p);
-  if (link) return link;
+  if (link) return sizedPhotoUrl(link);
   for (const m of p.media) {
     const still = pieceStill(m, m.resolvedMediaUrl);
-    if (still) return still;
+    if (still) return sizedPhotoUrl(still);
   }
   return null;
 }

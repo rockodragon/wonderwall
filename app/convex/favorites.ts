@@ -10,7 +10,7 @@ import { eventVisibilityChecker } from "./garden/eventVisibility";
 import { isAcceptingPeople } from "./garden/projectTeam";
 import { VISIBLE_PROJECT_STATUSES } from "./moderationRules";
 import { feedLocation } from "./eventAddress";
-import { eventCoverUrl, profileImageUrl, storedFileUrl } from "./images";
+import { eventCoverUrl, profileImageUrl, storedFileUrl, storedPhotoUrl } from "./images";
 import { recordFollowChange } from "./follows";
 import { assertNotBlocked } from "./blocks";
 
@@ -268,7 +268,7 @@ export const getMyFavorites = query({
 
         let wonderingImageUrl: string | null = null;
         if (wondering?.imageStorageId) {
-          wonderingImageUrl = await storedFileUrl(ctx, wondering.imageStorageId);
+          wonderingImageUrl = await storedPhotoUrl(ctx, wondering.imageStorageId);
         }
 
         return {

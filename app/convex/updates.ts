@@ -27,7 +27,7 @@ import { fail } from "./errors";
 import { activeMembersOfCommunity, getCommunityMember } from "./garden/communityLookup";
 import { insertNotification } from "./notify";
 import { escapeHtml } from "./email/template";
-import { storedFileUrl } from "./images";
+import { storedFileUrl, storedPhotoUrl } from "./images";
 import { claimUpload, deleteStoredFile } from "./uploads";
 
 // ——————————————————————————————————————————————————————————————
@@ -345,7 +345,7 @@ export const listMine = query({
         _id: u._id,
         title: u.title,
         body: u.body,
-        imageUrl: u.imageStorageId ? await storedFileUrl(ctx, u.imageStorageId) : null,
+        imageUrl: u.imageStorageId ? await storedPhotoUrl(ctx, u.imageStorageId) : null,
         actionLabel: u.actionLabel ?? null,
         actionUrl: u.actionUrl ?? null,
       })),
@@ -430,7 +430,7 @@ export const listPastMine = query({
         _id: u._id,
         title: u.title,
         body: u.body,
-        imageUrl: u.imageStorageId ? await storedFileUrl(ctx, u.imageStorageId) : null,
+        imageUrl: u.imageStorageId ? await storedPhotoUrl(ctx, u.imageStorageId) : null,
         actionLabel: u.actionLabel ?? null,
         actionUrl: u.actionUrl ?? null,
         archivedAt: at,
@@ -549,7 +549,7 @@ export const adminList = query({
           .collect();
         return {
           ...u,
-          imageUrl: u.imageStorageId ? await storedFileUrl(ctx, u.imageStorageId) : null,
+          imageUrl: u.imageStorageId ? await storedPhotoUrl(ctx, u.imageStorageId) : null,
           opened: reads.filter((r) => r.openedAt !== undefined).length,
           clicked: reads.filter((r) => r.clickedAt !== undefined).length,
           archived: reads.filter((r) => r.archivedAt !== undefined).length,

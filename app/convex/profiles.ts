@@ -14,7 +14,7 @@ import { fillOrgWebsite, linkOrgByName, profileOrganizations, unlinkPrimaryOrg }
 import { normalizeOrgUrl } from "./organizationRules";
 import { communityVisibility } from "./garden/communityVisibility";
 import { isGardenMember } from "./garden/defaultCommunity";
-import { pieceMediaUrl, profileImageUrl, storedFileUrl } from "./images";
+import { pieceMediaUrl, profileImageUrl, storedFileUrl, storedPhotoUrl } from "./images";
 import { byLatestActivity, directoryLimit, latestPostAt, listedFor, searchedText } from "./directoryRules";
 import { activeMembersOfCommunity } from "./garden/communityLookup";
 import { isCommunityLeader, leaderUserIds } from "./garden/communityLeader";
@@ -162,7 +162,7 @@ export async function publicProfilePage(ctx: QueryCtx, profile: Doc<"profiles">)
     let wonderingWithImage = null;
     if (wondering) {
       const wonderingImageUrl = wondering.imageStorageId
-        ? await storedFileUrl(ctx, wondering.imageStorageId)
+        ? await storedPhotoUrl(ctx, wondering.imageStorageId)
         : null;
       wonderingWithImage = {
         ...wondering,
