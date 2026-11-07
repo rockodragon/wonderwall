@@ -64,18 +64,19 @@ export function meta({ params }: { params: { slug?: string } }) {
   const fund = slug ? NAMED_FUNDS[slug] : undefined;
   // A shared link to a named fund unfurls to its own card (/fund/sophia is
   // prerendered for this, react-router.config.ts).
+  const shareText = fund ? [fund.tagline, fund.about].filter(Boolean).join(" ") : "";
   const share = fund?.shareImage
     ? [
-        { name: "description", content: fund.about },
+        { name: "description", content: shareText },
         { property: "og:title", content: fund.name },
-        { property: "og:description", content: fund.about },
+        { property: "og:description", content: shareText },
         { property: "og:type", content: "website" },
         { property: "og:image", content: fund.shareImage },
         { property: "og:image:width", content: "1200" },
         { property: "og:image:height", content: "675" },
         { name: "twitter:card", content: "summary_large_image" },
         { name: "twitter:title", content: fund.name },
-        { name: "twitter:description", content: fund.about },
+        { name: "twitter:description", content: shareText },
         { name: "twitter:image", content: fund.shareImage },
       ]
     : [];
@@ -544,6 +545,7 @@ export default function FundPage() {
       <GardenPage wide>
         <SophiaFundView
           name={NAMED_FUNDS[org.slug]?.name ?? "Grant Fund"}
+          tagline={NAMED_FUNDS[org.slug]?.tagline}
           about={NAMED_FUNDS[org.slug]?.about}
           cover={NAMED_FUNDS[org.slug]?.cover}
           orgName={org.name}
@@ -880,6 +882,7 @@ function GiveControls({
 
 export function SophiaFundView({
   name,
+  tagline,
   about,
   cover,
   orgName,
@@ -891,6 +894,7 @@ export function SophiaFundView({
   gaveThanks,
 }: {
   name: string;
+  tagline?: string;
   about?: string;
   cover?: NamedFund["cover"];
   orgName: string;
@@ -960,8 +964,23 @@ export function SophiaFundView({
           <h1 className="g-h" style={{ margin: 0, fontSize: "clamp(32px, 6vw, 48px)", lineHeight: 1.05 }}>
             {name}
           </h1>
+          {tagline && (
+            <p
+              style={{
+                margin: "12px 0 0",
+                fontSize: "clamp(20px, 2.8vw, 24px)",
+                fontStyle: "italic",
+                lineHeight: 1.35,
+                color: "var(--g-paper)",
+                maxWidth: "34ch",
+                textWrap: "balance",
+              }}
+            >
+              {tagline}
+            </p>
+          )}
           {about && (
-            <p style={{ margin: "12px 0 0", fontSize: 17, lineHeight: 1.55, color: "var(--g-body)", maxWidth: "52ch" }}>
+            <p style={{ margin: tagline ? "16px 0 0" : "12px 0 0", fontSize: 17, lineHeight: 1.55, color: "var(--g-body)", maxWidth: "52ch" }}>
               {about}
             </p>
           )}

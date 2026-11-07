@@ -10,6 +10,8 @@ export const SOPHIA_FUND_SLUG = "abiding-practice";
 
 export type NamedFund = {
   name: string;
+  /** One line under the name, as on the fund's own card. */
+  tagline?: string;
   about: string;
   openCall?: string;
   seedCents?: number;
@@ -22,6 +24,8 @@ export type NamedFund = {
 export const NAMED_FUNDS: Record<string, NamedFund> = {
   [SOPHIA_FUND_SLUG]: {
     name: "The Sophia Grant Fund",
+    // From the fund's card (Rick, 2026-11-06): keep it on the page.
+    tagline: "To honor artists of The True, The Good, and The Beautiful.",
     openCall: CLAIMS.sophiaSchedule,
     // Money the fund holds that isn't in this ledger (Rick, 2026-09-29).
     // Tickets and gifts recorded here add to it; grants made come off it.

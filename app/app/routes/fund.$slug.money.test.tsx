@@ -43,6 +43,7 @@ function render(links: FundGiveLinks) {
     <MemoryRouter>
       <SophiaFundView
         name={fund.name}
+        tagline={fund.tagline}
         about={fund.about}
         cover={fund.cover}
         orgName="Abiding Practice"
@@ -64,6 +65,8 @@ describe("SophiaFundView cover and Give", () => {
     expect(html).toContain('src="/fund/sophia-icon.webp"');
     expect(html).toContain("made in remembrance by her sister Nyla");
     expect(html).toContain("Named in honor of a young artist");
+    // Rick, 2026-11-06: the line on the fund's card stays on the page.
+    expect(html).toContain("To honor artists of The True, The Good, and The Beautiful.");
   });
 
   it("sends a signed-out visitor to make an account first, then back", () => {
