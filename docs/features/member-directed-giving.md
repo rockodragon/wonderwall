@@ -65,8 +65,8 @@ Payouts run through Stripe Connect, separate charges and transfers (`backing-pay
 
 ## Setting up Stripe for this (ops, not code)
 
-1. In the Connect settings of the platform's Stripe account, turn on Express accounts and set **platform handles pricing**. Express onboarding uses the account's default branding.
-2. On the platform's existing webhook endpoint (`/stripe/webhook`), add the event `account.updated` and enable "connected accounts" events, so a creative finishing onboarding is recorded without waiting for the nightly refresh or their return to Settings.
+1. Turn on Connect for the platform's Stripe account. The code creates each creative's account with Accounts v2 (`garden/connect.ts`): a recipient on the Express dashboard, with the platform answering for fees and losses, which is what v1 called Express with **platform handles pricing**. Stripe refuses v1 account creation for new Connect platforms, so don't turn on "Accounts v1 support". Express onboarding uses the account's default branding.
+2. On the platform's existing webhook endpoint (`/stripe/webhook`), add the event `account.updated` and enable "connected accounts" events, so a creative finishing onboarding is recorded without waiting for the nightly refresh or their return to Settings. v2 accounts still send this v1 event (checked in the sandbox 2026-11-06).
 3. Set the payout schedule for connected accounts to Stripe's default (daily, automatic). The $50 minimum is enforced by our transfer sweep, not by Stripe.
 4. Test mode: a transfer needs an available platform balance. Make one test charge with the `pm_card_bypassPending` card first so the balance is there.
 5. The Sophia Fund's one-time and monthly Payment Links (already on the org row) need no change; `/give` appends the member reference to them.

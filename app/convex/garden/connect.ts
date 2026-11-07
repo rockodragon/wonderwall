@@ -9,9 +9,11 @@
 // reads and writes go through garden/connectState.ts (plain Convex); this
 // file only talks to Stripe.
 //
-// Platform-handles-pricing is a Connect dashboard setting, not code: the
-// platform pays Stripe's $2 active-account month and the payout fee, which
-// is why the $50 minimum (MIN_TRANSFER_CENTS) exists.
+// Accounts are created with Stripe's Accounts v2 API; Stripe refuses v1
+// account creation for new Connect platforms. Everything else here (status,
+// dashboard link, transfers) is v1 and takes v2 account ids as they are.
+// The platform pays Stripe's $2 active-account month and the payout fee,
+// which is why the $50 minimum (MIN_TRANSFER_CENTS) exists.
 
 import { v } from "convex/values";
 import { ConvexError } from "convex/values";
@@ -51,13 +53,23 @@ export const createConnectOnboardingLink = action({
     const stripe = getStripeClient();
     let accountId: string | null = me.accountId;
     if (!accountId) {
-      const account = await stripe.accounts.create({
-        type: "express",
-        country: "US",
-        email: me.email ?? undefined,
-        business_type: "individual",
-        capabilities: { transfers: { requested: true } },
-        business_profile: { product_description: "Creative work backed by members of TheCreative.exchange" },
+      // A recipient (takes transfers, never charges cards) on the Express
+      // dashboard. fees/losses "application" = the platform, not Stripe,
+      // answers for this account's fees and negative balance: the v2 form
+      // of v1 Express under "platform handles pricing". Stripe still
+      // collects the identity details (dashboard isn't "none").
+      const account = await stripe.v2.core.accounts.create({
+        contact_email: me.email ?? undefined,
+        dashboard: "express",
+        identity: { country: "us", entity_type: "individual" },
+        configuration: {
+          recipient: { capabilities: { stripe_balance: { stripe_transfers: { requested: true } } } },
+        },
+        defaults: {
+          currency: "usd",
+          responsibilities: { fees_collector: "application", losses_collector: "application" },
+          profile: { product_description: "Creative work backed by members of TheCreative.exchange" },
+        },
         metadata: { userId: String(userId) },
       });
       accountId = account.id;
@@ -67,11 +79,16 @@ export const createConnectOnboardingLink = action({
       });
     }
 
-    const link = await stripe.accountLinks.create({
+    const link = await stripe.v2.core.accountLinks.create({
       account: accountId,
-      type: "account_onboarding",
-      refresh_url: `${siteUrl()}/settings?tab=money&connect=refresh`,
-      return_url: `${siteUrl()}/settings?tab=money&connect=return`,
+      use_case: {
+        type: "account_onboarding",
+        account_onboarding: {
+          configurations: ["recipient"],
+          refresh_url: `${siteUrl()}/settings?tab=money&connect=refresh`,
+          return_url: `${siteUrl()}/settings?tab=money&connect=return`,
+        },
+      },
     });
     return { url: link.url };
   },
