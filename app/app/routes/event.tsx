@@ -39,6 +39,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { normalizePhone } from "../../convex/phone";
 import { LocationMapCard } from "../components/LocationMapCard";
+import { CodeTextNote } from "../components/CodeTextNote";
 import { ImageFill } from "../components/ImageFill";
 import { CoverFrame } from "../components/CoverFrame";
 import { useCoverPick } from "../lib/useCoverPick";
@@ -1308,6 +1309,7 @@ function GuestRsvpCard({ rsvp }: { rsvp: GuestRsvpState }) {
       >
         {rsvp.submitting ? "Sending…" : rsvp.usePhone ? "Text me a code" : "Email me a code"}
       </button>
+      {rsvp.usePhone && <CodeTextNote className="mt-2 text-gray-600 dark:text-gray-300" />}
       <button
         type="button"
         onClick={() => rsvp.setUsePhone(!rsvp.usePhone)}

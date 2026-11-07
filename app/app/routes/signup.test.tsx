@@ -3,6 +3,7 @@ import { renderToString } from "react-dom/server";
 import { StaticRouterProvider, createStaticHandler, createStaticRouter } from "react-router";
 import { getFunctionName } from "convex/server";
 import { api } from "../../convex/_generated/api";
+import { CODE_TEXT_LINE } from "../../convex/textConsentWording";
 import Signup from "./signup";
 
 // An invite link, as the person it was sent to sees it: who invited them, to
@@ -90,10 +91,11 @@ describe("an invite link on The Garden", () => {
     expect(html).toContain('id="email"');
   });
 
-  it("says what the code text is, that rates may apply, and links the privacy policy, under Text me a code", async () => {
+  it("says what the code text is, how often, rates, STOP and HELP, and links the terms and privacy policy, under Text me a code", async () => {
     const html = await page("/signup/sol");
     const after = html.slice(html.indexOf("Text me a code"));
-    expect(after).toContain("We&#x27;ll text you a one-time code. Message and data rates may apply.");
+    expect(after).toContain(CODE_TEXT_LINE.replace(/'/g, "&#x27;"));
+    expect(after).toMatch(/<a[^>]*href="\/legal\/terms"[^>]*>Terms<\/a>/);
     expect(after).toMatch(/<a[^>]*href="\/legal\/privacy"[^>]*>Privacy Policy<\/a>/);
   });
 

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeCtx, run } from "../test-support/convexContext";
 import { dismissTextsAsk, getMyTextSettings, isStartWord, isStopWord, setMyTexts, TEXT_CONSENT_CARD_BUTTON, TEXT_CONSENT_LABEL, TEXT_CONSENT_LINE, TEXT_CONSENT_QUESTION, TEXT_CONSENT_WORDING } from "./textConsent";
 import { MESSAGE_TEXT_DAILY_CAP } from "./messageAlerts";
-import { isHelpWord, TEXT_HELP_REPLY, TEXT_WELCOME } from "./textConsentWording";
+import { CODE_TEXT_LINE, isHelpWord, TEXT_HELP_REPLY, TEXT_WELCOME } from "./textConsentWording";
 import { fillMissingBasics } from "./profiles";
 import { get as getEmailPreferences } from "./emailPreferences";
 
@@ -28,6 +28,15 @@ describe("stop and start words", () => {
   it("reads start and unstop exactly, after the same tidying", () => {
     for (const w of ["start", "UNSTOP", " Start. "]) expect(isStartWord(w), w).toBe(true);
     for (const w of ["stop", "go", "start now", undefined]) expect(isStartWord(w), String(w)).toBe(false);
+  });
+});
+
+describe("the line under Text me a code", () => {
+  it("says what the toll-free review asked for", () => {
+    // 2026-11-07: sent back for missing type, frequency, rates, STOP, HELP.
+    for (const part of ["sign-in code", "each time you ask", "Message and data rates may apply", "STOP", "HELP"]) {
+      expect(CODE_TEXT_LINE, part).toContain(part);
+    }
   });
 });
 
