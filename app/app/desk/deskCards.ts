@@ -85,9 +85,6 @@ export type DeskCard = {
     script?: boolean;
     /** The title is an amount, set as large as a paper note's. */
     large?: boolean;
-    /** A paper note's own picture, shown whole between its kicker and its
-     *  amount once the card opens: the fund's icon. */
-    art?: { src: string; alt: string };
     /** A small mono tag in the face's lower-right corner, at rest only: an
      *  organization's "ORG", in place of a kicker at the top. */
     tag?: string;
@@ -227,7 +224,7 @@ export type DeskFundInput = {
   availableCents: number;
   /** The fund's open call (CLAIMS.sophiaSchedule). */
   openCall?: string | null;
-  /** The fund's own picture (Nyla's icon), shown on the paper when it opens. */
+  /** The fund's own picture (Nyla's icon): the card's picture when it has one. */
   art?: { src: string; alt: string } | null;
   /** The fund page's full address, for the small QR code a room can scan. */
   scanUrl?: string | null;
@@ -492,15 +489,14 @@ export function fundCard(f: DeskFundInput, money: (cents: number) => string): De
     id: "fund",
     kind: "fund",
     sections: ["all", "projects", "today"],
-    note: true,
+    // With its icon it is a picture card like a project's (Rick, 2026-11-06:
+    // "the Sophia Grant Fund doesn't show the image"): the icon behind its
+    // name and amount at rest, the whole icon on the picture side open.
+    // Without one it stays a paper note.
+    note: !f.art,
     tone: toneFor("fund"),
-    image: null,
-    face: {
-      kicker: f.name.toUpperCase(),
-      title: money(f.availableCents),
-      foot: "available to grant",
-      ...(f.art ? { art: f.art } : {}),
-    },
+    image: f.art?.src ?? null,
+    face: { kicker: f.name.toUpperCase(), title: money(f.availableCents), foot: "available to grant", large: true },
     detail: {
       meta: "GRANT FUND",
       title: f.name,

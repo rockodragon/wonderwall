@@ -348,11 +348,16 @@ describe("the monthly grant card", () => {
 });
 
 describe("the fund card", () => {
-  it("is a note on Projects and Today, with the fund's available amount", () => {
+  it("is on Projects and Today, with the fund's available amount", () => {
     const card = byId(buildDeskCards(input(), "garden"), "fund");
-    expect(card.note).toBe(true);
     expect(card.sections).toEqual(["all", "projects", "today"]);
-    expect(card.face).toEqual({ kicker: "THE SOPHIA GRANT FUND", title: "$10,025", foot: "available to grant" });
+    expect(card.face).toEqual({ kicker: "THE SOPHIA GRANT FUND", title: "$10,025", foot: "available to grant", large: true });
+  });
+
+  it("is a paper note only when the fund has no picture", () => {
+    const bare = fundCard({ slug: "abiding-practice", name: "The Sophia Grant Fund", orgName: "Abiding Practice", availableCents: 100 }, String);
+    expect(bare.note).toBe(true);
+    expect(bare.image).toBeNull();
   });
 
   it("opens to its name, who runs it, the open call and Give", () => {
@@ -379,7 +384,10 @@ describe("the fund card", () => {
       },
       (c) => String(c),
     );
-    expect(card.face.art).toEqual({ src: "/fund/sophia-icon.webp", alt: "An icon" });
+    // Its icon is its picture: a picture card, no longer a bare paper note.
+    expect(card.image).toBe("/fund/sophia-icon.webp");
+    expect(card.note).toBe(false);
+    expect(card.face).toMatchObject({ kicker: "THE SOPHIA GRANT FUND", foot: "available to grant", large: true });
     expect(card.detail.scan).toEqual({ url: "https://createthegarden.com/fund/sophia", label: "Scan to give" });
   });
 
