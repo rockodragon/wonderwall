@@ -57,6 +57,11 @@ import { SOPHIA_FUND_SLUG, namedFundLinks } from "../lib/namedFunds";
 import { FUND_ACCOUNT_FIRST, useFundGiveLinks } from "../lib/fundGiveLinks";
 import { setPendingIntent } from "../lib/pendingIntent";
 import type { FundGiveLinks } from "../lib/fundGiveLinks";
+import { FREE_GRANT_APPLY_DAY } from "../lib/featureFlags";
+
+// Rick, 2026-11-06: free accounts may propose until the Sophia open call
+// closes (capabilities.ts pool.propose). Worded to stay true afterwards.
+const FREE_UNTIL = `Until ${FREE_GRANT_APPLY_DAY}, free accounts can propose too.`;
 
 const PRESET_AMOUNTS_CENTS = [1000, 2500, 5000, 10000];
 
@@ -778,7 +783,7 @@ export default function GrantProgramPage() {
             color: "var(--g-body)",
           }}
         >
-          Paid members propose projects, and funds award them. There is a
+          Paid members propose projects, and funds award them. {FREE_UNTIL} There is a
           platform project pool, filled by half of every membership, and
           communities can run funds of their own. The first is The Garden's,
           administered by{" "}
@@ -919,7 +924,8 @@ export default function GrantProgramPage() {
             <HowItem title="Who can propose">
               Any paid member can submit a proposal to a fund: a title, a
               summary and an amount of $5 or more, optionally tied to a
-              project they lead. One open proposal per fund at a time.
+              project they lead. One open proposal per fund at a time.{" "}
+              {FREE_UNTIL}
             </HowItem>
             <HowItem title="Who decides">
               Platform operators review proposals to the project pool and
@@ -960,7 +966,7 @@ export default function GrantProgramPage() {
               Contributions to the platform project pool are not.
             </FaqItem>
             <FaqItem q="How do creatives get grants?">
-              A paid member submits a proposal to a fund. Platform operators
+              A paid member submits a proposal to a fund. {FREE_UNTIL} Platform operators
               decide proposals to the project pool; a community fund's
               administrator decides its own — Abiding Practice, for The
               Garden. There is no fixed cycle yet, and a

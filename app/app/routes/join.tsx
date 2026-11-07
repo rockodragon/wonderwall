@@ -37,7 +37,7 @@ import { api } from "../../convex/_generated/api";
 import { setPendingIntent } from "../lib/pendingIntent";
 import { GardenErrorState, GardenPage, SectionLabel } from "../garden/ui";
 import { CLAIMS } from "../constants/claims";
-import { FF_V2, freeGrantApplyOpen } from "../lib/featureFlags";
+import { FF_V2, freeGrantApplyOpen, FREE_GRANT_APPLY_DAY } from "../lib/featureFlags";
 import "../garden/garden.css";
 import { errorMessage } from "../lib/convexError";
 
@@ -61,7 +61,7 @@ export function ErrorBoundary() {
 
 /** The Free card's extra perk while free accounts may apply to the Sophia
  *  Grant (FREE_GRANT_APPLY_UNTIL). One string, used by the card below. */
-const FREE_GRANT_PERK = "Apply to the Sophia Grant until Nov 16";
+const FREE_GRANT_PERK = `Apply to the Sophia Grant until ${FREE_GRANT_APPLY_DAY}`;
 
 type MembershipLevel = "seat" | "five" | "host";
 

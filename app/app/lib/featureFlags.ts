@@ -61,6 +61,12 @@ export const FF_BACKING = false;
 // with no deploy. Read on the server too, so constants only.
 export const FREE_GRANT_APPLY_UNTIL = Date.UTC(2026, 10, 17, 7, 59, 59, 999);
 
+/** The window's last day, as copy says it. The sentences that use it are
+ *  written to stay true after it passes (grant-program, pricing): the pages
+ *  are prerendered, so they can't switch on the clock without a hydration
+ *  mismatch. */
+export const FREE_GRANT_APPLY_DAY = "November 16";
+
 export function freeGrantApplyOpen(now: number): boolean {
   return now <= FREE_GRANT_APPLY_UNTIL;
 }
