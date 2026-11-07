@@ -12,6 +12,7 @@ import { GARDEN_SLUG } from "../lib/communitySlugs";
 import { stripInlineMarks } from "../lib/richText";
 import { useBrand } from "../brand/brands";
 import { GardenHome } from "../brand/GardenHome";
+import { LEGAL_ENTITY } from "../legal/entity";
 
 // The front door's line (CLAIMS.hero) is the page's title and description
 // too, so a shared link says the same thing the page does. On a Garden
@@ -504,6 +505,13 @@ export default function Home() {
             >
               Privacy
             </Link>
+            {/* Contact on the front page: the toll-free text review asks for it (2026-11-07). */}
+            <a
+              href={`mailto:${LEGAL_ENTITY.contactEmail}`}
+              className="text-[var(--garden-dim)] hover:text-[var(--garden-paper)] transition-colors"
+            >
+              {LEGAL_ENTITY.contactEmail}
+            </a>
             <Link
               to="/login"
               className="text-[var(--garden-dim)] hover:text-[var(--garden-paper)] transition-colors"

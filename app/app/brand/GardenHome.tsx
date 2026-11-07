@@ -43,6 +43,7 @@ import { SOPHIA_FUND_SLUG } from "../lib/namedFunds";
 import { stripInlineMarks } from "../lib/richText";
 import { textParagraphs } from "../lib/textParagraphs";
 import { DIRECTORY_PAGE } from "../../convex/directoryRules";
+import { LEGAL_ENTITY } from "../legal/entity";
 import { GARDEN_NAME } from "../../convex/garden/brandHosts";
 import { GardenDisc } from "./GardenMark";
 
@@ -338,6 +339,10 @@ export function GardenHome() {
                 {l.label}
               </Link>
             ))}
+            {/* Contact on the front page: the toll-free text review asks for it (2026-11-07). */}
+            <a href={`mailto:${LEGAL_ENTITY.contactEmail}`} className={`rounded underline-offset-4 hover:underline ${FOCUS_RING_CLASS}`} style={{ color: DESK.textQuiet }}>
+              {LEGAL_ENTITY.contactEmail}
+            </a>
           </nav>
         </div>
       </footer>
