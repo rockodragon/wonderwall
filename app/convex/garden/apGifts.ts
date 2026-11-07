@@ -21,6 +21,11 @@
 // benefit for the artist grant fund, same as a gift, because AP is still
 // merchant of record and the money still never touches our account.
 //
+// Third ref shape (2026-11-06): giving to the fund needs an account, so the
+// fund page's Give button tags the fund's own Payment Link with
+// `fund-u-<userId>` (givingLink.ts buildFundDonorLink). That ref designates
+// the session as a grant-fund gift and credits it to that account.
+//
 // Pure logic (the designation rule, the ticket-ref format, and the row
 // shapers) is split out and exported so it's unit-testable with no Convex/
 // Stripe import, same reasoning as stripeHandlers.ts's header. The Convex
@@ -35,7 +40,7 @@ import { internal } from "../_generated/api";
 import { escapeHtml } from "../email/template";
 import { decideTableTicket, paidWithVerifiedEmail, upsertEventRsvp } from "./eventRsvps";
 import { joinTicketCommunity } from "./communities";
-import { parseGiftRef } from "./givingLink";
+import { parseDonorRef, parseGiftRef } from "./givingLink";
 
 const AP_HOST_ORG_SLUG = "abiding-practice";
 
@@ -204,7 +209,7 @@ export function buildApGrantContributionRow(args: {
   session: ApCheckoutSessionLike;
   hostOrgId: string;
   /** From the /give plus-up link's client_reference_id (parseGiftRef). */
-  attribution?: { userId: string; memberGiftId: string };
+  attribution?: { userId: string; memberGiftId?: string };
   now: number;
 }): BuildApGrantRowResult {
   const { session, hostOrgId, attribution, now } = args;
@@ -228,12 +233,15 @@ export function buildApGrantContributionRow(args: {
       // display copy, not a captured email (same rule as stripeHandlers.ts's
       // handlePoolContributionCompleted).
       payerName: session.customer_details?.name || undefined,
-      ...(attribution ? { userId: attribution.userId, memberGiftId: attribution.memberGiftId } : {}),
+      ...(attribution
+        ? { userId: attribution.userId, ...(attribution.memberGiftId ? { memberGiftId: attribution.memberGiftId } : {}) }
+        : {}),
       stripeRef: `ap:${session.id}`,
       period: periodFromStripeSeconds(periodSeconds),
-      note: attribution
-        ? (session.subscription ? "Monthly gift through Abiding Practice, added from a member's monthly amount" : "Gift through Abiding Practice, added from a member's monthly amount")
-        : "Gift through Abiding Practice",
+      note:
+        attribution?.memberGiftId
+          ? (session.subscription ? "Monthly gift through Abiding Practice, added from a member's monthly amount" : "Gift through Abiding Practice, added from a member's monthly amount")
+          : (session.subscription ? "Monthly gift through Abiding Practice" : "Gift through Abiding Practice"),
       createdAt: now,
     },
   };
@@ -545,7 +553,7 @@ export const applyApStripeEvent = internalMutation({
     // designates it; the ids are checked against real rows before they are
     // written, and a stale ref falls back to an unattributed gift.
     const giftRef = parseGiftRef(session.client_reference_id);
-    let attribution: { userId: Id<"users">; memberGiftId: Id<"memberGifts"> } | undefined;
+    let attribution: { userId: Id<"users">; memberGiftId?: Id<"memberGifts"> } | undefined;
     if (giftRef) {
       const userId = ctx.db.normalizeId("users", giftRef.userId);
       const memberGiftId = ctx.db.normalizeId("memberGifts", giftRef.memberGiftId);
@@ -555,7 +563,19 @@ export const applyApStripeEvent = internalMutation({
       }
     }
 
-    if (!attribution && !isApGrantFundGift(session, grantPaymentLinkIds)) {
+    // A fund-page Give carries `fund-u-<userId>` (givingLink.ts). Only our
+    // fund page builds that ref, so it designates the gift by itself (a payer
+    // who types it onto another AP link is designating that gift too). The
+    // id is a claim: credit it only to a real user, and with no email match
+    // (unlike tickets: crediting a gift grants nothing, and a phone-only
+    // account has no email). A bad id still records the gift, unattributed.
+    const donorRef = parseDonorRef(session.client_reference_id);
+    if (donorRef) {
+      const donorId = ctx.db.normalizeId("users", donorRef.userId);
+      if (donorId && (await ctx.db.get(donorId))) attribution = { userId: donorId };
+    }
+
+    if (!attribution && !donorRef && !isApGrantFundGift(session, grantPaymentLinkIds)) {
       console.log("[ap stripe webhook] not a grant-fund gift", event.id);
       return;
     }
@@ -573,7 +593,14 @@ export const applyApStripeEvent = internalMutation({
     const result = buildApGrantContributionRow({
       session,
       hostOrgId: String(org._id),
-      ...(attribution ? { attribution: { userId: String(attribution.userId), memberGiftId: String(attribution.memberGiftId) } } : {}),
+      ...(attribution
+        ? {
+            attribution: {
+              userId: String(attribution.userId),
+              ...(attribution.memberGiftId ? { memberGiftId: String(attribution.memberGiftId) } : {}),
+            },
+          }
+        : {}),
       now: Date.now(),
     });
     if ("skipped" in result) {
@@ -587,7 +614,9 @@ export const applyApStripeEvent = internalMutation({
     await ctx.db.insert("grantContributions", {
       ...rest,
       hostOrgId: org._id as Id<"hostOrgs">,
-      ...(attribution ? { userId: attribution.userId, memberGiftId: attribution.memberGiftId } : {}),
+      ...(attribution
+        ? { userId: attribution.userId, ...(attribution.memberGiftId ? { memberGiftId: attribution.memberGiftId } : {}) }
+        : {}),
     });
 
     // A monthly gift: remember its subscription so renewals are recognized.
@@ -603,7 +632,9 @@ export const applyApStripeEvent = internalMutation({
           subscriptionId,
           hostOrgId: org._id as Id<"hostOrgs">,
           payerName: session.customer_details?.name || undefined,
-          ...(attribution ? { userId: attribution.userId, memberGiftId: attribution.memberGiftId } : {}),
+          ...(attribution
+            ? { userId: attribution.userId, ...(attribution.memberGiftId ? { memberGiftId: attribution.memberGiftId } : {}) }
+            : {}),
           createdAt: Date.now(),
         });
       }

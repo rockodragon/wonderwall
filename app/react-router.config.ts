@@ -37,6 +37,9 @@ export default {
     // The application form hydrates and posts to Convex after load.
     "/showcase",
     "/grant-program",
+    // The Sophia Grant Fund is shared as a link; real HTML so it unfurls to
+    // its own card (fund.$slug.tsx meta, NAMED_FUNDS shareImage).
+    "/fund/sophia",
     "/legal/credits",
     // Static page; real HTML for when it is eventually linked (noindex until then).
     "/pricing",

@@ -27,6 +27,30 @@ export function buildFundPlusUpLink(
   return url.toString();
 }
 
+/** A gift from the fund page's Give button (fund.$slug.tsx, grant-program.tsx).
+ * Giving there needs an account (Rick, 2026-11-06), so the link always names
+ * the giver: `fund-u-<userId>`. The AP webhook (apGifts.ts) reads it back,
+ * counts the gift toward the fund and puts it on that account. */
+export function buildFundDonorLink(
+  paymentLinkUrl: string,
+  userId: string,
+  opts: { email?: string } = {},
+): string {
+  const url = new URL(paymentLinkUrl);
+  url.searchParams.set("client_reference_id", `fund-u-${userId}`.slice(0, REF_MAX_LENGTH));
+  if (opts.email) url.searchParams.set("prefilled_email", opts.email);
+  return url.toString();
+}
+
+/** Inverse of buildFundDonorLink: the giver's user id, or null for any other
+ * shape. The id is only a claim; the webhook checks it names a real user. */
+export function parseDonorRef(ref: string | null | undefined): { userId: string } | null {
+  if (!ref || !ref.startsWith("fund-u-")) return null;
+  const userId = ref.slice(7);
+  if (!userId || !REF_ID_RE.test(userId)) return null;
+  return { userId };
+}
+
 /** Inverse of buildFundPlusUpLink; null for anything that isn't exactly
  * that shape, so an unrelated session is none of our business. */
 export function parseGiftRef(ref: string | null | undefined): GiftRef | null {

@@ -35,6 +35,10 @@ import {
 } from "../garden/ui";
 import { CLAIMS } from "../constants/claims";
 import { NAMED_FUNDS, SOPHIA_FUND_SLUG, availableCents as fundAvailableCents } from "../lib/namedFunds";
+import type { NamedFund } from "../lib/namedFunds";
+import { FUND_ACCOUNT_FIRST, useFundGiveLinks } from "../lib/fundGiveLinks";
+import { setPendingIntent } from "../lib/pendingIntent";
+import type { FundGiveLinks } from "../lib/fundGiveLinks";
 import "../garden/garden.css";
 import { errorMessage } from "../lib/convexError";
 import { TalkBox } from "../components/TalkBox";
@@ -55,10 +59,31 @@ const FUND_ALIASES: Record<string, string> = { sophia: SOPHIA_FUND_SLUG };
 
 const PRESET_AMOUNTS_CENTS = [1000, 2500, 5000, 10000]; // $10 · $25 · $50 · $100
 
-export function meta() {
+export function meta({ params }: { params: { slug?: string } }) {
+  const slug = params.slug ? (FUND_ALIASES[params.slug] ?? params.slug) : undefined;
+  const fund = slug ? NAMED_FUNDS[slug] : undefined;
+  // A shared link to a named fund unfurls to its own card (/fund/sophia is
+  // prerendered for this, react-router.config.ts).
+  const shareText = fund ? [fund.tagline, fund.about].filter(Boolean).join(" ") : "";
+  const share = fund?.shareImage
+    ? [
+        { name: "description", content: shareText },
+        { property: "og:title", content: fund.name },
+        { property: "og:description", content: shareText },
+        { property: "og:type", content: "website" },
+        { property: "og:image", content: fund.shareImage },
+        { property: "og:image:width", content: "1200" },
+        { property: "og:image:height", content: "675" },
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:title", content: fund.name },
+        { name: "twitter:description", content: shareText },
+        { name: "twitter:image", content: fund.shareImage },
+      ]
+    : [];
   return [
     { title: "The Sophia Grant Fund — TheCreative.exchange" },
     { name: "robots", content: "noindex" },
+    ...share,
   ];
 }
 
@@ -427,6 +452,8 @@ export default function FundPage() {
     api.garden.allocations.getFundPage,
     slug ? { hostOrgSlug: slug } : "skip",
   );
+  // Giving needs an account; signed out, Give is sign up and come back here.
+  const giveLinks = useFundGiveLinks(data === undefined ? undefined : (data?.org ?? null), `/fund/${rawSlug ?? ""}`);
 
   if (data === undefined) {
     return (
@@ -518,14 +545,15 @@ export default function FundPage() {
       <GardenPage wide>
         <SophiaFundView
           name={NAMED_FUNDS[org.slug]?.name ?? "Grant Fund"}
+          tagline={NAMED_FUNDS[org.slug]?.tagline}
           about={NAMED_FUNDS[org.slug]?.about}
+          cover={NAMED_FUNDS[org.slug]?.cover}
           orgName={org.name}
           availableCents={availableCents}
           grantedCents={totals.allTimeCents}
           schedule={NAMED_FUNDS[org.slug]?.openCall}
           ledgerList={ledger.length === 0 ? null : ledgerList}
-          oneTimeHref={givingHref ?? null}
-          monthlyHref={org.monthlyPaymentLinkUrl ?? null}
+          links={giveLinks}
           gaveThanks={gaveThanks}
         />
       </GardenPage>
@@ -740,21 +768,21 @@ function SfLabel({ children }: { children: ReactNode }) {
  * one-time/monthly choice is lifted so both stay in step. */
 function GiveControls({
   orgName,
-  oneTimeHref,
-  monthlyHref,
+  links,
   monthly,
   onMonthly,
   gaveThanks,
 }: {
   orgName: string;
-  oneTimeHref: string | null;
-  monthlyHref: string | null;
+  links: FundGiveLinks;
   monthly: boolean;
   onMonthly: (monthly: boolean) => void;
   gaveThanks: boolean;
 }) {
   const [showInfo, setShowInfo] = useState(false);
   const noteId = useId();
+  const oneTimeHref = links.state === "ready" ? links.oneTime : null;
+  const monthlyHref = links.state === "ready" ? links.monthly : null;
   const href = monthly && monthlyHref ? monthlyHref : oneTimeHref;
 
   if (gaveThanks) {
@@ -764,12 +792,14 @@ function GiveControls({
       </p>
     );
   }
-  if (!href) {
+  if (links.state === "none") {
     return <p style={{ margin: 0, fontSize: 16, color: "var(--g-body)" }}>Giving opens soon.</p>;
   }
 
   const pick = (on: boolean) =>
     on ? { borderColor: "var(--g-citron)", color: "var(--g-citron)" } : undefined;
+  const giveClass = "g-btn g-btn-citron sm:max-w-[240px]";
+  const giveStyle = { flex: "1 1 160px", textAlign: "center", padding: "14px 28px" } as const;
 
   return (
     <div>
@@ -794,14 +824,24 @@ function GiveControls({
             ))}
           </div>
         )}
-        <a
-          href={href}
-          className="g-btn g-btn-citron sm:max-w-[240px]"
-          style={{ flex: "1 1 160px", textAlign: "center", padding: "14px 28px" }}
-        >
-          {monthly && monthlyHref ? "Give monthly →" : "Give →"}
-        </a>
+        {links.state === "needsAccount" ? (
+          <Link to={links.href} onClick={() => setPendingIntent(links.returnTo)} className={giveClass} style={giveStyle}>
+            Give →
+          </Link>
+        ) : href ? (
+          <a href={href} className={giveClass} style={giveStyle}>
+            {monthly && monthlyHref ? "Give monthly →" : "Give →"}
+          </a>
+        ) : (
+          // Still finding out who is looking: hold the button's place.
+          <span aria-disabled="true" className={giveClass} style={{ ...giveStyle, opacity: 0.6 }}>
+            Give →
+          </span>
+        )}
       </div>
+      {links.state === "needsAccount" && (
+        <p style={{ margin: "10px 0 0", fontSize: 14, color: "var(--g-body)" }}>{FUND_ACCOUNT_FIRST}</p>
+      )}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
         <span style={{ fontSize: 14, color: "var(--g-body)" }}>{CLAIMS.grantFundDeductibleShort}</span>
         <button
@@ -842,33 +882,34 @@ function GiveControls({
 
 export function SophiaFundView({
   name,
+  tagline,
   about,
+  cover,
   orgName,
   availableCents,
   grantedCents,
   schedule,
   ledgerList,
-  oneTimeHref,
-  monthlyHref,
+  links,
   gaveThanks,
 }: {
   name: string;
+  tagline?: string;
   about?: string;
+  cover?: NamedFund["cover"];
   orgName: string;
   availableCents: number;
   grantedCents: number;
   schedule?: string;
   ledgerList: ReactNode | null;
-  oneTimeHref: string | null;
-  monthlyHref: string | null;
+  links: FundGiveLinks;
   gaveThanks: boolean;
 }) {
   const [monthly, setMonthly] = useState(false);
   const give = (
     <GiveControls
       orgName={orgName}
-      oneTimeHref={oneTimeHref}
-      monthlyHref={monthlyHref}
+      links={links}
       monthly={monthly}
       onMonthly={setMonthly}
       gaveThanks={gaveThanks}
@@ -895,20 +936,58 @@ export function SophiaFundView({
         fontVariantNumeric: "tabular-nums",
       }}
     >
-      <div className="grid gap-x-12 gap-y-6 md:grid-cols-[minmax(0,1fr)_300px] md:items-start">
+      <div
+        className={
+          cover
+            ? "grid gap-x-12 gap-y-6 md:grid-cols-[minmax(0,400px)_minmax(0,1fr)] md:items-start"
+            : "grid gap-y-6"
+        }
+      >
+        {/* The cover: the fund's picture, shown whole, its caption under it. */}
+        {cover && (
+          <figure style={{ margin: 0 }}>
+            <img
+              src={cover.src}
+              alt={cover.alt}
+              width={970}
+              height={1125}
+              style={{ display: "block", width: "100%", height: "auto", borderRadius: 4 }}
+            />
+            <figcaption style={{ marginTop: 10, fontSize: 14, lineHeight: 1.5, color: "var(--g-body)" }}>
+              {cover.caption}
+            </figcaption>
+          </figure>
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
         <header id="give">
           <h1 className="g-h" style={{ margin: 0, fontSize: "clamp(32px, 6vw, 48px)", lineHeight: 1.05 }}>
             {name}
           </h1>
+          {tagline && (
+            <p
+              style={{
+                margin: "12px 0 0",
+                fontSize: "clamp(20px, 2.8vw, 24px)",
+                fontStyle: "italic",
+                lineHeight: 1.35,
+                color: "var(--g-paper)",
+                maxWidth: "34ch",
+                textWrap: "balance",
+              }}
+            >
+              {tagline}
+            </p>
+          )}
           {about && (
-            <p style={{ margin: "12px 0 0", fontSize: 17, lineHeight: 1.55, color: "var(--g-body)", maxWidth: "52ch" }}>
+            <p style={{ margin: tagline ? "16px 0 0" : "12px 0 0", fontSize: 17, lineHeight: 1.55, color: "var(--g-body)", maxWidth: "52ch" }}>
               {about}
             </p>
           )}
           <div style={{ marginTop: 20 }}>{give}</div>
         </header>
 
-        <dl className="g-card" style={{ margin: 0, padding: "4px 18px" }}>
+        <dl className="g-card" style={{ margin: 0, padding: "4px 18px", maxWidth: cover ? 360 : undefined }}>
           <div style={{ ...statRow, borderBottom: "1px solid var(--g-hairline)" }}>
             <dt style={{ fontSize: 15, color: "var(--g-body)" }}>Available to grant</dt>
             <dd className="g-h" style={{ margin: 0, fontSize: 20 }}>{formatMoney(availableCents)}</dd>
@@ -924,6 +1003,7 @@ export function SophiaFundView({
             </dd>
           </div>
         </dl>
+        </div>
       </div>
 
       {schedule && (
