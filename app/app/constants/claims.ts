@@ -61,10 +61,13 @@ export const CLAIMS = {
   pool: `${DUES_EVERY} Members propose projects, and a review team decides.`,
   grantFund:
     "The Sophia Grant Fund, The Garden's grant fund, is run by Abiding Practice, a 501(c)(3), so gifts to it are tax-deductible. About 87% of each gift is granted.",
-  /** The Sophia Grant Fund's open call (Rick, 2026-09-29). The amount itself is
-   * computed on the page (fund.$slug.tsx NAMED_FUNDS seedCents). Proposing
-   * takes a paid membership (capabilities.ts pool.propose). */
-  sophiaSchedule: "The first grants go out in November, from projects submitted in October.",
+  /** The Sophia Grant Fund's open call. Rick, 2026-11-06: submissions close at
+   * the end of Monday, November 16 (Pacific Standard Time, so 07:59 UTC on the
+   * 17th), and only a project open and seeking funding (the Projects chip,
+   * lib/browse/projectsFilter.ts) is considered. The amount itself is computed
+   * on the page (fund.$slug.tsx NAMED_FUNDS seedCents). Proposing takes a paid
+   * membership (capabilities.ts pool.propose). */
+  sophiaSchedule: "Submissions close Monday, November 16, at 11:59 PM Pacific. To be considered, have a project open and seeking funding.",
   grantFundDeductible: "Abiding Practice is a 501(c)(3), so your gift is tax-deductible.",
   /** The desk's fund card, beside the Give button. */
   grantFundDeductibleShort: "Tax-deductible",

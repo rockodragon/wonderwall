@@ -13,7 +13,7 @@ Most people arrive by an invite link. That page is where the pull has to be.
 1. "**Dee invited you to The Garden.**" (the inviter's real name and photo, as now)
 2. The benefit line (below).
 3. **What people are making this week**: three real projects, each a face, a title and one line. Real data from the public list; no counts, no "be the first".
-4. "The first grants go out in November, from projects submitted in October." (canonical claim, `sophia schedule`)
+4. "Submissions close Monday, November 16, at 11:59 PM Pacific. To be considered, have a project open and seeking funding." (canonical claim, `sophia schedule`)
 5. "Invite-only. Joining is free."
 6. Button: **Accept the invite**.
 

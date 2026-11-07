@@ -28,7 +28,7 @@ Every sentence we say about money is defined here, word for word. Do not write a
 | **dues, other half** | The other half keeps this running. |
 | **pool** | Half of every membership funds grants for other creatives. Members propose projects, and a review team decides. |
 | **ticket fund** | Every ticket goes into the Sophia Grant Fund, an artist grant fund that backs projects by creatives in the community. Creatives propose projects, and a review team decides. |
-| **sophia schedule** | The first grants go out in November, from projects submitted in October. |
+| **sophia schedule** | Submissions close Monday, November 16, at 11:59 PM Pacific. To be considered, have a project open and seeking funding. |
 | **gift deductible** | Abiding Practice is a 501(c)(3), so your gift is tax-deductible. |
 | **gift deductible, short** | Tax-deductible |
 | **grant fund** | The Sophia Grant Fund, The Garden's grant fund, is run by Abiding Practice, a 501(c)(3), so gifts to it are tax-deductible. About 87% of each gift is granted. |
