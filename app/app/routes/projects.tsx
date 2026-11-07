@@ -1,7 +1,7 @@
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { HireFlow } from "../components/HireFlow";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
 import { formatCents, formatDollars } from "../../convex/money";
 import { justPublished } from "../lib/justPublished";
@@ -38,7 +38,7 @@ import { ProjectModal } from "../components/ProjectModal";
 import { INTEREST_OPTIONS } from "../lib/browse/peopleFilter";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { PageTop, TopButton } from "../components/phone/PageTop";
-import { Plus } from "@phosphor-icons/react";
+import { Briefcase, CurrencyDollar, Plus, UsersThree } from "@phosphor-icons/react";
 import { shareProjectHref, spendStartLink } from "../lib/shareProject";
 import { signupHref } from "../lib/pendingIntent";
 import { loginHref } from "../lib/loginHref";
@@ -51,6 +51,7 @@ import { useProjectSupport, type SupportMode } from "../components/ProjectSuppor
 import { PostActions, PostMaker, PostTitle, ProjectCover } from "../components/ProjectPost";
 import { useDeskCommunity } from "../desk/deskState";
 import { NAMED_FUNDS, SOPHIA_FUND_SLUG, fundPath } from "../lib/namedFunds";
+import { useIsAdmin } from "../lib/useIsAdmin";
 
 // The four chips (Projects, Seeking funding, Seeking people, Jobs and gigs),
 // the Stage menu and the pure filtering live in lib/browse/projectsFilter.ts,
@@ -111,6 +112,7 @@ export default function Projects() {
   // profile has loaded, so the lead never sees Save flash.
   const viewer = useViewer();
   const garden = useDeskCommunity() === "garden";
+  const isAdmin = useIsAdmin();
   // Anyone can browse; posting and cheering need an account. A visitor has
   // none yet, so they go to sign up (Rick, 2026-10-09), which brings them
   // back here.
@@ -243,8 +245,12 @@ export default function Projects() {
           title="Projects"
           action={
             <div className="flex items-center gap-2">
-              {/* Admins: every listed project in theater mode. */}
-              <LatestProjectsTheater />
+              {/* Admins: every listed project in theater mode, its play mark
+                  alone here so the bar keeps room for the fund. */}
+              <LatestProjectsTheater iconOnPhone />
+              {/* The Sophia Grant stays in reach as the page scrolls: the bar
+                  sticks (PageTop). Rick, 2026-11-06. */}
+              {garden && <FundChip short={isAdmin === true} />}
               <PostMenu look="bar" primary={{ label: create.label, onClick: create.kind === "hire" ? hireSomeone : startProject }} onProject={startProject} onHire={hireSomeone} />
             </div>
           }
@@ -309,12 +315,13 @@ export default function Projects() {
                 <FilterChip
                   key={l.value}
                   label={l.label}
+                  phone={LENS_PHONE[l.value]}
                   on={lens === l.value}
                   onClick={() => setView(selectLens({ lens, stage: stageFilter }, l.value))}
                 />
               ))}
             </div>
-            {(lens !== "work" || allTags.length > 0 || garden) && (
+            {(lens !== "work" || allTags.length > 0) && (
               <div className="mt-3 flex items-center gap-2 md:contents">
                 {lens !== "work" && (
                   <>
@@ -336,9 +343,6 @@ export default function Projects() {
                     className="py-1.5! rounded-lg!"
                   />
                 )}
-                {/* The Sophia Grant, to the right of the filters on a phone in
-                    The Garden (Rick, 2026-11-06); desktop has its Canvas card. */}
-                {garden && <FundChip />}
               </div>
             )}
           </div>
@@ -451,6 +455,31 @@ export default function Projects() {
 }
 
 // Under the title, one line on what the chip shows.
+/** On a phone the four chips fit one row, an icon and one word each (Rick,
+ *  2026-11-06: "more icons than text"). Desktop, and screen readers, keep
+ *  the full names (PROJECT_LENSES). */
+const LENS_PHONE: Record<ProjectsLens, ReactNode> = {
+  projects: "All",
+  funding: (
+    <>
+      <CurrencyDollar size={15} weight="bold" aria-hidden />
+      Funding
+    </>
+  ),
+  people: (
+    <>
+      <UsersThree size={15} weight="bold" aria-hidden />
+      People
+    </>
+  ),
+  work: (
+    <>
+      <Briefcase size={15} weight="bold" aria-hidden />
+      Jobs
+    </>
+  ),
+};
+
 const LENS_BLURB: Record<ProjectsLens, string> = {
   projects: "Things people are making — cheer them on, back them, or join in.",
   funding: "Projects asking for backers. Cheer them on, or back them.",
@@ -878,19 +907,23 @@ export function ProjectCard({
   );
 }
 
-/** "Sophia Grant": a small button to the fund's page, its icon in a circle. */
-function FundChip() {
+/** "Sophia Grant": a small button to the fund's page, its icon beside the
+ *  words, in the phone's bar. `short` says "Sophia" alone, when the bar also
+ *  holds an admin's Theater and the full name would crowd the title. Desktop
+ *  has the Canvas's fund card instead. */
+function FundChip({ short = false }: { short?: boolean }) {
   const fund = NAMED_FUNDS[SOPHIA_FUND_SLUG];
   return (
     <Link
       to={fundPath(SOPHIA_FUND_SLUG)}
-      className="ml-auto inline-flex items-center gap-2 py-1 pl-1 pr-3 rounded-lg text-[13.5px] font-medium whitespace-nowrap no-underline md:hidden"
+      aria-label={fund.name}
+      className="inline-flex h-9 shrink-0 items-center gap-1.5 pl-1 pr-2.5 rounded-lg text-[13.5px] font-medium whitespace-nowrap no-underline md:hidden"
       style={{ ...chipStyle(false), color: "var(--garden-paper)" }}
     >
       {fund.cover && (
-        <img src={fund.cover.src} alt="" width={26} height={26} className="h-[26px] w-[26px] rounded-md object-cover" style={{ objectPosition: "50% 35%" }} />
+        <img src={fund.cover.src} alt="" width={28} height={28} className="h-7 w-7 rounded-md object-cover" style={{ objectPosition: "50% 35%" }} />
       )}
-      Sophia Grant
+      {short ? "Sophia" : "Sophia Grant"}
     </Link>
   );
 }
@@ -903,15 +936,34 @@ function chipStyle(on: boolean) {
   };
 }
 
-function FilterChip({ label, on, onClick }: { label: string; on: boolean; onClick: () => void }) {
+function FilterChip({
+  label,
+  phone,
+  on,
+  onClick,
+}: {
+  label: string;
+  /** What the chip says on a phone, when shorter than its name. */
+  phone?: ReactNode;
+  on: boolean;
+  onClick: () => void;
+}) {
   return (
     <button
       onClick={onClick}
       aria-pressed={on}
+      aria-label={phone ? label : undefined}
       className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium whitespace-nowrap transition-colors"
       style={chipStyle(on)}
     >
-      {label}
+      {phone ? (
+        <>
+          <span className="inline-flex items-center gap-1.5 md:hidden">{phone}</span>
+          <span className="hidden md:inline">{label}</span>
+        </>
+      ) : (
+        label
+      )}
     </button>
   );
 }

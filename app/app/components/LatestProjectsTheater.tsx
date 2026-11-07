@@ -11,7 +11,7 @@ import { useIsAdmin } from "../lib/useIsAdmin";
 import { latestSlides } from "../lib/theaterSlides";
 import { Theater, TheaterButton } from "./Theater";
 
-export function LatestProjectsTheater({ buttonClassName }: { buttonClassName?: string }) {
+export function LatestProjectsTheater({ buttonClassName, iconOnPhone }: { buttonClassName?: string; iconOnPhone?: boolean }) {
   const isAdmin = useIsAdmin();
   const projects = useQuery(api.garden.projects.listProjects, isAdmin ? {} : "skip");
   const slides = useMemo(() => (projects ? latestSlides(projects) : []), [projects]);
@@ -19,7 +19,7 @@ export function LatestProjectsTheater({ buttonClassName }: { buttonClassName?: s
   if (!isAdmin || slides.length === 0) return null;
   return (
     <>
-      <TheaterButton onClick={() => setOpen(true)} className={buttonClassName} />
+      <TheaterButton onClick={() => setOpen(true)} className={buttonClassName} iconOnPhone={iconOnPhone} />
       {open && <Theater slides={slides} ordered label="The latest projects" onClose={() => setOpen(false)} />}
     </>
   );

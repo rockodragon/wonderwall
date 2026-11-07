@@ -556,19 +556,30 @@ export function Theater({
 
 /** What opens it, on a person's page and a project's. `className` gives it
  *  another page's button look (the Canvas header's outline). */
-export function TheaterButton({ onClick, className }: { onClick: () => void; className?: string }) {
+export function TheaterButton({
+  onClick,
+  className,
+  iconOnPhone = false,
+}: {
+  onClick: () => void;
+  className?: string;
+  /** On a phone, the play mark alone (named for screen readers), to leave
+   *  room in a crowded bar: Projects' (Rick, 2026-11-06). */
+  iconOnPhone?: boolean;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
+      aria-label={iconOnPhone ? "Theater" : undefined}
       className={
         className ??
-        "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[13.5px] font-medium transition-colors hover:bg-[var(--app-hairline)]"
+        `inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border text-[13.5px] font-medium transition-colors hover:bg-[var(--app-hairline)] ${iconOnPhone ? "w-9 md:w-auto md:px-3.5" : "px-3.5"}`
       }
       style={className ? undefined : { borderColor: "var(--app-hairline-raised)", color: "var(--app-text)" }}
     >
       <Play size={14} weight="fill" aria-hidden />
-      Theater
+      {iconOnPhone ? <span className="hidden md:inline">Theater</span> : "Theater"}
     </button>
   );
 }
