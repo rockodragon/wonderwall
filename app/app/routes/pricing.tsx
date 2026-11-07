@@ -14,6 +14,7 @@ import type { ReactNode } from "react";
 import type { Route } from "./+types/pricing";
 import { SiteHeader } from "../components/SiteHeader";
 import { CLAIMS } from "../constants/claims";
+import { FREE_GRANT_APPLY_DAY } from "../lib/featureFlags";
 
 export function meta(_: Route.MetaArgs) {
   const title = "Pricing | TheCreative.exchange";
@@ -42,7 +43,8 @@ const FEATURES: { label: string; free: Cell; member: Cell }[] = [
   { label: "Join an open paid Table by paying its price", free: true, member: true },
   { label: "Start new conversations", free: "5 a day", member: "50 a day" },
   { label: "Apply to paid work and respond to gigs", free: false, member: true },
-  { label: "Ask a grant fund to back your project", free: false, member: true },
+  // Free accounts may propose until the Sophia open call closes (Rick, 2026-11-06).
+  { label: "Ask a grant fund to back your project", free: `Until ${FREE_GRANT_APPLY_DAY}`, member: true },
   { label: "Charge for a Table, or run one that meets again", free: false, member: true },
   { label: "Join members-only Tables", free: false, member: true },
   { label: "Sell tickets to your events", free: false, member: true },

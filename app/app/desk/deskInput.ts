@@ -2,7 +2,8 @@
 // builds cards from. Pure: useDeskData.ts runs the queries and hands the
 // results here, so the mapping can be tested without Convex.
 
-import { NAMED_FUNDS, availableCents } from "../lib/namedFunds";
+import { NAMED_FUNDS, availableCents, fundPath } from "../lib/namedFunds";
+import { GARDEN_ORIGIN } from "../../convex/garden/brandHosts";
 import type {
   DeskCelebrationInput,
   DeskEventInput,
@@ -52,6 +53,8 @@ export function fundFrom(page: FundPageLike | null | undefined): DeskFundInput |
     orgName: page.org.name,
     availableCents: availableCents(page.org.slug, page.balanceCents),
     openCall: named.openCall ?? null,
+    art: named.cover ? { src: named.cover.src, alt: named.cover.alt } : null,
+    scanUrl: `${GARDEN_ORIGIN}${fundPath(page.org.slug)}`,
   };
 }
 

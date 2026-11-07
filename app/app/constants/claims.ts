@@ -66,7 +66,8 @@ export const CLAIMS = {
    * 17th), and only a project open and seeking funding (the Projects chip,
    * lib/browse/projectsFilter.ts) is considered. The amount itself is computed
    * on the page (fund.$slug.tsx NAMED_FUNDS seedCents). Proposing takes a paid
-   * membership (capabilities.ts pool.propose). */
+   * membership (capabilities.ts pool.propose), except that until the call closes
+   * a free account may propose too (FREE_GRANT_APPLY_UNTIL, lib/featureFlags.ts). */
   sophiaSchedule: "Submissions close Monday, November 16, at 11:59 PM Pacific. To be considered, have a project open and seeking funding.",
   grantFundDeductible: "Abiding Practice is a 501(c)(3), so your gift is tax-deductible.",
   /** The desk's fund card, beside the Give button. */

@@ -19,7 +19,7 @@
 // and the type has to fit it. Container queries and cqi units, so the same rule
 // holds from a phone to a wide desk with no device checks.
 
-import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Fragment, Suspense, lazy, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Link } from "react-router";
 import { CaretLeft, CaretRight, X } from "@phosphor-icons/react";
@@ -41,6 +41,8 @@ import { HostedBy } from "../components/HostedBy";
 import { useUpdateClick } from "./useUpdateReads";
 import { useFinishCelebration } from "./useCelebrations";
 import { useStartConversation } from "../lib/useStartConversation";
+
+const ScanQr = lazy(() => import("../components/ScanQr"));
 
 /** ← / → through the list a card was opened from: "2 of 6". `arrived` is
  *  the way the last step went, when this card was reached by one: focus
@@ -313,6 +315,13 @@ export function DetailPanel({
               card.detail.aside && !(card.kind === "org" && card.detail.people?.length) && (
                 <span style={{ fontSize: 14, color: DESK.muted }}>{card.detail.aside}</span>
               )
+            )}
+            {card.detail.scan && (
+              // Up on a big screen, a room can scan it; the QR library loads
+              // only when a card with a code opens.
+              <Suspense fallback={null}>
+                <ScanQr url={card.detail.scan.url} label={card.detail.scan.label} colors={{ text: DESK.text, muted: DESK.muted }} size={96} />
+              </Suspense>
             )}
             {card.kind === "event" && (
               <Link

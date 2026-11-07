@@ -39,7 +39,7 @@ import {
   type ShareKind,
   type ShareRef,
 } from "../lib/profileShare";
-import { qrMatrix, qrPng, qrSvg } from "../lib/qrCode";
+import { qrMatrix, qrPng, qrSvg, qrSvgDataUrl } from "../lib/qrCode";
 import { drawStory } from "../lib/storyImage";
 import { useCopyText } from "../lib/useCopyText";
 
@@ -143,7 +143,7 @@ function ShareKitBody({
   const site = shareSite(useBrand());
   const link = profileLink(handle, undefined, site);
   const qr = useMemo(() => qrMatrix(profileLink(handle, "qr", site)), [handle, site.origin]);
-  const qrPreview = useMemo(() => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg(qr))}`, [qr]);
+  const qrPreview = useMemo(() => qrSvgDataUrl(qr), [qr]);
   const file = `${handle}-${site.brand === "garden" ? "the-garden" : "thecreative-exchange"}`;
 
   function track(kind: ShareKind, ref: ShareRef | null, extra: Record<string, string> = {}) {

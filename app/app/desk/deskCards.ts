@@ -7,6 +7,7 @@
 // already say them (today.tsx, give.tsx, fund.$slug.tsx). Amounts are exact:
 // the caller passes the app's own formatter.
 
+import { fundPath } from "../lib/namedFunds";
 import type { PostThumb } from "../components/shortlist/rowModel";
 import { CLAIMS } from "../constants/claims";
 import { isRaising } from "../lib/browse/projectsFilter";
@@ -84,6 +85,9 @@ export type DeskCard = {
     script?: boolean;
     /** The title is an amount, set as large as a paper note's. */
     large?: boolean;
+    /** A paper note's own picture, shown whole between its kicker and its
+     *  amount once the card opens: the fund's icon. */
+    art?: { src: string; alt: string };
     /** A small mono tag in the face's lower-right corner, at rest only: an
      *  organization's "ORG", in place of a kicker at the top. */
     tag?: string;
@@ -115,6 +119,9 @@ export type DeskCard = {
     action: DeskAction | null;
     /** A Shortlist card's status line: "Mara invited you Sep 30 · Waiting on you". */
     status?: string;
+    /** A full address a room can scan from a big screen: a small QR code
+     *  beside the button (components/ScanQr.tsx). */
+    scan?: { url: string; label: string };
     /** Names in the title and description that link to their pages: a
      *  celebration's person, project and fund. */
     links?: readonly TextLink[];
@@ -220,6 +227,10 @@ export type DeskFundInput = {
   availableCents: number;
   /** The fund's open call (CLAIMS.sophiaSchedule). */
   openCall?: string | null;
+  /** The fund's own picture (Nyla's icon), shown on the paper when it opens. */
+  art?: { src: string; alt: string } | null;
+  /** The fund page's full address, for the small QR code a room can scan. */
+  scanUrl?: string | null;
 };
 
 /** One Update, as api.updates.listMine returns it. */
@@ -484,16 +495,22 @@ export function fundCard(f: DeskFundInput, money: (cents: number) => string): De
     note: true,
     tone: toneFor("fund"),
     image: null,
-    face: { kicker: f.name.toUpperCase(), title: money(f.availableCents), foot: "available to grant" },
+    face: {
+      kicker: f.name.toUpperCase(),
+      title: money(f.availableCents),
+      foot: "available to grant",
+      ...(f.art ? { art: f.art } : {}),
+    },
     detail: {
       meta: "GRANT FUND",
       title: f.name,
       host: `Run by ${f.orgName}`,
       description: f.openCall ?? "",
       aside: CLAIMS.grantFundDeductibleShort,
-      action: { kind: "link", label: "Give", href: `/fund/${f.slug}` },
+      action: { kind: "link", label: "Give and learn more", href: fundPath(f.slug) },
+      ...(f.scanUrl ? { scan: { url: f.scanUrl, label: "Scan to give" } } : {}),
     },
-    href: `/fund/${f.slug}`,
+    href: fundPath(f.slug),
   };
 }
 

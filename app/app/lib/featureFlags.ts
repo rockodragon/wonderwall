@@ -52,3 +52,21 @@ export const FF_TABLES = false;
 // tickets, gifts, pool contributions, products, classes and Tables are not
 // affected. Set to true to open it.
 export const FF_BACKING = false;
+
+// FREE_GRANT_APPLY_UNTIL — for a limited time a free account may apply to the
+// Sophia Grant Fund like a paid member (Rick, 2026-11-06). The window ends
+// when the Sophia open call's submissions close: Monday, November 16, 2026,
+// 11:59 PM Pacific (PST), i.e. 2026-11-17T07:59:59.999Z. After that the
+// paid-membership rule in capabilities.ts (pool.propose) returns by itself,
+// with no deploy. Read on the server too, so constants only.
+export const FREE_GRANT_APPLY_UNTIL = Date.UTC(2026, 10, 17, 7, 59, 59, 999);
+
+/** The window's last day, as copy says it. The sentences that use it are
+ *  written to stay true after it passes (grant-program, pricing): the pages
+ *  are prerendered, so they can't switch on the clock without a hydration
+ *  mismatch. */
+export const FREE_GRANT_APPLY_DAY = "November 16";
+
+export function freeGrantApplyOpen(now: number): boolean {
+  return now <= FREE_GRANT_APPLY_UNTIL;
+}

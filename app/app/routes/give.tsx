@@ -24,7 +24,7 @@ import { CLAIMS } from "../constants/claims";
 import { useAnalytics } from "../hooks/useAnalytics";
 import { GardenPage, formatDate, formatMoney, formatPeriod } from "../garden/ui";
 import "../garden/garden.css";
-import { SOPHIA_FUND_SLUG } from "../lib/namedFunds";
+import { SOPHIA_FUND_SLUG, fundPath, namedFundLinks } from "../lib/namedFunds";
 import { errorMessage } from "../lib/convexError";
 import { FF_BACKING } from "../lib/featureFlags";
 import { InfoTip } from "../components/InfoTip";
@@ -117,7 +117,7 @@ function GiveWays({ signedIn }: { signedIn: boolean }) {
           <Link to="/projects?show=funding" className="g-btn g-btn-citron">
             Find a project to back
           </Link>
-          <Link to={`/fund/${SOPHIA_FUND_SLUG}`} className="g-btn g-btn-ghost">
+          <Link to={fundPath(SOPHIA_FUND_SLUG)} className="g-btn g-btn-ghost">
             Give to the grant fund
           </Link>
           <span style={{ fontSize: 14, color: BODY }}>{CLAIMS.grantFundDeductibleShort}</span>
@@ -957,7 +957,7 @@ function FundPlusUp({
   capture: (event: string, props?: Record<string, unknown>) => void;
 }) {
   const fundPage = useQuery(api.garden.allocations.getFundPage, { hostOrgSlug: SOPHIA_FUND_SLUG });
-  const once = fundPage?.org?.paymentLinkUrl;
+  const once = fundPage?.org ? namedFundLinks(fundPage.org).paymentLinkUrl : undefined;
 
   const links = useMemo(() => {
     if (!userId) return { once: undefined };

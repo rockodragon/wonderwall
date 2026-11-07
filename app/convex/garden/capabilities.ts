@@ -3,6 +3,8 @@
 // This is the real contract: Phase 1B swaps the demo store for Convex + Stripe
 // behind this exact function; UI callers must not change.
 
+import { freeGrantApplyOpen } from "../../app/lib/featureFlags";
+
 export type Level = "visitor" | "free" | "seat" | "five" | "host";
 
 export type Capability =
@@ -58,7 +60,9 @@ const HOST_PATH = "Join the host waitlist";
 
 const isPaidLevel = (l: Level) => l === "seat" || l === "five" || l === "host";
 
-export function can(user: GardenUser, capability: Capability): CanResult {
+/** `now` is a parameter so tests pass a fixed time; only pool.propose reads it
+ *  (the free-apply window, FREE_GRANT_APPLY_UNTIL in lib/featureFlags.ts). */
+export function can(user: GardenUser, capability: Capability, now: number = Date.now()): CanResult {
   const level = user.level;
 
   switch (capability) {
@@ -123,6 +127,9 @@ export function can(user: GardenUser, capability: Capability): CanResult {
 
     case "pool.propose":
       if (isPaidLevel(level)) return { allowed: true };
+      // Rick, 2026-11-06: until the Sophia open call closes, a free account
+      // may propose too. After the deadline this is paid-only again by itself.
+      if (level === "free" && freeGrantApplyOpen(now)) return { allowed: true };
       return {
         allowed: false,
         reason:

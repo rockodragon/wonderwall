@@ -21,7 +21,7 @@
 import { useId, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
-import { Link, useParams, useRouteError, useSearchParams } from "react-router";
+import { Link, Navigate, useLocation, useParams, useRouteError, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import {
@@ -34,10 +34,14 @@ import {
   formatPeriod,
 } from "../garden/ui";
 import { CLAIMS } from "../constants/claims";
-import { NAMED_FUNDS, SOPHIA_FUND_SLUG, availableCents as fundAvailableCents } from "../lib/namedFunds";
+import { NAMED_FUNDS, availableCents as fundAvailableCents, fundOrgSlug, fundPath, namedFundLinks } from "../lib/namedFunds";
+import { GARDEN_ORIGIN } from "../../convex/garden/brandHosts";
+import { freeGrantApplyOpen } from "../lib/featureFlags";
+import { loginHref } from "../lib/loginHref";
+import ScanQr from "../components/ScanQr";
 import type { NamedFund } from "../lib/namedFunds";
 import { FUND_ACCOUNT_FIRST, useFundGiveLinks } from "../lib/fundGiveLinks";
-import { setPendingIntent } from "../lib/pendingIntent";
+import { setPendingIntent, signupHref } from "../lib/pendingIntent";
 import type { FundGiveLinks } from "../lib/fundGiveLinks";
 import "../garden/garden.css";
 import { errorMessage } from "../lib/convexError";
@@ -53,14 +57,14 @@ const CONTRIBUTION_TYPE_LABELS: Record<string, string> = {
   member_gift_out: "Directed by members to creatives",
 };
 
-// A fund can carry its own name and a short note about it, and a short
-// address that points at the org's slug (/fund/sophia → abiding-practice).
-const FUND_ALIASES: Record<string, string> = { sophia: SOPHIA_FUND_SLUG };
+// A named fund's address is its own name (/fund/sophia); its org's slug
+// (/fund/abiding-practice) forwards there. lib/namedFunds.ts fundPath.
+
 
 const PRESET_AMOUNTS_CENTS = [1000, 2500, 5000, 10000]; // $10 · $25 · $50 · $100
 
 export function meta({ params }: { params: { slug?: string } }) {
-  const slug = params.slug ? (FUND_ALIASES[params.slug] ?? params.slug) : undefined;
+  const slug = params.slug ? fundOrgSlug(params.slug) : undefined;
   const fund = slug ? NAMED_FUNDS[slug] : undefined;
   // A shared link to a named fund unfurls to its own card (/fund/sophia is
   // prerendered for this, react-router.config.ts).
@@ -326,7 +330,7 @@ function ProposeGrantSection({ slug }: { slug: string }) {
       {!isAuthenticated ? (
         <div style={{ marginTop: 12 }}>
           <p style={{ fontSize: 14.5 }}>Sign in to send a proposal to this fund.</p>
-          <Link to="/join" className="g-btn g-btn-ghost" style={{ marginTop: 12, display: "inline-block" }}>
+          <Link to={loginHref(`${fundPath(slug)}#propose`)} className="g-btn g-btn-ghost" style={{ marginTop: 12, display: "inline-block" }}>
             Sign in
           </Link>
         </div>
@@ -443,9 +447,11 @@ function ProposeGrantSection({ slug }: { slug: string }) {
 
 export default function FundPage() {
   const { slug: rawSlug } = useParams();
-  const slug = rawSlug ? (FUND_ALIASES[rawSlug] ?? rawSlug) : rawSlug;
+  const slug = rawSlug ? fundOrgSlug(rawSlug) : rawSlug;
   // Hooks stay above every early return (React rules-of-hooks).
   const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const { isAuthenticated } = useConvexAuth();
   // One-time or monthly, when the org has both Payment Links.
   const [giveMonthly, setGiveMonthly] = useState(false);
   const data = useQuery(
@@ -453,7 +459,17 @@ export default function FundPage() {
     slug ? { hostOrgSlug: slug } : "skip",
   );
   // Giving needs an account; signed out, Give is sign up and come back here.
-  const giveLinks = useFundGiveLinks(data === undefined ? undefined : (data?.org ?? null), `/fund/${rawSlug ?? ""}`);
+  // A named fund's own Stripe link stands in until its org row has one.
+  const giveLinks = useFundGiveLinks(
+    data === undefined ? undefined : data ? namedFundLinks(data.org) : null,
+    slug ? fundPath(slug) : "/",
+  );
+
+  // One address per fund, favoring its name (Rick, 2026-11-06).
+  const canonical = slug ? fundPath(slug) : null;
+  if (rawSlug && canonical && canonical !== `/fund/${rawSlug}`) {
+    return <Navigate to={{ pathname: canonical, search: location.search, hash: location.hash }} replace />;
+  }
 
   if (data === undefined) {
     return (
@@ -555,6 +571,8 @@ export default function FundPage() {
           ledgerList={ledger.length === 0 ? null : ledgerList}
           links={giveLinks}
           gaveThanks={gaveThanks}
+          scanUrl={`${GARDEN_ORIGIN}${fundPath(org.slug)}`}
+          applyLink={applyLinkFor(isAuthenticated)}
         />
       </GardenPage>
     );
@@ -746,6 +764,20 @@ export default function FundPage() {
 }
 
 
+// Under the open call. Until submissions close, a free account can apply
+// (featureFlags.ts FREE_GRANT_APPLY_UNTIL, capabilities.ts pool.propose), so
+// the link starts a project, by way of a free account when signed out.
+// After that, membership again.
+const START_PROJECT = "/projects?new=project";
+const APPLY_AS_MEMBER = { label: "Become a member and create a project →", href: "/join" };
+
+function applyLinkFor(signedIn: boolean, now = Date.now()): { label: string; href: string } {
+  if (!freeGrantApplyOpen(now)) return APPLY_AS_MEMBER;
+  return signedIn
+    ? { label: "Start a project →", href: START_PROJECT }
+    : { label: "Make a free account and start a project →", href: signupHref(START_PROJECT) };
+}
+
 // ——— The Sophia Grant Fund page ———
 // The first screen carries the whole ask: the fund's name, one line about it,
 // the Give button, and the fund's numbers beside it (under it on a phone).
@@ -892,6 +924,8 @@ export function SophiaFundView({
   ledgerList,
   links,
   gaveThanks,
+  scanUrl,
+  applyLink = APPLY_AS_MEMBER,
 }: {
   name: string;
   tagline?: string;
@@ -904,6 +938,10 @@ export function SophiaFundView({
   ledgerList: ReactNode | null;
   links: FundGiveLinks;
   gaveThanks: boolean;
+  /** The page's own address, for the small QR code a room can scan. */
+  scanUrl?: string;
+  /** Under the open call: how to get a project in. */
+  applyLink?: { label: string; href: string };
 }) {
   const [monthly, setMonthly] = useState(false);
   const give = (
@@ -943,7 +981,10 @@ export function SophiaFundView({
             : "grid gap-y-6"
         }
       >
-        {/* The cover: the fund's picture, shown whole, its caption under it. */}
+        {/* The cover: the fund's picture, shown whole, its caption under it,
+            and under that, for a big screen, a code the room can scan. */}
+        {(cover || scanUrl) && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         {cover && (
           <figure style={{ margin: 0 }}>
             <img
@@ -957,6 +998,9 @@ export function SophiaFundView({
               {cover.caption}
             </figcaption>
           </figure>
+        )}
+        {scanUrl && <ScanQr url={scanUrl} label="Scan to give" colors={{ text: "var(--g-paper)", muted: "var(--g-body)" }} />}
+        </div>
         )}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
@@ -1022,7 +1066,7 @@ export function SophiaFundView({
             {schedule}
           </p>
           <Link
-            to="/join"
+            to={applyLink.href}
             style={{
               alignSelf: "flex-start",
               padding: "6px 0",
@@ -1032,7 +1076,7 @@ export function SophiaFundView({
               textDecoration: "none",
             }}
           >
-            Become a member and create a project →
+            {applyLink.label}
           </Link>
         </section>
       )}

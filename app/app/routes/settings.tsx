@@ -41,6 +41,7 @@ import { AVATAR_PX } from "../lib/shrinkImage";
 import { COVER_ASPECT } from "../lib/coverCrop";
 import { isGardenHost } from "../../convex/garden/brandHosts";
 import { formatCents } from "../../convex/money";
+import { fundPath } from "../lib/namedFunds";
 
 const SETTINGS_TABS = [
   { id: "profile", label: "Profile" },
@@ -656,7 +657,7 @@ function SupportGivenSection() {
     ...given.funds.map((f) => ({
       key: f.id,
       title: f.fundName,
-      to: f.fundSlug ? `/fund/${f.fundSlug}` : undefined,
+      to: f.fundSlug ? fundPath(f.fundSlug) : undefined,
       detail: [f.kind === "ticket" ? (f.note ?? "Ticket") : undefined, date(f.createdAt)]
         .filter(Boolean)
         .join(" · "),

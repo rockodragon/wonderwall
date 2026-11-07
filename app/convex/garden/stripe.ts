@@ -32,6 +32,7 @@ import {
   resolveGuestSupporterName,
   validateBackingAmount,
 } from "./stripeHandlers";
+import { fundPath } from "../../app/lib/namedFunds";
 
 // Matches the `stripe` package's pinned default (node_modules/stripe's
 // apiVersion.js) at install time — keep these in lockstep on upgrade.
@@ -530,8 +531,8 @@ export const createPoolContributionCheckout = action({
         },
       ],
       metadata,
-      success_url: `${siteUrl()}/fund/${hostOrg.slug}?contributed=1`,
-      cancel_url: `${siteUrl()}/fund/${hostOrg.slug}`,
+      success_url: `${siteUrl()}${fundPath(hostOrg.slug)}?contributed=1`,
+      cancel_url: `${siteUrl()}${fundPath(hostOrg.slug)}`,
       allow_promotion_codes: false,
     });
 

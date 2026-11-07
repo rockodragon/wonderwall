@@ -21,7 +21,7 @@ import { PersonAvatar } from "../components/PersonAvatar";
 import { useBrand } from "../brand/brands";
 import { myCodeUrl } from "../lib/myCode";
 import { displayLink, profileLink, shareSite } from "../lib/profileShare";
-import { QR_DARK, qrMatrix, qrSvg } from "../lib/qrCode";
+import { QR_DARK, qrMatrix, qrSvgDataUrl } from "../lib/qrCode";
 import { useInviteLink } from "../lib/useInviteLink";
 
 export function meta() {
@@ -49,7 +49,7 @@ export function MyCodePage() {
   const site = shareSite(useBrand());
   const url = me && slug ? myCodeUrl({ handle: me.handle, profileId: me._id }, slug, site) : null;
   const qr = useMemo(
-    () => (url ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg(qrMatrix(url), QUIET))}` : null),
+    () => (url ? qrSvgDataUrl(qrMatrix(url), QUIET) : null),
     [url],
   );
   useScreenAwake();

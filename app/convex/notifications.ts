@@ -9,6 +9,7 @@ import { AWARD_TYPES, isCelebrationType } from "./celebrationTypes";
 import { fundDisplayName } from "./garden/allocations";
 import { profileImageUrl } from "./images";
 import { hasRealName } from "./names";
+import { fundOrgSlug } from "../app/lib/namedFunds";
 
 // Get notifications for the current user
 export const getNotifications = query({
@@ -231,7 +232,8 @@ export async function celebrationContext(ctx: QueryCtx, n: Doc<"notifications">)
   const hostOrg = fundSlug
     ? await ctx.db
         .query("hostOrgs")
-        .withIndex("by_slug", (q) => q.eq("slug", fundSlug))
+        // A fund's address is its own name (/fund/sophia); older links carry the org slug.
+        .withIndex("by_slug", (q) => q.eq("slug", fundOrgSlug(fundSlug)))
         .first()
     : null;
   const fund = hostOrg && n.linkUrl ? { name: fundDisplayName(hostOrg), href: n.linkUrl } : null;

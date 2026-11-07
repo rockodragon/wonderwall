@@ -15,6 +15,7 @@ import { PAGE_WIDTH } from "../lib/pageWidth";
 import { textParagraphs } from "../lib/textParagraphs";
 import { errorMessage } from "../lib/convexError";
 import { PersonAvatar } from "../components/PersonAvatar";
+import { fundPath } from "../lib/namedFunds";
 
 // /orgs/:slug — an organization's public page (docs/features/organizations.md).
 // Public like an event page: a signed-out guest who clicks a host lands here.
@@ -172,7 +173,7 @@ export default function OrganizationPage() {
                 to={
                   org.hostOrg.kind === "community"
                     ? `/communities/${org.hostOrg.slug}`
-                    : `/fund/${org.hostOrg.slug}`
+                    : fundPath(org.hostOrg.slug)
                 }
                 className="mt-3 inline-block text-sm font-medium hover:underline"
                 style={{ color: "var(--app-accent-ink)" }}

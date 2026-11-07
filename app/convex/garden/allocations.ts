@@ -19,7 +19,7 @@ import type { Id } from "../_generated/dataModel";
 import { getProfileByUserId, requireOperator } from "../helpers";
 import { insertNotification } from "../notify";
 import { escapeHtml } from "../email/template";
-import { NAMED_FUNDS } from "../../app/lib/namedFunds";
+import { NAMED_FUNDS, fundPath } from "../../app/lib/namedFunds";
 import { formatCents } from "../money";
 
 // ——————————————————————————————————————————————————————————————
@@ -360,7 +360,7 @@ export const recordAllocation = mutation({
     // Tell the person who got the money. A name-only allocation has no
     // account to tell, so it notifies nobody.
     if (project) {
-      const linkUrl = `/fund/${hostOrg.slug}`;
+      const linkUrl = fundPath(hostOrg.slug);
       const fundName = fundDisplayName(hostOrg);
       await insertNotification(
         ctx,
