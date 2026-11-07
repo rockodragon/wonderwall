@@ -735,6 +735,20 @@ function Face({
         </p>
       )}
 
+      {paper && face.art && split && (
+        // A paper note's own picture (the fund's icon), whole, between the
+        // kicker and the amount once the card opens. At rest the note is
+        // only its words.
+        <div style={{ position: "relative", flex: 1, minHeight: 0 }}>
+          <img
+            src={face.art.src}
+            alt={face.art.alt}
+            decoding="async"
+            style={{ ...FILL, objectFit: "contain", objectPosition: "left center", filter: "drop-shadow(0 10px 24px rgba(0,0,0,.22))" }}
+          />
+        </div>
+      )}
+
       {personCard && (
         // No photo: the initials, large, in the paper's color.
         <div aria-hidden style={{ position: "relative", flex: 1, display: "flex", alignItems: "center", minHeight: 0 }}>

@@ -53,7 +53,7 @@ import {
   formatPeriod,
 } from "../garden/ui";
 import "../garden/garden.css";
-import { SOPHIA_FUND_SLUG } from "../lib/namedFunds";
+import { SOPHIA_FUND_SLUG, namedFundLinks } from "../lib/namedFunds";
 import { FUND_ACCOUNT_FIRST, useFundGiveLinks } from "../lib/fundGiveLinks";
 import { setPendingIntent } from "../lib/pendingIntent";
 import type { FundGiveLinks } from "../lib/fundGiveLinks";
@@ -760,7 +760,7 @@ export default function GrantProgramPage() {
 
   const gaveThanks = searchParams.get("gave") === "1";
   const org = data?.org;
-  const links = useFundGiveLinks(data === undefined ? undefined : (org ?? null), "/grant-program");
+  const links = useFundGiveLinks(data === undefined ? undefined : org ? namedFundLinks(org) : null, "/grant-program");
 
   return (
     <GardenPage wide>

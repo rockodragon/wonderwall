@@ -7,6 +7,7 @@ import {
   cardsInView,
   celebrationCard,
   dateKicker,
+  fundCard,
   fundingLine,
   inCommunity,
   plainText,
@@ -361,8 +362,25 @@ describe("the fund card", () => {
     expect(card.detail.description).toBe(CLAIMS.sophiaSchedule);
     expect(card.detail.aside).toBe(CLAIMS.grantFundDeductibleShort);
     expect(card.detail.aside).toBe("Tax-deductible");
-    expect(card.detail.action).toEqual({ kind: "link", label: "Give", href: "/fund/abiding-practice" });
-    expect(card.href).toBe("/fund/abiding-practice");
+    // Rick, 2026-11-06: one address, the fund's own name; the button says it does both.
+    expect(card.detail.action).toEqual({ kind: "link", label: "Give and learn more", href: "/fund/sophia" });
+    expect(card.href).toBe("/fund/sophia");
+  });
+
+  it("carries the fund's icon for its paper and a code a room can scan", () => {
+    const card = fundCard(
+      {
+        slug: "abiding-practice",
+        name: "The Sophia Grant Fund",
+        orgName: "Abiding Practice",
+        availableCents: 100,
+        art: { src: "/fund/sophia-icon.webp", alt: "An icon" },
+        scanUrl: "https://createthegarden.com/fund/sophia",
+      },
+      (c) => String(c),
+    );
+    expect(card.face.art).toEqual({ src: "/fund/sophia-icon.webp", alt: "An icon" });
+    expect(card.detail.scan).toEqual({ url: "https://createthegarden.com/fund/sophia", label: "Scan to give" });
   });
 
   it("is missing until the fund has loaded", () => {

@@ -1,8 +1,9 @@
-// QR codes for the share kit (components/ProfileShareKit.tsx): the code as
+// QR codes for the share kit (components/ProfileShareKit.tsx), /code and the
+// small scan codes on shown pages (components/ScanQr.tsx): the code as
 // a grid, drawn as an SVG, onto a canvas, or as a PNG. The grid comes from
-// qrcode-generator (MIT, Kazuhiko Arase, no dependencies). Only the share
-// kit imports this, and the kit is loaded when its panel opens, so the
-// library never rides in the profile page's own bundle.
+// qrcode-generator (MIT, Kazuhiko Arase, no dependencies). The share kit and
+// the Canvas load it only when they open, so the library never rides in the
+// profile page's or the Canvas's own bundle.
 
 import qrcode from "qrcode-generator";
 
@@ -43,6 +44,11 @@ export function qrSvg(matrix: readonly (readonly boolean[])[], quiet = QR_QUIET)
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${total}" width="${total * 8}" height="${total * 8}" shape-rendering="crispEdges">` +
     `<rect width="${total}" height="${total}" fill="${QR_LIGHT}"/><path d="${d}" fill="${QR_DARK}"/></svg>`
   );
+}
+
+/** The code as an SVG data URL, for an <img> (the share kit, /code, ScanQr). */
+export function qrSvgDataUrl(matrix: readonly (readonly boolean[])[], quiet = QR_QUIET): string {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg(matrix, quiet))}`;
 }
 
 /** The PNG's size: whole pixels per square, at least `minPx` across. */

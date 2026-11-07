@@ -38,6 +38,7 @@ import { isHidden } from "../moderationRules";
 import { projectVisibleTo } from "./projectVisibility";
 import { emailFirstCheer, isFirstCheerReceived } from "../engagement/firstCheer";
 import { requireBackingOpen } from "./backingGate";
+import { fundDisplayName } from "./allocations";
 
 const FINANCIAL_TYPES = new Set(["financial_one_time", "financial_recurring", "financial_annual"]);
 const VALID_TYPES = new Set([...FINANCIAL_TYPES, "encouragement", "resource"]);
@@ -514,7 +515,7 @@ export const listMySupportGiven = query({
         const key = String(c.hostOrgId);
         if (!fundCache.has(key)) {
           const org = await ctx.db.get(c.hostOrgId);
-          fundCache.set(key, org ? { name: org.name, slug: org.slug } : null);
+          fundCache.set(key, org ? { name: fundDisplayName(org), slug: org.slug } : null);
         }
         const fund = fundCache.get(key) ?? null;
         return {

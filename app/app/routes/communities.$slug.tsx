@@ -25,6 +25,7 @@ import { GARDEN } from "../brand/brands";
 import { GardenLockup } from "../brand/GardenMark";
 import { errorMessage } from "../lib/convexError";
 import { TalkBox } from "../components/TalkBox";
+import { fundPath } from "../lib/namedFunds";
 
 // Indexed (Rick, 2026-10-02: communities should be findable). The title,
 // description and canonical URL are the community's own — CommunityHead.
@@ -1324,7 +1325,7 @@ export function CommunityPage({
       {community.hasFund && (
         <div className="mt-7">
           <SectionLabel>Fund</SectionLabel>
-          <Link to={`/fund/${community.slug}`} className="inline-block mt-2.5 text-sm" style={{ color: "var(--garden-citron)" }}>
+          <Link to={fundPath(community.slug)} className="inline-block mt-2.5 text-sm" style={{ color: "var(--garden-citron)" }}>
             See the ledger →
           </Link>
         </div>

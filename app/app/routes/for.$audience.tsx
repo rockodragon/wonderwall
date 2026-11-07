@@ -5,6 +5,7 @@ import type { CampaignImageKey } from "../lib/campaign";
 import { SiteHeader } from "../components/SiteHeader";
 import { Reveal } from "../hooks/useReveal";
 import { CLAIMS } from "../constants/claims";
+import { SOPHIA_FUND_SLUG, fundPath } from "../lib/namedFunds";
 
 // Public audience pages — one per constituent door in
 // docs/marketing/constituent-playbook.md. Deliberately OUTSIDE the _app.tsx
@@ -174,7 +175,7 @@ const AUDIENCES: Audience[] = [
     ctaLabel: "Pick someone to back",
     ctaTo: "/opportunities",
     ctaLabel2: "Give to a grant fund",
-    ctaTo2: "/fund/abiding-practice",
+    ctaTo2: fundPath(SOPHIA_FUND_SLUG),
     bandImages: ["band", "viewing"],
     metaTitle: "For patrons — TheCreative.exchange",
     metaDescription:

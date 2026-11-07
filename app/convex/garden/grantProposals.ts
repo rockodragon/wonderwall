@@ -24,6 +24,7 @@ import { assertCanPure, getGardenUser } from "./entitlements";
 import { insertNotification } from "../notify";
 import { escapeHtml } from "../email/template";
 import { isShownProject } from "../moderationRules";
+import { fundPath } from "../../app/lib/namedFunds";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
@@ -178,7 +179,7 @@ async function requireUser(ctx: Ctx): Promise<Id<"users">> {
 }
 
 function fundLink(slug: string): string {
-  return `/fund/${slug}`;
+  return fundPath(slug);
 }
 
 /** The notification type for a decision. Approvals get their own type: the

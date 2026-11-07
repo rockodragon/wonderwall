@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import { can } from "./capabilities";
+import { FREE_GRANT_APPLY_UNTIL } from "../lib/featureFlags";
 import type { Capability, GardenUser } from "./capabilities";
 
 const user = (over: Partial<GardenUser>): GardenUser => ({
@@ -15,6 +16,10 @@ const user = (over: Partial<GardenUser>): GardenUser => ({
   activePassionProjects: 0,
   ...over,
 });
+
+// The matrix describes the rule once the free-apply window has closed.
+const AFTER = FREE_GRANT_APPLY_UNTIL + 1;
+const BEFORE = FREE_GRANT_APPLY_UNTIL;
 
 const visitor = user({ level: "visitor" });
 const free = user({});
@@ -62,7 +67,7 @@ describe("the §2.3 entitlement matrix", () => {
     for (let i = 0; i < COLUMNS.length; i++) {
       const [name, u] = COLUMNS[i];
       it(`${capability} — ${name} → ${row[i] ? "allowed" : "denied"}`, () => {
-        expect(can(u, capability).allowed).toBe(row[i]);
+        expect(can(u, capability, AFTER).allowed).toBe(row[i]);
       });
     }
   }
@@ -95,7 +100,7 @@ describe("denial anatomy — every denial explains itself", () => {
     for (const [capability, row] of MATRIX) {
       for (let i = 0; i < COLUMNS.length; i++) {
         if (row[i]) continue;
-        const result = can(COLUMNS[i][1], capability);
+        const result = can(COLUMNS[i][1], capability, AFTER);
         expect(result.reason, `${capability} for ${COLUMNS[i][0]}`).toBeTruthy();
       }
     }
@@ -109,7 +114,7 @@ describe("denial anatomy — every denial explains itself", () => {
       "event.sellTickets",
       "table.join.member",
     ] as Capability[]) {
-      expect(can(free, cap).upgradePath).toMatch(/member.*\$10\/mo/i);
+      expect(can(free, cap, AFTER).upgradePath).toMatch(/member.*\$10\/mo/i);
     }
   });
   it("table.create denial points at the host waitlist, with no price", () => {
@@ -126,5 +131,24 @@ describe("a covered seat is a full seat (plan §2.1 hard rule)", () => {
     for (const [capability] of MATRIX) {
       expect(can(covered, capability)).toEqual(can(seat, capability));
     }
+  });
+});
+
+describe("pool.propose free-apply window (Sophia open call)", () => {
+  it("a free account may propose until the deadline, and not one ms after", () => {
+    expect(can(free, "pool.propose", BEFORE).allowed).toBe(true);
+    expect(can(free, "pool.propose", AFTER).allowed).toBe(false);
+    expect(can(free, "pool.propose", AFTER).reason).toMatch(/takes a membership/);
+  });
+  it("visitors stay denied inside the window; paid levels are unchanged", () => {
+    expect(can(visitor, "pool.propose", BEFORE).allowed).toBe(false);
+    for (const u of [seat, five, host, covered]) {
+      expect(can(u, "pool.propose", BEFORE).allowed).toBe(true);
+      expect(can(u, "pool.propose", AFTER).allowed).toBe(true);
+    }
+  });
+  it("the window opens nothing else for free accounts", () => {
+    expect(can(free, "gig.respond", BEFORE).allowed).toBe(false);
+    expect(can(free, "project.applyPaid", BEFORE).allowed).toBe(false);
   });
 });

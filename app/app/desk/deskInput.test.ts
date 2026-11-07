@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CLAIMS } from "../constants/claims";
-import { SOPHIA_FUND_SLUG } from "../lib/namedFunds";
+import { NAMED_FUNDS, SOPHIA_FUND_SLUG } from "../lib/namedFunds";
 import { fundFrom, toDeskInput, type DeskRaw } from "./deskInput";
 
 const money = (cents: number) => `$${cents / 100}`;
@@ -14,6 +14,8 @@ describe("fundFrom", () => {
       orgName: "Abiding Practice",
       availableCents: 1_250_000,
       openCall: CLAIMS.sophiaSchedule,
+      art: { src: "/fund/sophia-icon.webp", alt: NAMED_FUNDS[SOPHIA_FUND_SLUG].cover!.alt },
+      scanUrl: "https://createthegarden.com/fund/sophia",
     });
   });
 

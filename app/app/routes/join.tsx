@@ -37,7 +37,7 @@ import { api } from "../../convex/_generated/api";
 import { setPendingIntent } from "../lib/pendingIntent";
 import { GardenErrorState, GardenPage, SectionLabel } from "../garden/ui";
 import { CLAIMS } from "../constants/claims";
-import { FF_V2 } from "../lib/featureFlags";
+import { FF_V2, freeGrantApplyOpen } from "../lib/featureFlags";
 import "../garden/garden.css";
 import { errorMessage } from "../lib/convexError";
 
@@ -58,6 +58,10 @@ export function ErrorBoundary() {
     </GardenPage>
   );
 }
+
+/** The Free card's extra perk while free accounts may apply to the Sophia
+ *  Grant (FREE_GRANT_APPLY_UNTIL). One string, used by the card below. */
+const FREE_GRANT_PERK = "Apply to the Sophia Grant until Nov 16";
 
 type MembershipLevel = "seat" | "five" | "host";
 
@@ -171,9 +175,14 @@ function LevelButton({
   const isCurrentPlan = isAuthenticated && (card.level ? memberLevel === card.level : memberLevel === null);
   if (isCurrentPlan) {
     return (
-      <p className="g-hint" style={{ marginTop: 14 }}>
-        Your plan
-      </p>
+      <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <span className="g-hint">Your plan</span>
+        {!card.level && (
+          <Link to="/projects?new=project" className="g-btn g-btn-ghost">
+            Start a project
+          </Link>
+        )}
+      </div>
     );
   }
   if (isAuthenticated && memberLevel !== null) return null;
@@ -222,6 +231,8 @@ export default function JoinPage() {
   const membership = useQuery(api.garden.memberships.getMyMembership);
   const [searchParams] = useSearchParams();
   const resumeLevel = searchParams.get("level");
+  // Read once per render; the window closes by itself, no deploy.
+  const grantWindowOpen = freeGrantApplyOpen(Date.now());
 
   // ?invite= rides along to /signup (see the file header). Looked up only
   // to show the "Invited by" card to a signed-out visitor.
@@ -341,7 +352,12 @@ export default function JoinPage() {
                   gap: 7,
                 }}
               >
-                {level.perks.map((perk) => (
+                {(level.level || !grantWindowOpen
+                  ? level.perks
+                  : level.perks.flatMap((perk) =>
+                      perk === "Post a project" ? [perk, FREE_GRANT_PERK] : [perk],
+                    )
+                ).map((perk) => (
                   <li
                     key={perk}
                     style={{ fontSize: 15, color: "var(--g-body)", lineHeight: 1.45 }}

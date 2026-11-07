@@ -27,6 +27,7 @@ import "../garden/garden.css";
 import { errorMessage } from "../lib/convexError";
 import { useIsAdmin } from "../lib/useIsAdmin";
 import { AdminAccessDenied } from "../components/admin/AdminUi";
+import { fundPath } from "../lib/namedFunds";
 
 export function meta() {
   return [
@@ -234,7 +235,7 @@ function PoolCard({ pool }: { pool: PlatformReport["pools"][number] }) {
   return (
     <div className="g-card" style={{ marginTop: 12 }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-        <Link to={`/fund/${pool.slug}`} className="g-h" style={{ fontSize: 17, textDecoration: "none" }}>
+        <Link to={fundPath(pool.slug)} className="g-h" style={{ fontSize: 17, textDecoration: "none" }}>
           {pool.name}
         </Link>
         <span className="g-badge g-badge-line">{pool.kind}</span>
