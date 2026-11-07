@@ -19,6 +19,7 @@ import { haversineDistance, NEAR_ME_RADIUS_OPTIONS, useNearMe } from "../lib/use
 import { ChevronDownIcon, FilterIcon, LocationIcon } from "../components/icons";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { errorMessage } from "../lib/convexError";
+import { toDateInputValue } from "../lib/dates";
 import { useFileUpload } from "../lib/useFileUpload";
 import { linkHost } from "../lib/richText";
 import { TalkBox } from "../components/TalkBox";
@@ -88,19 +89,8 @@ export function formatDateOnly(ms?: number): string | null {
 }
 
 // Same separate date + time inputs as event.tsx's edit form, combined back
-// into epoch ms with `new Date(...)`. Deliberately NOT event.tsx's
-// `toISOString().split("T")[0]` for the date half — toISOString() is UTC,
-// so a start time entered/displayed in local time (toLocaleDateString,
-// toTimeString below — both local) round-trips to the wrong calendar day
-// once local time is behind UTC. getFullYear/Month/Date are local, matching
-// every other date read in this file.
-function toDateInputValue(ms?: number): string {
-  if (!ms) return "";
-  const d = new Date(ms);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
+// into epoch ms with `new Date(...)`. The date half is lib/dates.ts
+// toDateInputValue (local, not toISOString's UTC); the time half is local too.
 function toTimeInputValue(ms?: number): string {
   if (!ms) return "";
   return new Date(ms).toTimeString().slice(0, 5);

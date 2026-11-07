@@ -13,7 +13,6 @@ vi.mock("convex/react", () => ({
 }));
 
 import {
-  PROJECT_STEPS,
   ProjectModal,
   postedStage,
   stepAfter,
@@ -31,6 +30,7 @@ const sheet = (props: Partial<React.ComponentProps<typeof ProjectModal>> = {}) =
     </MemoryRouter>,
   );
 
+const CREATE = stepsFor(false);
 const EDIT: ProjectEditTarget = { projectId: "p1" as ProjectEditTarget["projectId"], title: "My film" };
 
 /** The screens that are showing: a panel with "hidden" among its classes is not. */
@@ -49,7 +49,7 @@ const progress = (html: string) => {
 
 describe("ProjectModal screens", () => {
   it("has four, one thing each, in this order", () => {
-    expect(PROJECT_STEPS.map((s) => [s.id, s.title])).toEqual([
+    expect(CREATE.map((s) => [s.id, s.title])).toEqual([
       ["name", "What are you making?"],
       ["about", "Say a bit about it"],
       ["show", "Show it"],
@@ -58,15 +58,37 @@ describe("ProjectModal screens", () => {
   });
 
   it("shows one screen at a time, its question as the heading over the stepper", () => {
-    for (const [i, s] of PROJECT_STEPS.entries()) {
+    for (const [i, s] of CREATE.entries()) {
       const html = sheet({ initialStep: s.id });
       expect(visibleScreens(html)).toEqual([s.id]);
       expect(progress(html)).toEqual([String(i + 1), "4", s.title]);
     }
   });
 
+  it("gives an edit Title, About it, Funding and Details; a new project never has Funding", () => {
+    expect(stepsFor(true).map((s) => s.id)).toEqual(["name", "about", "funding", "details"]);
+    expect(CREATE.map((s) => s.id)).not.toContain("funding");
+    expect(sheet()).not.toContain('data-step="funding"');
+    expect(sheet({ initialStep: "funding" })).not.toContain('data-step="funding"');
+    expect(visibleScreens(sheet({ initialStep: "funding" }))).toEqual(["name"]);
+    expect(progress(sheet({ edit: EDIT, initialStep: "funding" }))).toEqual(["3", "4", "Funding"]);
+  });
+
+  it("shows a project's funding request when editing it", () => {
+    const html = sheet({
+      edit: { ...EDIT, goal: 2500, fundingPurpose: "Camera rental.", benefitsNonprofit: true, nonprofitName: "Food Bank" },
+      initialStep: "funding",
+    });
+    expect(visibleScreens(html)).toEqual(["funding"]);
+    expect(html).toMatch(/<input[^>]*type="number"[^>]*value="2500"/);
+    expect(html).toContain(">Camera rental.</textarea>");
+    expect(html).toMatch(/<input[^>]*aria-label="Nonprofit name"[^>]*value="Food Bank"|<input[^>]*value="Food Bank"[^>]*aria-label="Nonprofit name"/);
+    expect(html).toContain("Self-declared, not verified.");
+    expect(sheet({ edit: EDIT, initialStep: "funding" })).not.toContain("Self-declared");
+  });
+
   it("never repeats the sheet's name over the screens (Rick, 2026-10-27)", () => {
-    for (const s of PROJECT_STEPS) {
+    for (const s of CREATE) {
       const html = sheet({ initialStep: s.id });
       expect(html).not.toContain("Start a project");
       expect(html.match(/<h2/g)?.length).toBe(1);
@@ -80,18 +102,18 @@ describe("ProjectModal screens", () => {
     const html = sheet({ edit: EDIT, initialStep: "show" });
     expect(visibleScreens(html)).toEqual(["name"]);
     expect(html).not.toContain('data-step="show"');
-    expect(progress(html)).toEqual(["1", "3", "Title"]);
+    expect(progress(html)).toEqual(["1", "4", "Title"]);
   });
 
   it("names the field when editing, instead of asking", () => {
-    expect(progress(sheet({ edit: EDIT }))).toEqual(["1", "3", "Title"]);
-    expect(progress(sheet({ edit: EDIT, initialStep: "about" }))).toEqual(["2", "3", "About it"]);
-    expect(progress(sheet({ edit: EDIT, initialStep: "details" }))).toEqual(["3", "3", "Details"]);
+    expect(progress(sheet({ edit: EDIT }))).toEqual(["1", "4", "Title"]);
+    expect(progress(sheet({ edit: EDIT, initialStep: "about" }))).toEqual(["2", "4", "About it"]);
+    expect(progress(sheet({ edit: EDIT, initialStep: "details" }))).toEqual(["4", "4", "Details"]);
     expect(stepTitle("name", false, true)).toBe("Title");
   });
 
   it("walks forward and back, and stops at the ends", () => {
-    const ids = PROJECT_STEPS.map((s) => s.id);
+    const ids = CREATE.map((s) => s.id);
     const forward: ProjectStep[] = [ids[0]];
     while (stepAfter(forward[forward.length - 1]) !== forward[forward.length - 1]) {
       forward.push(stepAfter(forward[forward.length - 1]));
@@ -100,15 +122,16 @@ describe("ProjectModal screens", () => {
     expect([...ids].reverse().map((id) => stepBefore(id))).toEqual(["show", "about", "name", "name"]);
     // An edit skips Show it both ways.
     const edit = stepsFor(true);
-    expect(stepAfter("about", edit)).toBe("details");
-    expect(stepBefore("details", edit)).toBe("about");
+    expect(stepAfter("about", edit)).toBe("funding");
+    expect(stepBefore("details", edit)).toBe("funding");
+    expect(stepBefore("funding", edit)).toBe("about");
   });
 
   it("keeps every field mounted, so Back finds the title where it was left", () => {
     const html = sheet({ initialStep: "details", initialTitle: "A film about Nana" });
     expect(visibleScreens(html)).toEqual(["details"]);
     expect(html).toMatch(/<input[^>]*value="A film about Nana"/);
-    for (const s of PROJECT_STEPS) expect(html).toContain(`data-step="${s.id}"`);
+    for (const s of CREATE) expect(html).toContain(`data-step="${s.id}"`);
   });
 
   it("no longer talks about inviting people", () => {

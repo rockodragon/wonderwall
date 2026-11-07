@@ -240,6 +240,8 @@ export const updateProject = mutation({
     // null clears: omitted already means "leave it alone".
     goal: v.optional(v.union(v.number(), v.null())),
     raiseByDate: v.optional(v.union(v.number(), v.null())),
+    // What the money is for. "" clears.
+    fundingPurpose: v.optional(v.string()),
     benefitsNonprofit: v.optional(v.boolean()),
     nonprofitName: v.optional(v.string()),
     // The community this is posted into. Omitted = leave it; clearCommunity
@@ -298,6 +300,7 @@ export const updateProject = mutation({
       patch.goal = args.goal ?? undefined;
     }
     if (args.raiseByDate !== undefined) patch.raiseByDate = args.raiseByDate ?? undefined;
+    if (args.fundingPurpose !== undefined) patch.fundingPurpose = args.fundingPurpose.trim() || undefined;
     if (args.benefitsNonprofit !== undefined) patch.benefitsNonprofit = args.benefitsNonprofit;
     if (args.nonprofitName !== undefined) patch.nonprofitName = args.nonprofitName;
     // Location is one group, not five independent fields. When a caller

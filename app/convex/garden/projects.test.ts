@@ -14,7 +14,14 @@
 import { getFunctionName } from "convex/server";
 import { describe, expect, it } from "vitest";
 import { makeCtx, run, type Row } from "../../test-support/convexContext";
-import { createPassionProject, getProject, listProjects, listedProjectCount, validateBudgetDeclaration } from "./projects";
+import {
+  createPassionProject,
+  getProject,
+  listProjects,
+  listedProjectCount,
+  updateProject,
+  validateBudgetDeclaration,
+} from "./projects";
 import { DIRECTORY_PAGE } from "../directoryRules";
 import { getSchedule } from "./gigs";
 import { listTiers } from "./patronTiers";
@@ -200,6 +207,28 @@ describe("getProject and listProjects on the public project pages", () => {
     };
   }
   const args = { projectId: "projects:p1" };
+
+  it("the lead's funding request (amount and what it's for) saves, shows to a visitor, and clears", async () => {
+    const lead = makeCtx(world(), LEAD);
+    await run(updateProject, lead, {
+      projectId: "projects:p1" as any,
+      goal: 500,
+      fundingPurpose: "  Plane tickets and a camera.  ",
+    });
+    const shown = await run(getProject, makeCtx(lead.store, null), args);
+    expect(shown).toMatchObject({ goal: 500, fundingPurpose: "Plane tickets and a camera." });
+
+    await run(updateProject, lead, { projectId: "projects:p1" as any, goal: null, fundingPurpose: "" });
+    const cleared = lead.store.projects[0] as Row;
+    expect(cleared.goal).toBeUndefined();
+    expect(cleared.fundingPurpose).toBeUndefined();
+  });
+
+  it("nobody but the lead or an admin can change the funding request", async () => {
+    await expect(
+      run(updateProject, makeCtx(world(), MEMBER), { projectId: "projects:p1" as any, fundingPurpose: "Mine now" }),
+    ).rejects.toBeTruthy();
+  });
 
   /** Whether each of the page's other reads had anything for this viewer.
    * The project is also a gig series here, so getSchedule has dates. */

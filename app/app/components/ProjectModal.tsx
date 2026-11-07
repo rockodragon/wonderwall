@@ -10,6 +10,7 @@ import { PieceFields } from "./piece/PieceFields";
 import { draftIsEmpty, usePieceDraft } from "./piece/usePieceDraft";
 import { useLocationField } from "../lib/useLocationField";
 import { errorMessage } from "../lib/convexError";
+import { toDateInputValue } from "../lib/dates";
 import type { Stage } from "../lib/stage";
 import { START_STAGES, type StartStage } from "../lib/shareProject";
 import { FocusBackdrop } from "./FocusBackdrop";
@@ -36,17 +37,20 @@ export const PROJECT_STEPS = [
   { id: "name", title: "What are you making?", editTitle: "Title" },
   { id: "about", title: "Say a bit about it", editTitle: "About it" },
   { id: "show", title: "Show it", editTitle: "Show it" },
+  { id: "funding", title: "Funding", editTitle: "Funding" },
   { id: "details", title: "Details", editTitle: "Details" },
 ] as const;
 export type ProjectStep = (typeof PROJECT_STEPS)[number]["id"];
 
 type Steps = readonly (typeof PROJECT_STEPS)[number][];
-/** The screens a sheet has: an edit has no "Show it". */
-export const stepsFor = (edit: boolean): Steps => (edit ? PROJECT_STEPS.filter((s) => s.id !== "show") : PROJECT_STEPS);
-const stepIndex = (step: ProjectStep, steps: Steps = PROJECT_STEPS) => steps.findIndex((s) => s.id === step);
-export const stepAfter = (step: ProjectStep, steps: Steps = PROJECT_STEPS): ProjectStep =>
+/** The screens a sheet has: a new project has no "Funding" (it is asked for
+ *  once the project is up); an edit has no "Show it". */
+export const stepsFor = (edit: boolean): Steps =>
+  PROJECT_STEPS.filter((s) => s.id !== (edit ? "show" : "funding"));
+const stepIndex = (step: ProjectStep, steps: Steps = stepsFor(false)) => steps.findIndex((s) => s.id === step);
+export const stepAfter = (step: ProjectStep, steps: Steps = stepsFor(false)): ProjectStep =>
   steps[Math.min(stepIndex(step, steps) + 1, steps.length - 1)].id;
-export const stepBefore = (step: ProjectStep, steps: Steps = PROJECT_STEPS): ProjectStep =>
+export const stepBefore = (step: ProjectStep, steps: Steps = stepsFor(false)): ProjectStep =>
   steps[Math.max(stepIndex(step, steps) - 1, 0)].id;
 
 /** The screen's heading (Rick, 2026-10-27: the form's name isn't repeated
@@ -54,10 +58,10 @@ export const stepBefore = (step: ProjectStep, steps: Steps = PROJECT_STEPS): Pro
  *  asks; finished work says "made"; an edit names the field. */
 export const stepTitle = (step: ProjectStep, finished: boolean, edit = false) =>
   edit
-    ? PROJECT_STEPS[stepIndex(step)].editTitle
+    ? PROJECT_STEPS.find((s) => s.id === step)!.editTitle
     : finished && step === "name"
       ? "What did you make?"
-      : PROJECT_STEPS[stepIndex(step)].title;
+      : PROJECT_STEPS.find((s) => s.id === step)!.title;
 
 /** The stage a new project posts in: the one the link asked for, else the
  *  one picked on the first screen, else none (the server starts it in
@@ -79,6 +83,11 @@ export type ProjectEditTarget = {
   placeId?: string;
   hostOrgId?: Id<"hostOrgs">;
   organizationId?: Id<"organizations">;
+  goal?: number;
+  raiseByDate?: number;
+  fundingPurpose?: string;
+  benefitsNonprofit?: boolean;
+  nonprofitName?: string;
 };
 
 /** A pill the person taps on or off: a stage, an interest. */
@@ -141,6 +150,12 @@ export function ProjectModal({
   const [interests, setInterests] = useState<string[]>(edit?.interests ?? []);
   const [hostOrgId, setHostOrgId] = useState<string>(edit?.hostOrgId ?? "");
   const [organizationId, setOrganizationId] = useState<string>(edit?.organizationId ?? "");
+  // The funding request (edit only): an amount turns "Back this" on.
+  const [amount, setAmount] = useState(edit?.goal ? String(edit.goal) : "");
+  const [purpose, setPurpose] = useState(edit?.fundingPurpose ?? "");
+  const [raiseBy, setRaiseBy] = useState(toDateInputValue(edit?.raiseByDate));
+  const [benefitsNonprofit, setBenefitsNonprofit] = useState(!!edit?.benefitsNonprofit);
+  const [nonprofitName, setNonprofitName] = useState(edit?.nonprofitName ?? "");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   // New projects pre-fill the switcher's community, else The Garden — still
@@ -201,6 +216,17 @@ export function ProjectModal({
       setError('Pick a location, or check "This can be done remotely."');
       return;
     }
+    const goal = Number(amount);
+    if (edit && amount.trim() && (!Number.isFinite(goal) || goal <= 0)) {
+      setStep("funding");
+      setError("A goal needs a real number bigger than zero.");
+      return;
+    }
+    if (edit && benefitsNonprofit && !nonprofitName.trim()) {
+      setStep("funding");
+      setError("Add the nonprofit's name, or uncheck if you're not sure yet.");
+      return;
+    }
     setSaving(true);
     try {
       if (edit) {
@@ -213,6 +239,13 @@ export function ProjectModal({
           // structured half (updateProject takes them as one group).
           ...(remote ? { location: "" } : { ...location.toArgs(), location: location.toArgs().location ?? "" }),
           remote,
+          // No amount clears the request. Noon local, so the date reads the
+          // same in every US time zone.
+          goal: amount.trim() ? goal : null,
+          raiseByDate: amount.trim() && raiseBy ? new Date(`${raiseBy}T12:00:00`).getTime() : null,
+          fundingPurpose: purpose.trim(),
+          benefitsNonprofit,
+          nonprofitName: benefitsNonprofit ? nonprofitName.trim() : "",
           ...(hostOrgId ? { hostOrgId: hostOrgId as Id<"hostOrgs"> } : { clearCommunity: true }),
           ...(organizationId ? { organizationId: organizationId as Id<"organizations"> } : { postAsSelf: true }),
         });
@@ -374,6 +407,83 @@ export function ProjectModal({
             {!edit && (
               <div data-step="show" className={panel("show")}>
                 <PieceFields draft={piece} compact />
+              </div>
+            )}
+
+            {/* Funding: what the project asks for (edit only), all optional */}
+            {edit && (
+              <div data-step="funding" className={panel("funding")}>
+                <div>
+                  <label htmlFor={`${uid}-amount`} className={gardenField.label} style={gardenField.labelStyle}>
+                    Amount (USD)
+                  </label>
+                  <input
+                    id={`${uid}-amount`}
+                    type="number"
+                    min="1"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="1000"
+                    className={gardenField.input}
+                    style={{ ...gardenField.inputStyle, fontFamily: "var(--garden-font-mono)" }}
+                  />
+                </div>
+                <div>
+                  <label htmlFor={`${uid}-purpose`} className={gardenField.label} style={gardenField.labelStyle}>
+                    What it's for
+                  </label>
+                  <TalkBox
+                    id={`${uid}-purpose`}
+                    value={purpose}
+                    onChange={setPurpose}
+                    rows={3}
+                    placeholder="What the money pays for"
+                    active={step === "funding"}
+                    className={`${gardenField.input} resize-none`}
+                    style={gardenField.inputStyle}
+                  />
+                </div>
+                <div>
+                  <label htmlFor={`${uid}-raise-by`} className={gardenField.label} style={gardenField.labelStyle}>
+                    Raise by (optional)
+                  </label>
+                  <input
+                    id={`${uid}-raise-by`}
+                    type="date"
+                    value={raiseBy}
+                    onChange={(e) => setRaiseBy(e.target.value)}
+                    className={gardenField.input}
+                    style={gardenField.inputStyle}
+                  />
+                </div>
+                <div>
+                  <label className="flex items-center gap-3 min-h-11 text-[15px]" style={{ color: "var(--garden-body)" }}>
+                    <input
+                      type="checkbox"
+                      className="w-5 h-5"
+                      style={{ accentColor: "var(--garden-citron)" }}
+                      checked={benefitsNonprofit}
+                      onChange={(e) => setBenefitsNonprofit(e.target.checked)}
+                    />
+                    This supports a registered nonprofit
+                  </label>
+                  {benefitsNonprofit && (
+                    <div className="mt-3">
+                      <input
+                        type="text"
+                        value={nonprofitName}
+                        onChange={(e) => setNonprofitName(e.target.value)}
+                        placeholder="Nonprofit name, e.g. Second Harvest Food Bank"
+                        aria-label="Nonprofit name"
+                        className={gardenField.input}
+                        style={gardenField.inputStyle}
+                      />
+                      <p className={gardenField.hint} style={gardenField.hintStyle}>
+                        Self-declared, not verified.
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

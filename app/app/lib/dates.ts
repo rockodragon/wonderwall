@@ -55,3 +55,13 @@ export function calendarDayEnd(ms: number): number {
   const day = new Date(ms);
   return Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate() + 1) - 1;
 }
+
+/** An instant as the "yyyy-mm-dd" an <input type="date"> holds, in the
+ *  viewer's zone. Not toISOString(), which is UTC and reads a day early for
+ *  an evening time anywhere west of it. "" for none. */
+export function toDateInputValue(ms?: number): string {
+  if (!ms) return "";
+  const d = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
