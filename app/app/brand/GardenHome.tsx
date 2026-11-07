@@ -33,7 +33,8 @@ import { SiteHeader } from "../components/SiteHeader";
 import { CLAIMS } from "../constants/claims";
 import { PROMISE_PATH, TERMS_PROMISE_LINK } from "../constants/promises";
 import { buildDeskCards, type DeskCard } from "../desk/deskCards";
-import { toDeskInput } from "../desk/deskInput";
+import { fundFrom, toDeskInput } from "../desk/deskInput";
+import { FundHeadline } from "../components/FundHeadline";
 import { DESK_PATH } from "../desk/deskState";
 import { CARD_BUTTON_CLASS, DESK, DESK_SANS, DESK_TINT, FOCUS_RING_CLASS, deskSurfaceStyle } from "../desk/tokens";
 import { formatMoney } from "../garden/ui";
@@ -114,7 +115,6 @@ html:has(.garden-home) { scrollbar-color: ${TINT.dot} ${TINT.surface}; backgroun
 .garden-home .gh-wrap { max-width: 1280px; margin-inline: auto; padding-inline: var(--gutter); }
 .garden-home .gh-note { transform: rotate(1.5deg); }
 @media (min-width: 768px) { .garden-home .gh-note { transform: rotate(2.5deg); } }
-.garden-home .gh-fund { transform: rotate(-1.5deg); }
 `;
 
 export function GardenHome() {
@@ -215,7 +215,7 @@ export function GardenHome() {
           <Row
             id="gh-fund"
             title="Grant fund"
-            visual={<FundNote amount={fund} loading={fundPage === undefined} />}
+            visual={<FundHeadline fund={fundPage === undefined ? undefined : fundFrom(fundPage)} money={formatMoney} className="max-w-[380px] md:ml-auto" />}
           >
             {CLAIMS.grantFundHome}
             {fund && (
@@ -424,26 +424,6 @@ function Ways() {
         </li>
       ))}
     </ul>
-  );
-}
-
-/** The fund's paper note: its name and what's available, as the Canvas's
- *  fund card has it. */
-function FundNote({ amount, loading }: { amount: string | undefined; loading: boolean }) {
-  return (
-    <div
-      className="gh-fund w-full max-w-[300px] rounded px-7 py-8 md:ml-auto md:mr-6"
-      style={{ background: DESK.paper, color: DESK.paperInk, boxShadow: "0 10px 30px rgba(0,0,0,.45)", minHeight: 200 }}
-      aria-hidden={loading || undefined}
-    >
-      <p className="m-0 text-[17px] font-medium">The Sophia Grant Fund</p>
-      <p className="m-0 mt-10 text-[44px] font-medium leading-none" style={{ letterSpacing: "-0.03em" }}>
-        {amount ?? " "}
-      </p>
-      <p className="m-0 mt-2 text-[15px]" style={{ opacity: 0.8 }}>
-        available to grant
-      </p>
-    </div>
   );
 }
 
