@@ -1318,6 +1318,9 @@ export default defineSchema({
     budget: v.optional(v.number()), // paid: the amount, or a range's low end
     budgetMax: v.optional(v.number()), // paid: a range's high end
     goal: v.optional(v.number()), // passion: optional target
+    // What the money is for, in the lead's words: shown under the goal's
+    // bar. Plain text, like the blurb.
+    fundingPurpose: v.optional(v.string()),
     raisedCents: v.optional(v.number()), // passion: keep-what-you-raise running total
     status: v.string(), // "pending" | "active" | "in_progress" | "completed" | "archived" | "hidden" (admin, moderation.ts)
     photoUrl: v.optional(v.string()),

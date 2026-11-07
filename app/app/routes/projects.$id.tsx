@@ -232,8 +232,6 @@ export function ProjectView({ projectId: id, over = false }: { projectId: string
   const location = useLocation();
   const [rawTab, setTab] = useSectionTab(over);
   const { support: openSupport, modal: supportModal } = useProjectSupport();
-  // Lifted so the owner's "Next steps" nudge can open the support editor.
-  const [editingSupport, setEditingSupport] = useState(false);
   // The same four-screen modal "Start a project" uses, opened on this project:
   // the screen it opens on, or false. "Add a link" opens it on Show it.
   const [editingProject, setEditingProject] = useState<false | ProjectStep>(false);
@@ -448,6 +446,11 @@ export function ProjectView({ projectId: id, over = false }: { projectId: string
                 placeId: project.placeId,
                 hostOrgId: project.hostOrgId,
                 organizationId: project.organizationId,
+                goal: project.goal,
+                raiseByDate: project.raiseByDate,
+                fundingPurpose: project.fundingPurpose,
+                benefitsNonprofit: project.benefitsNonprofit,
+                nonprofitName: project.nonprofitName,
               }}
               initialStep={editingProject}
               onClose={() => setEditingProject(false)}
@@ -510,8 +513,18 @@ export function ProjectView({ projectId: id, over = false }: { projectId: string
       {isPassion && (showGoal || !isOwner) && (
         <div className="mb-6 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
           {showGoal && (
-            <div className="min-w-[14rem] flex-1 [&>div]:mb-0">
-              <GoalProgress raisedCents={project.raisedCents ?? 0} goal={project.goal!} />
+            <div className="min-w-[14rem] flex-1">
+              <div className="flex items-end gap-2">
+                <div className="min-w-0 flex-1 [&>div]:mb-0">
+                  <GoalProgress raisedCents={project.raisedCents ?? 0} goal={project.goal!} />
+                </div>
+                {isOwner && <EditButton onClick={() => setEditingProject("funding")} label="Edit funding" />}
+              </div>
+              {project.fundingPurpose && (
+                <p className="text-sm mt-2" style={{ color: "var(--garden-body)", whiteSpace: "pre-wrap" }}>
+                  {project.fundingPurpose}
+                </p>
+              )}
             </div>
           )}
           {!isOwner && <SupportButtons raising={raising} count={project.supportCount} onSupport={support} />}
@@ -524,10 +537,7 @@ export function ProjectView({ projectId: id, over = false }: { projectId: string
         <NextSteps
           onFindPeople={() => showTab("team")}
           onPostUpdate={() => showTab("updates")}
-          onAskForSupport={() => {
-            setEditingSupport(true);
-            showTab("about");
-          }}
+          onAskForSupport={() => setEditingProject("funding")}
         />
       )}
 
@@ -557,7 +567,7 @@ export function ProjectView({ projectId: id, over = false }: { projectId: string
             nothing is said while there are none. Asking for money, and the
             tiers people would pay, wait for FF_BACKING. */}
         {isOwner && isPassion && FF_BACKING && (
-          <AskForSupport project={project} raising={raising} editing={editingSupport} setEditing={setEditingSupport} />
+          <AskForSupport project={project} raising={raising} onEdit={() => setEditingProject("funding")} />
         )}
         {isOwner && isPassion && raising && FF_BACKING && <TierManager projectId={project._id} />}
         {isPassion && project.supportCount > 0 && (
@@ -672,158 +682,31 @@ function NextSteps({
   );
 }
 
-function toDateInput(ms: number | undefined): string {
-  if (!ms) return "";
-  const d = new Date(ms);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
 // The owner's side of support: step three of posting, done here rather than
 // in the create form. Setting a goal is what turns the "Back this" button on.
 function AskForSupport({
   project,
   raising,
-  editing,
-  setEditing,
+  onEdit,
 }: {
   project: any;
   raising: boolean;
-  editing: boolean;
-  setEditing: (v: boolean) => void;
+  onEdit: () => void;
 }) {
   const updateProject = useMutation((api as any).garden.projects.updateProject);
-  const [goal, setGoal] = useState(project.goal ? String(project.goal) : "");
-  const [raiseBy, setRaiseBy] = useState(toDateInput(project.raiseByDate));
-  const [benefitsNonprofit, setBenefitsNonprofit] = useState(!!project.benefitsNonprofit);
-  const [nonprofitName, setNonprofitName] = useState(project.nonprofitName ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-
-  const inputStyle = {
-    backgroundColor: "var(--garden-ink)",
-    borderColor: "var(--garden-hairline-raised)",
-    color: "var(--garden-paper)",
-  };
-
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    const goalNum = Number(goal);
-    if (!goal.trim() || !Number.isFinite(goalNum) || goalNum <= 0) {
-      setError("A goal needs a real number bigger than zero.");
-      return;
-    }
-    if (benefitsNonprofit && !nonprofitName.trim()) {
-      setError("Add the nonprofit's name, or uncheck if you're not sure yet.");
-      return;
-    }
-    setBusy(true);
-    try {
-      await updateProject({
-        projectId: project._id,
-        goal: goalNum,
-        // Noon local, so the date reads the same in every US time zone.
-        raiseByDate: raiseBy ? new Date(`${raiseBy}T12:00:00`).getTime() : null,
-        benefitsNonprofit,
-        nonprofitName: benefitsNonprofit ? nonprofitName.trim() : "",
-      });
-      setEditing(false);
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function stop() {
     setBusy(true);
     setError("");
     try {
       await updateProject({ projectId: project._id, goal: null, raiseByDate: null });
-      setGoal("");
-      setRaiseBy("");
     } catch (err) {
       setError(errorMessage(err));
     } finally {
       setBusy(false);
     }
-  }
-
-  if (editing) {
-    return (
-      <form onSubmit={save} className="flex flex-col gap-3 mb-5">
-        <div>
-          <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
-            Goal (USD)
-          </label>
-          <input
-            type="number"
-            min="1"
-            value={goal}
-            onChange={(e) => setGoal(e.target.value)}
-            placeholder="1000"
-            className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
-            style={{ ...inputStyle, fontFamily: "var(--garden-font-mono)" }}
-          />
-        </div>
-        <div>
-          <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
-            Raise by (optional)
-          </label>
-          <input
-            type="date"
-            value={raiseBy}
-            onChange={(e) => setRaiseBy(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
-            style={inputStyle}
-          />
-        </div>
-        <label className="flex items-center gap-2 text-sm" style={{ color: "var(--garden-body)" }}>
-          <input
-            type="checkbox"
-            checked={benefitsNonprofit}
-            onChange={(e) => setBenefitsNonprofit(e.target.checked)}
-          />
-          This supports a registered nonprofit
-        </label>
-        {benefitsNonprofit && (
-          <div>
-            <input
-              type="text"
-              value={nonprofitName}
-              onChange={(e) => setNonprofitName(e.target.value)}
-              placeholder="Nonprofit name, e.g. Second Harvest Food Bank"
-              aria-label="Nonprofit name"
-              className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
-              style={inputStyle}
-            />
-            <p className="text-xs mt-1.5" style={{ color: "var(--garden-dim)" }}>
-              Self-declared, not verified.
-            </p>
-          </div>
-        )}
-        {error && <p className="text-sm text-red-400">{error}</p>}
-        <div className="flex gap-2 justify-end">
-          <button
-            type="button"
-            onClick={() => setEditing(false)}
-            className="px-4 py-2 rounded-lg text-[13.5px] font-medium"
-            style={{ color: "var(--garden-muted)" }}
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={busy}
-            className="px-4 py-2 rounded-lg text-[13.5px] font-semibold disabled:opacity-50"
-            style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
-          >
-            {busy ? "Saving…" : raising ? "Save" : "Start asking"}
-          </button>
-        </div>
-      </form>
-    );
   }
 
   if (!raising) {
@@ -834,7 +717,7 @@ function AskForSupport({
         </p>
         <button
           type="button"
-          onClick={() => setEditing(true)}
+          onClick={onEdit}
           className="px-4 py-2 rounded-lg text-[13.5px] font-semibold whitespace-nowrap"
           style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
         >
@@ -850,7 +733,7 @@ function AskForSupport({
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
-          onClick={() => setEditing(true)}
+          onClick={onEdit}
           className="text-[13.5px] underline underline-offset-2 hover:opacity-80"
           style={{ color: "var(--garden-citron)" }}
         >
@@ -1298,10 +1181,11 @@ function InlineEditableBlurb({ project, isOwner }: { project: any; isOwner: bool
   );
 }
 
-// The full project page — headings, formatted text, images and video
-// embeds (docs/features/rich-project-content.md §2). Distinct from `blurb`
-// directly above it, which stays the one-line summary every card and search
-// result shows; this is the part a visitor reads once they've clicked in.
+// A page written earlier — headings, formatted text, images and video
+// embeds (docs/features/rich-project-content.md §2). The description up top
+// (`blurb`) is the one description now, so this shows only when a project
+// already has a body: nothing is offered to add one, and with none it renders
+// nothing. The owner keeps the pencil and the editor for an existing page.
 //
 // Saves the whole document at once rather than per block: a project page is
 // a thing an author composes and then publishes, not a live surface, and
@@ -1376,23 +1260,7 @@ function InlineEditableStory({ project, isOwner }: { project: any; isOwner: bool
     );
   }
 
-  if (!hasBody) {
-    if (!isOwner) return null;
-    return (
-      <button
-        onClick={startEditing}
-        className="w-full text-left px-4 py-3 rounded-lg mb-6 hover:opacity-90"
-        style={{
-          border: "1px dashed var(--garden-hairline-raised)",
-          backgroundColor: "var(--garden-ink-raised)",
-          color: "var(--garden-body)",
-          fontSize: 15,
-        }}
-      >
-        Add a full description — headings, photos, video, the whole page.
-      </button>
-    );
-  }
+  if (!hasBody) return null;
 
   return (
     <div className="mb-6">

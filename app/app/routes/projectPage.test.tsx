@@ -353,6 +353,28 @@ describe("the project page while backing is closed (FF_BACKING)", () => {
     expect(tiers).toContain("Stop asking");
     expect(tiers).toContain("patron tiers");
   });
+
+  it("shows everyone what the money is for, under the goal's bar", () => {
+    flags.backing = false;
+    const html = page({
+      viewer: "visitor",
+      project: bareProject({ raising: true, goal: 1000, raisedCents: 0, fundingPurpose: "Paint and scaffolding for the east wall." }),
+    });
+    expect(html).toContain("Paint and scaffolding for the east wall.");
+  });
+
+  it("never offers the owner an empty full-description box when the blurb is filled", () => {
+    const html = page({ viewer: "owner", project: bareProject({ blurb: "A mural for the harbor wall." }) });
+    expect(html).toContain("A mural for the harbor wall.");
+    expect(html).not.toContain("Add a full description");
+  });
+
+  it("gives the owner of a raising project Edit funding even with backing closed", () => {
+    flags.backing = false;
+    const html = page({ viewer: "owner", project: raising() });
+    expect(html).toContain("Edit funding");
+    expect(page({ viewer: "visitor", project: raising() })).not.toContain("Edit funding");
+  });
 });
 
 describe("a shared piece's page (Rick, 2026-10-27)", () => {
