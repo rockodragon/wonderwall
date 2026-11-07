@@ -16,6 +16,15 @@
 // database.
 export type AuthLinkDecision = "link" | "create";
 
+/** True for Google's sign-in. @auth/core's Google provider is OpenID
+ * Connect: its type is "oidc", not "oauth". Checking only "oauth" kept the
+ * Google linking below from ever running, so a password member who later
+ * tapped "Continue with Google" got a second account (a member,
+ * 2026-11-06). */
+export function isGoogleSignIn(provider: { id?: string; type?: string } | null | undefined): boolean {
+  return provider?.id === "google" && (provider.type === "oidc" || provider.type === "oauth");
+}
+
 export function decideCreateOrUpdateUser(params: {
   /** True only for Google's OAuth sign-in (the only OAuth provider this app
    * has); false for password, phone, or any other provider type. */

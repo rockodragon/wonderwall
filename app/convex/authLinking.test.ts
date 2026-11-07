@@ -1,5 +1,21 @@
+import Google from "@auth/core/providers/google";
 import { describe, expect, it } from "vitest";
-import { decideCreateOrUpdateUser, passwordsToRevoke } from "./authLinking";
+import { decideCreateOrUpdateUser, isGoogleSignIn, passwordsToRevoke } from "./authLinking";
+
+describe("isGoogleSignIn", () => {
+  it("knows the Google provider auth.ts actually uses (type oidc)", () => {
+    // The old check was type === "oauth", which this provider never is, so
+    // Google never found the password account (a member, 2026-11-06).
+    expect(isGoogleSignIn(Google({ clientId: "x", clientSecret: "y" }))).toBe(true);
+  });
+
+  it("is false for the other ways in", () => {
+    expect(isGoogleSignIn({ id: "phone", type: "phone" })).toBe(false);
+    expect(isGoogleSignIn({ id: "email-otp", type: "email" })).toBe(false);
+    expect(isGoogleSignIn({ id: "password", type: "credentials" })).toBe(false);
+    expect(isGoogleSignIn(null)).toBe(false);
+  });
+});
 
 const base = {
   isGoogleOAuth: true,
